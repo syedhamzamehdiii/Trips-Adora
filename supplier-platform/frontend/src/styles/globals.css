@@ -1,0 +1,394 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* TripsAdora Brand Colors */
+  --primary-50: #eff6ff;
+  --primary-100: #dbeafe;
+  --primary-200: #bfdbfe;
+  --primary-300: #93c5fd;
+  --primary-400: #60a5fa;
+  --primary-500: #3b82f6;
+  --primary-600: #2563eb;
+  --primary-700: #1d4ed8;
+  --primary-800: #1e40af;
+  --primary-900: #1e3a8a;
+
+  /* Gray Scale */
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+
+  /* Status Colors */
+  --success-50: #f0fdf4;
+  --success-100: #dcfce7;
+  --success-500: #22c55e;
+  --success-600: #16a34a;
+
+  --warning-50: #fffbeb;
+  --warning-100: #fef3c7;
+  --warning-500: #f59e0b;
+  --warning-600: #d97706;
+
+  --error-50: #fef2f2;
+  --error-100: #fee2e2;
+  --error-500: #ef4444;
+  --error-600: #dc2626;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  background-color: var(--gray-50);
+}
+
+/* TripsAdora Custom Styles */
+.tripsadora-bg {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.tripsadora-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+  z-index: 1;
+}
+
+.tripsadora-bg > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Social Login Buttons */
+.social-btn {
+  @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200;
+}
+
+.social-btn.google {
+  @apply bg-white border border-gray-300 hover:bg-gray-50;
+}
+
+.social-btn.facebook {
+  @apply bg-black hover:bg-gray-800;
+}
+
+.social-btn.apple {
+  @apply bg-black hover:bg-gray-800;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  @apply w-12 h-6 bg-gray-300 rounded-full relative transition-colors duration-200;
+}
+
+.toggle-switch.active {
+  @apply bg-green-500;
+}
+
+.toggle-switch-thumb {
+  @apply w-5 h-5 bg-white rounded-full absolute top-0.5 right-0.5 transition-transform duration-200;
+}
+
+.toggle-switch.active .toggle-switch-thumb {
+  @apply transform translate-x-0;
+}
+
+/* Custom Components */
+.card {
+  @apply bg-white rounded-xl shadow-lg border border-gray-100 p-6;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500;
+}
+
+.btn-secondary {
+  @apply bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-500;
+}
+
+.btn-outline {
+  @apply border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-blue-500;
+}
+
+.input {
+  @apply block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors;
+}
+
+.input-error {
+  @apply border-red-300 focus:ring-red-500 focus:border-red-500;
+}
+
+/* Progress Steps */
+.progress-steps {
+  @apply flex items-center justify-center space-x-4 mb-8;
+}
+
+.progress-step {
+  @apply flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors;
+}
+
+.progress-step.active {
+  @apply bg-blue-600 border-blue-600 text-white;
+}
+
+.progress-step.completed {
+  @apply bg-green-500 border-green-500 text-white;
+}
+
+.progress-step.pending {
+  @apply border-gray-300 text-gray-400;
+}
+
+/* Sidebar Styles */
+.sidebar {
+  @apply bg-gray-900 text-white min-h-screen;
+}
+
+.sidebar-item {
+  @apply flex items-center px-4 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors;
+}
+
+.sidebar-item.active {
+  @apply bg-blue-600 text-white;
+}
+
+/* Dashboard Cards */
+.dashboard-card {
+  @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+}
+
+.dashboard-stat {
+  @apply text-3xl font-bold text-gray-900;
+}
+
+.dashboard-label {
+  @apply text-sm text-gray-600 mt-1;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto;
+}
+
+/* Form Styles */
+.form-section {
+  @apply space-y-6;
+}
+
+.form-group {
+  @apply space-y-2;
+}
+
+.form-label {
+  @apply block text-sm font-medium text-gray-700;
+}
+
+.form-description {
+  @apply text-sm text-gray-500;
+}
+
+/* Social Login Buttons */
+.social-btn {
+  @apply flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-200 hover:border-gray-300 transition-colors;
+}
+
+.social-btn.google {
+  @apply bg-white text-gray-700;
+}
+
+.social-btn.facebook {
+  @apply bg-blue-600 text-white border-blue-600;
+}
+
+.social-btn.apple {
+  @apply bg-black text-white border-black;
+}
+
+/* Animation Classes */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-in-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Utilities */
+@media (max-width: 640px) {
+  .card {
+    @apply p-4;
+  }
+  
+  .dashboard-card {
+    @apply p-4;
+  }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Loading States */
+.loading-spinner {
+  @apply animate-spin rounded-full border-2 border-gray-300 border-t-blue-600;
+}
+
+/* Toast Notifications */
+.toast {
+  @apply fixed top-4 right-4 z-50 max-w-sm w-full bg-white rounded-lg shadow-lg border border-gray-200 p-4;
+}
+
+.toast-success {
+  @apply border-green-200 bg-green-50;
+}
+
+.toast-error {
+  @apply border-red-200 bg-red-50;
+}
+
+.toast-warning {
+  @apply border-yellow-200 bg-yellow-50;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  @apply relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.toggle-switch.active {
+  @apply bg-blue-600;
+}
+
+.toggle-switch-thumb {
+  @apply inline-block h-4 w-4 transform rounded-full bg-white transition-transform;
+}
+
+.toggle-switch.active .toggle-switch-thumb {
+  @apply translate-x-6;
+}
+
+/* Chart Styles */
+.chart-container {
+  @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+}
+
+/* Table Styles */
+.table {
+  @apply min-w-full divide-y divide-gray-200;
+}
+
+.table-header {
+  @apply bg-gray-50;
+}
+
+.table-header-cell {
+  @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+}
+
+.table-body {
+  @apply bg-white divide-y divide-gray-200;
+}
+
+.table-cell {
+  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+}
+
+/* Status Badges */
+.status-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.status-badge.active {
+  @apply bg-green-100 text-green-800;
+}
+
+.status-badge.pending {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.status-badge.inactive {
+  @apply bg-red-100 text-red-800;
+}
+
+.status-badge.draft {
+  @apply bg-gray-100 text-gray-800;
+}

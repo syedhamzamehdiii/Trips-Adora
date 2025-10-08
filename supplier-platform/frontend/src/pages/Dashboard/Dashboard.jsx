@@ -1,180 +1,355 @@
-import { FiPackage, FiShoppingBag, FiDollarSign, FiTrendingUp, FiPlus } from 'react-icons/fi';
+import { FiPackage, FiShoppingBag, FiDollarSign, FiTrendingUp, FiPlus, FiClock, FiCheck } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/utils/constants';
 import { formatCurrency, formatNumber } from '@/utils/helpers';
+import { useAuth } from '@/context/AuthContext';
 
 const Dashboard = () => {
-  // Mock data - will be replaced with API calls
+  const { clearAuth } = useAuth();
+  
+  // Mock data matching the TripsAdora dashboard design
   const stats = [
     {
       title: 'Total Products',
-      value: '248',
-      change: '+12%',
-      icon: <FiPackage size={24} />,
-      color: 'bg-blue-500',
-      trend: 'up',
+      value: '12',
+      description: 'Total number of products you have created and listed on the platform.',
     },
     {
-      title: 'Total Orders',
-      value: '1,234',
-      change: '+8%',
-      icon: <FiShoppingBag size={24} />,
-      color: 'bg-green-500',
-      trend: 'up',
+      title: 'Cancellation rate',
+      value: '0%',
+      description: 'The percentage of bookings that were canceled.',
     },
     {
-      title: 'Revenue',
-      value: formatCurrency(45678),
-      change: '+15%',
-      icon: <FiDollarSign size={24} />,
-      color: 'bg-purple-500',
-      trend: 'up',
+      title: 'Fresh Reviews',
+      value: '4.8',
+      description: 'Booking canceled by you',
     },
     {
-      title: 'Growth',
-      value: '23%',
-      change: '+5%',
-      icon: <FiTrendingUp size={24} />,
-      color: 'bg-orange-500',
-      trend: 'up',
+      title: 'Today\'s balance',
+      value: '$760',
+      description: 'Amount earned and available for today.',
     },
   ];
 
-  const recentOrders = [
+  const productSetupItems = [
     {
-      id: 'ORD-001',
-      customer: 'John Doe',
-      product: 'Wireless Headphones',
-      amount: 129.99,
-      status: 'Pending',
-      date: '2025-10-08',
+      title: 'Mount fuji 5th station',
+      date: 'Started on Friday, August 1, 2002',
+      progress: 20,
     },
     {
-      id: 'ORD-002',
-      customer: 'Jane Smith',
-      product: 'Smart Watch',
-      amount: 299.99,
-      status: 'Confirmed',
-      date: '2025-10-08',
-    },
-    {
-      id: 'ORD-003',
-      customer: 'Mike Johnson',
-      product: 'Laptop Stand',
-      amount: 49.99,
-      status: 'Shipped',
-      date: '2025-10-07',
+      title: 'Mount fuji 4th station',
+      date: 'Started on Friday, August 1, 2002',
+      progress: 80,
     },
   ];
 
-  const getStatusColor = (status) => {
-    const colors = {
-      Pending: 'badge-warning',
-      Confirmed: 'badge-info',
-      Shipped: 'badge-success',
-      Delivered: 'badge-success',
-      Cancelled: 'badge-danger',
-    };
-    return colors[status] || 'badge-gray';
+  const popularActivities = [
+    {
+      title: 'Mount fuji 5th station tour by car with pickup',
+      description: 'A highly demanded tour to Mount Fuji\'s 5th Station by private car with convenient pickup service. This experience has been one of the most popular choices among travelers in recent days.',
+      popularity: '14.6%',
+    },
+  ];
+
+  const sidebarStats = {
+    todayBookings: '18 New',
+    tomorrowBookings: '24 Confirmed',
+    activityProgress: 60,
+    published: 45,
+    drafts: 15,
+    underReview: 0,
+    positiveRating: 79,
+    cancellation: 9,
+    negativeRating: 12,
   };
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome back! Here's what's happening today.</p>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+                    <div className="flex items-center space-x-8">
+                      <div className="flex items-center">
+                        {/* TripsAdora Logo */}
+                        <img 
+                          src="/assets/logo.jpg" 
+                          alt="TripsAdora" 
+                          className="h-8 w-auto"
+                        />
+                      </div>
+              <nav className="hidden md:flex space-x-6">
+                <a href="#" className="text-blue-600 border-b-2 border-blue-600 pb-4 text-sm font-medium">Home</a>
+                <a href="#" className="text-gray-700 hover:text-gray-900 text-sm font-medium">FAQs</a>
+                <a href="#" className="text-gray-700 hover:text-gray-900 text-sm font-medium">Support</a>
+              </nav>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="w-5 h-5 text-gray-600">🔔</div>
+              <div className="w-5 h-5 text-gray-600">⏰</div>
+              <div className="w-5 h-5 text-gray-600">🌐</div>
+              <select className="bg-white text-gray-700 border border-gray-300 rounded px-2 py-1">
+                <option>EN</option>
+              </select>
+              <span className="text-sm text-gray-700">Available Balance $1850</span>
+              <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
+              <span className="text-sm text-gray-700">ID 00032123</span>
+              {/* Temporary logout button for testing */}
+              <button 
+                onClick={clearAuth}
+                className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+              >
+                Logout (Test)
+              </button>
+            </div>
+          </div>
         </div>
-        <Link to={ROUTES.PRODUCTS_CREATE}>
-          <button className="btn btn-primary flex items-center gap-2">
-            <FiPlus size={20} />
-            Add New Product
-          </button>
-        </Link>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <nav className="flex space-x-2">
+                <a href="#" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium">Dashboard</a>
+                <a href="#" className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">Listings</a>
+                <a href="#" className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">Availability</a>
+                <a href="#" className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">Bookings</a>
+                <a href="#" className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">Insights</a>
+                <a href="#" className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">Finance</a>
+              </nav>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-3 space-y-8">
+                    {/* Hero Banner with Desert Background */}
+                    <div className="relative rounded-xl overflow-hidden h-64">
+                      <div 
+                        className="absolute inset-0 bg-cover bg-center"
+                        style={{
+                          backgroundImage: `url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSIzMDAiIHZpZXdCb3g9IjAgMCAxMjAwIDMwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEyMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjVGN0ZBIi8+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9ImRlc2VydCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNENjQ5MzAiIHN0b3Atb3BhY2l0eT0iMSIvPgo8c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iI0U2QTQ4NyIgc3RvcC1vcGFjaXR5PSIxIi8+CjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI0Y0QjQ5MCIgc3RvcC1vcGFjaXR5PSIxIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjEyMDAiIGhlaWdodD0iMzAwIiBmaWxsPSJ1cmwoI2Rlc2VydCkiLz4KPC9zdmc+')`,
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+                      <div className="relative p-8 text-white h-full flex flex-col justify-center">
+                        <h1 className="text-4xl font-bold mb-6">
+                          Grow Your Business with{' '}
+                          <span className="text-yellow-300">THE NEW HORIZON</span>
+                        </h1>
+                        <div className="flex space-x-4">
+                          <button className="bg-white bg-opacity-20 backdrop-blur-sm text-white px-6 py-3 rounded-lg hover:bg-opacity-30 transition-all border border-white border-opacity-30">
+                            Create new product
+                          </button>
+                          <button className="bg-white bg-opacity-10 backdrop-blur-sm text-white px-6 py-3 rounded-lg hover:bg-opacity-20 transition-all">
+                            Active Product listing
+                          </button>
+                        </div>
+                      </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
-          <div key={index} className="card card-hover">
-            <div className="flex items-center justify-between">
+                <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{stat.title}</h3>
+                  <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
+                  <p className="text-sm text-gray-600">{stat.description}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Product Setup Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Wrap Up Your Product Setup</h2>
+              <div className="space-y-4">
+                {productSetupItems.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                <p className={`text-sm mt-2 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                  {stat.change} from last month
-                </p>
+                      <h3 className="font-medium text-gray-900">{item.title}</h3>
+                      <p className="text-sm text-gray-600">{item.date}</p>
+                      <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                          style={{ width: `${item.progress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                      Continue
+                    </button>
+                  </div>
+                ))}
               </div>
-              <div className={`${stat.color} p-3 rounded-lg text-white`}>
-                {stat.icon}
+            </div>
+
+            {/* Popular Activities */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Most Popular Activities</h2>
+              <div className="space-y-4">
+                {popularActivities.map((activity, index) => (
+                  <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900 mb-2">{activity.title}</h3>
+                        <p className="text-sm text-gray-600">{activity.description}</p>
+                      </div>
+                      <div className="flex items-center ml-4">
+                        <span className="text-green-600 font-medium">{activity.popularity}</span>
+                        <FiTrendingUp className="ml-1 text-green-600" size={16} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        ))}
+
+                  {/* Sidebar */}
+                  <div className="space-y-6">
+                    {/* Supplier Mode Toggle */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-900">Supplier mode</span>
+                        <div className="w-12 h-6 bg-green-500 rounded-full relative">
+                          <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Supplier Info */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                      <h3 className="font-semibold text-gray-900 mb-4">Supplier Information</h3>
+                      <div className="space-y-2">
+                        <p className="font-medium text-gray-900">Edward William</p>
+                        <p className="text-sm text-gray-600">Notting Hill, London</p>
+                        <div className="flex items-center">
+                          <span className="text-sm text-gray-600">Karwan Tours</span>
+                          <FiCheck className="ml-2 text-green-600" size={16} />
+                        </div>
+                      </div>
+                    </div>
+
+            {/* Booking Stats */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Booking Statistics</h3>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600">Today's bookings</p>
+                  <p className="font-medium text-gray-900">{sidebarStats.todayBookings}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Tomorrow's bookings</p>
+                  <p className="font-medium text-gray-900">{sidebarStats.tomorrowBookings}</p>
+                </div>
+              </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="card">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Link to={ROUTES.PRODUCTS_CREATE} className="flex flex-col items-center p-4 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors">
-            <FiPackage size={32} className="text-primary-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900">Add Product</span>
-          </Link>
-          <Link to={ROUTES.ORDERS} className="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-            <FiShoppingBag size={32} className="text-green-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900">View Orders</span>
-          </Link>
-          <Link to={ROUTES.MESSAGES} className="flex flex-col items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
-            <FiPackage size={32} className="text-purple-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900">Messages</span>
-          </Link>
-          <Link to={ROUTES.SETTINGS} className="flex flex-col items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors">
-            <FiTrendingUp size={32} className="text-orange-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900">Analytics</span>
-          </Link>
+            {/* Activity Chart */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">My Activity</h3>
+              <div className="flex justify-center mb-4">
+                <div className="relative w-20 h-20">
+                  <svg className="w-20 h-20 transform -rotate-90">
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="32"
+                      stroke="#e5e7eb"
+                      strokeWidth="8"
+                      fill="transparent"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="32"
+                      stroke="#3b82f6"
+                      strokeWidth="8"
+                      fill="transparent"
+                      strokeDasharray={`${2 * Math.PI * 32}`}
+                      strokeDashoffset={`${2 * Math.PI * 32 * (1 - sidebarStats.activityProgress / 100)}`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-lg font-semibold text-gray-900">{sidebarStats.activityProgress}%</span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                  <span className="text-sm text-gray-600">Published</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                  <span className="text-sm text-gray-600">Drafts</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                  <span className="text-sm text-gray-600">Under review</span>
+                </div>
         </div>
       </div>
 
-      {/* Recent Orders */}
-      <div className="card">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Recent Orders</h2>
-          <Link to={ROUTES.ORDERS} className="text-primary-600 hover:text-primary-700 font-medium text-sm">
-            View All
-          </Link>
+            {/* Account Stability */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Account Stability</h3>
+              <div className="flex justify-center mb-4">
+                <div className="relative w-20 h-20">
+                  <svg className="w-20 h-20">
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="32"
+                      stroke="#e5e7eb"
+                      strokeWidth="8"
+                      fill="transparent"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="32"
+                      stroke="#22c55e"
+                      strokeWidth="8"
+                      fill="transparent"
+                      strokeDasharray={`${2 * Math.PI * 32}`}
+                      strokeDashoffset={`${2 * Math.PI * 32 * (1 - sidebarStats.positiveRating / 100)}`}
+                    />
+                  </svg>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                    <span className="text-sm text-gray-600">Positive rating</span>
+                  </div>
+                  <span className="text-sm font-medium">{sidebarStats.positiveRating}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+                    <span className="text-sm text-gray-600">Cancellation</span>
+                  </div>
+                  <span className="text-sm font-medium">{sidebarStats.cancellation}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                    <span className="text-sm text-gray-600">Negative rating</span>
+                  </div>
+                  <span className="text-sm font-medium">{sidebarStats.negativeRating}%</span>
+                </div>
+              </div>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="table">
-            <thead className="table-header">
-              <tr>
-                <th className="table-header-cell">Order ID</th>
-                <th className="table-header-cell">Customer</th>
-                <th className="table-header-cell">Product</th>
-                <th className="table-header-cell">Amount</th>
-                <th className="table-header-cell">Status</th>
-                <th className="table-header-cell">Date</th>
-              </tr>
-            </thead>
-            <tbody className="table-body">
-              {recentOrders.map((order) => (
-                <tr key={order.id}>
-                  <td className="table-cell font-medium text-primary-600">{order.id}</td>
-                  <td className="table-cell">{order.customer}</td>
-                  <td className="table-cell">{order.product}</td>
-                  <td className="table-cell">{formatCurrency(order.amount)}</td>
-                  <td className="table-cell">
-                    <span className={`badge ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="table-cell text-gray-500">{order.date}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            {/* Help Button */}
+            <button className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+              Help
+            </button>
+          </div>
         </div>
       </div>
     </div>
