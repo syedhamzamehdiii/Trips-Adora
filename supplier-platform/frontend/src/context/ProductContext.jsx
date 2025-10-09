@@ -1,3 +1,4 @@
+// Frontend/src/context/ProductContext.jsx
 import { createContext, useContext, useState } from 'react';
 
 const ProductContext = createContext(null);

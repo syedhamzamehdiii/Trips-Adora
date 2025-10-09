@@ -1,3 +1,4 @@
+// Frontend/src/components/products/ProductFilters.jsx
 import { FiSearch, FiFilter } from 'react-icons/fi';
 import Select from '@/components/common/Select';
 

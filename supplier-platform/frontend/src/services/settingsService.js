@@ -1,3 +1,4 @@
+// Frontend/src/services/settingsService.js
 import { apiService } from './api';
 import config from '@/config';
 

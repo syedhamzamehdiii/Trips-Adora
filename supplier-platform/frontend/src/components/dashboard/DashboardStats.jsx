@@ -1,3 +1,4 @@
+// Frontend/src/components/dashboard/DashboardStats.jsx
 import { FiPackage, FiShoppingBag, FiDollarSign, FiTrendingUp } from 'react-icons/fi';
 import Card from '@/components/common/Card';
 

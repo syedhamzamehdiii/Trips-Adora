@@ -1,3 +1,4 @@
+// Frontend/src/pages/Products/ProductDetail.jsx
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiEdit, FiTrash2, FiArrowLeft } from 'react-icons/fi';
 import { useProduct, useDeleteProduct } from '@/hooks/useProducts';

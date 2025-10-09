@@ -1,3 +1,4 @@
+// Frontend/src/pages/Settings/Settings.jsx
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiUser, FiLock, FiCreditCard, FiBell, FiSave } from 'react-icons/fi';

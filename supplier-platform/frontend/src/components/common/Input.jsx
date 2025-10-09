@@ -1,3 +1,4 @@
+// Frontend/src/components/common/Input.jsx
 import { forwardRef } from 'react'
 
 const Input = forwardRef(({ 

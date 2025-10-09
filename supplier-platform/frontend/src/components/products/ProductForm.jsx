@@ -1,3 +1,4 @@
+// Frontend/src/components/products/ProductForm.jsx
 import { useForm } from 'react-hook-form';
 import Input from '@/components/common/Input';
 import Select from '@/components/common/Select';

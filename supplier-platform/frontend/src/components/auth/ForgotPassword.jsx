@@ -1,3 +1,5 @@
+// Frontend/src/auth/forgotpassword
+
 import { useForm } from 'react-hook-form';
 import { FiMail } from 'react-icons/fi';
 import Button from '@/components/common/Button';

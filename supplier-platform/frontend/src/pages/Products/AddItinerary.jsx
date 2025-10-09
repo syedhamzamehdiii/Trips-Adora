@@ -1,3 +1,4 @@
+// Frontend/src/pages/Products/AddItinerary.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiChevronLeft, FiChevronRight, FiInfo, FiMapPin, FiClock, FiPlus, FiX } from 'react-icons/fi';

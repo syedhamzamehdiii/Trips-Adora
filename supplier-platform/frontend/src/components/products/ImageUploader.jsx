@@ -1,3 +1,4 @@
+// Frontend/src/components/products/ImageUploader.jsx
 import { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { FiUpload, FiX } from 'react-icons/fi';

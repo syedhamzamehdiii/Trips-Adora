@@ -1,3 +1,4 @@
+// Frontend/src/components/dashboard/QuickActions.jsx
 import { Link } from 'react-router-dom';
 import { FiPackage, FiShoppingBag, FiMessageSquare, FiTrendingUp } from 'react-icons/fi';
 import { ROUTES } from '@/utils/constants';

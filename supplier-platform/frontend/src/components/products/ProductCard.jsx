@@ -1,3 +1,4 @@
+// Frontend/src/components/products/ProductCard.jsx
 import { FiEdit, FiTrash2, FiShare2, FiEye } from 'react-icons/fi';
 import { formatCurrency } from '@/utils/helpers';
 import Badge from '@/components/common/Badge';

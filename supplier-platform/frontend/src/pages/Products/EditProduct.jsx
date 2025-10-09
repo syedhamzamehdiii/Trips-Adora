@@ -1,3 +1,4 @@
+// Frontend/src/pages/Products/EditProduct.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProduct, useUpdateProduct } from '@/hooks/useProducts';

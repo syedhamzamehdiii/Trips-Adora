@@ -1,3 +1,4 @@
+// Frontend/src/components/products/ProductList.jsx
 import ProductCard from './ProductCard';
 import EmptyState from '@/components/common/EmptyState';
 import { FiPackage } from 'react-icons/fi';

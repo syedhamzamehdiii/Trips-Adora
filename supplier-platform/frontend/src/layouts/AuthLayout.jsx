@@ -1,3 +1,4 @@
+// Frontend/src/layouts/AuthLayout.jsx
 import { Outlet } from 'react-router-dom';
 
 const AuthLayout = () => {

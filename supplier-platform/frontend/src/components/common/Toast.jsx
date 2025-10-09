@@ -1,3 +1,4 @@
+// Frontend/src/components/common/Toast.jsx
 import { toast as toastify } from 'react-toastify';
 
 export const toast = {

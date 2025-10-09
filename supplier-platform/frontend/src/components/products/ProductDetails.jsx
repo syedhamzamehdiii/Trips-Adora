@@ -1,3 +1,4 @@
+// Frontend/src/components/products/ProductDetails.jsx
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import Badge from '@/components/common/Badge';
 

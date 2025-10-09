@@ -1,3 +1,4 @@
+// Frontend/src/components/products/ProductShare.jsx
 import { useState } from 'react';
 import { FiCopy, FiMail, FiFacebook, FiTwitter } from 'react-icons/fi';
 import Button from '@/components/common/Button';

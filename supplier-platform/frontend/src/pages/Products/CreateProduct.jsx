@@ -1,3 +1,4 @@
+// Frontend/src/pages/Products/CreateProduct.jsx
 import React, { useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo } from 'react-icons/fi';
 import { ROUTES } from '@/utils/constants';

@@ -1,3 +1,4 @@
+// Frontend/src/components/auth/RegisterForm.jsx
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiMail, FiLock, FiUser, FiPhone, FiEye, FiEyeOff, FiMapPin } from 'react-icons/fi';
