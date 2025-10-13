@@ -1,4 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
 from app.core.config import settings
 import logging
 
@@ -43,4 +44,36 @@ def get_database():
 def get_collection(collection_name: str):
     """Get a specific collection from the database."""
     return db.database[collection_name]
+
+
+async def init_db():
+    """Initialize database and Beanie ODM."""
+    try:
+        # Import models here to avoid circular imports
+        from app.models.user import User
+        from app.models.product import Product
+        from app.models.order import Order
+        from app.models.partner import Partner
+        from app.models.message import Message
+        
+        # Connect to MongoDB
+        await connect_to_mongo()
+        
+        # Initialize Beanie with all models
+        await init_beanie(
+            database=db.database,
+            document_models=[
+                User,
+                Product,
+                Order,
+                Partner,
+                Message,
+            ]
+        )
+        
+        logger.info("Beanie initialized successfully!")
+        
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
+        raise
 

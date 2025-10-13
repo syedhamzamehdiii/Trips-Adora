@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 // Import pages
 import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
+import GoogleCallback from './pages/Auth/GoogleCallback'
 import Dashboard from './pages/Dashboard/Dashboard'
 import CreateProduct from './pages/Products/CreateProduct'
 import AddItinerary from './pages/Products/AddItinerary'
@@ -33,6 +34,10 @@ function AppRoutes() {
         <Route 
           path="/register" 
           element={isAuthenticated ? <Navigate to="/dashboard" /> : <Register />} 
+        />
+        <Route 
+          path="/auth/google/callback" 
+          element={<GoogleCallback />} 
         />
         
         {/* Protected Routes */}

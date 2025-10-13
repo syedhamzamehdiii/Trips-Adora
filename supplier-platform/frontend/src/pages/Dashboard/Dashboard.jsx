@@ -1,407 +1,413 @@
-// Frontend/src/pages/Dashboard/Dashboard.jsx
-import { FiPackage, FiShoppingBag, FiDollarSign, FiTrendingUp, FiPlus, FiClock, FiCheck, FiBell } from 'react-icons/fi';
-import { Link } from 'react-router-dom';
-import { ROUTES } from '@/utils/constants';
-import { formatCurrency, formatNumber } from '@/utils/helpers';
+import { useState } from 'react';
+import { FiCheck, FiTrendingUp, FiHelpCircle } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
+import CreateProductModal from '@/components/products/CreateProductModal';
 
 const Dashboard = () => {
-  const { clearAuth } = useAuth();
-  
-  // Mock data matching the TripsAdora dashboard design
-  const stats = [
-    {
-      title: 'Total Products',
-      value: '12',
-      description: 'Total number of products you have created and listed on the platform.',
-      bgColor: 'bg-gradient-to-br from-orange-400 to-orange-600',
-    },
-    {
-      title: 'Cancellation rate',
-      value: '0%',
-      description: 'The percentage of bookings that were canceled.',
-      bgColor: 'bg-gradient-to-br from-gray-400 to-gray-600',
-    },
-    {
-      title: 'Fresh Reviews',
-      value: '4.8',
-      description: 'Booking canceled by you',
-      bgColor: 'bg-gradient-to-br from-purple-400 to-purple-600',
-    },
-    {
-      title: "Today's balance",
-      value: '$760',
-      description: 'Amount earned and available for today.',
-      bgColor: 'bg-gradient-to-br from-teal-400 to-teal-600',
-    },
-  ];
-
-  const productSetupItems = [
-    {
-      title: 'Mount fuji 5th station',
-      date: 'Started on Friday, August 1, 2002',
-      progress: 20,
-    },
-    {
-      title: 'Mount fuji 4th station',
-      date: 'Started on Friday, August 1, 2002',
-      progress: 80,
-    },
-  ];
-
-  const popularActivities = [
-    {
-      title: 'Mount fuji 5th station tour by car with pickup',
-      description: 'A highly demanded tour to Mount Fuji\'s 5th Station by private car with convenient pickup service. This experience has been one of the most popular choices among travelers in recent days.',
-      popularity: '14.6%',
-    },
-    {
-      title: 'Mount fuji 5th station tour by car with pickup',
-      description: 'A highly demanded tour to Mount Fuji\'s 5th Station by private car with convenient pickup service. This experience has been one of the most popular choices among travelers in recent days.',
-      popularity: '14.6%',
-    },
-    {
-      title: 'Mount fuji 5th station tour by car with pickup',
-      description: 'A highly demanded tour to Mount Fuji\'s 5th Station by private car with convenient pickup service. This experience has been one of the most popular choices among travelers in recent days.',
-      popularity: '14.6%',
-    },
-  ];
+  const { user } = useAuth();
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [showListingsDropdown, setShowListingsDropdown] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
+    <div className="min-h-screen bg-white">
+      {/* Top Navigation Bar */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-8">
+            {/* Left side - Logo */}
               <div className="flex items-center">
-                {/* TripsAdora Logo */}
                 <img 
                   src="/assets/logo.jpg" 
-                  alt="TripsAdora" 
-                  className="h-8 w-auto"
-                />
-              </div>
-              <nav className="hidden md:flex space-x-6">
-                <a href="#" className="text-blue-600 text-sm font-medium">Home</a>
-                <a href="#" className="text-gray-700 hover:text-gray-900 text-sm font-medium">FAQs</a>
-                <a href="#" className="text-gray-700 hover:text-gray-900 text-sm font-medium">Support</a>
-              </nav>
+                alt="TripsAdora Logo" 
+                className="h-12 w-auto"
+              />
             </div>
+            
+            {/* Center - Main Site Navigation */}
+            <nav className="hidden md:flex space-x-8">
+              <a href="#" className="text-[#1d236b] font-medium relative">
+                Home
+                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
+              </a>
+              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">FAQs</a>
+              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Support</a>
+            </nav>
+            
+            {/* Right side - Notifications, Language, Balance, Profile */}
             <div className="flex items-center space-x-4">
+              {/* Notification Bell */}
               <div className="relative">
-                <FiBell className="w-5 h-5 text-gray-700" />
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 12a8 8 0 018-8V4a10 10 0 00-10 10h2z" />
+                </svg>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
               </div>
-              <div className="flex items-center space-x-2">
+              
+              {/* Language Dropdown */}
+              <div className="flex items-center space-x-2 cursor-pointer">
                 <span className="text-sm text-gray-700">EN</span>
                 <svg className="w-3 h-3 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </div>
-              {/* User Profile Section */}
-              <div className="flex items-center space-x-3 px-4 py-2 rounded-lg" style={{ backgroundColor: '#1d4ed8' }}>
-                <div className="text-right text-white">
-                  <div className="text-xs">Available Balance</div>
-                  <div className="text-sm font-semibold">$1850</div>
-                </div>
-                <div className="w-8 h-8 bg-gray-300 rounded-full border-2 border-white"></div>
-                <div className="text-white text-xs">
-                  ID 00032123
-                </div>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sub Navigation */}
-      <div className="bg-white border-b border-gray-200">
+      {/* Secondary Navigation Bar - Dashboard Navigation */}
+      <div className="bg-gray-100 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8 py-3">
-            <a href="#" className="text-gray-900 border-b-2 border-blue-600 pb-3 text-sm font-medium">Dashboard</a>
-            <a href="#" className="text-gray-600 hover:text-gray-900 pb-3 text-sm font-medium transition-colors">Listings</a>
-            <a href="#" className="text-gray-600 hover:text-gray-900 pb-3 text-sm font-medium transition-colors">Availability</a>
-            <a href="#" className="text-gray-600 hover:text-gray-900 pb-3 text-sm font-medium transition-colors">Bookings</a>
-            <a href="#" className="text-gray-600 hover:text-gray-900 pb-3 text-sm font-medium transition-colors">Insights</a>
-            <a href="#" className="text-gray-600 hover:text-gray-900 pb-3 text-sm font-medium transition-colors">Finance</a>
+            <a href="#" className="text-gray-900 font-medium relative">
+              Dashboard
+              <span className="absolute -bottom-3 left-0 w-full h-0.5 bg-[#1d236b]"></span>
+            </a>
+            <div className="relative">
+              <button 
+                onClick={() => setShowListingsDropdown(!showListingsDropdown)}
+                className="text-gray-700 hover:text-gray-900 font-medium flex items-center space-x-1"
+              >
+                <span>Listings</span>
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+                  {showListingsDropdown && (
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                      <button
+                        onClick={() => {
+                          setShowCreateProduct(true);
+                          setShowListingsDropdown(false);
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-medium border-b border-gray-100"
+                      >
+                        Create new product
+                      </button>
+                      <button
+                        onClick={() => setShowListingsDropdown(false)}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-medium"
+                      >
+                        Active Product listing
+                      </button>
+                    </div>
+                  )}
+            </div>
+            <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Availability</a>
+            <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Bookings</a>
+            <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Insights</a>
+            <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Finance</a>
           </nav>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Content - 2/3 width */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Hero Banner with Background Image */}
-            <div className="relative rounded-xl overflow-hidden h-80">
-              <div 
-                className="absolute inset-0 bg-cover bg-center"
+      {/* Hero Section with Blurred Background and Featured Image */}
+      <div className="relative h-[70vh] min-h-[600px] overflow-hidden">
+        {/* Completely Blurred Background */}
+        <div className="absolute inset-0 bg-cover bg-center bg-no-repeat backdrop-blur-xl" 
                 style={{
                   backgroundImage: `url('/assets/49f555cdd6a046078f7f2a1e0a835fc0c68a4e3a.jpg')`,
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent"></div>
+               backgroundPosition: 'center center',
+               filter: 'blur(20px)',
+               transform: 'scale(1.1)'
+             }}>
               </div>
-              <div className="relative p-8 h-full flex flex-col justify-center">
-                <h1 className="text-4xl md:text-5xl font-bold mb-6">
-                  <span className="text-gray-800 block">Grow Your Business with</span>
-                  <span className="text-white block text-5xl md:text-6xl">THE NEW HORIZON</span>
+        
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent"></div>
+        
+        {/* Hero content with featured image */}
+        <div className="relative h-full flex items-start pt-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div className="relative">
+              {/* Text content positioned to overlap image */}
+              <div className="absolute left-0 top-16 z-30 max-w-4xl">
+                <div className="space-y-12">
+                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-800 leading-tight drop-shadow-lg" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>
+                    Grow Your Business with
                 </h1>
-                <div className="flex flex-wrap gap-3">
-                  <button className="bg-white text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-50 transition-all font-medium shadow-md">
-                    Create new product
-                  </button>
-                  <button className="text-white px-6 py-3 rounded-lg font-medium shadow-md" style={{ backgroundColor: '#1d4ed8' }}>
-                    Active Product listing
-                  </button>
-                </div>
+                  <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight drop-shadow-2xl" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                    THE NEW HORIZON
+                  </h2>
               </div>
             </div>
 
-            {/* Stats Grid - 4 cards in 2 rows */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {stats.map((stat, index) => (
-                <div key={index} className={`${stat.bgColor} rounded-xl shadow-lg p-6 text-white`}>
-                  <h3 className="text-sm font-medium mb-2 opacity-90">{stat.title}</h3>
-                  <p className="text-4xl font-bold mb-2">{stat.value}</p>
-                  <p className="text-sm opacity-80 leading-relaxed">{stat.description}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Wrap Up Your Product Setup */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Wrap Up Your Product Setup</h2>
-              <div className="space-y-4">
-                {productSetupItems.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex-1 pr-4">
-                      <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
-                      <p className="text-sm text-gray-600 mb-3">{item.date}</p>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="h-2 rounded-full transition-all duration-300" 
-                          style={{ 
-                            width: `${item.progress}%`, 
-                            backgroundColor: '#1d4ed8' 
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                    <button className="text-white px-6 py-2 rounded-lg transition-colors flex items-center space-x-2 whitespace-nowrap" style={{ backgroundColor: '#1d4ed8' }}>
-                      <span>Continue</span>
-                      <FiCheck size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Most Popular Activities */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Most Popular Activities</h2>
-              <div className="space-y-4">
-                {popularActivities.map((activity, index) => (
-                  <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-2">{activity.title}</h3>
-                        <p className="text-sm text-gray-600 leading-relaxed">{activity.description}</p>
-                      </div>
-                      <div className="flex items-center ml-4 text-green-600">
-                        <FiTrendingUp size={20} className="mr-1" />
-                        <span className="font-semibold text-lg">{activity.popularity}</span>
-                      </div>
+              {/* Featured unblurred image positioned on the right */}
+              <div className="absolute right-0 top-8 z-20">
+                <div className="relative">
+                  {/* Rounded corner frame for the image */}
+                  <div className="w-80 h-96 lg:w-96 lg:h-[500px] rounded-2xl overflow-hidden shadow-2xl border-4 border-white/30 bg-white/20">
+                    <img 
+                      src="/assets/49f555cdd6a046078f7f2a1e0a835fc0c68a4e3a.jpg" 
+                      alt="Person overlooking canyon"
+                      className="w-full h-full object-cover"
+                      style={{ filter: 'none' }}
+                    />
                     </div>
                   </div>
-                ))}
               </div>
+
             </div>
           </div>
 
-          {/* Right Sidebar - 1/3 width */}
-          <div className="lg:col-span-1">
-            <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl shadow-xl p-6 text-white sticky top-6">
-              {/* Supplier Mode Toggle */}
-              <div className="mb-6">
+          {/* Right Sidebar positioned within hero section */}
+          <div className="absolute right-0 top-0 w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-6 text-white z-30 h-full">
+            {/* Available Balance and Profile */}
+            <div className="mb-6 bg-white/10 rounded-lg p-4">
+              <div className="text-right mb-4">
+                <div className="text-xs text-white/80">Available Balance</div>
+                <div className="text-lg font-bold text-white">$1850</div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
+                <div className="text-sm text-white">ID 00032123</div>
+              </div>
+            </div>
+
+            {/* Supplier Mode Toggle */}
+            <div className="mb-6 bg-white/10 rounded-lg p-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">Supplier mode</span>
+                <span className="font-medium text-white">Supplier mode</span>
                   <div className="w-12 h-6 bg-green-500 rounded-full relative cursor-pointer">
-                    <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5 transition-transform"></div>
-                  </div>
+                  <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5"></div>
                 </div>
               </div>
-
-              {/* Supplier Info */}
-              <div className="mb-6 pb-6 border-b border-blue-700">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-12 h-12 bg-gray-300 rounded-full flex-shrink-0"></div>
-                  <div>
-                    <p className="font-semibold">Edward William</p>
-                    <p className="text-sm text-blue-200">Notting Hill, London</p>
                   </div>
+
+            {/* User Profile */}
+            <div className="mb-6 bg-white/10 rounded-lg p-4">
+              <div className="mb-4">
+                <p className="font-semibold text-white text-lg">Edward William</p>
+                <p className="text-sm text-white/80">Notting Hill, London</p>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-sm">Karwan Tours</span>
+                <span className="text-sm text-white">Karwan Tours</span>
                   <FiCheck className="ml-2 text-green-400" size={16} />
                 </div>
               </div>
 
               {/* Booking Stats */}
-              <div className="mb-6 space-y-3">
-                <div>
-                  <p className="text-sm text-blue-200 mb-1">Today's bookings</p>
-                  <p className="font-medium">18 <span className="text-green-400">New Active</span></p>
+            <div className="mb-6 bg-white/10 rounded-lg p-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">Today's bookings</div>
+                  <div className="text-2xl font-bold text-white mb-1">18</div>
+                  <div className="text-sm text-green-400">Active</div>
                 </div>
-                <div>
-                  <p className="text-sm text-blue-200 mb-1">Tomorrow's bookings</p>
-                  <p className="font-medium">24 <span className="text-green-400">Confirmed</span></p>
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">Tomorrow's bookings</div>
+                  <div className="text-2xl font-bold text-white mb-1">24</div>
+                  <div className="text-sm text-green-400">Confirmed</div>
+                </div>
                 </div>
               </div>
 
               {/* My Activity Chart */}
-              <div className="mb-6">
-                <h3 className="font-semibold mb-4">My Activity</h3>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="relative w-20 h-20">
-                    <svg className="w-20 h-20 transform -rotate-90">
-                      <circle
-                        cx="40"
-                        cy="40"
-                        r="32"
-                        stroke="rgba(255,255,255,0.2)"
-                        strokeWidth="6"
-                        fill="transparent"
-                      />
-                      <circle
-                        cx="40"
-                        cy="40"
-                        r="32"
-                        stroke="#ffffff"
-                        strokeWidth="6"
-                        fill="transparent"
-                        strokeDasharray={`${2 * Math.PI * 32}`}
-                        strokeDashoffset={`${2 * Math.PI * 32 * (1 - 60 / 100)}`}
-                      />
+            <div className="mb-6 bg-white/10 rounded-lg p-4">
+              <h3 className="font-semibold mb-4 text-white">My Activity</h3>
+              <div className="flex items-center justify-between">
+                <div className="relative w-16 h-16">
+                  <svg className="w-16 h-16 transform -rotate-90">
+                    <circle cx="32" cy="32" r="24" stroke="rgba(255,255,255,0.2)" strokeWidth="4" fill="transparent" />
+                    <circle cx="32" cy="32" r="24" stroke="#ffffff" strokeWidth="4" fill="transparent" 
+                            strokeDasharray={`${2 * Math.PI * 24}`} strokeDashoffset={`${2 * Math.PI * 24 * 0.4}`} />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-lg font-semibold">60%</span>
+                    <span className="text-lg font-bold text-white">60%</span>
                     </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <div className="w-3 h-3 bg-green-400 rounded-full mr-2"></div>
-                      <span className="text-sm">Published</span>
+                    <span className="text-xs text-white/80">Published</span>
                     </div>
                     <div className="flex items-center">
-                      <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
-                      <span className="text-sm">Drafts</span>
+                    <div className="w-3 h-3 bg-white rounded-full mr-2"></div>
+                    <span className="text-xs text-white/80">Drafts</span>
                     </div>
                     <div className="flex items-center">
                       <div className="w-3 h-3 bg-red-400 rounded-full mr-2"></div>
-                      <span className="text-sm">Under review</span>
+                    <span className="text-xs text-white/80">Under review</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Account Stability */}
-              <div className="mb-6">
-                <h3 className="font-semibold mb-4">Account Stability</h3>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="relative w-20 h-20">
-                    <svg className="w-20 h-20 transform -rotate-90">
-                      <circle
-                        cx="40"
-                        cy="40"
-                        r="32"
-                        stroke="rgba(255,255,255,0.2)"
-                        strokeWidth="6"
-                        fill="transparent"
-                      />
-                      {/* Green segment - 70% */}
-                      <circle
-                        cx="40"
-                        cy="40"
-                        r="32"
-                        stroke="#22c55e"
-                        strokeWidth="6"
-                        fill="transparent"
-                        strokeDasharray={`${2 * Math.PI * 32 * 0.7} ${2 * Math.PI * 32 * 0.3}`}
-                        strokeDashoffset="0"
-                      />
-                      {/* Orange segment - 18% */}
-                      <circle
-                        cx="40"
-                        cy="40"
-                        r="32"
-                        stroke="#f59e0b"
-                        strokeWidth="6"
-                        fill="transparent"
-                        strokeDasharray={`${2 * Math.PI * 32 * 0.18} ${2 * Math.PI * 32 * 0.82}`}
-                        strokeDashoffset={`${-2 * Math.PI * 32 * 0.7}`}
-                      />
-                      {/* Red segment - 12% */}
-                      <circle
-                        cx="40"
-                        cy="40"
-                        r="32"
-                        stroke="#ef4444"
-                        strokeWidth="6"
-                        fill="transparent"
-                        strokeDasharray={`${2 * Math.PI * 32 * 0.12} ${2 * Math.PI * 32 * 0.88}`}
-                        strokeDashoffset={`${-2 * Math.PI * 32 * 0.88}`}
-                      />
+            {/* Account Stability Chart */}
+            <div className="mb-6 bg-white/10 rounded-lg p-4">
+              <h3 className="font-semibold mb-4 text-white">Account Stability</h3>
+              <div className="flex items-center justify-between">
+                <div className="relative w-16 h-16">
+                  <svg className="w-16 h-16 transform -rotate-90">
+                    <circle cx="32" cy="32" r="24" stroke="rgba(255,255,255,0.2)" strokeWidth="4" fill="transparent" />
+                    <circle cx="32" cy="32" r="24" stroke="#22c55e" strokeWidth="4" fill="transparent" 
+                            strokeDasharray={`${2 * Math.PI * 24 * 0.7} ${2 * Math.PI * 24 * 0.3}`} strokeDashoffset="0" />
+                    <circle cx="32" cy="32" r="24" stroke="#ef4444" strokeWidth="4" fill="transparent" 
+                            strokeDasharray={`${2 * Math.PI * 24 * 0.12} ${2 * Math.PI * 24 * 0.88}`} 
+                            strokeDashoffset={`${-2 * Math.PI * 24 * 0.7}`} />
                     </svg>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <div className="w-3 h-3 bg-green-400 rounded-full mr-2"></div>
-                        <span className="text-sm">Positive rating</span>
+                      <span className="text-xs text-white/80">Positive rating</span>
                       </div>
-                      <span className="text-sm font-medium ml-4">70%</span>
+                    <span className="text-xs font-medium ml-2 text-white">70%</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
-                        <div className="w-3 h-3 bg-orange-400 rounded-full mr-2"></div>
-                        <span className="text-sm">Cancellation</span>
+                      <div className="w-3 h-3 bg-white rounded-full mr-2"></div>
+                      <span className="text-xs text-white/80">Cancellation</span>
                       </div>
-                      <span className="text-sm font-medium ml-4">18%</span>
+                    <span className="text-xs font-medium ml-2 text-white">18%</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <div className="w-3 h-3 bg-red-400 rounded-full mr-2"></div>
-                        <span className="text-sm">Negative rating</span>
+                      <span className="text-xs text-white/80">Negative rating</span>
                       </div>
-                      <span className="text-sm font-medium ml-4">12%</span>
+                    <span className="text-xs font-medium ml-2 text-white">12%</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Help Button */}
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition-colors font-medium">
-                Help
+            <button className="w-full text-white py-3 px-4 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2 bg-[#1d236b] hover:bg-[#1a1f5a]">
+              <FiHelpCircle size={16} />
+              <span>Help</span>
               </button>
+          </div>
+
+          {/* Stats Cards Overlay - More visible and with proper blur */}
+          <div className="absolute bottom-4 left-0 right-0 z-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Total Products Card */}
+                <div className="bg-white/20 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/30">
+                  <h3 className="text-sm font-medium text-white mb-2">Total Products</h3>
+                  <p className="text-4xl font-bold text-white mb-2">12</p>
+                  <p className="text-sm text-white/80 leading-relaxed">Total number of products you have created and listed on the platform.</p>
+                </div>
+
+                {/* Cancellation Rate Card */}
+                <div className="bg-white/20 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/30">
+                  <h3 className="text-sm font-medium text-white mb-2">Cancellation rate</h3>
+                  <p className="text-4xl font-bold text-white mb-2">0%</p>
+                  <p className="text-sm text-white/80 leading-relaxed">The percentage of bookings that were canceled.</p>
+                </div>
+
+                {/* Fresh Reviews Card */}
+                <div className="bg-white/20 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/30">
+                  <h3 className="text-sm font-medium text-white mb-2">Fresh Reviews</h3>
+                  <p className="text-4xl font-bold text-orange-300 mb-2">4.8</p>
+                  <p className="text-sm text-white/80 leading-relaxed">Booking canceled by you</p>
+                </div>
+
+                {/* Today's Balance Card */}
+                <div className="bg-white/20 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/30">
+                  <h3 className="text-sm font-medium text-white mb-2">Today's balance</h3>
+                  <p className="text-4xl font-bold text-white mb-2">$760</p>
+                  <p className="text-sm text-white/80 leading-relaxed">Amount earned and available for today.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Spacer to account for overlapping cards */}
+      <div className="h-40 bg-white"></div>
+
+      {/* Main Content Area */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex gap-8">
+          {/* Left Content - takes remaining space */}
+          <div className="flex-1 space-y-8">
+            {/* Wrap Up Your Product Setup */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Wrap Up Your Product Setup</h2>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-6 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 mb-1">Mount fuji 5th station</h3>
+                    <p className="text-sm text-gray-600 mb-4">Started on Friday, August 1, 2002</p>
+                    <div className="w-full bg-gray-200 rounded-full h-3 relative">
+                      <div className="h-3 rounded-full flex items-center justify-end pr-2" style={{ width: '20%', backgroundColor: '#1d236b' }}>
+                        <span className="text-white text-xs font-medium">20%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">i</span>
+                    </div>
+                    <button className="bg-[#1d236b] hover:bg-[#1a1f5a] text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                      Continue
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-6 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 mb-1">Mount fuji 4th station</h3>
+                    <p className="text-sm text-gray-600 mb-4">Started on Friday, August 1, 2002</p>
+                    <div className="w-full bg-gray-200 rounded-full h-3 relative">
+                      <div className="h-3 rounded-full flex items-center justify-end pr-2" style={{ width: '80%', backgroundColor: '#1d236b' }}>
+                        <span className="text-white text-xs font-medium">80%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">i</span>
+                    </div>
+                    <button className="bg-[#1d236b] hover:bg-[#1a1f5a] text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                      Continue
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Most Popular Activities */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Most Popular Activities</h2>
+              <div className="space-y-4">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="p-6 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-gray-900 mb-3">Mount fuji 5th station tour by car with pickup</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">A highly demanded tour to Mount Fuji's 5th Station by private car with convenient pickup service. This experience has been one of the most popular choices among travelers in recent days.</p>
+                      </div>
+                      <div className="flex items-center ml-6 text-green-600">
+                        <FiTrendingUp size={20} className="mr-2" />
+                        <span className="font-bold text-xl">14.6%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+
       {/* Footer */}
-      <div className="bg-gray-900 text-white py-12 mt-12">
+      <footer className="bg-[#1d236b] text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
             {/* Know About us */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Know About us</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">About us</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">Contact</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">About us</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Careers</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Contact</a></li>
               </ul>
             </div>
             
@@ -409,10 +415,10 @@ const Dashboard = () => {
             <div>
               <h3 className="text-lg font-semibold mb-4">Explore</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">Destinations</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">Experiences</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">Tours</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">Activities</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Destinations</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Experiences</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Tours</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Activities</a></li>
               </ul>
             </div>
             
@@ -420,36 +426,153 @@ const Dashboard = () => {
             <div>
               <h3 className="text-lg font-semibold mb-4">Help & Support</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">FAQ</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">Contact Support</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">FAQ</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Contact Support</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Refund Policy</a></li>
+                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Safety Guidelines</a></li>
               </ul>
             </div>
             
             {/* Stay Connected */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Stay Connected</h3>
-              <p className="text-gray-300 mb-4 text-sm">Get travel deals & inspiration</p>
-              <div className="flex mb-4">
+              <div className="space-y-4">
+                <p className="text-white">Get travel deals & inspiration</p>
+                <div className="flex max-w-xs">
                 <input 
                   type="email" 
                   placeholder="Enter your email" 
-                  className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-r-lg transition-colors">
-                  →
+                    className="flex-1 px-3 py-2 bg-gray-400 text-white border border-gray-400 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button className="px-4 py-2 bg-gray-400 hover:bg-gray-500 rounded-r-lg transition-colors">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                      <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold mb-2">Follow Us</h4>
+                    <div className="flex space-x-3">
+                      {/* Instagram */}
+                      <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-xs">in</span>
+                      </div>
+                      {/* LinkedIn */}
+                      <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-xs">in</span>
+                      </div>
+                      {/* Facebook */}
+                      <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-xs">f</span>
+                      </div>
+                      {/* Twitter */}
+                      <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold mb-2">Language</h4>
+                    <button className="bg-white text-black px-3 py-2 rounded flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm">US English</span>
+                    </button>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold mb-2">Currency</h4>
+                    <button className="bg-white text-black px-3 py-2 rounded flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm">$ USD - US Dollar</span>
                 </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payments & Settings */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Payments & Settings</h3>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">AMEX</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">Master</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">Visa</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">Apple</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">PayPal</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">Google</span>
+                </div>
               </div>
             </div>
           </div>
           
-          {/* Bottom Section */}
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>©2025 TripAdora. All rights reserved.</p>
+          {/* Bottom Footer Bar */}
+          <div className="border-t border-white/20 mt-12 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div className="text-sm text-white mb-4 md:mb-0">
+                ©2025 TripAdora. All rights reserved.
+              </div>
+              <div className="flex items-center space-x-6 text-sm text-white">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Secure Booking</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                  </svg>
+                  <span>10M+ Travels</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                  </svg>
+                  <span>+1-800-Travel</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                  </svg>
+                  <span>24/7 Support</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </footer>
+
+      {/* Create Product Modal */}
+      {showCreateProduct && (
+        <CreateProductModal
+          isOpen={showCreateProduct}
+          onClose={() => setShowCreateProduct(false)}
+        />
+      )}
     </div>
   );
 };

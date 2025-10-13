@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
       // Mock login - in real app, this would call your API
       console.log('Login attempt:', credentials)
       
-      // Simulate API call
+      // Mock login for now - will connect to real backend later
       await new Promise(resolve => setTimeout(resolve, 1000))
       
       // Mock successful login
@@ -47,18 +47,18 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Login error:', error)
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
   const register = async (userData) => {
     try {
-      // Mock registration - in real app, this would call your API
-      console.log('Registration attempt:', userData)
+      setLoading(true)
       
-      // Simulate API call
+      // Mock registration for now - will connect to real backend later
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // Mock successful registration
       const mockUser = {
         id: 'user_123',
         email: userData.email,
@@ -73,19 +73,38 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Registration error:', error)
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem('access_token')
+  const googleLogin = async () => {
+    // Use OAuth redirect flow (simpler and more reliable)
+    // Use the current frontend origin for redirect URI
+    const redirectUri = window.location.origin + '/auth/google/callback';
+    
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${googleAuthService.clientId}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+      `response_type=code&` +
+      `scope=openid%20email%20profile&` +
+      `access_type=offline`;
+    
+    // Redirect to Google OAuth
+    window.location.href = googleAuthUrl;
   }
 
-  // Temporary function to clear auth state for testing
-  const clearAuth = () => {
-    setUser(null)
-    localStorage.removeItem('access_token')
-    console.log('Authentication cleared - you should now see the login screen')
+  const logout = async () => {
+    try {
+      setLoading(true)
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      setUser(null)
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const updateUser = (userData) => {
@@ -97,9 +116,9 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     register,
+    googleLogin,
     logout,
     updateUser,
-    clearAuth,
     isAuthenticated: !!user
   }
 
