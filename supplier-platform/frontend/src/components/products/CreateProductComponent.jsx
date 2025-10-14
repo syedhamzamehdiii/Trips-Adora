@@ -5,11 +5,58 @@ const CreateProductComponent = ({ onClose }) => {
   const [step, setStep] = useState(1);
   const [showImageTipsModal, setShowImageTipsModal] = useState(false);
   const [showIncludedExcludedModal, setShowIncludedExcludedModal] = useState(false);
+  const [selectedVehicleType, setSelectedVehicleType] = useState('');
+  const [selectedVehicleModel, setSelectedVehicleModel] = useState('');
   
   // Step 4 state management
   const [selectedGuideType, setSelectedGuideType] = useState('Driver');
   const [selectedActivityType, setSelectedActivityType] = useState('Private');
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
+  const [selectedLanguage, setSelectedLanguage] = useState('Select Language');
+  
+  // Accessibility & Comfort toggles
+  const [accessibilityToggles, setAccessibilityToggles] = useState({
+    wheelchair: true,
+    serviceAnimals: true,
+    infantSeat: true,
+    stroller: true
+  });
+  
+  const toggleAccessibility = (item) => {
+    setAccessibilityToggles(prev => ({
+      ...prev,
+      [item]: !prev[item]
+    }));
+  };
+
+  const handleVehicleTypeChange = (vehicleType) => {
+    setSelectedVehicleType(vehicleType);
+    setSelectedVehicleModel(''); // Reset model when type changes
+  };
+
+  const getVehicleModels = () => {
+    switch (selectedVehicleType) {
+      case 'van':
+        return [
+          { value: 'suv', label: 'SUV' },
+          { value: 'mini-van', label: 'Mini Van' },
+          { value: 'chagan-carvan', label: 'Chagan Carvan' }
+        ];
+      case 'car':
+        return [
+          { value: 'bmw', label: 'BMW' },
+          { value: 'corolla', label: 'Corolla' },
+          { value: 'daze', label: 'Daze' }
+        ];
+      case 'bus':
+        return [
+          { value: 'standard-bus', label: 'Standard Bus' },
+          { value: 'luxury-bus', label: 'Luxury Bus' },
+          { value: 'mini-bus', label: 'Mini Bus' }
+        ];
+      default:
+        return [];
+    }
+  };
 
   const nextStep = () => setStep((prev) => prev + 1);
   const prevStep = () => {
@@ -28,16 +75,16 @@ const CreateProductComponent = ({ onClose }) => {
             {/* Steps Indicator */}
             <div className="flex items-center justify-center mb-8">
               <div className="flex items-center space-x-2">
-                {[1, 2, 3, 4, 5].map((s, index) => (
+                {[1, 2, 3, 4, 5, 6].map((s, index) => (
                   <React.Fragment key={s}>
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                        ${s === step ? 'bg-blue-600 text-white' : s < step ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
+                        ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
                     >
                       {s < step ? <FiCheckCircle size={16} /> : s}
                     </div>
-                    {index < 4 && (
-                      <div className={`w-8 h-0.5 border-t-2 border-dashed ${s < step ? 'border-green-500' : 'border-gray-300'}`}></div>
+                    {index < 5 && (
+                      <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
                     )}
                   </React.Fragment>
                 ))}
@@ -365,10 +412,10 @@ const CreateProductComponent = ({ onClose }) => {
                 
                 <div className="space-y-4">
                   <div>
-                    <div className="flex space-x-3">
+                    <div className="flex flex-wrap gap-2">
                       <button 
                         onClick={() => setSelectedGuideType('Driver')}
-                        className={`px-6 py-3 rounded-full font-medium transition-colors ${
+                        className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                           selectedGuideType === 'Driver' 
                             ? 'bg-blue-600 text-white' 
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -378,7 +425,7 @@ const CreateProductComponent = ({ onClose }) => {
                       </button>
                       <button 
                         onClick={() => setSelectedGuideType('Guide')}
-                        className={`px-6 py-3 rounded-full font-medium transition-colors ${
+                        className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                           selectedGuideType === 'Guide' 
                             ? 'bg-blue-600 text-white' 
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -388,7 +435,7 @@ const CreateProductComponent = ({ onClose }) => {
                       </button>
                       <button 
                         onClick={() => setSelectedGuideType('Both')}
-                        className={`px-6 py-3 rounded-full font-medium transition-colors ${
+                        className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                           selectedGuideType === 'Both' 
                             ? 'bg-blue-600 text-white' 
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -402,10 +449,10 @@ const CreateProductComponent = ({ onClose }) => {
                   <div>
                     <h4 className="text-lg font-bold text-gray-900 mb-2">Activity Type</h4>
                     <p className="text-gray-600 mb-3 text-sm">You can select either a shared option or a private/custom option.</p>
-                    <div className="flex space-x-3">
+                    <div className="flex flex-wrap gap-2">
                       <button 
                         onClick={() => setSelectedActivityType('Private')}
-                        className={`px-6 py-3 rounded-full font-medium transition-colors ${
+                        className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                           selectedActivityType === 'Private' 
                             ? 'bg-blue-600 text-white' 
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -415,7 +462,7 @@ const CreateProductComponent = ({ onClose }) => {
                       </button>
                       <button 
                         onClick={() => setSelectedActivityType('Customised')}
-                        className={`px-6 py-3 rounded-full font-medium transition-colors ${
+                        className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                           selectedActivityType === 'Customised' 
                             ? 'bg-blue-600 text-white' 
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -425,7 +472,7 @@ const CreateProductComponent = ({ onClose }) => {
                       </button>
                       <button 
                         onClick={() => setSelectedActivityType('Shared')}
-                        className={`px-6 py-3 rounded-full font-medium transition-colors ${
+                        className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                           selectedActivityType === 'Shared' 
                             ? 'bg-blue-600 text-white' 
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -444,10 +491,10 @@ const CreateProductComponent = ({ onClose }) => {
                 <p className="text-gray-600 mb-4 text-sm">Select the language your tour guide will use during the trip.</p>
                 
                 <div className="space-y-4">
-                  <div className="flex space-x-3">
+                  <div className="flex flex-wrap gap-2">
                     <button 
                       onClick={() => setSelectedLanguage('Arabic')}
-                      className={`px-6 py-3 rounded-full font-medium transition-colors ${
+                      className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                         selectedLanguage === 'Arabic' 
                           ? 'bg-blue-600 text-white' 
                           : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -457,7 +504,7 @@ const CreateProductComponent = ({ onClose }) => {
                     </button>
                     <button 
                       onClick={() => setSelectedLanguage('French')}
-                      className={`px-6 py-3 rounded-full font-medium transition-colors ${
+                      className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                         selectedLanguage === 'French' 
                           ? 'bg-blue-600 text-white' 
                           : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -467,7 +514,7 @@ const CreateProductComponent = ({ onClose }) => {
                     </button>
                     <button 
                       onClick={() => setSelectedLanguage('English')}
-                      className={`px-6 py-3 rounded-full font-medium transition-colors ${
+                      className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                         selectedLanguage === 'English' 
                           ? 'bg-blue-600 text-white' 
                           : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -483,9 +530,11 @@ const CreateProductComponent = ({ onClose }) => {
                       onChange={(e) => setSelectedLanguage(e.target.value)}
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
                     >
+                      <option value="Select Language">Select Language</option>
                       <option value="English">English</option>
+                      <option value="Mandarin Chinese">Mandarin Chinese</option>
+                      <option value="Hindi">Hindi</option>
                       <option value="Arabic">Arabic</option>
-                      <option value="French">French</option>
                     </select>
                     <FiChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                   </div>
@@ -499,14 +548,25 @@ const CreateProductComponent = ({ onClose }) => {
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Accessibility & Comfort</h3>
                 <div className="space-y-4">
-                  {['Wheelchair', 'Service Animals', 'Infant Seat', 'Stroller'].map((item) => (
-                    <div key={item} className="flex items-center justify-between">
-                      <span className="text-gray-700 font-medium">{item}</span>
-                      <div className="relative inline-block w-12 h-6">
-                        <input type="checkbox" className="sr-only" defaultChecked />
-                        <div className="w-12 h-6 bg-blue-600 rounded-full shadow-inner"></div>
-                        <div className="absolute w-5 h-5 bg-white rounded-full shadow top-0.5 right-0.5 transition-transform"></div>
-                      </div>
+                  {[
+                    { label: 'Wheelchair', key: 'wheelchair' },
+                    { label: 'Service Animals', key: 'serviceAnimals' },
+                    { label: 'Infant Seat', key: 'infantSeat' },
+                    { label: 'Stroller', key: 'stroller' }
+                  ].map((item) => (
+                    <div key={item.key} className="flex items-center justify-between">
+                      <span className="text-gray-700 font-medium">{item.label}</span>
+                      <button
+                        onClick={() => toggleAccessibility(item.key)}
+                        className="relative w-10 h-5 focus:outline-none flex-shrink-0"
+                      >
+                        <div className={`w-10 h-5 rounded-full shadow-inner transition-colors ${
+                          accessibilityToggles[item.key] ? 'bg-blue-600' : 'bg-gray-300'
+                        }`}></div>
+                        <div className={`absolute w-4 h-4 bg-white rounded-full shadow top-0.5 transition-transform ${
+                          accessibilityToggles[item.key] ? 'translate-x-5' : 'translate-x-0.5'
+                        }`}></div>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -522,9 +582,13 @@ const CreateProductComponent = ({ onClose }) => {
                   <div className="relative">
                     <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
                       <option>Camera</option>
-                      <option>Sunscreen</option>
-                      <option>Water Bottle</option>
-                      <option>Comfortable Shoes</option>
+                      <option>Walking Shoes</option>
+                      <option>Weather Suitable Clothes</option>
+                      <option>Umbrella or Raincoat</option>
+                      <option>Camera/Smart Phone</option>
+                      <option>Reusable Water Bottle</option>
+                      <option>Snacks & Light Foods</option>
+                      <option>Power Bank</option>
                     </select>
                     <FiChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                   </div>
@@ -546,33 +610,354 @@ const CreateProductComponent = ({ onClose }) => {
             </div>
           </div>
         );
-      case 5:
-        return (
+       case 6:
+         return (
+           <div>
+             {/* Steps Indicator */}
+             <div className="flex items-center justify-center mb-8">
+               <div className="flex items-center space-x-2">
+                 {[1, 2, 3, 4, 5, 6].map((s, index) => (
+                   <React.Fragment key={s}>
+                     <div
+                       className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
+                         ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
+                     >
+                       {s < step ? <FiCheckCircle size={16} /> : s}
+                     </div>
+                     {index < 5 && (
+                       <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
+                     )}
+                   </React.Fragment>
+                 ))}
+               </div>
+             </div>
+
+             {/* Header Section */}
+             <div className="flex justify-between items-start mb-8">
+               <div>
+                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Set Pick-up & Drop-off locations</h2>
+                 <p className="text-gray-600">Select where you want to be picked-up and dropped-off for you activity</p>
+               </div>
+               <div className="relative">
+                 <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50">
+                   <span className="text-gray-900">Select Locations</span>
+                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                   </svg>
+                 </button>
+               </div>
+             </div>
+
+             {/* Pick-up Locations Section */}
+             <div className="mb-8">
+               <div className="flex items-center mb-4">
+                 <svg className="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                 </svg>
+                 <h3 className="text-lg font-bold text-gray-900">Pick-up locations</h3>
+               </div>
+               
+               {/* Search Field */}
+               <div className="relative mb-4">
+                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                   </svg>
+                 </div>
+                 <input
+                   type="text"
+                   placeholder="Search or enter pick-up locations"
+                   className="w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 />
+                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                   </svg>
+                 </div>
+               </div>
+
+               {/* Map Component */}
+               <div className="relative bg-gray-100 border border-gray-300 rounded-lg h-64 mb-4">
+                 <div className="absolute inset-0 flex items-center justify-center">
+                   <div className="text-center">
+                     <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                       <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                       </svg>
+                     </div>
+                     <p className="text-gray-600">Map View</p>
+                     <p className="text-sm text-gray-500">Tokyo area highlighted</p>
+                   </div>
+                 </div>
+                 
+                 {/* Map Controls */}
+                 <div className="absolute top-4 right-4 flex flex-col space-y-2">
+                   <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center">
+                     <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                     </svg>
+                   </button>
+                   <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center">
+                     <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
+                     </svg>
+                   </button>
+                   <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center">
+                     <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                     </svg>
+                   </button>
+                 </div>
+
+                 {/* Floating Box */}
+                 <div className="absolute top-4 left-4 bg-white border border-blue-300 rounded-lg p-3 max-w-xs">
+                   <p className="text-sm text-gray-700">Drag to choose the area you wants to deal</p>
+                 </div>
+               </div>
+
+               <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium">
+                 Add another area
+               </button>
+             </div>
+
+             {/* Use Same Pick-up Toggle */}
+             <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
+               <div className="flex items-center justify-between">
+                 <div>
+                   <h3 className="text-lg font-bold text-gray-900 mb-1">Use same pick-up location for drop-off</h3>
+                   <p className="text-sm text-gray-600">We will detect your location automatically</p>
+                 </div>
+                 <div className="relative">
+                   <input type="checkbox" className="sr-only" defaultChecked />
+                   <div className="w-12 h-6 bg-blue-600 rounded-full shadow-inner">
+                     <div className="w-5 h-5 bg-white rounded-full shadow transform translate-x-6 transition-transform"></div>
+                   </div>
+                 </div>
+               </div>
+             </div>
+
+             {/* Drop-off Locations Section */}
+             <div className="mb-8">
+               <div className="flex items-center mb-4">
+                 <svg className="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                 </svg>
+                 <h3 className="text-lg font-bold text-gray-900">Drop-off locations</h3>
+               </div>
+               
+               {/* Search Field */}
+               <div className="relative">
+                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                   </svg>
+                 </div>
+                 <input
+                   type="text"
+                   placeholder="Search or enters drop-off locations"
+                   className="w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 />
+                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                   </svg>
+                 </div>
+               </div>
+             </div>
+
+             {/* Pick-up Time Section */}
+             <div className="mb-8">
+               <div className="flex items-center mb-4">
+                 <svg className="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                 </svg>
+                 <h3 className="text-lg font-bold text-gray-900">Pick-up time</h3>
+               </div>
+               
+               <p className="text-gray-600 mb-4">Please specify the exact time you will be available to pick up your customer from the designated location.</p>
+               
+               <div className="flex justify-between items-center mb-6">
+                 <div className="flex items-center space-x-2">
+                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                   </svg>
+                   <span className="text-gray-900 font-medium">Starting date: 01 Oct</span>
+                 </div>
+               </div>
+
+               {/* Time Input Section */}
+               <div className="grid grid-cols-2 gap-6 mb-6">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-900 mb-2">Time to Pick-up</label>
+                   <div className="flex space-x-2">
+                     <input
+                       type="text"
+                       defaultValue="06"
+                       className="w-16 px-3 py-2 bg-white border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                     />
+                     <span className="flex items-center text-gray-500">:</span>
+                     <input
+                       type="text"
+                       defaultValue="00"
+                       className="w-16 px-3 py-2 bg-white border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                     />
+                     <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                       Add new time
+                     </button>
+                   </div>
+                 </div>
+                 
+                 <div className="flex items-end">
+                   <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                     Select Vehicle
+                   </button>
+                 </div>
+               </div>
+
+               {/* Checkbox and Week Days */}
+               <div className="flex items-center space-x-4 mb-6">
+                 <label className="flex items-center">
+                   <input type="checkbox" className="mr-2" />
+                   <span className="text-sm text-gray-700">Apply the same for all days</span>
+                 </label>
+                 
+                 <div className="relative">
+                   <select className="px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-8">
+                     <option>week days</option>
+                     <option>Monday</option>
+                     <option>Tuesday</option>
+                     <option>Wednesday</option>
+                     <option>Thursday</option>
+                     <option>Friday</option>
+                     <option>Saturday</option>
+                     <option>Sunday</option>
+                   </select>
+                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                     </svg>
+                   </div>
+                 </div>
+               </div>
+
+               {/* Time Slots Grid */}
+               <div className="space-y-4">
+                 {/* Monday */}
+                 <div>
+                   <h4 className="text-sm font-medium text-gray-900 mb-2">Monday</h4>
+                   <div className="flex flex-wrap gap-2">
+                     {['06 : 00', '06 : 30', '07 : 00', '07 : 30', '08 : 00', '08 : 30', '09 : 00', '09 : 30', '10 : 00', '10 : 30', '11 : 00', '11 : 30', '12 : 00', '12 : 30', '13 : 00'].map((time, index) => (
+                       <div key={index} className="flex items-center bg-gray-100 rounded-full px-3 py-1 text-sm">
+                         <span className="text-gray-700 mr-2">{time}</span>
+                         <button className="text-gray-400 hover:text-red-500">
+                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                           </svg>
+                         </button>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+
+                 {/* Tuesday */}
+                 <div>
+                   <h4 className="text-sm font-medium text-gray-900 mb-2">Tuesday</h4>
+                   <div className="flex flex-wrap gap-2">
+                     {['06 : 00', '06 : 30', '07 : 00', '07 : 30', '08 : 00', '08 : 30', '09 : 00', '09 : 30', '10 : 00', '10 : 30', '11 : 00', '11 : 30', '12 : 00', '12 : 30', '13 : 00'].map((time, index) => (
+                       <div key={index} className="flex items-center bg-gray-100 rounded-full px-3 py-1 text-sm">
+                         <span className="text-gray-700 mr-2">{time}</span>
+                         <button className="text-gray-400 hover:text-red-500">
+                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                           </svg>
+                         </button>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               </div>
+
+               {/* Auto Intervals Section */}
+               <div className="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-6">
+                 <h4 className="text-lg font-bold text-gray-900 mb-4">Auto Intervals of Time</h4>
+                 <div className="grid grid-cols-3 gap-6">
+                   <div>
+                     <label className="block text-sm font-medium text-gray-900 mb-2">Starting Time</label>
+                     <input
+                       type="text"
+                       defaultValue="06 : 00"
+                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                     />
+                   </div>
+                   <div>
+                     <label className="block text-sm font-medium text-gray-900 mb-2">Ending Time</label>
+                     <input
+                       type="text"
+                       defaultValue="20 : 30"
+                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                     />
+                   </div>
+                   <div>
+                     <label className="block text-sm font-medium text-gray-900 mb-2">Duration between the time in minutes</label>
+                     <input
+                       type="text"
+                       defaultValue="00 : 30"
+                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                     />
+                   </div>
+                 </div>
+                 <p className="text-sm text-gray-600 mt-3">You can add starting and ending time with the auto intervals of time.</p>
+               </div>
+             </div>
+
+             {/* Footer Buttons */}
+             <div className="flex justify-between pt-8 border-t border-gray-200">
+               <button className="px-6 py-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+                 Cancel
+               </button>
+               <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                 Confirm Location & Time
+               </button>
+             </div>
+           </div>
+         );
+       case 5:
+         return (
           <div>
             {/* Steps Indicator */}
             <div className="flex items-center justify-center mb-8">
               <div className="flex items-center space-x-2">
-                {[1, 2, 3, 4, 5].map((s, index) => (
+                {[1, 2, 3, 4, 5, 6].map((s, index) => (
                   <React.Fragment key={s}>
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                        ${s === step ? 'bg-blue-600 text-white' : s < step ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
+                        ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
                     >
                       {s < step ? <FiCheckCircle size={16} /> : s}
                     </div>
-                    {index < 4 && (
-                      <div className={`w-8 h-0.5 border-t-2 border-dashed ${s < step ? 'border-green-500' : 'border-gray-300'}`}></div>
+                    {index < 5 && (
+                      <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
                     )}
                   </React.Fragment>
                 ))}
               </div>
             </div>
 
-            <h2 className="text-2xl font-bold text-black mb-4">Vehicle & Pricing Details</h2>
+            {/* Information Banner */}
+            <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 mb-6 flex items-start">
+              <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                <span className="text-white text-xs font-bold">!</span>
+              </div>
+              <p className="text-gray-900 text-sm">Fill in the details to set up your option</p>
+            </div>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Vehicle & Pricing</h2>
             
-            <div className="space-y-4">
+            <div className="space-y-8">
+              {/* Title Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Title to your Option</label>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Title to your Option</h3>
                 <input
                   type="text"
                   defaultValue="Mount Fuji tour by private car"
@@ -580,26 +965,271 @@ const CreateProductComponent = ({ onClose }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">Transportation Type</label>
-                  <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Select Type</option>
-                    <option value="car">Car</option>
-                    <option value="van">Van</option>
-                    <option value="bus">Bus</option>
-                    <option value="train">Train</option>
-                  </select>
+              {/* Vehicle Details Grid */}
+              <div>
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  {/* Row 1 */}
+                   <div className="relative">
+                     <label className="block text-sm font-medium text-gray-900 mb-2">Transportation Type</label>
+                     <select 
+                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                       value={selectedVehicleType}
+                       onChange={(e) => handleVehicleTypeChange(e.target.value)}
+                     >
+                       <option value="">Select Vehicle</option>
+                       <option value="van">Van</option>
+                       <option value="car">Car</option>
+                       <option value="bus">Bus</option>
+                     </select>
+                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
+                     </div>
+                   </div>
+                  
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Make & Variant</label>
+                    <select 
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                      value={selectedVehicleModel}
+                      onChange={(e) => setSelectedVehicleModel(e.target.value)}
+                      disabled={!selectedVehicleType}
+                    >
+                      <option value="">Select Variant</option>
+                      {getVehicleModels().map((model) => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </select>
+                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
+                     </div>
+                  </div>
+                  
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Model of vehicle (optional)</label>
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                      <option value="2008">2008</option>
+                      <option value="2009">2009</option>
+                      <option value="2012">2012</option>
+                      <option value="2014">2014</option>
+                      <option value="2018">2018</option>
+                      <option value="2020">2020</option>
+                    </select>
+                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
+                     </div>
+                  </div>
                 </div>
 
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  {/* Row 2 */}
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Vehicle Attributes</label>
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                      <option>Select Attributes</option>
+                      <option>Comfort 1.2x</option>
+                      <option>Economy 1x</option>
+                      <option>Premium 1.5x</option>
+                      <option>Automatic Transmission 1.1x</option>
+                      <option>Manual Transmission 1.1x</option>
+                      <option>Hybrid 1.3x</option>
+                      <option>Electric 1.4x</option>
+                    </select>
+                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
+                     </div>
+                  </div>
+                  
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Number of travellers</label>
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                      <option>03</option>
+                      <option>01</option>
+                      <option>02</option>
+                      <option>04</option>
+                    </select>
+                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
+                     </div>
+                    <div className="flex items-start mt-2">
+                      <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
+                        <span className="text-white text-xs font-bold">!</span>
+                      </div>
+                      <p className="text-sm text-gray-600">Choose the number of traveler which will be best for Trip.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Currency</label>
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                      <option>Currency</option>
+                      <option>$ US Dollar</option>
+                      <option>€ Euro</option>
+                      <option>¥ Japanese Yen</option>
+                      <option>Rs Pakistani Rupee</option>
+                    </select>
+                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
+                     </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  {/* Row 3 */}
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Pricing Type</label>
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                      <option>Select Type</option>
+                      <option>Per Group</option>
+                      <option>Per Person</option>
+                      <option>Shared</option>
+                      <option>Hourly Rate</option>
+                    </select>
+                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
+                     </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Enter the amount of your product</label>
+                    <input
+                      type="text"
+                      placeholder="Enter Amount"
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col justify-end">
+                    <div className="text-sm text-gray-600 mb-1">
+                      <p>20% Commission will charge per product according to your vehicle</p>
+                      <p className="font-semibold">$40 You will receive after commission</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Duration and Description */}
+              <div className="grid grid-cols-2 gap-6">
+                 <div className="relative">
+                   <label className="block text-sm font-medium text-gray-900 mb-2">Total duration</label>
+                   <p className="text-sm text-gray-600 mb-3">Specify how long the car will be available for your trip.</p>
+                   <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                     <option>8h</option>
+                     <option>1h</option>
+                     <option>2h</option>
+                     <option>3h</option>
+                     <option>4h</option>
+                     <option>5h</option>
+                     <option>6h</option>
+                     <option>7h</option>
+                     <option>9h</option>
+                     <option>10h</option>
+                     <option>11h</option>
+                     <option>12h</option>
+                     <option>13h</option>
+                     <option>14h</option>
+                     <option>15h</option>
+                     <option>16h</option>
+                     <option>17h</option>
+                     <option>18h</option>
+                   </select>
+                   <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                     </svg>
+                   </div>
+                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">Vehicle Attributes</label>
-                  <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Select Attributes</option>
-                    <option value="luxury">Luxury</option>
-                    <option value="standard">Standard</option>
-                    <option value="economy">Economy</option>
-                  </select>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
+                  <textarea
+                    defaultValue="The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable."
+                    rows="4"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button className="mt-3 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">
+                    Save
+                  </button>
+                </div>
+              </div>
+
+              {/* Existing Vehicle Options */}
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-gray-900">Existing Vehicle Options</h3>
+                
+                {/* Benz A-Class */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-bold text-gray-900 mb-2">Benz A-Class</h4>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
+                        <span>Luxury Premium</span>
+                        <span>2008</span>
+                        <span>Best for upto 03</span>
+                        <span>Approximate time 04h</span>
+                      </div>
+                      <p className="text-sm text-gray-700">
+                        The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable.
+                      </p>
+                    </div>
+                    <div className="flex space-x-2 ml-4">
+                      <button className="p-2 text-gray-400 hover:text-gray-600">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button className="p-2 text-gray-400 hover:text-gray-600">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coster J3-400 */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-bold text-gray-900 mb-2">Coster J3-400</h4>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
+                        <span>Comfort 1.2x</span>
+                        <span>2008</span>
+                        <span>Best for upto 03</span>
+                        <span>Approximate time 04h</span>
+                      </div>
+                      <p className="text-sm text-gray-700">
+                        The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable.
+                      </p>
+                    </div>
+                    <div className="flex space-x-2 ml-4">
+                      <button className="p-2 text-gray-400 hover:text-gray-600">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button className="p-2 text-gray-400 hover:text-gray-600">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -652,27 +1282,28 @@ const CreateProductComponent = ({ onClose }) => {
                  step === 2 ? 'Add highlights & Description' :
                  step === 3 ? 'Add Photos' :
                  step === 4 ? 'Trip Details' :
-                 step === 5 ? 'Vehicle & Pricing' : 'Create your Product'}
+                 step === 5 ? 'Vehicle & Pricing' :
+                 step === 6 ? 'Pick-up & Drop-off' : 'Create your Product'}
               </h1>
             </div>
             
             {/* Progress Steps - Vertical List - Centered */}
             <div className="flex-1 flex items-center justify-center">
-              <div className="flex flex-col items-center space-y-8">
-                {[1, 2, 3, 4].map((stepNumber, index) => (
+              <div className="flex flex-col items-center space-y-6">
+                {[1, 2, 3, 4, 5, 6].map((stepNumber, index) => (
                   <div key={stepNumber} className="flex flex-col items-center">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-                        ${stepNumber === step 
-                          ? 'bg-blue-600 text-white' 
-                          : stepNumber < step 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-white border-2 border-gray-800 text-gray-800'}`}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-2
+                        ${stepNumber === step
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : stepNumber < step
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white border-gray-800 text-gray-800'}`}
                     >
                       {stepNumber < step ? <FiCheckCircle size={16} /> : stepNumber}
                     </div>
-                    {index < 3 && (
-                      <div className={`w-0.5 h-8 mt-2 ${stepNumber < step ? 'bg-blue-600' : 'bg-gray-800'}`}></div>
+                    {index < 5 && (
+                      <div className={`w-0.5 h-6 mt-2 ${stepNumber < step ? 'bg-blue-600' : 'bg-gray-800'}`}></div>
                     )}
                   </div>
                 ))}
@@ -712,13 +1343,13 @@ const CreateProductComponent = ({ onClose }) => {
               </button>
               
               <button
-                onClick={step < 5 ? nextStep : () => {
+                onClick={step < 6 ? nextStep : () => {
                   alert('Product created successfully!');
                   onClose();
                 }}
                 className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                {step < 5 ? 'Continue' : 'Create Product'}
+                {step < 6 ? 'Continue' : 'Create Product'}
                 <FiChevronRight className="ml-2" size={20} />
               </button>
             </div>
