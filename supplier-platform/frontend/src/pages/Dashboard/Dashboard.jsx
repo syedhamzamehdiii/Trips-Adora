@@ -102,13 +102,13 @@ const Dashboard = () => {
         {/* Dashboard Navigation - positioned inside hero */}
         <div className="absolute top-0 left-0 right-0 z-30 px-16 py-8">
           <div className="flex justify-center space-x-16">
-            <button className="text-white font-bold border-b-2 border-white pb-2">
+            <button className="text-black font-bold hover:border-b-2 hover:border-black pb-2 transition-all duration-200">
               Dashboard
             </button>
             <div className="relative" ref={dropdownRef}>
               <button 
                 onClick={() => setShowListingsDropdown(!showListingsDropdown)}
-                className="text-white hover:text-gray-200 font-medium pb-2 flex items-center"
+                className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 flex items-center transition-all duration-200"
               >
                 Listings
                 <FiChevronDown className="ml-1" size={16} />
@@ -116,26 +116,16 @@ const Dashboard = () => {
               
               {/* Listings Dropdown */}
               {showListingsDropdown && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                  <div className="py-3">
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <div className="p-3 space-y-2">
                     <button
                       onClick={() => {
                         setShowListingsDropdown(false);
                         navigate('/products/create');
                       }}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                      className="w-full text-center px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900 font-medium"
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-gray-900 text-sm">Create new product</div>
-                          <div className="text-xs text-gray-500 mt-1">Add a new listing to your portfolio</div>
-                        </div>
-                      </div>
+                      Create new product
                     </button>
                     
                     <button
@@ -143,34 +133,24 @@ const Dashboard = () => {
                         setShowListingsDropdown(false);
                         navigate('/products');
                       }}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                      className="w-full text-center px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900 font-medium"
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-gray-900 text-sm">Active Product listing</div>
-                          <div className="text-xs text-gray-500 mt-1">Manage your existing products</div>
-                        </div>
-                      </div>
+                      Active Product listing
                     </button>
                   </div>
                 </div>
               )}
             </div>
-            <button className="text-white hover:text-gray-200 font-medium pb-2">
+            <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
               Availability
             </button>
-            <button className="text-white hover:text-gray-200 font-medium pb-2">
+            <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
               Bookings
             </button>
-            <button className="text-white hover:text-gray-200 font-medium pb-2">
+            <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
               Insights
             </button>
-            <button className="text-white hover:text-gray-200 font-medium pb-2">
+            <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
               Finance
             </button>
           </div>
@@ -181,19 +161,21 @@ const Dashboard = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             <div className="relative">
               {/* Text content positioned to overlap image */}
-              <div className="absolute left-0 top-16 z-30 max-w-4xl">
+              <div className="absolute left-0 top-28 z-30 max-w-2xl">
                 <div className="space-y-12">
                   <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-800 leading-tight drop-shadow-lg" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>
-                    Grow Your Business with
+                    Grow Your
+                    <br />
+                    Business with
                 </h1>
-                  <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight drop-shadow-2xl" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                  <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight drop-shadow-2xl whitespace-nowrap" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
                     THE NEW HORIZON
                   </h2>
               </div>
             </div>
 
               {/* Featured unblurred image positioned on the right */}
-              <div className="absolute right-80 top-8 z-20">
+              <div className="absolute right-10 top-8 z-20">
                 <div className="relative">
                   {/* Rounded corner frame for the image */}
                   <div className="w-80 h-96 lg:w-96 lg:h-[500px] rounded-2xl overflow-hidden shadow-2xl border-4 border-white/30 bg-white/20">
