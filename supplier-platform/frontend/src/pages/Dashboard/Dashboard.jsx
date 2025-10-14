@@ -2,10 +2,12 @@ import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import CreateProductComponent from '@/components/products/CreateProductComponent';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
 
@@ -121,7 +123,7 @@ const Dashboard = () => {
                     <button
                       onClick={() => {
                         setShowListingsDropdown(false);
-                        navigate('/products/create');
+                        setShowCreateProduct(true);
                       }}
                       className="w-full text-center px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900 font-medium"
                     >
@@ -606,6 +608,11 @@ const Dashboard = () => {
           </div>
         </div>
       </footer>
+
+      {/* Create Product Component */}
+      {showCreateProduct && (
+        <CreateProductComponent onClose={() => setShowCreateProduct(false)} />
+      )}
 
     </div>
   );

@@ -1,175 +1,465 @@
-import React from 'react';
-import { FiPlus, FiEdit, FiEye, FiTrash2, FiChevronDown } from 'react-icons/fi';
+import React, { useState, useEffect, useRef } from 'react';
+import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, FiMoreVertical } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 
 const Products = () => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('active');
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    productName: '',
+    minRevenue: 50,
+    maxRevenue: 885,
+    status: 'All Status'
+  });
+  const dropdownRefs = useRef({});
+  const filtersRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Close action dropdowns
+      Object.keys(dropdownRefs.current).forEach(key => {
+        if (dropdownRefs.current[key] && !dropdownRefs.current[key].contains(event.target)) {
+          if (openDropdown === parseInt(key)) {
+            setOpenDropdown(null);
+          }
+        }
+      });
+
+      // Close filters modal
+      if (filtersRef.current && !filtersRef.current.contains(event.target)) {
+        setShowFilters(false);
+      }
+    };
+
+    if (openDropdown !== null || showFilters) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openDropdown, showFilters]);
 
   // Mock data for demonstration
   const products = [
     {
       id: 1,
-      title: "Mount Fuji Private Tour",
-      category: "Tour",
-      status: "Active",
-      price: "$299",
-      bookings: 24,
-      image: "/assets/49f555cdd6a046078f7f2a1e0a835fc0c68a4e3a.jpg"
+      name: "Mount Fuji Day Trip",
+      referenceCode: "T-4003",
+      status: "Published",
+      bookings: 243,
+      revenue: "$36,207",
+      creationDate: "15-10-2025",
+      ratings: "4.5/5"
     },
     {
       id: 2,
-      title: "Tokyo City Exploration",
-      category: "Tour", 
-      status: "Draft",
-      price: "$199",
-      bookings: 0,
-      image: "/assets/49f555cdd6a046078f7f2a1e0a835fc0c68a4e3a.jpg"
+      name: "Mount Fuji Day Trip",
+      referenceCode: "T-4003",
+      status: "Rejected",
+      bookings: 243,
+      revenue: "$36,207",
+      creationDate: "15-10-2025",
+      ratings: "4.5/5"
     },
     {
       id: 3,
-      title: "Luxury Hotel Package",
-      category: "Hotel",
-      status: "Active",
-      price: "$499",
-      bookings: 12,
-      image: "/assets/49f555cdd6a046078f7f2a1e0a835fc0c68a4e3a.jpg"
+      name: "Mount Fuji Day Trip",
+      referenceCode: "T-4003",
+      status: "Draft",
+      bookings: 243,
+      revenue: "$36,207",
+      creationDate: "15-10-2025",
+      ratings: "4.5/5"
+    },
+    {
+      id: 4,
+      name: "Mount Fuji Day Trip",
+      referenceCode: "T-4003",
+      status: "Published",
+      bookings: 243,
+      revenue: "$36,207",
+      creationDate: "15-10-2025",
+      ratings: "4.5/5"
     }
   ];
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Active':
-        return 'bg-green-100 text-green-800';
+      case 'Published':
+        return 'text-green-600';
+      case 'Rejected':
+        return 'text-red-600';
       case 'Draft':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Under Review':
-        return 'bg-blue-100 text-blue-800';
+        return 'text-orange-600';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'text-gray-600';
     }
   };
 
+  const toggleProductSelection = (productId) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedProducts.length === products.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(products.map(p => p.id));
+    }
+  };
+
+  const toggleDropdown = (productId) => {
+    setOpenDropdown(openDropdown === productId ? null : productId);
+  };
+
+  const handleAction = (action, productId) => {
+    console.log(`${action} product ${productId}`);
+    setOpenDropdown(null);
+  };
+
+  const toggleFilters = () => {
+    setShowFilters(!showFilters);
+  };
+
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Product Listings</h1>
-              <p className="text-gray-600 mt-1">Manage your active product listings</p>
-            </div>
-            <button
-              onClick={() => navigate('/products/create')}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <FiPlus className="mr-2" size={16} />
-              Create New Product
-            </button>
+          <div className="py-6">
+            <h1 className="text-3xl font-bold text-gray-900">Product Management</h1>
           </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <select className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm">
-                <option>All Categories</option>
-                <option>Tour</option>
-                <option>Hotel</option>
-                <option>Rent a Car</option>
-              </select>
-              <FiChevronDown className="absolute right-2 top-3 text-gray-400" size={16} />
-            </div>
-            
-            <div className="relative">
-              <select className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm">
-                <option>All Status</option>
-                <option>Active</option>
-                <option>Draft</option>
-                <option>Under Review</option>
-              </select>
-              <FiChevronDown className="absolute right-2 top-3 text-gray-400" size={16} />
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-gray-900 mb-2">5</div>
+            <div className="text-sm text-gray-600">Total Products</div>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-gray-900 mb-2">03</div>
+            <div className="text-sm text-gray-600">Active Products</div>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-gray-900 mb-2">1</div>
+            <div className="text-sm text-gray-600">Draft products</div>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-gray-900 mb-2">$71,570</div>
+            <div className="text-sm text-gray-600">Total Revenue</div>
+          </div>
+        </div>
 
-            <div className="flex-1">
+        {/* Tabs */}
+        <div className="flex space-x-2 mb-6">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              activeTab === 'active'
+                ? 'bg-white text-gray-900 border border-gray-300'
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            <FiTrendingUp className="mr-2 text-green-600" size={16} />
+            Active Products
+          </button>
+          <button
+            onClick={() => setActiveTab('drafts')}
+            className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              activeTab === 'drafts'
+                ? 'bg-white text-gray-900 border border-gray-300'
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            <FiFileText className="mr-2 text-green-600" size={16} />
+            Drafts
+            <span className="ml-2 w-5 h-5 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">1</span>
+          </button>
+        </div>
+
+        {/* Search and Actions Bar */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={toggleFilters}
+              className="p-2 text-gray-600 hover:text-gray-900"
+            >
+              <FiFilter size={20} />
+            </button>
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
-                placeholder="Search products..."
-                className="w-full max-w-md bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm"
+                placeholder="Search..."
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Products Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => (
-            <div key={product.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              <div className="h-48 bg-gray-200">
-                <img
-                  src={product.image}
-                  alt={product.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">{product.title}</h3>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(product.status)}`}>
-                    {product.status}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                  <span>{product.category}</span>
-                  <span>{product.bookings} bookings</span>
-                </div>
-                
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xl font-bold text-gray-900">{product.price}</span>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <button className="flex-1 flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    <FiEye className="mr-1" size={14} />
-                    View
-                  </button>
-                  <button className="flex-1 flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    <FiEdit className="mr-1" size={14} />
-                    Edit
-                  </button>
-                  <button className="px-3 py-2 border border-red-300 rounded-lg text-sm text-red-700 hover:bg-red-50 transition-colors">
-                    <FiTrash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+          
+          <div className="flex items-center space-x-4">
+            <button className="p-2 text-gray-600 hover:text-gray-900">
+              <FiRefreshCw size={20} />
+            </button>
+            {selectedProducts.length > 0 && (
+              <>
+                <span className="text-sm text-gray-600">{selectedProducts.length} Selected</span>
+                <button className="flex items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                  <FiArchive className="mr-2" size={16} />
+                  Archive
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Empty State */}
-        {products.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <FiPlus className="text-gray-400" size={32} />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No products yet</h3>
-            <p className="text-gray-600 mb-6">Create your first product listing to get started</p>
-            <button
-              onClick={() => navigate('/products/create')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Create Your First Product
+        {/* Product Table */}
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.length === products.length && products.length > 0}
+                      onChange={toggleSelectAll}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Product Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Reference Code
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Bookings
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Revenue
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Creation Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ratings
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {products.map((product) => (
+                  <tr key={product.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.includes(product.id)}
+                        onChange={() => toggleProductSelection(product.id)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {product.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.referenceCode}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`text-sm font-medium ${getStatusColor(product.status)}`}>
+                        {product.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.bookings}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.revenue}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.creationDate}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.ratings}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 relative">
+                      <div ref={el => dropdownRefs.current[product.id] = el}>
+                        <button 
+                          onClick={() => toggleDropdown(product.id)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <FiMoreVertical size={16} />
+                        </button>
+                        
+                        {/* Action Dropdown */}
+                        {openDropdown === product.id && (
+                          <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                            <div className="py-1">
+                              <button
+                                onClick={() => handleAction('edit', product.id)}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleAction('clone', product.id)}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                Clone
+                              </button>
+                              <button
+                                onClick={() => handleAction('share', product.id)}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                Share product
+                              </button>
+                              <button
+                                onClick={() => handleAction('delete', product.id)}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between mt-6">
+          <div className="flex items-center space-x-2">
+            <button className="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50" disabled>
+              ←
+            </button>
+            <button className="px-3 py-1 bg-blue-600 text-white rounded">1</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">2</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">3</button>
+            <span className="text-gray-600">...</span>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">12</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">13</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">14</button>
+            <button className="p-2 text-gray-600 hover:text-gray-900">
+              →
             </button>
           </div>
-        )}
+          
+          <div className="flex items-center space-x-2">
+            <select className="px-3 py-1 border border-gray-300 rounded text-sm">
+              <option>1 \ 10</option>
+            </select>
+          </div>
+        </div>
       </div>
+
+      {/* Filters Modal */}
+      {showFilters && (
+        <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50">
+          <div 
+            ref={filtersRef}
+            className="bg-white rounded-lg shadow-lg p-6 w-80"
+          >
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Filters</h3>
+            
+            <div className="space-y-4">
+              {/* Product Name */}
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">Product Name</label>
+                <input
+                  type="text"
+                  placeholder="Enter Here"
+                  value={filters.productName}
+                  onChange={(e) => handleFilterChange('productName', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* By Revenue */}
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">By Revenue</label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    value={filters.minRevenue}
+                    onChange={(e) => handleFilterChange('minRevenue', parseInt(e.target.value) || 0)}
+                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                  />
+                  <span className="text-sm text-gray-600">To</span>
+                  <input
+                    type="number"
+                    value={filters.maxRevenue}
+                    onChange={(e) => handleFilterChange('maxRevenue', parseInt(e.target.value) || 0)}
+                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                  />
+                  <span className="text-xs text-gray-500">Max-fixed</span>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">Status</label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="All Status">All Status</option>
+                  <option value="Published">Published</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowFilters(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  console.log('Apply filters:', filters);
+                  setShowFilters(false);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard/Dashboard'
 import CreateProduct from './pages/Products/CreateProduct'
 import Products from './pages/Products/Products'
 import AddItinerary from './pages/Products/AddItinerary'
+import DashboardLayout from './layouts/DashboardLayout'
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth()
@@ -48,7 +49,11 @@ function AppRoutes() {
         />
         <Route 
           path="/products" 
-          element={isAuthenticated ? <Products /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? (
+            <DashboardLayout>
+              <Products />
+            </DashboardLayout>
+          ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/products/create" 
@@ -56,7 +61,11 @@ function AppRoutes() {
         />
         <Route 
           path="/products/add-itinerary" 
-          element={isAuthenticated ? <AddItinerary /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? (
+            <DashboardLayout>
+              <AddItinerary />
+            </DashboardLayout>
+          ) : <Navigate to="/login" />} 
         />
         
         {/* Default Route */}
