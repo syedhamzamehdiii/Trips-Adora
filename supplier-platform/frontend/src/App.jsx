@@ -46,6 +46,10 @@ function AppRoutes() {
           element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} 
         />
         <Route 
+          path="/products" 
+          element={isAuthenticated ? <div className="p-8"><h1 className="text-2xl font-bold">Active Product Listings</h1><p>Your active product listings will be displayed here.</p></div> : <Navigate to="/login" />} 
+        />
+        <Route 
           path="/products/create" 
           element={isAuthenticated ? <CreateProduct /> : <Navigate to="/login" />} 
         />

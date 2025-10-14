@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import { FiCheck, FiTrendingUp, FiHelpCircle } from 'react-icons/fi';
+import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import CreateProductModal from '@/components/products/CreateProductModal';
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
+  const [showCreateProductModal, setShowCreateProductModal] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-white">
@@ -56,53 +58,64 @@ const Dashboard = () => {
       </div>
 
       {/* Secondary Navigation Bar - Dashboard Navigation */}
-      <div className="bg-gray-100 border-b border-gray-200">
+      <div className="bg-gray-100 border-b border-gray-200 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8 py-3">
             <a href="#" className="text-gray-900 font-medium relative">
               Dashboard
               <span className="absolute -bottom-3 left-0 w-full h-0.5 bg-[#1d236b]"></span>
             </a>
+            
+            {/* Listings Dropdown */}
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowListingsDropdown(!showListingsDropdown)}
                 className="text-gray-700 hover:text-gray-900 font-medium flex items-center space-x-1"
               >
                 <span>Listings</span>
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
+                <FiChevronDown className={`transition-transform ${showListingsDropdown ? 'rotate-180' : ''}`} size={16} />
               </button>
-                  {showListingsDropdown && (
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                      <button
-                        onClick={() => {
-                          setShowCreateProduct(true);
-                          setShowListingsDropdown(false);
-                        }}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-medium border-b border-gray-100"
-                      >
-                        Create new product
-                      </button>
-                      <button
-                        onClick={() => setShowListingsDropdown(false)}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-medium"
-                      >
-                        Active Product listing
-                      </button>
-                    </div>
-                  )}
+              
+              {/* Dropdown Menu */}
+              {showListingsDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <div className="py-2">
+                    <button
+                      onClick={() => {
+                        setShowListingsDropdown(false);
+                        // Open Create Product Modal
+                        setShowCreateProductModal(true);
+                      }}
+                      className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Create new product
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowListingsDropdown(false);
+                        // Navigate to Active Listings
+                        navigate('/products');
+                      }}
+                      className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Active Product listing
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+            
             <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Availability</a>
             <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Bookings</a>
             <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Insights</a>
             <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Finance</a>
           </nav>
+          
         </div>
       </div>
 
       {/* Hero Section with Blurred Background and Featured Image */}
-      <div className="relative h-[70vh] min-h-[600px] overflow-hidden">
+      <div className="relative h-[70vh] min-h-[800px] overflow-hidden">
         {/* Completely Blurred Background */}
         <div className="absolute inset-0 bg-cover bg-center bg-no-repeat backdrop-blur-xl" 
                 style={{
@@ -133,7 +146,7 @@ const Dashboard = () => {
             </div>
 
               {/* Featured unblurred image positioned on the right */}
-              <div className="absolute right-0 top-8 z-20">
+              <div className="absolute right-80 top-8 z-20">
                 <div className="relative">
                   {/* Rounded corner frame for the image */}
                   <div className="w-80 h-96 lg:w-96 lg:h-[500px] rounded-2xl overflow-hidden shadow-2xl border-4 border-white/30 bg-white/20">
@@ -148,23 +161,22 @@ const Dashboard = () => {
               </div>
 
             </div>
-          </div>
 
-          {/* Right Sidebar positioned within hero section */}
-          <div className="absolute right-0 top-0 w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-6 text-white z-30 h-full">
+            {/* Right Sidebar positioned within hero section */}
+            <div className="absolute right-0 top-0 w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-6 text-white z-50 h-full">
             {/* Available Balance and Profile */}
             <div className="mb-6 bg-white/10 rounded-lg p-4">
               <div className="text-right mb-4">
                 <div className="text-xs text-white/80">Available Balance</div>
                 <div className="text-lg font-bold text-white">$1850</div>
-              </div>
+                      </div>
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
                 <div className="text-sm text-white">ID 00032123</div>
-              </div>
             </div>
+          </div>
 
-            {/* Supplier Mode Toggle */}
+              {/* Supplier Mode Toggle */}
             <div className="mb-6 bg-white/10 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                 <span className="font-medium text-white">Supplier mode</span>
@@ -279,6 +291,7 @@ const Dashboard = () => {
               <span>Help</span>
               </button>
           </div>
+        </div>
 
           {/* Stats Cards Overlay - More visible and with proper blur */}
           <div className="absolute bottom-4 left-0 right-0 z-20">
@@ -395,7 +408,6 @@ const Dashboard = () => {
 
         </div>
       </div>
-
 
       {/* Footer */}
       <footer className="bg-[#1d236b] text-white py-16">
@@ -567,12 +579,10 @@ const Dashboard = () => {
       </footer>
 
       {/* Create Product Modal */}
-      {showCreateProduct && (
-        <CreateProductModal
-          isOpen={showCreateProduct}
-          onClose={() => setShowCreateProduct(false)}
-        />
-      )}
+      <CreateProductModal 
+        isOpen={showCreateProductModal}
+        onClose={() => setShowCreateProductModal(false)}
+      />
     </div>
   );
 };

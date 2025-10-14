@@ -1,5 +1,8 @@
 // Frontend/src/context/AuthContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react'
+import authService from '@/services/authService'
+import googleAuthService from '@/services/googleAuthService'
+import { toast } from 'react-toastify'
 
 const AuthContext = createContext()
 
@@ -16,34 +19,45 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // For development/testing, always start with no user to show login screen first
-    // In production, you would validate the stored token with the backend
-    setUser(null)
-    // Clear any existing tokens for fresh start
-    localStorage.removeItem('access_token')
-    setLoading(false)
+    initializeAuth()
   }, [])
+
+  const initializeAuth = async () => {
+    try {
+      // Initialize Google Auth
+      await googleAuthService.initGoogleAuth()
+      
+      // Check if user is already authenticated
+      if (authService.isAuthenticated()) {
+        try {
+          const userData = await authService.getCurrentUser()
+          setUser(userData)
+        } catch (error) {
+          console.error('Failed to get current user:', error)
+          // Token might be invalid, clear it
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          setUser(null)
+        }
+      }
+    } catch (error) {
+      console.error('Auth initialization error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const login = async (credentials) => {
     try {
-      // Mock login - in real app, this would call your API
-      console.log('Login attempt:', credentials)
+      setLoading(true)
+      const result = await authService.login(credentials)
       
-      // Mock login for now - will connect to real backend later
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Mock successful login
-      const mockUser = {
-        id: 'user_123',
-        email: credentials.email,
-        name: 'Test Supplier',
-        role: 'supplier'
+      if (result.success) {
+        setUser(result.user)
+        return { success: true }
       }
       
-      setUser(mockUser)
-      localStorage.setItem('access_token', 'mock_token_123')
-      
-      return { success: true }
+      throw new Error('Login failed')
     } catch (error) {
       console.error('Login error:', error)
       throw error
@@ -55,21 +69,14 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setLoading(true)
+      const result = await authService.register(userData)
       
-      // Mock registration for now - will connect to real backend later
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const mockUser = {
-        id: 'user_123',
-        email: userData.email,
-        name: userData.fullName,
-        role: 'supplier'
+      if (result.success) {
+        setUser(result.user)
+        return { success: true }
       }
       
-      setUser(mockUser)
-      localStorage.setItem('access_token', 'mock_token_123')
-      
-      return { success: true }
+      throw new Error('Registration failed')
     } catch (error) {
       console.error('Registration error:', error)
       throw error
@@ -80,8 +87,8 @@ export const AuthProvider = ({ children }) => {
 
   const googleLogin = async () => {
     // Use OAuth redirect flow (simpler and more reliable)
-    // Use the current frontend origin for redirect URI
-    const redirectUri = window.location.origin + '/auth/google/callback';
+    // Use the exact redirect URI that's configured in Google Cloud Console
+    const redirectUri = 'http://localhost:5173/auth/google/callback';
     
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${googleAuthService.clientId}&` +
@@ -97,8 +104,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       setLoading(true)
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
+      await authService.logout()
       setUser(null)
     } catch (error) {
       console.error('Logout error:', error)

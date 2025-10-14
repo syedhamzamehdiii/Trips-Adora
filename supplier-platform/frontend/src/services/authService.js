@@ -103,11 +103,24 @@ class AuthService {
       }
     } catch (error) {
       console.error('Registration error:', error)
-      throw new Error(
-        error.response?.data?.detail || 
-        error.response?.data?.message || 
-        'Registration failed. Please try again.'
-      )
+      
+      // Handle validation errors from backend
+      if (error.response?.data?.detail) {
+        const detail = error.response.data.detail
+        
+        // If it's an array of validation errors
+        if (Array.isArray(detail)) {
+          const errorMessages = detail.map(err => err.msg || err.message).join(', ')
+          throw new Error(errorMessages)
+        }
+        
+        // If it's a string
+        if (typeof detail === 'string') {
+          throw new Error(detail)
+        }
+      }
+      
+      throw new Error('Registration failed. Please try again.')
     }
   }
 
@@ -124,26 +137,23 @@ class AuthService {
       return {
         success: true,
         user,
-        token: token
+        token
       }
     } catch (error) {
       console.error('Login error:', error)
       throw new Error(
         error.response?.data?.detail || 
-        error.response?.data?.message || 
         'Login failed. Please check your credentials.'
       )
     }
   }
 
-  // Google login with authorization code
-  async googleLoginWithCode(code, redirectUri) {
+  // Google OAuth login with JWT credential
+  async googleLogin(credential) {
     try {
-      const response = await api.post('/auth/google/callback', {
-        code,
-        redirect_uri: redirectUri
+      const response = await api.post('/auth/google', {
+        credential
       })
-
       const { token, refresh_token, user } = response.data
 
       // Store tokens
@@ -153,11 +163,41 @@ class AuthService {
       return {
         success: true,
         user,
-        token: token
+        token
       }
     } catch (error) {
       console.error('Google login error:', error)
-      throw error
+      throw new Error(
+        error.response?.data?.detail || 
+        'Google login failed. Please try again.'
+      )
+    }
+  }
+
+  // Google OAuth login with authorization code
+  async googleLoginWithCode(code, redirectUri = null) {
+    try {
+      const response = await api.post('/auth/google/callback', {
+        code,
+        redirect_uri: redirectUri || window.location.origin + '/auth/google/callback'
+      })
+      const { token, refresh_token, user } = response.data
+
+      // Store tokens
+      localStorage.setItem('access_token', token)
+      localStorage.setItem('refresh_token', refresh_token)
+
+      return {
+        success: true,
+        user,
+        token
+      }
+    } catch (error) {
+      console.error('Google code exchange error:', error)
+      throw new Error(
+        error.response?.data?.detail || 
+        'Google authentication failed. Please try again.'
+      )
     }
   }
 
@@ -168,9 +208,10 @@ class AuthService {
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      // Clear tokens regardless of API call success
+      // Clear tokens and Google auth
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
+      googleAuthService.signOut()
     }
   }
 
@@ -185,43 +226,26 @@ class AuthService {
     }
   }
 
-  // Check if user is authenticated
-  isAuthenticated() {
-    return !!localStorage.getItem('access_token')
-  }
-
-  // Get access token
-  getAccessToken() {
-    return localStorage.getItem('access_token')
-  }
-
-  // Send verification code
-  async sendVerificationCode(email) {
+  // Refresh token
+  async refreshToken() {
     try {
-      const response = await api.post('/auth/send-verification-code', { email })
-      return response.data
-    } catch (error) {
-      console.error('Send verification code error:', error)
-      throw new Error(
-        error.response?.data?.detail || 
-        error.response?.data?.message || 
-        'Failed to send verification code. Please try again.'
-      )
-    }
-  }
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (!refreshToken) {
+        throw new Error('No refresh token available')
+      }
 
-  // Verify code
-  async verifyCode(email, code) {
-    try {
-      const response = await api.post('/auth/verify-code', { email, code })
-      return response.data
+      const response = await api.post('/auth/refresh', {
+        refresh_token: refreshToken
+      })
+
+      const { access_token, refresh_token } = response.data
+      localStorage.setItem('access_token', access_token)
+      localStorage.setItem('refresh_token', refresh_token)
+
+      return { access_token, refresh_token }
     } catch (error) {
-      console.error('Verify code error:', error)
-      throw new Error(
-        error.response?.data?.detail || 
-        error.response?.data?.message || 
-        'Invalid verification code. Please try again.'
-      )
+      console.error('Token refresh error:', error)
+      throw error
     }
   }
 
@@ -234,8 +258,7 @@ class AuthService {
       console.error('Forgot password error:', error)
       throw new Error(
         error.response?.data?.detail || 
-        error.response?.data?.message || 
-        'Failed to send password reset email. Please try again.'
+        'Failed to send reset email. Please try again.'
       )
     }
   }
@@ -252,12 +275,54 @@ class AuthService {
       console.error('Reset password error:', error)
       throw new Error(
         error.response?.data?.detail || 
-        error.response?.data?.message || 
         'Failed to reset password. Please try again.'
       )
     }
   }
+
+  // Send verification code
+  async sendVerificationCode(email) {
+    try {
+      const response = await api.post('/auth/send-verification-code', { email })
+      return response.data
+    } catch (error) {
+      console.error('Send verification code error:', error)
+      throw new Error(
+        error.response?.data?.detail || 
+        'Failed to send verification code. Please try again.'
+      )
+    }
+  }
+
+  // Verify code
+  async verifyCode(email, code) {
+    try {
+      const response = await api.post('/auth/verify-code', { email, code })
+      return response.data
+    } catch (error) {
+      console.error('Verify code error:', error)
+      throw new Error(
+        error.response?.data?.detail || 
+        'Invalid verification code. Please try again.'
+      )
+    }
+  }
+
+  // Check if user is authenticated
+  isAuthenticated() {
+    const token = localStorage.getItem('access_token')
+    return !!token
+  }
+
+  // Get stored token
+  getToken() {
+    return localStorage.getItem('access_token')
+  }
+
+  // Get stored refresh token
+  getRefreshToken() {
+    return localStorage.getItem('refresh_token')
+  }
 }
 
-const authService = new AuthService()
-export default authService
+export default new AuthService()

@@ -17,7 +17,7 @@ export const config = {
   IS_PRODUCTION: import.meta.env.MODE === 'production',
 }
 
-// Google OAuth configuration - matches actual frontend port
+// Google OAuth configuration
 export const googleConfig = {
   clientId: config.GOOGLE_CLIENT_ID,
   redirectUri: config.GOOGLE_REDIRECT_URI,
@@ -25,17 +25,13 @@ export const googleConfig = {
   authorizedOrigins: [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'https://yourdomain.com',
-    'http://localhost:5173'
+    'https://yourdomain.com'
   ],
   authorizedRedirectUris: [
     'http://localhost:3000',
     'http://localhost:3000/auth/google/callback',
     'http://127.0.0.1:3000',
     'https://yourdomain.com',
-    'https://yourdomain.com/auth/google/callback',
-    'http://localhost:5173/auth/google/callback'
+    'https://yourdomain.com/auth/google/callback'
   ]
 }
-
-export default config

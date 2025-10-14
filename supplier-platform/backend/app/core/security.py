@@ -61,7 +61,7 @@ def decode_token(token: str) -> Optional[Dict[str, Any]]:
         return payload
     except jwt.ExpiredSignatureError:
         return None
-    except jwt.JWTError:
+    except Exception:
         return None
 
 
@@ -89,7 +89,7 @@ def verify_password_reset_token(token: str) -> Optional[str]:
         return decoded_token.get("sub")
     except jwt.ExpiredSignatureError:
         return None
-    except jwt.JWTError:
+    except Exception:
         return None
 
 

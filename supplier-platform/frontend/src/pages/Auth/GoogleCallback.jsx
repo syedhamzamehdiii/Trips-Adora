@@ -2,25 +2,24 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import authService from '@/services/authService';
-import { ROUTES } from '@/utils/constants';
 import { toast } from 'react-toastify';
+import { ROUTES } from '@/utils/constants';
 
 const GoogleCallback = () => {
   const navigate = useNavigate();
   const { updateUser } = useAuth();
 
   useEffect(() => {
-    let isHandled = false;
-    
-    const handleCallback = async () => {
-      if (isHandled) return;
-      isHandled = true;
+      let isHandled = false;
       
-      try {
-        // Get the code from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const error = urlParams.get('error');
+      const handleCallback = async () => {
+        if (isHandled) return;
+        isHandled = true;
+        try {
+          // Get the code from URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const code = urlParams.get('code');
+          const error = urlParams.get('error');
 
         if (error) {
           toast.error('Google authentication was cancelled');
@@ -35,7 +34,7 @@ const GoogleCallback = () => {
         }
 
         // Exchange code for token via backend
-        const response = await authService.googleLoginWithCode(code, 'http://localhost:5177/auth/google/callback');
+        const response = await authService.googleLoginWithCode(code, 'http://localhost:5173/auth/google/callback');
         
         if (response.success) {
           updateUser(response.user);
@@ -60,10 +59,11 @@ const GoogleCallback = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-700">Authenticating with Google...</p>
+        <p className="mt-4 text-gray-600">Completing Google Sign-In...</p>
       </div>
     </div>
   );
 };
 
 export default GoogleCallback;
+

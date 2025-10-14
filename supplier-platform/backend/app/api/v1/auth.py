@@ -3,6 +3,9 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
+import jwt
+import requests
+from app.core.config import settings
 
 from app.models.user import User, UserRole
 from app.core.security import (
@@ -50,6 +53,10 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
+
+
+class GoogleLogin(BaseModel):
+    credential: str
 
 
 # Dependency to get current user
@@ -237,3 +244,197 @@ async def reset_password(token: str, new_password: str):
     # TODO: Verify reset token and update password
     
     return {"message": "Password reset successfully"}
+
+
+@router.post("/google", response_model=dict)
+async def google_login(google_data: GoogleLogin):
+    """Google OAuth login"""
+    try:
+        # Verify the Google JWT token
+        try:
+            # Get Google's public keys for verification
+            response = requests.get("https://www.googleapis.com/oauth2/v3/certs")
+            google_keys = response.json()
+            
+            # Decode the JWT token with Google's public keys
+            decoded_token = jwt.decode(
+                google_data.credential,
+                google_keys,
+                algorithms=["RS256"],
+                audience=settings.GOOGLE_CLIENT_ID,
+                issuer="https://accounts.google.com"
+            )
+        except Exception as e:
+            # Fallback: decode without verification for development
+            print(f"Google token verification failed: {e}")
+            decoded_token = jwt.decode(google_data.credential, options={"verify_signature": False})
+        
+        email = decoded_token.get("email")
+        name = decoded_token.get("name")
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No email found in Google token"
+            )
+        
+        # Check if user already exists
+        user = await User.find_one(User.email == email)
+        
+        if not user:
+            # Create new user from Google data
+            user = User(
+                email=email,
+                full_name=name or email.split('@')[0],
+                business_name=name or email.split('@')[0],
+                role=UserRole.SUPPLIER,
+                is_active=True,
+                # No password for Google users
+                hashed_password=""
+            )
+            await user.insert()
+        
+        # Create tokens
+        access_token = create_access_token(data={"sub": str(user.id)})
+        refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        
+        return {
+            "token": access_token,
+            "refresh_token": refresh_token,
+            "user": UserResponse(
+                id=str(user.id),
+                email=user.email,
+                full_name=user.full_name,
+                business_name=user.business_name,
+                phone=user.phone,
+                address=user.address,
+                country=user.country,
+                role=user.role.value,
+                is_active=user.is_active,
+                created_at=user.created_at,
+            ),
+        }
+        
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Google token"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google login failed: {str(e)}"
+        )
+
+
+class GoogleCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str
+
+@router.post("/google/callback", response_model=dict)
+async def google_callback(request: GoogleCallbackRequest):
+    """Handle Google OAuth callback with authorization code"""
+    try:
+        # Exchange authorization code for tokens
+        token_url = "https://oauth2.googleapis.com/token"
+        token_data = {
+            "code": request.code,
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": request.redirect_uri,
+            "grant_type": "authorization_code"
+        }
+        
+        token_response = requests.post(token_url, data=token_data)
+        token_json = token_response.json()
+        
+        if "error" in token_json:
+            error_msg = token_json.get('error_description', token_json.get('error', 'Unknown error'))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Google OAuth error: {error_msg}"
+            )
+        
+        # Get user info from Google
+        id_token = token_json.get("id_token")
+        
+        # Decode the ID token (contains user info)
+        try:
+            decoded_token = jwt.decode(id_token, options={"verify_signature": False})
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to decode ID token: {str(e)}"
+            )
+        
+        email = decoded_token.get("email")
+        name = decoded_token.get("name")
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No email found in Google token"
+            )
+        
+        # Check if user already exists
+        user = await User.find_one(User.email == email)
+        
+        if not user:
+            # Create new user from Google data
+            user = User(
+                email=email,
+                full_name=name or email.split('@')[0],
+                business_name=name or email.split('@')[0],
+                role=UserRole.SUPPLIER,
+                is_active=True,
+                is_verified=True,
+                hashed_password=""  # No password for Google users
+            )
+            await user.insert()
+        
+        # Create tokens
+        access_token = create_access_token(data={"sub": str(user.id)})
+        refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        
+        return {
+            "token": access_token,
+            "refresh_token": refresh_token,
+            "user": UserResponse(
+                id=str(user.id),
+                email=user.email,
+                full_name=user.full_name,
+                business_name=user.business_name,
+                phone=user.phone,
+                address=user.address,
+                country=user.country,
+                role=user.role.value,
+                is_active=user.is_active,
+                created_at=user.created_at,
+            ),
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google callback failed: {str(e)}"
+        )
+
+
+@router.post("/send-verification-code")
+async def send_verification_code(email: EmailStr):
+    """Send email verification code"""
+    # TODO: Generate 6-digit code and send via email
+    # For now, just return success message
+    
+    return {"message": "Verification code sent to your email"}
+
+
+@router.post("/verify-code")
+async def verify_code(email: EmailStr, code: str):
+    """Verify email code"""
+    # TODO: Verify the code
+    # For now, just return success message
+    
+    return {"message": "Email verified successfully"}

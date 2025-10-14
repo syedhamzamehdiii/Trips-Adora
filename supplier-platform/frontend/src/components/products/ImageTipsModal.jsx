@@ -1,78 +1,76 @@
 import React from 'react';
-import { FiX } from 'react-icons/fi';
+import { FiX, FiCheck, FiXCircle } from 'react-icons/fi';
 
 const ImageTipsModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  const exampleImages = [
-    '/assets/WhatsApp Image 2025-10-13 at 4.52.46 PM (1).jpeg',
-    '/assets/WhatsApp Image 2025-10-13 at 4.52.43 PM (1).jpeg'
-  ];
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Examples of Great Photos</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[70vh] overflow-hidden">
+        {/* Modal Header */}
+        <div className="px-8 py-6 border-b border-gray-200">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Images Tips</h2>
+              <p className="text-gray-600">Upload clean, non-blurry images</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <FiX size={24} />
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Content */}
+        <div className="p-8">
+          <div className="flex space-x-6">
+            {/* Good Example */}
+            <div className="flex-1">
+              <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden mb-3">
+                <img 
+                  src="/assets/WhatsApp Image 2025-10-13 at 4.52.46 PM (1).jpeg" 
+                  alt="Good example - Mount Fuji landscape" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex items-center">
+                <FiCheck className="text-green-500 mr-2" size={20} />
+                <span className="text-gray-700 font-medium">Enjoy the beautiful places</span>
+              </div>
+            </div>
+
+            {/* Bad Example */}
+            <div className="flex-1">
+              <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden mb-3">
+                <img 
+                  src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
+                  alt="Bad example - Blurry torii gate" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex items-center">
+                <FiXCircle className="text-red-500 mr-2" size={20} />
+                <span className="text-gray-700 font-medium">Have fun with water</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="px-8 py-6 border-t border-gray-200 flex justify-between">
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            <FiX size={24} />
+            Back
           </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {exampleImages.map((image, index) => (
-              <div key={index} className="space-y-2">
-                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                  <img
-                    src={image}
-                    alt={`Example ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <p className="text-sm text-gray-600 text-center">
-                  Example {index + 1}: High quality, well-lit photo
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* Tips */}
-          <div className="mt-8 bg-blue-50 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-900 mb-2">Pro Tips:</h3>
-            <ul className="space-y-2 text-sm text-blue-800">
-              <li className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
-                Use natural lighting when possible
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
-                Show different angles and perspectives
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
-                Keep the background clean and uncluttered
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
-                Highlight unique features and details
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end p-6 border-t border-gray-200">
           <button
             onClick={onClose}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Got it!
+            Next
           </button>
         </div>
       </div>
