@@ -1,14 +1,30 @@
 import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CreateProductModal from '@/components/products/CreateProductModal';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
-  const [showCreateProductModal, setShowCreateProductModal] = useState(false);
   const navigate = useNavigate();
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowListingsDropdown(false);
+      }
+    };
+
+    if (showListingsDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showListingsDropdown]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -89,9 +105,62 @@ const Dashboard = () => {
             <button className="text-white font-bold border-b-2 border-white pb-2">
               Dashboard
             </button>
-            <button className="text-white hover:text-gray-200 font-medium pb-2">
-              Listings
-            </button>
+            <div className="relative" ref={dropdownRef}>
+              <button 
+                onClick={() => setShowListingsDropdown(!showListingsDropdown)}
+                className="text-white hover:text-gray-200 font-medium pb-2 flex items-center"
+              >
+                Listings
+                <FiChevronDown className="ml-1" size={16} />
+              </button>
+              
+              {/* Listings Dropdown */}
+              {showListingsDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <div className="py-3">
+                    <button
+                      onClick={() => {
+                        setShowListingsDropdown(false);
+                        navigate('/products/create');
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900 text-sm">Create new product</div>
+                          <div className="text-xs text-gray-500 mt-1">Add a new listing to your portfolio</div>
+                        </div>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setShowListingsDropdown(false);
+                        navigate('/products');
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900 text-sm">Active Product listing</div>
+                          <div className="text-xs text-gray-500 mt-1">Manage your existing products</div>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             <button className="text-white hover:text-gray-200 font-medium pb-2">
               Availability
             </button>
@@ -556,11 +625,6 @@ const Dashboard = () => {
         </div>
       </footer>
 
-      {/* Create Product Modal */}
-      <CreateProductModal 
-        isOpen={showCreateProductModal}
-        onClose={() => setShowCreateProductModal(false)}
-      />
     </div>
   );
 };

@@ -7,6 +7,7 @@ import Register from './pages/Auth/Register'
 import GoogleCallback from './pages/Auth/GoogleCallback'
 import Dashboard from './pages/Dashboard/Dashboard'
 import CreateProduct from './pages/Products/CreateProduct'
+import Products from './pages/Products/Products'
 import AddItinerary from './pages/Products/AddItinerary'
 
 function AppRoutes() {
@@ -47,7 +48,7 @@ function AppRoutes() {
         />
         <Route 
           path="/products" 
-          element={isAuthenticated ? <div className="p-8"><h1 className="text-2xl font-bold">Active Product Listings</h1><p>Your active product listings will be displayed here.</p></div> : <Navigate to="/login" />} 
+          element={isAuthenticated ? <Products /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/products/create" 
