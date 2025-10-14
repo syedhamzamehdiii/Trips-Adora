@@ -9,25 +9,35 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+  const notificationRef = useRef(null);
+  const languageRef = useRef(null);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowListingsDropdown(false);
       }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+      if (languageRef.current && !languageRef.current.contains(event.target)) {
+        setShowLanguageDropdown(false);
+      }
     };
 
-    if (showListingsDropdown) {
+    if (showListingsDropdown || showNotifications || showLanguageDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showListingsDropdown]);
+  }, [showListingsDropdown, showNotifications, showLanguageDropdown]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -57,19 +67,95 @@ const Dashboard = () => {
             {/* Right side - Profile Section */}
             <div className="flex items-center space-x-4">
               {/* Notification Bell */}
-              <div className="relative">
-                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 12a8 8 0 018-8V4a10 10 0 00-10 10h2z" />
+              <div className="relative" ref={notificationRef}>
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                </button>
+                
+                {/* Notifications Dropdown */}
+                {showNotifications && (
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="p-4">
+                      <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
+                      <div className="space-y-3">
+                        <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">New booking received</p>
+                            <p className="text-xs text-gray-600">Mount Fuji tour - 2 guests</p>
+                            <p className="text-xs text-gray-500">2 minutes ago</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Payment received</p>
+                            <p className="text-xs text-gray-600">$240 for Tokyo City Tour</p>
+                            <p className="text-xs text-gray-500">1 hour ago</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Review received</p>
+                            <p className="text-xs text-gray-600">5 stars for Kyoto Temple Tour</p>
+                            <p className="text-xs text-gray-500">3 hours ago</p>
+                          </div>
+                        </div>
+                      </div>
+                      <button className="w-full mt-3 text-center text-sm text-blue-600 hover:text-blue-800 font-medium">
+                        View all notifications
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Language Dropdown */}
-              <div className="flex items-center space-x-2 cursor-pointer">
-                <span className="text-sm text-gray-700">EN</span>
-                <svg className="w-3 h-3 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
+              <div className="relative" ref={languageRef}>
+                <button 
+                  onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                  className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                  <span className="text-sm">EN</span>
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
+                </button>
+                
+                {/* Language Dropdown Menu */}
+                {showLanguageDropdown && (
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="py-2">
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">EN</span>
+                        <span>English</span>
+                      </button>
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">ES</span>
+                        <span>Español</span>
+                      </button>
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">FR</span>
+                        <span>Français</span>
+                      </button>
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">DE</span>
+                        <span>Deutsch</span>
+                      </button>
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">JA</span>
+                        <span>日本語</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -206,67 +292,89 @@ const Dashboard = () => {
         </div>
 
         {/* Account Stability Chart */}
-        <div className="mb-6 bg-white/10 rounded-xl border border-amber-300/30 p-5">
+        <div className="mb-6 bg-white/10 rounded-xl border border-blue-300/30 p-5">
           <h3 className="font-semibold mb-5 text-white text-sm text-center">Account Stability</h3>
-            <div className="flex items-center justify-between">
-              <div className="relative w-16 h-16">
-                <svg className="w-16 h-16" viewBox="0 0 64 32">
-                  {/* Background semi-circle */}
-                  <path d="M 8 28 A 24 24 0 0 1 56 28" 
-                        stroke="rgba(255,255,255,0.1)" 
-                        strokeWidth="4" 
-                        fill="transparent" />
-                  
-                  {/* Green segment (70%) - largest */}
-                  <path d="M 8 28 A 24 24 0 0 1 32 8" 
-                        stroke="#22c55e" 
-                        strokeWidth="4" 
-                        fill="transparent" 
-                        strokeLinecap="round" />
-                  
-                  {/* Orange segments (12%) - multiple small segments */}
-                  <path d="M 32 8 A 24 24 0 0 1 44 12" 
-                        stroke="#f97316" 
-                        strokeWidth="4" 
-                        fill="transparent" 
-                        strokeLinecap="round" />
-                  
-                  {/* Red segment (18%) - cancellation */}
-                  <path d="M 44 12 A 24 24 0 0 1 56 28" 
-                        stroke="rgba(255,255,255,0.8)" 
-                        strokeWidth="4" 
-                        fill="transparent" 
-                        strokeLinecap="round" />
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col items-center">
+              <div className="relative" style={{ width: '80px', height: '50px' }}>
+                <svg width="80" height="50" viewBox="0 0 120 70">
+                  {(() => {
+                    const totalBars = 24;
+                    const positiveCount = Math.round(totalBars * 0.70); // 70%
+                    const cancellationCount = Math.round(totalBars * 0.18); // 18%
+                    const negativeCount = totalBars - positiveCount - cancellationCount; // 12%
+                    const bars = [];
+                    
+                    for (let i = 0; i < totalBars; i++) {
+                      const angle = 180 - (i / (totalBars - 1)) * 180;
+                      const angleRad = (angle * Math.PI) / 180;
+                      
+                      let color;
+                      if (i < positiveCount) {
+                        color = '#22c55e'; // Green
+                      } else if (i < positiveCount + cancellationCount) {
+                        color = '#eab308'; // Yellow
+                      } else {
+                        color = '#ef4444'; // Red
+                      }
+                      
+                      const centerX = 60;
+                      const centerY = 65;
+                      const innerRadius = 25;
+                      const outerRadius = 50;
+                      
+                      const x1 = centerX + innerRadius * Math.cos(angleRad);
+                      const y1 = centerY - innerRadius * Math.sin(angleRad);
+                      const x2 = centerX + outerRadius * Math.cos(angleRad);
+                      const y2 = centerY - outerRadius * Math.sin(angleRad);
+                      
+                      bars.push(
+                        <line
+                          key={i}
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke={color}
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                        />
+                      );
+                    }
+                    return bars;
+                  })()}
                 </svg>
-                
-                {/* Percentage labels positioned around the gauge */}
-                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 text-xs font-bold text-white">70%</div>
-                <div className="absolute bottom-1 right-2 text-xs font-bold text-white">12%</div>
               </div>
+              <div className="flex items-center space-x-2 mt-1">
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-[10px] text-white/60">70%</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                  <span className="text-[10px] text-white/60">18%</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                  <span className="text-[10px] text-white/60">12%</span>
+                </div>
+              </div>
+            </div>
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
-                  <span className="text-sm text-white/90">Positive rating</span>
-                </div>
-                <span className="text-sm font-medium text-white">70%</span>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                <span className="text-sm text-white/90">Positive rating</span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-white rounded-full mr-3"></div>
-                  <span className="text-sm text-white/90">Cancellation</span>
-                </div>
-                <span className="text-sm font-medium text-white">18%</span>
+              <div className="flex items-center">
+                <div className="w-2.5 h-2.5 bg-yellow-400 rounded-full mr-2"></div>
+                <span className="text-xs text-white/80">Cancellation</span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-red-400 rounded-full mr-3"></div>
-                  <span className="text-sm text-white/90">Negative rating</span>
-                </div>
-                <span className="text-sm font-medium text-white">12%</span>
+              <div className="flex items-center">
+                <div className="w-2.5 h-2.5 bg-red-400 rounded-full mr-2"></div>
+                <span className="text-xs text-white/80">Negative rating</span>
+              </div>
             </div>
           </div>
-        </div>
         </div>
 
         {/* Help Button */}
@@ -540,6 +648,31 @@ const Dashboard = () => {
                 <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Safety Guidelines</a></li>
               </ul>
             </div>
+
+            {/* Payments & Settings */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Payments & Settings</h3>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">AMEX</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">Master</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">Visa</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">Apple</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">PayPal</span>
+                </div>
+                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                  <span className="text-[#1d236b] font-bold text-xs">Google</span>
+                </div>
+              </div>
+            </div>
             
             {/* Stay Connected */}
             <div>
@@ -550,7 +683,7 @@ const Dashboard = () => {
                 <input 
                   type="email" 
                   placeholder="Enter your email" 
-                    className="flex-1 px-3 py-2 bg-gray-400 text-white border border-gray-400 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 bg-gray-400 text-white placeholder-white border border-gray-400 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button className="px-4 py-2 bg-gray-400 hover:bg-gray-500 rounded-r-lg transition-colors">
                     <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -566,15 +699,21 @@ const Dashboard = () => {
                     <div className="flex space-x-3">
                       {/* Instagram */}
                       <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-xs">in</span>
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                        </svg>
                       </div>
                       {/* LinkedIn */}
                       <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-xs">in</span>
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                        </svg>
                       </div>
                       {/* Facebook */}
                       <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-xs">f</span>
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
                       </div>
                       {/* Twitter */}
                       <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
@@ -605,31 +744,6 @@ const Dashboard = () => {
                       <span className="text-sm">$ USD - US Dollar</span>
                 </button>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Payments & Settings */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Payments & Settings</h3>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">AMEX</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">Master</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">Visa</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">Apple</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">PayPal</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">Google</span>
                 </div>
               </div>
             </div>
