@@ -35,7 +35,7 @@ const Dashboard = () => {
               <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Support</a>
             </nav>
             
-            {/* Right side - Notifications, Language, Balance, Profile */}
+            {/* Right side - Profile Section */}
             <div className="flex items-center space-x-4">
               {/* Notification Bell */}
               <div className="relative">
@@ -52,65 +52,19 @@ const Dashboard = () => {
                   <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </div>
+
+              {/* Profile Section */}
+              <div className="bg-[#1d236b] rounded-lg px-4 py-2 flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-semibold text-gray-600">EW</span>
+                </div>
+                <div className="text-white">
+                  <div className="text-sm font-semibold">Edward William</div>
+                  <div className="text-xs text-gray-300">ID 00032123</div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Secondary Navigation Bar - Dashboard Navigation */}
-      <div className="bg-gray-100 border-b border-gray-200 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8 py-3">
-            <a href="#" className="text-gray-900 font-medium relative">
-              Dashboard
-              <span className="absolute -bottom-3 left-0 w-full h-0.5 bg-[#1d236b]"></span>
-            </a>
-            
-            {/* Listings Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setShowListingsDropdown(!showListingsDropdown)}
-                className="text-gray-700 hover:text-gray-900 font-medium flex items-center space-x-1"
-              >
-                <span>Listings</span>
-                <FiChevronDown className={`transition-transform ${showListingsDropdown ? 'rotate-180' : ''}`} size={16} />
-              </button>
-              
-              {/* Dropdown Menu */}
-              {showListingsDropdown && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                  <div className="py-2">
-                    <button
-                      onClick={() => {
-                        setShowListingsDropdown(false);
-                        // Open Create Product Modal
-                        setShowCreateProductModal(true);
-                      }}
-                      className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Create new product
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowListingsDropdown(false);
-                        // Navigate to Active Listings
-                        navigate('/products');
-                      }}
-                      className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Active Product listing
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Availability</a>
-            <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Bookings</a>
-            <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Insights</a>
-            <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Finance</a>
-          </nav>
-          
         </div>
       </div>
 
@@ -128,6 +82,30 @@ const Dashboard = () => {
         
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent"></div>
+        
+        {/* Dashboard Navigation - positioned inside hero */}
+        <div className="absolute top-0 left-0 right-0 z-30 px-16 py-8">
+          <div className="flex justify-center space-x-16">
+            <button className="text-white font-bold border-b-2 border-white pb-2">
+              Dashboard
+            </button>
+            <button className="text-white hover:text-gray-200 font-medium pb-2">
+              Listings
+            </button>
+            <button className="text-white hover:text-gray-200 font-medium pb-2">
+              Availability
+            </button>
+            <button className="text-white hover:text-gray-200 font-medium pb-2">
+              Bookings
+            </button>
+            <button className="text-white hover:text-gray-200 font-medium pb-2">
+              Insights
+            </button>
+            <button className="text-white hover:text-gray-200 font-medium pb-2">
+              Finance
+            </button>
+          </div>
+        </div>
         
         {/* Hero content with featured image */}
         <div className="relative h-full flex items-start pt-16">
