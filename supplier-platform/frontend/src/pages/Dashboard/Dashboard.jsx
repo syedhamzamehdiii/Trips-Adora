@@ -2,10 +2,13 @@ import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import CreateProductComponent from '@/components/products/CreateProductComponent';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
 
@@ -29,7 +32,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Top Navigation Bar */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-gray-200 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             {/* Left side - Logo */}
@@ -68,20 +71,211 @@ const Dashboard = () => {
                   <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </div>
-
-              {/* Profile Section */}
-              <div className="bg-[#1d236b] rounded-lg px-4 py-2 flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-semibold text-gray-600">EW</span>
-                </div>
-                <div className="text-white">
-                  <div className="text-sm font-semibold">Edward William</div>
-                  <div className="text-xs text-gray-300">ID 00032123</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
+        
+              </div>
+
+      {/* Blue Sidebar - starts from top navigation and extends through hero */}
+      <div className="absolute right-0 top-0 w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-4 text-white z-50" style={{top: '-80px', height: 'calc(max(70vh, 800px) + 161px)', paddingTop: '80px'}}>
+        {/* Available Balance and Profile */}
+        <div className="mb-4 bg-white/10 rounded-lg p-3">
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-xs text-white/80">Available Balance</div>
+              <div className="text-sm font-bold text-white">$1850</div>
+            </div>
+            <div className="text-center">
+              <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden mx-auto mb-1">
+                <img 
+                  src="/assets/profile-placeholder.jpg" 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div className="w-full h-full bg-gray-400 rounded-full flex items-center justify-center" style={{display: 'none'}}>
+                  <span className="text-xs font-semibold text-gray-600">EW</span>
+                </div>
+              </div>
+              <div className="text-xs text-white">ID 00032123</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Supplier Mode Toggle */}
+        <div className="mb-6 bg-white/10 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-white">Supplier mode</span>
+            <div className="w-10 h-5 bg-green-500 rounded-full relative cursor-pointer">
+              <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* User Profile */}
+        <div className="mb-6 bg-white/10 rounded-lg p-4">
+          <div className="mb-4">
+            <p className="font-semibold text-white text-sm">Edward William</p>
+            <p className="text-xs text-white/80">Notting Hill, London</p>
+          </div>
+          <div className="flex items-center mb-4">
+            <span className="text-xs text-white">Karwan Tours</span>
+            <FiCheck className="ml-2 text-green-400" size={12} />
+          </div>
+          
+          {/* Divider */}
+          <div className="border-t border-white/20 mb-4"></div>
+          
+          {/* Booking Stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center">
+              <div className="text-xs text-white/80 mb-2">Today's bookings</div>
+              <div className="text-lg font-bold text-white mb-1">18</div>
+              <div className="text-xs text-green-400">Active</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-white/80 mb-2">Tomorrow's bookings</div>
+              <div className="text-lg font-bold text-white mb-1">24</div>
+              <div className="text-xs text-green-400">Confirmed</div>
+            </div>
+          </div>
+        </div>
+
+        {/* My Activity Chart */}
+        <div className="mb-6 bg-white/10 rounded-xl border border-blue-300/30 p-5">
+          <h3 className="font-semibold mb-5 text-white text-sm text-center">My Activity</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Published", value: 50 },
+                        { name: "Drafts", value: 15 },
+                        { name: "Under review", value: 35 },
+                      ]}
+                      startAngle={180}
+                      endAngle={0}
+                      innerRadius={12}
+                      outerRadius={24}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      <Cell fill="#22c55e" />
+                      <Cell fill="rgba(255,255,255,0.8)" />
+                      <Cell fill="#ef4444" />
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center space-x-2 mt-1">
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-[10px] text-white/60">50%</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  <span className="text-[10px] text-white/60">15%</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                  <span className="text-[10px] text-white/60">35%</span>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                <span className="text-sm text-white/90">Published</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-2.5 h-2.5 bg-white rounded-full mr-2"></div>
+                <span className="text-xs text-white/80">Drafts</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-2.5 h-2.5 bg-red-400 rounded-full mr-2"></div>
+                <span className="text-xs text-white/80">Under review</span>
+                </div>
+              </div>
+          </div>
+        </div>
+
+        {/* Account Stability Chart */}
+        <div className="mb-6 bg-white/10 rounded-xl border border-amber-300/30 p-5">
+          <h3 className="font-semibold mb-5 text-white text-sm text-center">Account Stability</h3>
+            <div className="flex items-center justify-between">
+              <div className="relative w-16 h-16">
+                <svg className="w-16 h-16" viewBox="0 0 64 32">
+                  {/* Background semi-circle */}
+                  <path d="M 8 28 A 24 24 0 0 1 56 28" 
+                        stroke="rgba(255,255,255,0.1)" 
+                        strokeWidth="4" 
+                        fill="transparent" />
+                  
+                  {/* Green segment (70%) - largest */}
+                  <path d="M 8 28 A 24 24 0 0 1 32 8" 
+                        stroke="#22c55e" 
+                        strokeWidth="4" 
+                        fill="transparent" 
+                        strokeLinecap="round" />
+                  
+                  {/* Orange segments (12%) - multiple small segments */}
+                  <path d="M 32 8 A 24 24 0 0 1 44 12" 
+                        stroke="#f97316" 
+                        strokeWidth="4" 
+                        fill="transparent" 
+                        strokeLinecap="round" />
+                  
+                  {/* Red segment (18%) - cancellation */}
+                  <path d="M 44 12 A 24 24 0 0 1 56 28" 
+                        stroke="rgba(255,255,255,0.8)" 
+                        strokeWidth="4" 
+                        fill="transparent" 
+                        strokeLinecap="round" />
+                </svg>
+                
+                {/* Percentage labels positioned around the gauge */}
+                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 text-xs font-bold text-white">70%</div>
+                <div className="absolute bottom-1 right-2 text-xs font-bold text-white">12%</div>
+              </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                  <span className="text-sm text-white/90">Positive rating</span>
+                </div>
+                <span className="text-sm font-medium text-white">70%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-white rounded-full mr-3"></div>
+                  <span className="text-sm text-white/90">Cancellation</span>
+                </div>
+                <span className="text-sm font-medium text-white">18%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-red-400 rounded-full mr-3"></div>
+                  <span className="text-sm text-white/90">Negative rating</span>
+                </div>
+                <span className="text-sm font-medium text-white">12%</span>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        {/* Help Button */}
+        <button className="w-full text-white py-4 px-6 rounded-xl transition-colors text-sm font-medium flex items-center justify-center space-x-3 bg-[#1d236b] hover:bg-[#1a1f5a] shadow-lg border border-blue-300/20">
+          <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+            <FiHelpCircle size={16} />
+          </div>
+          <span>Help</span>
+        </button>
       </div>
 
       {/* Hero Section with Blurred Background and Featured Image */}
@@ -121,7 +315,7 @@ const Dashboard = () => {
                     <button
                       onClick={() => {
                         setShowListingsDropdown(false);
-                        navigate('/products/create');
+                        setShowCreateProduct(true);
                       }}
                       className="w-full text-center px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900 font-medium"
                     >
@@ -191,135 +385,6 @@ const Dashboard = () => {
 
             </div>
 
-            {/* Right Sidebar positioned within hero section */}
-            <div className="absolute right-0 top-0 w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-6 text-white z-50 h-full">
-            {/* Available Balance and Profile */}
-            <div className="mb-6 bg-white/10 rounded-lg p-4">
-              <div className="text-right mb-4">
-                <div className="text-xs text-white/80">Available Balance</div>
-                <div className="text-lg font-bold text-white">$1850</div>
-                      </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
-                <div className="text-sm text-white">ID 00032123</div>
-            </div>
-          </div>
-
-              {/* Supplier Mode Toggle */}
-            <div className="mb-6 bg-white/10 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                <span className="font-medium text-white">Supplier mode</span>
-                  <div className="w-12 h-6 bg-green-500 rounded-full relative cursor-pointer">
-                  <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5"></div>
-                </div>
-              </div>
-                  </div>
-
-            {/* User Profile */}
-            <div className="mb-6 bg-white/10 rounded-lg p-4">
-              <div className="mb-4">
-                <p className="font-semibold text-white text-lg">Edward William</p>
-                <p className="text-sm text-white/80">Notting Hill, London</p>
-                </div>
-                <div className="flex items-center">
-                <span className="text-sm text-white">Karwan Tours</span>
-                  <FiCheck className="ml-2 text-green-400" size={16} />
-                </div>
-              </div>
-
-              {/* Booking Stats */}
-            <div className="mb-6 bg-white/10 rounded-lg p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-sm text-white/80 mb-1">Today's bookings</div>
-                  <div className="text-2xl font-bold text-white mb-1">18</div>
-                  <div className="text-sm text-green-400">Active</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-white/80 mb-1">Tomorrow's bookings</div>
-                  <div className="text-2xl font-bold text-white mb-1">24</div>
-                  <div className="text-sm text-green-400">Confirmed</div>
-                </div>
-                </div>
-              </div>
-
-              {/* My Activity Chart */}
-            <div className="mb-6 bg-white/10 rounded-lg p-4">
-              <h3 className="font-semibold mb-4 text-white">My Activity</h3>
-              <div className="flex items-center justify-between">
-                <div className="relative w-16 h-16">
-                  <svg className="w-16 h-16 transform -rotate-90">
-                    <circle cx="32" cy="32" r="24" stroke="rgba(255,255,255,0.2)" strokeWidth="4" fill="transparent" />
-                    <circle cx="32" cy="32" r="24" stroke="#ffffff" strokeWidth="4" fill="transparent" 
-                            strokeDasharray={`${2 * Math.PI * 24}`} strokeDashoffset={`${2 * Math.PI * 24 * 0.4}`} />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-bold text-white">60%</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-green-400 rounded-full mr-2"></div>
-                    <span className="text-xs text-white/80">Published</span>
-                    </div>
-                    <div className="flex items-center">
-                    <div className="w-3 h-3 bg-white rounded-full mr-2"></div>
-                    <span className="text-xs text-white/80">Drafts</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-red-400 rounded-full mr-2"></div>
-                    <span className="text-xs text-white/80">Under review</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            {/* Account Stability Chart */}
-            <div className="mb-6 bg-white/10 rounded-lg p-4">
-              <h3 className="font-semibold mb-4 text-white">Account Stability</h3>
-              <div className="flex items-center justify-between">
-                <div className="relative w-16 h-16">
-                  <svg className="w-16 h-16 transform -rotate-90">
-                    <circle cx="32" cy="32" r="24" stroke="rgba(255,255,255,0.2)" strokeWidth="4" fill="transparent" />
-                    <circle cx="32" cy="32" r="24" stroke="#22c55e" strokeWidth="4" fill="transparent" 
-                            strokeDasharray={`${2 * Math.PI * 24 * 0.7} ${2 * Math.PI * 24 * 0.3}`} strokeDashoffset="0" />
-                    <circle cx="32" cy="32" r="24" stroke="#ef4444" strokeWidth="4" fill="transparent" 
-                            strokeDasharray={`${2 * Math.PI * 24 * 0.12} ${2 * Math.PI * 24 * 0.88}`} 
-                            strokeDashoffset={`${-2 * Math.PI * 24 * 0.7}`} />
-                    </svg>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-green-400 rounded-full mr-2"></div>
-                      <span className="text-xs text-white/80">Positive rating</span>
-                      </div>
-                    <span className="text-xs font-medium ml-2 text-white">70%</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                      <div className="w-3 h-3 bg-white rounded-full mr-2"></div>
-                      <span className="text-xs text-white/80">Cancellation</span>
-                      </div>
-                    <span className="text-xs font-medium ml-2 text-white">18%</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-red-400 rounded-full mr-2"></div>
-                      <span className="text-xs text-white/80">Negative rating</span>
-                      </div>
-                    <span className="text-xs font-medium ml-2 text-white">12%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Help Button */}
-            <button className="w-full text-white py-3 px-4 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2 bg-[#1d236b] hover:bg-[#1a1f5a]">
-              <FiHelpCircle size={16} />
-              <span>Help</span>
-              </button>
-          </div>
         </div>
 
           {/* Stats Cards Overlay - More visible and with proper blur */}
@@ -606,6 +671,11 @@ const Dashboard = () => {
           </div>
         </div>
       </footer>
+
+      {/* Create Product Component */}
+      {showCreateProduct && (
+        <CreateProductComponent onClose={() => setShowCreateProduct(false)} />
+      )}
 
     </div>
   );
