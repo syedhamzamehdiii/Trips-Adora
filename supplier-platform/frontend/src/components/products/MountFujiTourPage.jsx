@@ -8,7 +8,7 @@ import {
   FiCamera, 
   FiBriefcase, 
   FiUser, 
-  FiCar, 
+  FiTruck, 
   FiClock, 
   FiMapPin, 
   FiCalendar, 
@@ -183,7 +183,7 @@ const MountFujiTourPage = () => {
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                         {highlight.icon === 'mountain' && <span className="text-blue-600">🏔️</span>}
                         {highlight.icon === 'camera' && <FiCamera size={16} className="text-blue-600" />}
-                        {highlight.icon === 'car' && <FiCar size={16} className="text-blue-600" />}
+                        {highlight.icon === 'car' && <FiTruck size={16} className="text-blue-600" />}
                         {highlight.icon === 'guide' && <FiUser size={16} className="text-blue-600" />}
                       </div>
                       <p className="text-gray-700 text-sm">{highlight.text}</p>
@@ -322,12 +322,12 @@ const MountFujiTourPage = () => {
             {/* Vehicle & Pricing */}
             <div className="bg-white p-6 rounded-lg border border-gray-200">
               <div className="flex items-center space-x-2 mb-6">
-                <FiCar size={20} className="text-blue-600" />
+                <FiTruck size={20} className="text-blue-600" />
                 <h3 className="text-xl font-bold text-gray-900">Vehicle & Pricing</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="flex items-start space-x-3">
-                  <FiCar size={20} className="text-blue-600 mt-1" />
+                  <FiTruck size={20} className="text-blue-600 mt-1" />
                   <div>
                     <h4 className="font-semibold text-gray-900">Vehicle Details</h4>
                     <p className="text-gray-600">Mercedes-Benz A-Class (2018 model)</p>
