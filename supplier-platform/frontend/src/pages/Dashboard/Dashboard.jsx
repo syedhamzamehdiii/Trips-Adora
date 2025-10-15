@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
+import SettingsDropdown from '@/components/common/SettingsDropdown';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -11,10 +12,13 @@ const Dashboard = () => {
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  const [showNestedDropdown, setShowNestedDropdown] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
   const languageRef = useRef(null);
+  const profileRef = useRef(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -40,9 +44,13 @@ const Dashboard = () => {
   }, [showListingsDropdown, showNotifications, showLanguageDropdown]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white relative">
+      {/* Blur Overlay */}
+      {(showSettingsDropdown || showNestedDropdown) && (
+        <div className="fixed inset-0 bg-black/10 z-40 pointer-events-none"></div>
+      )}
       {/* Top Navigation Bar */}
-      <div className="bg-white border-b border-gray-200 relative">
+      <div className={`bg-white border-b border-gray-200 relative transition-all duration-300 ${(showSettingsDropdown || showNestedDropdown) ? 'blur-sm' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             {/* Left side - Logo */}
@@ -166,28 +174,44 @@ const Dashboard = () => {
       {/* Blue Sidebar - starts from top navigation and extends through hero */}
       <div className="absolute right-0 top-0 w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-4 text-white z-50" style={{top: '-80px', height: 'calc(max(70vh, 800px) + 161px)', paddingTop: '80px'}}>
         {/* Available Balance and Profile */}
-        <div className="mb-4 bg-white/10 rounded-lg p-3">
+        <div className="mb-4 bg-white/10 rounded-lg p-3 relative">
           <div className="flex justify-between items-center">
             <div>
               <div className="text-xs text-white/80">Available Balance</div>
               <div className="text-sm font-bold text-white">$1850</div>
             </div>
-            <div className="text-center">
-              <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden mx-auto mb-1">
-                <img 
-                  src="/assets/profile-placeholder.jpg" 
-                  alt="Profile" 
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
-                  }}
-                />
-                <div className="w-full h-full bg-gray-400 rounded-full flex items-center justify-center" style={{display: 'none'}}>
-                  <span className="text-xs font-semibold text-gray-600">EW</span>
+            <div className="text-center relative" ref={profileRef}>
+              <button 
+                onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+                className="hover:bg-white/10 rounded-lg p-1 transition-colors"
+              >
+                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden mx-auto mb-1">
+                  <img 
+                    src="/assets/profile-placeholder.jpg" 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div className="w-full h-full bg-gray-400 rounded-full flex items-center justify-center" style={{display: 'none'}}>
+                    <span className="text-xs font-semibold text-gray-600">EW</span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-xs text-white">ID 00032123</div>
+                <div className="text-xs text-white">ID 00032123</div>
+              </button>
+              
+                {/* Settings Dropdown */}
+                <SettingsDropdown 
+                  isOpen={showSettingsDropdown}
+                  onClose={() => {
+                    setShowSettingsDropdown(false);
+                    setShowNestedDropdown(false);
+                  }}
+                  profileRef={profileRef}
+                  onNestedDropdownChange={setShowNestedDropdown}
+                />
             </div>
           </div>
         </div>
@@ -387,7 +411,7 @@ const Dashboard = () => {
       </div>
 
       {/* Hero Section with Blurred Background and Featured Image */}
-      <div className="relative h-[70vh] min-h-[800px] overflow-hidden">
+      <div className={`relative h-[70vh] min-h-[800px] overflow-hidden transition-all duration-300 ${(showSettingsDropdown || showNestedDropdown) ? 'blur-sm' : ''}`}>
         {/* Completely Blurred Background */}
         <div className="absolute inset-0 bg-cover bg-center bg-no-repeat backdrop-blur-xl" 
                 style={{
@@ -536,7 +560,7 @@ const Dashboard = () => {
       <div className="h-40 bg-white"></div>
 
       {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-all duration-300 ${(showSettingsDropdown || showNestedDropdown) ? 'blur-sm' : ''}`}>
         <div className="flex gap-8">
           {/* Left Content - takes remaining space */}
           <div className="flex-1 space-y-8">

@@ -11,6 +11,12 @@ export const ROUTES = {
   ORDERS: '/orders',
   MESSAGES: '/messages',
   SETTINGS: '/settings',
+  SETTINGS_COMPANY_PROFILE: '/settings/company-profile',
+  SETTINGS_ACCOUNT: '/settings/account',
+  SETTINGS_KEY_INFORMATION: '/settings/key-information',
+  SETTINGS_KEY_INFO_FROM_TRAVELLER: '/settings/key-information/from-traveller',
+  SETTINGS_KEY_INFO_BY_SUPPLIER: '/settings/key-information/by-supplier',
+  SETTINGS_INVITE_PARTNER: '/settings/invite-partner',
   PARTNERS: '/partners',
 }
 

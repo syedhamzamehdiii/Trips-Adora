@@ -2,17 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
+import SettingsDropdown from '@/components/common/SettingsDropdown';
 
 const DashboardLayout = ({ children }) => {
   const { user } = useAuth();
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
   const languageRef = useRef(null);
+  const profileRef = useRef(null);
 
   const isProductsPage = location.pathname.includes('/products');
 
@@ -159,14 +162,26 @@ const DashboardLayout = ({ children }) => {
               </div>
 
               {/* Profile Section */}
-              <div className="bg-[#1d236b] rounded-lg px-4 py-2 flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-semibold text-gray-600">EW</span>
-                </div>
-                <div className="text-white">
-                  <div className="text-sm font-semibold">Edward William</div>
-                  <div className="text-xs text-gray-300">ID 00032123</div>
-                </div>
+              <div className="relative" ref={profileRef}>
+                <button 
+                  onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+                  className="bg-[#1d236b] rounded-lg px-4 py-2 flex items-center space-x-3 hover:bg-[#1d236b]/90 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                    <span className="text-xs font-semibold text-gray-600">EW</span>
+                  </div>
+                  <div className="text-white">
+                    <div className="text-sm font-semibold">Edward William</div>
+                    <div className="text-xs text-gray-300">ID 00032123</div>
+                  </div>
+                </button>
+                
+                {/* Settings Dropdown */}
+                <SettingsDropdown 
+                  isOpen={showSettingsDropdown}
+                  onClose={() => setShowSettingsDropdown(false)}
+                  profileRef={profileRef}
+                />
               </div>
             </div>
           </div>
