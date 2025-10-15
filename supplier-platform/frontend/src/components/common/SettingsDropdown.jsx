@@ -79,7 +79,7 @@ const SettingsDropdown = ({ isOpen, onClose, profileRef, onNestedDropdownChange 
       label: 'Account Setting', 
       icon: <FiSettings size={16} />, 
       route: ROUTES.SETTINGS_ACCOUNT,
-      hasChevron: true 
+      hasChevron: false 
     },
     { 
       label: 'Key information', 

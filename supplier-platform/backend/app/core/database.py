@@ -2,6 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from app.core.config import settings
 from app.models.user import User
+from app.models.coi_document import COIDocument
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,10 +26,10 @@ async def initiate_database():
         await db.client.admin.command('ping')
         logger.info("Successfully connected to MongoDB!")
         
-        # Initialize Beanie with User model
+        # Initialize Beanie with all document models
         await init_beanie(
             database=db.database,
-            document_models=[User]
+            document_models=[User, COIDocument]
         )
         logger.info("Beanie initialized successfully!")
         

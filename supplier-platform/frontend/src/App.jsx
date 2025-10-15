@@ -10,6 +10,7 @@ import CreateProduct from './pages/Products/CreateProduct'
 import Products from './pages/Products/Products'
 import AddItinerary from './pages/Products/AddItinerary'
 import CompanyProfile from './pages/Settings/CompanyProfile'
+import AccountSettings from './pages/Settings/AccountSettings'
 import DashboardLayout from './layouts/DashboardLayout'
 
 function AppRoutes() {
@@ -73,6 +74,14 @@ function AppRoutes() {
           element={isAuthenticated ? (
             <DashboardLayout>
               <CompanyProfile />
+            </DashboardLayout>
+          ) : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/settings/account" 
+          element={isAuthenticated ? (
+            <DashboardLayout>
+              <AccountSettings />
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
         />
