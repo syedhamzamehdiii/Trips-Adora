@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend } from 'react-icons/fi';
 
 const CreateProductComponent = ({ onClose }) => {
   const [step, setStep] = useState(1);
@@ -7,6 +7,22 @@ const CreateProductComponent = ({ onClose }) => {
   const [showIncludedExcludedModal, setShowIncludedExcludedModal] = useState(false);
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
   const [selectedVehicleModel, setSelectedVehicleModel] = useState('');
+  
+  // Step 6 dropdown states
+  const [showSelectLocationsDropdown, setShowSelectLocationsDropdown] = useState(false);
+  const [selectedLocationType, setSelectedLocationType] = useState('All Location');
+  const [showPickupDropdown, setShowPickupDropdown] = useState(false);
+  const [showDropoffDropdown, setShowDropoffDropdown] = useState(false);
+  const [selectedPickupHour, setSelectedPickupHour] = useState('06');
+  const [selectedPickupMinute, setSelectedPickupMinute] = useState('00');
+  const [selectedWeekDay, setSelectedWeekDay] = useState('week days');
+  const [selectedPickupLocation, setSelectedPickupLocation] = useState('');
+  const [selectedDropoffLocation, setSelectedDropoffLocation] = useState('');
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('01 Oct');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [showSelectVehicleModal, setShowSelectVehicleModal] = useState(false);
+  const [useSamePickupLocation, setUseSamePickupLocation] = useState(true);
   
   // Step 4 state management
   const [selectedGuideType, setSelectedGuideType] = useState('Driver');
@@ -56,6 +72,43 @@ const CreateProductComponent = ({ onClose }) => {
       default:
         return [];
     }
+  };
+
+  const formatDate = (date) => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = date.toLocaleString('default', { month: 'short' });
+    return `${day} ${month}`;
+  };
+
+  const getCalendarDays = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay() + 1); // Start from Monday
+    
+    const days = [];
+    const currentDate = new Date(startDate);
+    
+    for (let i = 0; i < 42; i++) {
+      days.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return days;
+  };
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(formatDate(date));
+    setShowCalendar(false);
+  };
+
+  const navigateMonth = (direction) => {
+    const newMonth = new Date(currentMonth);
+    newMonth.setMonth(newMonth.getMonth() + direction);
+    setCurrentMonth(newMonth);
   };
 
   const nextStep = () => setStep((prev) => prev + 1);
@@ -639,21 +692,46 @@ const CreateProductComponent = ({ onClose }) => {
                  <p className="text-gray-600">Select where you want to be picked-up and dropped-off for you activity</p>
                </div>
                <div className="relative">
-                 <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50">
-                   <span className="text-gray-900">Select Locations</span>
+                 <button 
+                   onClick={() => setShowSelectLocationsDropdown(!showSelectLocationsDropdown)}
+                   className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center space-x-2 hover:bg-gray-50"
+                 >
+                   <span className="text-gray-900">{selectedLocationType}</span>
                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                    </svg>
                  </button>
+                 
+                 {/* Select Locations Dropdown */}
+                 {showSelectLocationsDropdown && (
+                   <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                     <div className="p-2">
+                       {['All Location', 'Hotels only', 'Airports only', 'Seaports only'].map((option) => (
+                         <label key={option} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer">
+                           <input
+                             type="radio"
+                             name="locationType"
+                             value={option}
+                             checked={selectedLocationType === option}
+                             onChange={(e) => {
+                               setSelectedLocationType(e.target.value);
+                               setShowSelectLocationsDropdown(false);
+                             }}
+                             className="mr-3"
+                           />
+                           <span className="text-gray-700">{option}</span>
+                         </label>
+                       ))}
+                     </div>
+                   </div>
+                 )}
                </div>
              </div>
 
              {/* Pick-up Locations Section */}
              <div className="mb-8">
                <div className="flex items-center mb-4">
-                 <svg className="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                 </svg>
+                 <FiSend className="text-blue-600 mr-3" size={20} />
                  <h3 className="text-lg font-bold text-gray-900">Pick-up locations</h3>
                </div>
                
@@ -667,57 +745,92 @@ const CreateProductComponent = ({ onClose }) => {
                  <input
                    type="text"
                    placeholder="Search or enter pick-up locations"
-                   className="w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                   value={selectedPickupLocation}
+                   onChange={(e) => setSelectedPickupLocation(e.target.value)}
+                   onClick={() => setShowPickupDropdown(!showPickupDropdown)}
+                   className="w-full pl-10 pr-10 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
                  />
                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                    </svg>
                  </div>
+                 
+                 {/* Pick-up Locations Dropdown */}
+                 {showPickupDropdown && (
+                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                     <div className="p-2 max-h-64 overflow-y-auto">
+                       {[
+                         'Shibuya Crossing, Tokyo',
+                         'Asakusa (Senso-ji Temple), Tokyo',
+                         'Fushimi Inari Shrine, Kyoto',
+                         'Arashiyama Bamboo Grove, Kyoto',
+                         'Dotonbori, Osaka',
+                         'Peace Memorial Park, Hiroshima',
+                         'Mount Fuji 5th Station'
+                       ].map((location, index) => (
+                         <div 
+                           key={index} 
+                           className="p-2 hover:bg-gray-50 cursor-pointer text-gray-700"
+                           onClick={() => {
+                             setSelectedPickupLocation(location);
+                             setShowPickupDropdown(false);
+                           }}
+                         >
+                           {location}
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
                </div>
 
-               {/* Map Component */}
-               <div className="relative bg-gray-100 border border-gray-300 rounded-lg h-64 mb-4">
-                 <div className="absolute inset-0 flex items-center justify-center">
-                   <div className="text-center">
-                     <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                       <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                       </svg>
+               {/* Map and Action buttons container */}
+               <div className="flex gap-4">
+                 {/* Map Component */}
+                 <div className="flex-1 relative bg-gray-100 border border-gray-300 rounded-lg h-64">
+                   <div className="absolute inset-0 flex items-center justify-center">
+                     <div className="text-center">
+                       <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                         <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                         </svg>
+                       </div>
+                       <p className="text-gray-600">Map View</p>
+                       <p className="text-sm text-gray-500">Tokyo area highlighted</p>
                      </div>
-                     <p className="text-gray-600">Map View</p>
-                     <p className="text-sm text-gray-500">Tokyo area highlighted</p>
+                   </div>
+                   
+                   {/* Map Controls */}
+                   <div className="absolute top-4 right-4 flex flex-col space-y-2">
+                     <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-50">
+                       <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                       </svg>
+                     </button>
+                     <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-50">
+                       <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
+                       </svg>
+                     </button>
+                     <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-50">
+                       <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                       </svg>
+                     </button>
                    </div>
                  </div>
-                 
-                 {/* Map Controls */}
-                 <div className="absolute top-4 right-4 flex flex-col space-y-2">
-                   <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center">
-                     <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                     </svg>
-                   </button>
-                   <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center">
-                     <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
-                     </svg>
-                   </button>
-                   <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center">
-                     <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                     </svg>
-                   </button>
-                 </div>
 
-                 {/* Floating Box */}
-                 <div className="absolute top-4 left-4 bg-white border border-blue-300 rounded-lg p-3 max-w-xs">
-                   <p className="text-sm text-gray-700">Drag to choose the area you wants to deal</p>
+                 {/* Action buttons on the right */}
+                 <div className="flex flex-col space-y-3 w-64">
+                   <button className="px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-200 text-left">
+                     Drag to choose the area you wants to deal
+                   </button>
+                   <button className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                     Add another area
+                   </button>
                  </div>
                </div>
-
-               <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium">
-                 Add another area
-               </button>
              </div>
 
              {/* Use Same Pick-up Toggle */}
@@ -728,21 +841,25 @@ const CreateProductComponent = ({ onClose }) => {
                    <p className="text-sm text-gray-600">We will detect your location automatically</p>
                  </div>
                  <div className="relative">
-                   <input type="checkbox" className="sr-only" defaultChecked />
-                   <div className="w-12 h-6 bg-blue-600 rounded-full shadow-inner">
-                     <div className="w-5 h-5 bg-white rounded-full shadow transform translate-x-6 transition-transform"></div>
-                   </div>
+                   <button
+                     onClick={() => setUseSamePickupLocation(!useSamePickupLocation)}
+                     className={`relative w-12 h-6 rounded-full shadow-inner transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${
+                       useSamePickupLocation ? 'bg-blue-600' : 'bg-gray-300'
+                     }`}
+                   >
+                     <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-200 ${
+                       useSamePickupLocation ? 'left-6' : 'left-0.5'
+                     }`}></div>
+                   </button>
                  </div>
                </div>
              </div>
 
              {/* Drop-off Locations Section */}
+             {!useSamePickupLocation && (
              <div className="mb-8">
                <div className="flex items-center mb-4">
-                 <svg className="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                 </svg>
+                 <FiSend className="text-blue-600 mr-3" size={20} />
                  <h3 className="text-lg font-bold text-gray-900">Drop-off locations</h3>
                </div>
                
@@ -756,82 +873,243 @@ const CreateProductComponent = ({ onClose }) => {
                  <input
                    type="text"
                    placeholder="Search or enters drop-off locations"
-                   className="w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                   value={selectedDropoffLocation}
+                   onChange={(e) => setSelectedDropoffLocation(e.target.value)}
+                   onClick={() => setShowDropoffDropdown(!showDropoffDropdown)}
+                   className="w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
                  />
                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                    </svg>
                  </div>
+                 
+                 {/* Drop-off Locations Dropdown */}
+                 {showDropoffDropdown && (
+                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                     <div className="p-2 max-h-64 overflow-y-auto">
+                       {[
+                         'Shibuya Crossing, Tokyo',
+                         'Asakusa (Senso-ji Temple), Tokyo',
+                         'Fushimi Inari Shrine, Kyoto',
+                         'Arashiyama Bamboo Grove, Kyoto',
+                         'Dotonbori, Osaka',
+                         'Peace Memorial Park, Hiroshima',
+                         'Mount Fuji 5th Station'
+                       ].map((location, index) => (
+                         <div 
+                           key={index} 
+                           className="p-2 hover:bg-gray-50 cursor-pointer text-gray-700"
+                           onClick={() => {
+                             setSelectedDropoffLocation(location);
+                             setShowDropoffDropdown(false);
+                           }}
+                         >
+                           {location}
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
                </div>
              </div>
+             )}
 
              {/* Pick-up Time Section */}
              <div className="mb-8">
-               <div className="flex items-center mb-4">
-                 <svg className="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                 </svg>
-                 <h3 className="text-lg font-bold text-gray-900">Pick-up time</h3>
-               </div>
-               
-               <p className="text-gray-600 mb-4">Please specify the exact time you will be available to pick up your customer from the designated location.</p>
-               
-               <div className="flex justify-between items-center mb-6">
-                 <div className="flex items-center space-x-2">
-                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                   </svg>
-                   <span className="text-gray-900 font-medium">Starting date: 01 Oct</span>
-                 </div>
-               </div>
-
-               {/* Time Input Section */}
-               <div className="grid grid-cols-2 gap-6 mb-6">
-                 <div>
-                   <label className="block text-sm font-medium text-gray-900 mb-2">Time to Pick-up</label>
-                   <div className="flex space-x-2">
-                     <input
-                       type="text"
-                       defaultValue="06"
-                       className="w-16 px-3 py-2 bg-white border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                     />
-                     <span className="flex items-center text-gray-500">:</span>
-                     <input
-                       type="text"
-                       defaultValue="00"
-                       className="w-16 px-3 py-2 bg-white border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                     />
-                     <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium">
-                       Add new time
+               <div className="bg-white border border-gray-200 rounded-lg p-6">
+                 {/* Header with Clock Icon and Starting Date */}
+                 <div className="flex justify-between items-center mb-4">
+                   <div className="flex items-center">
+                     <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center mr-3">
+                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                       </svg>
+                     </div>
+                     <h3 className="text-lg font-bold text-gray-900">Pick-up time</h3>
+                   </div>
+                   <div className="relative">
+                     <button 
+                       onClick={() => setShowCalendar(!showCalendar)}
+                       className="bg-gray-100 rounded-lg px-3 py-2 flex items-center space-x-2 hover:bg-gray-200 transition-colors"
+                     >
+                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                       </svg>
+                       <span className="text-gray-700 font-medium">Starting date: {selectedDate}</span>
                      </button>
+                     
+                     {/* Calendar Popup */}
+                     {showCalendar && (
+                       <div className="absolute top-full right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-xl z-50 p-4 w-80">
+                         {/* Calendar Header */}
+                         <div className="flex items-center justify-between mb-4">
+                           <button 
+                             onClick={() => navigateMonth(-1)}
+                             className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200"
+                           >
+                             <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                             </svg>
+                           </button>
+                           
+                           <div className="flex flex-col items-center space-y-1">
+                             <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                               {currentMonth.getFullYear()}
+                             </div>
+                             <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                               {currentMonth.toLocaleString('default', { month: 'long' })}
+                             </div>
+                           </div>
+                           
+                           <button 
+                             onClick={() => navigateMonth(1)}
+                             className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200"
+                           >
+                             <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                             </svg>
+                           </button>
+                         </div>
+                         
+                         {/* Calendar Grid */}
+                         <div className="grid grid-cols-8 gap-1">
+                           {/* Week Numbers Column */}
+                           <div className="flex flex-col space-y-1">
+                             {[36, 37, 38, 39, 40, 41].map((week) => (
+                               <div key={week} className="h-8 bg-gray-700 text-white rounded-full flex items-center justify-center text-xs font-medium">
+                                 {week}
+                               </div>
+                             ))}
+                           </div>
+                           
+                           {/* Calendar Days */}
+                           <div className="col-span-7">
+                             {/* Day Headers */}
+                             <div className="grid grid-cols-7 gap-1 mb-1">
+                               {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day) => (
+                                 <div key={day} className="h-6 text-xs font-medium text-gray-500 flex items-center justify-center">
+                                   {day}
+                                 </div>
+                               ))}
+                             </div>
+                             
+                             {/* Calendar Days Grid */}
+                             <div className="grid grid-cols-7 gap-1">
+                               {getCalendarDays().map((day, index) => {
+                                 const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
+                                 const isSelected = formatDate(day) === selectedDate;
+                                 const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                                 
+                                 return (
+                                   <button
+                                     key={index}
+                                     onClick={() => handleDateSelect(day)}
+                                     className={`h-8 w-8 rounded-full text-xs font-medium flex items-center justify-center transition-colors ${
+                                       isSelected 
+                                         ? 'bg-blue-600 text-white' 
+                                         : isWeekend && isCurrentMonth
+                                         ? 'text-blue-600 hover:bg-blue-50'
+                                         : isCurrentMonth
+                                         ? 'text-gray-900 hover:bg-gray-100'
+                                         : 'text-gray-400 hover:bg-gray-50'
+                                     }`}
+                                   >
+                                     {day.getDate()}
+                                   </button>
+                                 );
+                               })}
+                             </div>
+                           </div>
+                         </div>
+                       </div>
+                     )}
                    </div>
                  </div>
                  
-                 <div className="flex items-end">
-                   <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                 {/* Instructional Text */}
+                 <p className="text-gray-600 mb-6">Please specify the exact time you will be available to pick up your customer from the designated location.</p>
+                 
+                 {/* Time Input Section */}
+                 <div className="flex justify-between items-end mb-6">
+                   <div>
+                     <label className="block text-sm font-medium text-gray-900 mb-3">Time to Pick-up</label>
+                     <div className="flex items-center space-x-3">
+                       <div className="relative">
+                         <select
+                           value={selectedPickupHour}
+                           onChange={(e) => setSelectedPickupHour(e.target.value)}
+                           className="w-16 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-6"
+                         >
+                           {Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')).map((hour) => (
+                             <option key={hour} value={hour}>{hour}</option>
+                           ))}
+                         </select>
+                         <div className="absolute inset-y-0 right-0 flex items-center pr-1 pointer-events-none">
+                           <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                           </svg>
+                         </div>
+                       </div>
+                       <span className="text-gray-500 font-medium">Hours</span>
+                       
+                       <div className="relative ml-4">
+                         <select
+                           value={selectedPickupMinute}
+                           onChange={(e) => setSelectedPickupMinute(e.target.value)}
+                           className="w-16 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-6"
+                         >
+                           {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')).map((minute) => (
+                             <option key={minute} value={minute}>{minute}</option>
+                           ))}
+                         </select>
+                         <div className="absolute inset-y-0 right-0 flex items-center pr-1 pointer-events-none">
+                           <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                           </svg>
+                         </div>
+                       </div>
+                       <span className="text-gray-500 font-medium">Minutes</span>
+                       
+                       <button className="ml-4 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                         Add new time
+                       </button>
+                     </div>
+                   </div>
+                   
+                   <button 
+                     onClick={() => setShowSelectVehicleModal(true)}
+                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                   >
                      Select Vehicle
                    </button>
                  </div>
                </div>
 
+               {/* Gap between Pick-up time container and below content */}
+               <div className="mb-8"></div>
+
                {/* Checkbox and Week Days */}
                <div className="flex items-center space-x-4 mb-6">
                  <label className="flex items-center">
-                   <input type="checkbox" className="mr-2" />
+                   <input type="checkbox" className="mr-2 w-4 h-4 text-blue-600 bg-blue-600 border-blue-600 rounded" defaultChecked />
                    <span className="text-sm text-gray-700">Apply the same for all days</span>
                  </label>
                  
                  <div className="relative">
-                   <select className="px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-8">
-                     <option>week days</option>
-                     <option>Monday</option>
-                     <option>Tuesday</option>
-                     <option>Wednesday</option>
-                     <option>Thursday</option>
-                     <option>Friday</option>
-                     <option>Saturday</option>
-                     <option>Sunday</option>
+                   <select 
+                     value={selectedWeekDay}
+                     onChange={(e) => setSelectedWeekDay(e.target.value)}
+                     className="px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-8"
+                   >
+                     <option value="week days">week days</option>
+                     <option value="Monday">Monday</option>
+                     <option value="Tuesday">Tuesday</option>
+                     <option value="Wednesday">Wednesday</option>
+                     <option value="Thursday">Thursday</option>
+                     <option value="Friday">Friday</option>
+                     <option value="Saturday">Saturday</option>
+                     <option value="Sunday">Sunday</option>
                    </select>
                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -841,85 +1119,156 @@ const CreateProductComponent = ({ onClose }) => {
                  </div>
                </div>
 
-               {/* Time Slots Grid */}
-               <div className="space-y-4">
-                 {/* Monday */}
-                 <div>
-                   <h4 className="text-sm font-medium text-gray-900 mb-2">Monday</h4>
-                   <div className="flex flex-wrap gap-2">
-                     {['06 : 00', '06 : 30', '07 : 00', '07 : 30', '08 : 00', '08 : 30', '09 : 00', '09 : 30', '10 : 00', '10 : 30', '11 : 00', '11 : 30', '12 : 00', '12 : 30', '13 : 00'].map((time, index) => (
-                       <div key={index} className="flex items-center bg-gray-100 rounded-full px-3 py-1 text-sm">
-                         <span className="text-gray-700 mr-2">{time}</span>
-                         <button className="text-gray-400 hover:text-red-500">
-                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                           </svg>
-                         </button>
-                       </div>
-                     ))}
+               {/* Main Content Grid - Monday/Tuesday on left, Auto Intervals on right */}
+               <div className="grid grid-cols-3 gap-6">
+                 {/* Left Side - Monday & Tuesday Time Slots */}
+                 <div className="col-span-2 space-y-6">
+                   {/* Monday */}
+                   <div>
+                     <h4 className="text-sm font-bold text-gray-900 mb-3">Monday</h4>
+                     <div className="grid grid-cols-5 gap-2">
+                       {['06 : 00', '06 : 30', '07 : 00', '07 : 30', '08 : 00', '08 : 30', '09 : 00', '09 : 30', '10 : 00', '10 : 30', '11 : 00', '11 : 30', '12 : 00', '12 : 30', '13 : 00'].map((time, index) => (
+                         <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
+                           <span className="text-gray-700">{time}</span>
+                           <button className="text-gray-400 hover:text-red-500">
+                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                             </svg>
+                           </button>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+
+                   {/* Tuesday */}
+                   <div>
+                     <h4 className="text-sm font-bold text-gray-900 mb-3">Tuesday</h4>
+                     <div className="grid grid-cols-5 gap-2">
+                       {['06 : 00', '06 : 30', '07 : 00', '07 : 30', '08 : 00', '08 : 30', '09 : 00', '09 : 30', '10 : 00', '10 : 30', '11 : 00', '11 : 30', '12 : 00', '12 : 30', '13 : 00'].map((time, index) => (
+                         <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
+                           <span className="text-gray-700">{time}</span>
+                           <button className="text-gray-400 hover:text-red-500">
+                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                             </svg>
+                           </button>
+                         </div>
+                       ))}
+                     </div>
                    </div>
                  </div>
-
-                 {/* Tuesday */}
-                 <div>
-                   <h4 className="text-sm font-medium text-gray-900 mb-2">Tuesday</h4>
-                   <div className="flex flex-wrap gap-2">
-                     {['06 : 00', '06 : 30', '07 : 00', '07 : 30', '08 : 00', '08 : 30', '09 : 00', '09 : 30', '10 : 00', '10 : 30', '11 : 00', '11 : 30', '12 : 00', '12 : 30', '13 : 00'].map((time, index) => (
-                       <div key={index} className="flex items-center bg-gray-100 rounded-full px-3 py-1 text-sm">
-                         <span className="text-gray-700 mr-2">{time}</span>
-                         <button className="text-gray-400 hover:text-red-500">
-                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                           </svg>
-                         </button>
-                       </div>
-                     ))}
+                 
+                 {/* Right Side - Auto Intervals Container */}
+                 <div className="col-span-1">
+                   <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 h-fit">
+                     <div className="flex items-center space-x-2 mb-3">
+                       <input
+                         type="text"
+                         defaultValue="06 : 00"
+                         className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-center text-sm"
+                       />
+                       <span className="text-gray-500 text-sm">and</span>
+                       <input
+                         type="text"
+                         defaultValue="20 : 30"
+                         className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-center text-sm"
+                       />
+                     </div>
+                     <p className="text-xs text-gray-600 mb-3">You can add starting and ending time with the auto intervals of time.</p>
+                     <div className="flex items-center space-x-2">
+                       <input
+                         type="text"
+                         defaultValue="00 : 30"
+                         className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-center text-sm"
+                       />
+                       <span className="text-xs text-gray-600">Duration between the time in minutes.</span>
+                     </div>
                    </div>
                  </div>
                </div>
+             </div>
 
-               {/* Auto Intervals Section */}
-               <div className="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-6">
-                 <h4 className="text-lg font-bold text-gray-900 mb-4">Auto Intervals of Time</h4>
-                 <div className="grid grid-cols-3 gap-6">
-                   <div>
-                     <label className="block text-sm font-medium text-gray-900 mb-2">Starting Time</label>
-                     <input
-                       type="text"
-                       defaultValue="06 : 00"
-                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                     />
+             {/* Select Vehicle Modal */}
+             {showSelectVehicleModal && (
+               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                 <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4">
+                   {/* Modal Header */}
+                   <div className="p-6 border-b border-gray-200 relative">
+                     <h2 className="text-lg font-semibold text-gray-900">Choose which Vehicle will be assigned for the selected pickup time.</h2>
+                     <p className="text-sm text-gray-600 mt-1">This helps ensure the right vehicle is scheduled and ready for the traveller.</p>
+                     
+                     {/* Close Button */}
+                     <button
+                       onClick={() => setShowSelectVehicleModal(false)}
+                       className="absolute top-6 right-6 w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-full"
+                     >
+                       <FiX className="w-4 h-4 text-gray-400" />
+                     </button>
                    </div>
-                   <div>
-                     <label className="block text-sm font-medium text-gray-900 mb-2">Ending Time</label>
-                     <input
-                       type="text"
-                       defaultValue="20 : 30"
-                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                     />
-                   </div>
-                   <div>
-                     <label className="block text-sm font-medium text-gray-900 mb-2">Duration between the time in minutes</label>
-                     <input
-                       type="text"
-                       defaultValue="00 : 30"
-                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                     />
+
+                   {/* Modal Content - Vertical Stacked Layout */}
+                   <div className="p-4 space-y-3">
+                     {/* Vehicle Option 1 - Benz A-Class */}
+                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                       <div className="flex justify-between items-start">
+                         <div className="flex-1">
+                           <div className="flex items-baseline mb-1">
+                             <h3 className="text-lg font-bold text-gray-900">Benz</h3>
+                             <h3 className="text-lg font-bold text-gray-900 ml-2">A-Class</h3>
+                           </div>
+                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
+                             <span className="italic text-gray-600">Luxury Premium</span>
+                             <span className="text-gray-600">2008</span>
+                             <span className="text-gray-600">Best for upto <span className="text-blue-600 font-medium">03</span></span>
+                             <span className="text-gray-600">Approximate time <span className="text-blue-600 font-medium">04h</span></span>
+                           </div>
+                           <p className="text-xs text-gray-500 leading-relaxed">
+                             The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable.
+                           </p>
+                         </div>
+                         <div className="text-right ml-4">
+                           <div className="text-lg font-bold text-blue-600">$40</div>
+                           <div className="text-xs text-gray-600">Group Based</div>
+                           <div className="text-xs text-gray-400 mt-1">
+                             20% Commission will charge per product according to your vehicle
+                           </div>
+                         </div>
+                       </div>
+                     </div>
+
+                     {/* Vehicle Option 2 - Coster J3-400 */}
+                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                       <div className="flex justify-between items-start">
+                         <div className="flex-1">
+                           <div className="flex items-baseline mb-1">
+                             <h3 className="text-lg font-bold text-gray-900">Coster</h3>
+                             <h3 className="text-lg font-bold text-gray-900 ml-2">J3-400</h3>
+                           </div>
+                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
+                             <span className="italic text-gray-600">Comfort 1.2x</span>
+                             <span className="text-gray-600">2008</span>
+                             <span className="text-gray-600">Best for upto <span className="text-blue-600 font-medium">03</span></span>
+                             <span className="text-gray-600">Approximate time <span className="text-blue-600 font-medium">04h</span></span>
+                           </div>
+                           <p className="text-xs text-gray-500 leading-relaxed">
+                             The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable.
+                           </p>
+                         </div>
+                         <div className="text-right ml-4">
+                           <div className="text-lg font-bold text-blue-600">$40</div>
+                           <div className="text-xs text-gray-600">Group Based</div>
+                           <div className="text-xs text-gray-400 mt-1">
+                             20% Commission will charge per product according to your vehicle
+                           </div>
+                         </div>
+                       </div>
+                     </div>
                    </div>
                  </div>
-                 <p className="text-sm text-gray-600 mt-3">You can add starting and ending time with the auto intervals of time.</p>
                </div>
-             </div>
+             )}
 
-             {/* Footer Buttons */}
-             <div className="flex justify-between pt-8 border-t border-gray-200">
-               <button className="px-6 py-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
-                 Cancel
-               </button>
-               <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                 Confirm Location & Time
-               </button>
-             </div>
+
            </div>
          );
        case 5:
@@ -1331,29 +1680,27 @@ const CreateProductComponent = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Navigation Buttons */}
-          <div className="bg-white border-t border-gray-200 px-8 py-6">
-            <div className="max-w-4xl mx-auto flex justify-end space-x-4">
-              <button
-                onClick={prevStep}
-                className="flex items-center px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
-              >
-                <FiChevronLeft className="mr-2" size={20} />
-                Back
-              </button>
-              
-              <button
-                onClick={step < 6 ? nextStep : () => {
-                  alert('Product created successfully!');
-                  onClose();
-                }}
-                className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                {step < 6 ? 'Continue' : 'Create Product'}
-                <FiChevronRight className="ml-2" size={20} />
-              </button>
-            </div>
-          </div>
+           {/* Navigation Buttons */}
+           <div className="bg-white border-t border-gray-200 px-8 py-6">
+             <div className="max-w-4xl mx-auto flex justify-end space-x-4">
+               <button
+                 onClick={onClose}
+                 className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
+               >
+                 Cancel
+               </button>
+               
+               <button
+                 onClick={step < 6 ? nextStep : () => {
+                   alert('Product created successfully!');
+                   onClose();
+                 }}
+                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+               >
+                 {step < 6 ? 'Continue' : 'Confirm Location & Time'}
+               </button>
+             </div>
+           </div>
         </div>
       </div>
 

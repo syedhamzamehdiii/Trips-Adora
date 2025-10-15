@@ -436,7 +436,7 @@ const Dashboard = () => {
                 onClick={() => setShowListingsDropdown(!showListingsDropdown)}
                 className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 flex items-center transition-all duration-200"
               >
-                Listings
+              Listings
                 <FiChevronDown className="ml-1" size={16} />
               </button>
               
@@ -462,7 +462,7 @@ const Dashboard = () => {
                       className="w-full text-center px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900 font-medium"
                     >
                       Active Product listing
-                    </button>
+            </button>
                   </div>
                 </div>
               )}
