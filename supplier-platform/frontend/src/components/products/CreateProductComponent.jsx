@@ -1685,12 +1685,21 @@ const CreateProductComponent = ({ onClose }) => {
            {/* Navigation Buttons */}
            <div className="bg-white border-t border-gray-200 px-8 py-6">
              <div className="max-w-4xl mx-auto flex justify-end space-x-4">
-               <button
-                 onClick={onClose}
-                 className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
-               >
-                 Cancel
-               </button>
+               {step === 6 ? (
+                 <button
+                   onClick={onClose}
+                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
+                 >
+                   Cancel
+                 </button>
+               ) : (
+                 <button
+                   onClick={prevStep}
+                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
+                 >
+                   Back
+                 </button>
+               )}
                
                <button
                  onClick={step < 6 ? nextStep : () => {

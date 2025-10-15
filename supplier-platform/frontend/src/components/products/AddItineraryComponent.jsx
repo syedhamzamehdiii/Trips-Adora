@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiClock, FiMapPin, FiRotateCcw, FiPlus, FiX, FiCheckCircle, FiChevronDown, FiCamera, FiUpload, FiEdit3, FiTrash2 } from 'react-icons/fi';
+import { FiClock, FiMapPin, FiRotateCcw, FiPlus, FiX, FiCheckCircle, FiChevronDown, FiCamera, FiUpload, FiEdit3, FiTrash2, FiUser, FiStar } from 'react-icons/fi';
 import MountFujiTourPage from './MountFujiTourPage';
 
 const AddItineraryComponent = ({ onClose, onBack }) => {
@@ -106,14 +106,8 @@ const AddItineraryComponent = ({ onClose, onBack }) => {
   // Show the preview page if showPreview is true
   if (showPreview) {
     return (
-      <div>
+      <div className="fixed inset-0 bg-white z-[100] overflow-auto">
         <MountFujiTourPage />
-        <button
-          onClick={() => setShowPreview(false)}
-          className="fixed top-4 right-4 z-50 bg-gray-800 text-white p-2 rounded-full hover:bg-gray-700"
-        >
-          <FiX size={20} />
-        </button>
       </div>
     );
   }

@@ -23,7 +23,11 @@ import {
   FiInstagram,
   FiFacebook,
   FiTwitter,
-  FiChevronDown
+  FiChevronDown,
+  FiMenu,
+  FiHome,
+  FiArrowLeft,
+  FiBell
 } from 'react-icons/fi';
 
 const MountFujiTourPage = () => {
@@ -90,78 +94,187 @@ const MountFujiTourPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
+      {/* Header Navbar */}
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="w-full px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="text-2xl font-bold text-black">TripsAdora</h1>
-                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">A</span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 mt-2 text-sm text-gray-500">
-                <span>Tour</span>
-                <span>→</span>
-                <span>Travel & SightSeeing</span>
-              </div>
+            {/* Logo */}
+            <div className="flex items-center">
+              <img src="/assets/logo.jpg" alt="TripsAdora" className="h-12 w-auto" />
             </div>
             
-            <div className="flex items-center space-x-3">
-              <button className="flex items-center space-x-2 px-4 py-2 border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50">
-                <FiEdit3 size={16} />
-                <span>Save as Draft</span>
-              </button>
-              <button className="flex items-center space-x-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50">
-                <FiSave size={16} />
-                <span>Save as Draft</span>
-              </button>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                <FiUpload size={16} />
-                <span>Publish Product</span>
-              </button>
+            {/* Navigation Links */}
+            <div className="flex items-center space-x-8">
+              <a href="#" className="text-blue-600 font-medium underline">Home</a>
+              <a href="#" className="text-gray-700 font-medium hover:text-gray-900">FAQs</a>
+              <a href="#" className="text-gray-700 font-medium hover:text-gray-900">Support</a>
+            </div>
+            
+            {/* User Info Section */}
+            <div className="flex items-center space-x-6">
+              {/* Notification Icons */}
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <FiClock size={20} className="text-gray-600" />
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                </div>
+                <div className="relative">
+                  <FiBell size={20} className="text-gray-600" />
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                </div>
+              </div>
+              
+              {/* Language Selector */}
+              <div className="flex items-center space-x-1">
+                <span className="text-sm font-medium text-gray-700">EN</span>
+                <FiChevronDown size={14} className="text-gray-600" />
+              </div>
+              
+              {/* Balance */}
+              <div className="text-right">
+                <p className="text-xs text-gray-600">Available Balance</p>
+                <p className="text-lg font-bold text-gray-900">$1850</p>
+              </div>
+              
+              {/* User Profile */}
+              <div className="flex flex-col items-center">
+                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                  <FiUser size={20} className="text-gray-600" />
+                </div>
+                <p className="text-xs text-gray-600 mt-1">ID 00032123</p>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
+      {/* Working Navbar */}
+      <nav className="bg-transparent border-b border-gray-200">
+        <div className="w-full px-6 py-4">
+          <div className="flex items-center justify-center space-x-12 relative">
+            <button 
+              onClick={() => window.location.href = '/dashboard'}
+              className="text-black font-medium hover:text-gray-600 cursor-pointer"
+            >
+              Dashboard
+            </button>
+            
+            {/* Listings with Dropdown */}
+            <div className="relative group">
+              <button className="flex items-center space-x-1 text-black font-medium hover:text-gray-600">
+                <span>Listings</span>
+                <FiChevronDown size={16} />
+              </button>
+              
+              {/* Dropdown Menu */}
+              <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="py-2">
+                  <button 
+                    onClick={() => window.location.href = '/products/create'}
+                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 border-b border-gray-100"
+                  >
+                    Create new product
+                  </button>
+                  <button 
+                    onClick={() => window.location.href = '/products'}
+                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50"
+                  >
+                    Active Product listing
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => window.location.href = '/availability'}
+              className="text-black font-medium hover:text-gray-600 cursor-pointer"
+            >
+              Availability
+            </button>
+            <button 
+              onClick={() => window.location.href = '/bookings'}
+              className="text-black font-medium hover:text-gray-600 cursor-pointer"
+            >
+              Bookings
+            </button>
+            <button 
+              onClick={() => window.location.href = '/insights'}
+              className="text-black font-medium hover:text-gray-600 cursor-pointer"
+            >
+              Insights
+            </button>
+            <button 
+              onClick={() => window.location.href = '/finance'}
+              className="text-black font-medium hover:text-gray-600 cursor-pointer"
+            >
+              Finance
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Page Header */}
+      <div className="w-full px-6 py-6 bg-gray-50">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Mount Fuji Customized Tour</h1>
+            <div className="flex items-center space-x-2">
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">Tour</span>
+              <span className="text-gray-500">→</span>
+              <span className="px-3 py-1 border border-gray-300 text-gray-600 rounded-full text-sm">Travel & SightSeeing</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <button className="flex items-center space-x-2 px-4 py-2 border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 bg-white shadow-sm">
+              <FiEdit3 size={16} />
+              <span>Save as Draft</span>
+            </button>
+            <button className="flex items-center space-x-2 px-4 py-2 border border-red-400 text-red-600 rounded-lg hover:bg-red-50 bg-white shadow-sm">
+              <FiSave size={16} />
+              <span>Save as Draft</span>
+            </button>
+            <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md">
+              <FiUpload size={16} />
+              <span>Publish Product</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="w-full px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Hero Section - Centered */}
+          <div className="relative mb-8">
+            <img 
+              src="/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg" 
+              alt="Mount Fuji at sunset" 
+              className="w-full h-[500px] object-cover rounded-lg"
+            />
+          </div>
+        </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            
-            {/* Hero Section */}
-            <div className="relative">
-              <img 
-                src="/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg" 
-                alt="Mount Fuji at sunset" 
-                className="w-full h-96 object-cover rounded-lg"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-40 rounded-lg flex items-center justify-center">
-                <h2 className="text-white text-4xl font-bold text-center">
-                  Discover the breathtaking beauty of Mount Fuji
-                </h2>
-              </div>
-            </div>
 
             {/* Introduction */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <p className="text-lg text-gray-800 leading-relaxed">
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <p className="text-lg text-gray-700 leading-relaxed">
                 Discover the breathtaking beauty of Mount Fuji with a private guided tour from Tokyo, 
                 tailored for comfort and unforgettable memories.
               </p>
             </div>
 
             {/* Tour Description */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <div className="flex items-center space-x-2 mb-4">
                 <FiCompass size={20} className="text-blue-600" />
-                <h3 className="text-xl font-bold text-gray-900">Tour Description</h3>
+                <h3 className="text-xl font-bold text-gray-800">Tour Description</h3>
               </div>
-              <p className="text-gray-700 leading-relaxed">
+              <p className="text-gray-600 leading-relaxed">
                 Experience the magic of Mount Fuji on this exclusive one-day private tour designed for 
                 comfort and adventure. Our professional guides will take you to the most scenic spots 
                 including Lake Kawaguchi and the iconic Chureito Pagoda. Enjoy flexible scheduling, 
@@ -171,10 +284,10 @@ const MountFujiTourPage = () => {
             </div>
 
             {/* Tour Highlights */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <div className="flex items-center space-x-2 mb-6">
                 <FiStar size={20} className="text-blue-600" />
-                <h3 className="text-xl font-bold text-gray-900">Tour Highlights</h3>
+                <h3 className="text-xl font-bold text-gray-800">Tour Highlights</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {highlights.map((highlight, index) => (
@@ -348,34 +461,42 @@ const MountFujiTourPage = () => {
             </div>
 
             {/* Pick-up & Drop-off */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <div className="flex items-center space-x-2 mb-6">
-                <FiMapPin size={20} className="text-blue-600" />
-                <h3 className="text-xl font-bold text-gray-900">Pick-up & Drop-off Location</h3>
+                <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                  <FiMapPin size={12} className="text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-black">Pick-up & Drop-off Location</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
                   <div className="mb-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">Pick-up</h4>
-                    <p className="text-gray-600">Shibuya Crossing (Tokyo)</p>
+                    <h4 className="font-bold text-black mb-2">Pick-up</h4>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                      <p className="text-gray-500">Shibuya Crossing (Tokyo)</p>
+                    </div>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Drop-off</h4>
-                    <p className="text-gray-600">Same as Pick-up</p>
+                    <h4 className="font-bold text-black mb-2">Drop-off</h4>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                      <p className="text-gray-500">Same as Pick-up</p>
+                    </div>
                   </div>
                 </div>
                 <div>
                   <div className="mb-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">Available Days</h4>
+                    <h4 className="font-bold text-black mb-2">Available Days</h4>
                     <div className="flex flex-wrap gap-2">
                       {days.map((day) => (
                         <button
                           key={day}
                           onClick={() => setSelectedDay(day)}
-                          className={`px-3 py-1 rounded text-sm ${
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
                             selectedDay === day 
                               ? 'bg-blue-600 text-white' 
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              : 'bg-gray-200 text-gray-500'
                           }`}
                         >
                           {day}
@@ -384,16 +505,16 @@ const MountFujiTourPage = () => {
                     </div>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Time Slots</h4>
-                    <div className="grid grid-cols-3 gap-2">
+                    <h4 className="font-bold text-black mb-2">Time Slots</h4>
+                    <div className="grid grid-cols-6 gap-2">
                       {timeSlots.map((time) => (
                         <button
                           key={time}
                           onClick={() => setSelectedTime(time)}
-                          className={`px-3 py-2 rounded text-sm ${
+                          className={`px-3 py-2 rounded-full text-sm font-medium ${
                             selectedTime === time 
                               ? 'bg-blue-600 text-white' 
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              : 'bg-gray-200 text-gray-500'
                           }`}
                         >
                           {time}
@@ -449,44 +570,44 @@ const MountFujiTourPage = () => {
             </div>
 
             {/* Ready to Go Live */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="bg-green-50 p-6 rounded-lg border border-green-200">
               <div className="flex items-center space-x-2 mb-4">
                 <FiCheckCircle size={20} className="text-green-600" />
-                <h3 className="text-xl font-bold text-gray-900">Ready to Go Live</h3>
+                <h3 className="text-xl font-bold text-green-700">Ready to Go Live</h3>
               </div>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-700">All requirements met</span>
-                  <span className="text-green-600 font-semibold">20%</span>
+                  <span className="text-green-600">All requirements met</span>
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm font-medium">20%</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-700">Commission Rate</span>
-                  <span className="text-gray-600">-</span>
+                  <span className="text-green-700">Commission Rate</span>
+                  <span className="text-green-600">-</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-700">Your Earnings</span>
+                  <span className="text-green-700">Your Earnings</span>
                   <span className="text-green-600 font-semibold">$192 Per Booking</span>
                 </div>
               </div>
             </div>
 
             {/* Next Steps */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
               <div className="flex items-center space-x-2 mb-4">
-                <FiRefreshCw size={20} className="text-blue-600" />
-                <h3 className="text-xl font-bold text-gray-900">Next Steps</h3>
+                <FiRefreshCw size={20} className="text-purple-600" />
+                <h3 className="text-xl font-bold text-purple-700">Next Steps</h3>
               </div>
-              <ul className="space-y-2 text-gray-700">
+              <ul className="space-y-2 text-purple-700">
                 <li className="flex items-start">
-                  <span className="mr-2">•</span>
+                  <span className="mr-2 text-purple-600">•</span>
                   <span>Review all details above</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="mr-2">•</span>
+                  <span className="mr-2 text-purple-600">•</span>
                   <span>Use Quick Actions to proceed</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="mr-2">•</span>
+                  <span className="mr-2 text-purple-600">•</span>
                   <span>Monitor performance after publishing</span>
                 </li>
               </ul>
@@ -519,7 +640,7 @@ const MountFujiTourPage = () => {
 
       {/* Footer */}
       <footer className="bg-blue-900 text-white">
-        <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="w-full px-6 py-12">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
             
             {/* Column 1 */}
