@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend } from 'react-icons/fi';
+import AddItineraryComponent from './AddItineraryComponent';
 
 const CreateProductComponent = ({ onClose }) => {
   const [step, setStep] = useState(1);
+  const [showItineraryComponent, setShowItineraryComponent] = useState(false);
   const [showImageTipsModal, setShowImageTipsModal] = useState(false);
   const [showIncludedExcludedModal, setShowIncludedExcludedModal] = useState(false);
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
@@ -1692,8 +1694,7 @@ const CreateProductComponent = ({ onClose }) => {
                
                <button
                  onClick={step < 6 ? nextStep : () => {
-                   alert('Product created successfully!');
-                   onClose();
+                   setShowItineraryComponent(true);
                  }}
                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                >
@@ -1812,6 +1813,17 @@ const CreateProductComponent = ({ onClose }) => {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Add Itinerary Component - Overlay */}
+      {showItineraryComponent && (
+        <AddItineraryComponent 
+          onClose={() => {
+            setShowItineraryComponent(false);
+            onClose();
+          }}
+          onBack={() => setShowItineraryComponent(false)}
+        />
       )}
     </div>
   );
