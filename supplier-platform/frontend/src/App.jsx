@@ -12,6 +12,7 @@ import DraftsPage from './pages/Products/DraftsPage'
 import AddItinerary from './pages/Products/AddItinerary'
 import CompanyProfile from './pages/Settings/CompanyProfile'
 import AccountSettings from './pages/Settings/AccountSettings'
+import InvitePartnerPage from './pages/InvitePartnerPage'
 import DashboardLayout from './layouts/DashboardLayout'
 
 function AppRoutes() {
@@ -93,6 +94,10 @@ function AppRoutes() {
               <AccountSettings />
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/settings/invite-partner" 
+          element={isAuthenticated ? <InvitePartnerPage /> : <Navigate to="/login" />} 
         />
         {/* Default Route */}
         <Route 
