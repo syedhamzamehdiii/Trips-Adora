@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
 import SettingsDropdown from '@/components/common/SettingsDropdown';
+import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
+import FromSupplierModal from '@/components/modals/FromSupplierModal';
 
 const DashboardLayout = ({ children }) => {
   const { user } = useAuth();
@@ -10,6 +12,8 @@ const DashboardLayout = ({ children }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
+  const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
@@ -181,6 +185,14 @@ const DashboardLayout = ({ children }) => {
                   isOpen={showSettingsDropdown}
                   onClose={() => setShowSettingsDropdown(false)}
                   profileRef={profileRef}
+                  onOpenFromTravellerModal={() => {
+                    setShowSettingsDropdown(false);
+                    setShowTravellerSectionModal(true);
+                  }}
+                  onOpenFromSupplierModal={() => {
+                    setShowSettingsDropdown(false);
+                    setShowFromSupplierModal(true);
+                  }}
                 />
               </div>
             </div>
@@ -262,6 +274,25 @@ const DashboardLayout = ({ children }) => {
       <div className="flex-1">
         {children}
       </div>
+
+      {/* Traveller Section Modal */}
+      <TravellerSectionModal 
+        isOpen={showTravellerSectionModal}
+        onClose={() => setShowTravellerSectionModal(false)}
+        userProfile={{
+          name: "Edward William",
+          initials: "EW",
+          balance: 1850,
+          id: "00032123", 
+          profileImage: "/assets/profile-placeholder.jpg"
+        }}
+      />
+
+      {/* From Supplier Modal */}
+      <FromSupplierModal 
+        isOpen={showFromSupplierModal}
+        onClose={() => setShowFromSupplierModal(false)}
+      />
     </div>
   );
 };

@@ -194,7 +194,8 @@ const AccountSettings = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen flex flex-col">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
       {/* Top Profile Card */}
       <div className="bg-gray-50 rounded-lg border border-gray-200 p-6 mb-8">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
@@ -840,8 +841,9 @@ const AccountSettings = () => {
           </div>
         </div>
       </div>
+      </div>
 
-      <footer className="bg-[#1d236b] text-white py-16">
+      <footer className="bg-[#1d236b] text-white py-16 w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
             {/* Know About us */}

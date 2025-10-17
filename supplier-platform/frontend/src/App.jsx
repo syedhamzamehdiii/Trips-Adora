@@ -94,7 +94,6 @@ function AppRoutes() {
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
         />
-        
         {/* Default Route */}
         <Route 
           path="/" 
