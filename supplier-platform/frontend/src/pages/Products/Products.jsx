@@ -173,22 +173,14 @@ const Products = () => {
         <div className="flex space-x-2 mb-6">
           <button
             onClick={() => setActiveTab('active')}
-            className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              activeTab === 'active'
-                ? 'bg-white text-gray-900 border border-gray-300'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
+            className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white"
           >
-            <FiTrendingUp className="mr-2 text-green-600" size={16} />
+            <FiTrendingUp className="mr-2 text-white" size={16} />
             Active Products
           </button>
           <button
-            onClick={() => setActiveTab('drafts')}
-            className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              activeTab === 'drafts'
-                ? 'bg-white text-gray-900 border border-gray-300'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
+            onClick={() => navigate('/products/drafts')}
+            className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
           >
             <FiFileText className="mr-2 text-green-600" size={16} />
             Drafts

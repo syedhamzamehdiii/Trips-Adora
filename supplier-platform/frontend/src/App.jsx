@@ -8,6 +8,7 @@ import GoogleCallback from './pages/Auth/GoogleCallback'
 import Dashboard from './pages/Dashboard/Dashboard'
 import CreateProduct from './pages/Products/CreateProduct'
 import Products from './pages/Products/Products'
+import DraftsPage from './pages/Products/DraftsPage'
 import AddItinerary from './pages/Products/AddItinerary'
 import CompanyProfile from './pages/Settings/CompanyProfile'
 import AccountSettings from './pages/Settings/AccountSettings'
@@ -54,6 +55,14 @@ function AppRoutes() {
           element={isAuthenticated ? (
             <DashboardLayout>
               <Products />
+            </DashboardLayout>
+          ) : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/products/drafts" 
+          element={isAuthenticated ? (
+            <DashboardLayout>
+              <DraftsPage />
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
         />

@@ -11,14 +11,14 @@ const ApplicationSubmittedModal = ({ isOpen, onClose, onReturnToDashboard }) => 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[70vh] overflow-y-auto">
         {/* Top White Bar with Logo */}
         <div className="flex items-center justify-between p-3 bg-white border-b border-gray-200">
           <div className="flex items-center">
             <img 
               src="/assets/logo.jpg" 
               alt="TripsAdora Logo" 
-              className="w-40 h-15 "
+              className="w-16 h-16 object-contain"
             />
           </div>
           <button
@@ -29,37 +29,9 @@ const ApplicationSubmittedModal = ({ isOpen, onClose, onReturnToDashboard }) => 
           </button>
         </div>
 
-        <div className="flex min-h-[80vh]">
-          {/* Left Sidebar */}
-          <div className="w-80 relative overflow-hidden bg-gray-100">
-            {/* Background Image */}
-            <div 
-              className="absolute inset-0 bg-cover bg-center"
-              style={{
-                backgroundImage: 'url("/assets/WhatsApp Image 2025-10-13 at 4.19.02 PM.jpeg")'
-              }}
-            />
-            
-            {/* Overlay */}
-            <div className="absolute inset-0 bg-gray-900 bg-opacity-40"></div>
-            
-            {/* Sidebar Content */}
-            <div className="relative z-10 p-6">
-              {/* Sidebar Text */}
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <h2 className="text-3xl font-bold text-black leading-tight">
-                    Product<br />Submission
-                  </h2>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="flex-1 p-8 space-y-6">
+        <div className="p-4 space-y-4">
             {/* Application Submitted Successfully Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="flex items-start space-x-4">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <FiCheckCircle className="text-green-600" size={32} />
@@ -99,7 +71,7 @@ const ApplicationSubmittedModal = ({ isOpen, onClose, onReturnToDashboard }) => 
             </div>
 
             {/* What Happens Next Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
                 What Happens Next
               </h2>
@@ -129,7 +101,7 @@ const ApplicationSubmittedModal = ({ isOpen, onClose, onReturnToDashboard }) => 
             </div>
 
             {/* Questions Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="flex items-start space-x-4 mb-6">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
                   <FiMail className="text-gray-600" size={32} />
@@ -171,7 +143,6 @@ const ApplicationSubmittedModal = ({ isOpen, onClose, onReturnToDashboard }) => 
             <div className="text-center text-gray-500 text-sm">
               Keep this confirmation for your records. You will also receive an email confirmation shortly.
             </div>
-          </div>
         </div>
       </div>
     </div>
