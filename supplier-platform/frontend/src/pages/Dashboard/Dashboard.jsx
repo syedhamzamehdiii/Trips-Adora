@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
 import SettingsDropdown from '@/components/common/SettingsDropdown';
+import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ const Dashboard = () => {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [showNestedDropdown, setShowNestedDropdown] = useState(false);
+  const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
@@ -211,6 +213,11 @@ const Dashboard = () => {
                   }}
                   profileRef={profileRef}
                   onNestedDropdownChange={setShowNestedDropdown}
+                  onOpenFromTravellerModal={() => {
+                    setShowSettingsDropdown(false);
+                    setShowNestedDropdown(false);
+                    setShowTravellerSectionModal(true);
+                  }}
                 />
             </div>
           </div>
@@ -814,6 +821,19 @@ const Dashboard = () => {
       {showCreateProduct && (
         <CreateProductComponent onClose={() => setShowCreateProduct(false)} />
       )}
+
+      {/* Traveller Section Modal */}
+      <TravellerSectionModal 
+        isOpen={showTravellerSectionModal}
+        onClose={() => setShowTravellerSectionModal(false)}
+        userProfile={{
+          name: "Edward William",
+          initials: "EW", 
+          balance: 1850,
+          id: "00032123",
+          profileImage: "/assets/profile-placeholder.jpg"
+        }}
+      />
 
     </div>
   );

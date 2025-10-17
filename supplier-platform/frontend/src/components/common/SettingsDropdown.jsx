@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { FiChevronRight, FiUser, FiSettings, FiKey, FiUserPlus, FiLogOut } from 'react-icons/fi';
 import { ROUTES } from '@/utils/constants';
 
-const SettingsDropdown = ({ isOpen, onClose, profileRef, onNestedDropdownChange }) => {
+const SettingsDropdown = ({ isOpen, onClose, profileRef, onNestedDropdownChange, onOpenFromTravellerModal }) => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const dropdownRef = useRef(null);
@@ -148,9 +148,10 @@ const SettingsDropdown = ({ isOpen, onClose, profileRef, onNestedDropdownChange 
                   <div className="py-2">
                     <button
                       onClick={() => {
-                        navigate(ROUTES.SETTINGS_KEY_INFO_FROM_TRAVELLER);
+                        if (onOpenFromTravellerModal) {
+                          onOpenFromTravellerModal();
+                        }
                         setShowKeyInfoDropdown(false);
-                        onClose();
                       }}
                       className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-50 text-gray-900 hover:text-gray-700"
                     >
