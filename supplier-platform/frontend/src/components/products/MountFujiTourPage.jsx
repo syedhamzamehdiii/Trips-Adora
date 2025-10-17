@@ -29,12 +29,29 @@ import {
   FiArrowLeft,
   FiBell
 } from 'react-icons/fi';
+import PublishProductModal from './PublishProductModal';
+import ApplicationSubmittedModal from './ApplicationSubmittedModal';
 
 const MountFujiTourPage = () => {
   const [selectedDay, setSelectedDay] = useState('Tuesday');
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [language, setLanguage] = useState('US English');
   const [currency, setCurrency] = useState('$ USD - US Dollar');
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const handlePublishProduct = () => {
+    // Add your publish logic here
+    console.log('Product published successfully!');
+    // Close publish modal and show success modal
+    setShowPublishModal(false);
+    setShowSuccessModal(true);
+  };
+
+  const handleReturnToDashboard = () => {
+    // Navigate to dashboard
+    window.location.href = '/dashboard';
+  };
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const timeSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
@@ -234,7 +251,10 @@ const MountFujiTourPage = () => {
               <FiSave size={16} />
               <span>Save as Draft</span>
             </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md">
+            <button 
+              onClick={() => setShowPublishModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md"
+            >
               <FiUpload size={16} />
               <span>Publish Product</span>
             </button>
@@ -243,9 +263,9 @@ const MountFujiTourPage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="w-full px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Hero Section - Centered */}
+      <div className="w-full py-8">
+        <div className="max-w-7xl mx-auto px-4">
+          {/* Hero Section - Proper Container */}
           <div className="relative mb-8">
             <img 
               src="/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg" 
@@ -312,37 +332,49 @@ const MountFujiTourPage = () => {
                 <FiCamera size={20} className="text-blue-600" />
                 <h3 className="text-xl font-bold text-gray-900">Photo Gallery</h3>
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <img 
-                  src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
-                  alt="Mount Fuji view 1" 
-                  className="w-full h-32 object-cover rounded-lg"
-                />
-                <img 
-                  src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
-                  alt="Mount Fuji view 2" 
-                  className="w-full h-32 object-cover rounded-lg"
-                />
-                <img 
-                  src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
-                  alt="Mount Fuji view 3" 
-                  className="w-full h-32 object-cover rounded-lg"
-                />
-                <img 
-                  src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
-                  alt="Mount Fuji view 4" 
-                  className="w-full h-32 object-cover rounded-lg"
-                />
-                <img 
-                  src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
-                  alt="Mount Fuji view 5" 
-                  className="w-full h-32 object-cover rounded-lg"
-                />
-                <img 
-                  src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
-                  alt="Mount Fuji view 6" 
-                  className="w-full h-32 object-cover rounded-lg"
-                />
+              <div className="grid grid-cols-3 gap-3">
+                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                  <img 
+                    src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
+                    alt="Mount Fuji view 1" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                  <img 
+                    src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
+                    alt="Mount Fuji view 2" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                  <img 
+                    src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
+                    alt="Mount Fuji view 3" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                  <img 
+                    src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
+                    alt="Mount Fuji view 4" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                  <img 
+                    src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
+                    alt="Mount Fuji view 5" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="aspect-[4/3] rounded-lg overflow-hidden">
+                  <img 
+                    src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
+                    alt="Mount Fuji view 6" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               </div>
             </div>
 
@@ -765,6 +797,20 @@ const MountFujiTourPage = () => {
           </div>
         </div>
       </footer>
+
+      {/* Publish Product Modal */}
+      <PublishProductModal
+        isOpen={showPublishModal}
+        onClose={() => setShowPublishModal(false)}
+        onPublish={handlePublishProduct}
+      />
+
+      {/* Application Submitted Success Modal */}
+      <ApplicationSubmittedModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onReturnToDashboard={handleReturnToDashboard}
+      />
     </div>
   );
 };
