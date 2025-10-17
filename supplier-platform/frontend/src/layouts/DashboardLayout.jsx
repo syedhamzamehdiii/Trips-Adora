@@ -4,6 +4,7 @@ import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/
 import { useAuth } from '@/context/AuthContext';
 import SettingsDropdown from '@/components/common/SettingsDropdown';
 import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
+import FromSupplierModal from '@/components/modals/FromSupplierModal';
 
 const DashboardLayout = ({ children }) => {
   const { user } = useAuth();
@@ -12,6 +13,7 @@ const DashboardLayout = ({ children }) => {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
+  const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
@@ -187,6 +189,10 @@ const DashboardLayout = ({ children }) => {
                     setShowSettingsDropdown(false);
                     setShowTravellerSectionModal(true);
                   }}
+                  onOpenFromSupplierModal={() => {
+                    setShowSettingsDropdown(false);
+                    setShowFromSupplierModal(true);
+                  }}
                 />
               </div>
             </div>
@@ -280,6 +286,12 @@ const DashboardLayout = ({ children }) => {
           id: "00032123", 
           profileImage: "/assets/profile-placeholder.jpg"
         }}
+      />
+
+      {/* From Supplier Modal */}
+      <FromSupplierModal 
+        isOpen={showFromSupplierModal}
+        onClose={() => setShowFromSupplierModal(false)}
       />
     </div>
   );

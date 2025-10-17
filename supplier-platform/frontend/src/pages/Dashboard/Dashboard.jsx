@@ -6,6 +6,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
 import SettingsDropdown from '@/components/common/SettingsDropdown';
 import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
+import FromSupplierModal from '@/components/modals/FromSupplierModal';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ const Dashboard = () => {
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [showNestedDropdown, setShowNestedDropdown] = useState(false);
   const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
+  const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
@@ -217,6 +219,11 @@ const Dashboard = () => {
                     setShowSettingsDropdown(false);
                     setShowNestedDropdown(false);
                     setShowTravellerSectionModal(true);
+                  }}
+                  onOpenFromSupplierModal={() => {
+                    setShowSettingsDropdown(false);
+                    setShowNestedDropdown(false);
+                    setShowFromSupplierModal(true);
                   }}
                 />
             </div>
@@ -833,6 +840,12 @@ const Dashboard = () => {
           id: "00032123",
           profileImage: "/assets/profile-placeholder.jpg"
         }}
+      />
+
+      {/* From Supplier Modal */}
+      <FromSupplierModal 
+        isOpen={showFromSupplierModal}
+        onClose={() => setShowFromSupplierModal(false)}
       />
 
     </div>
