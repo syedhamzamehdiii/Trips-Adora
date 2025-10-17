@@ -1,45 +1,29 @@
-import React from 'react';
-import { FiClock, FiEdit3, FiMoreVertical, FiSearch, FiFilter } from 'react-icons/fi';
+import React, { useState, useRef, useEffect } from 'react';
+import { FiClock, FiEdit3, FiMoreVertical, FiSearch, FiFilter, FiTrendingUp, FiFileText, FiTrash2, FiSave, FiDownload, FiSettings, FiFlag } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 
 const DraftsPage = () => {
   const navigate = useNavigate();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <img src="/assets/logo.jpg" alt="TripsAdora Logo" className="h-8 w-8 object-contain" />
-          <span className="text-xl font-bold text-gray-800">TripsAdora</span>
-        </div>
-        <div className="flex items-center space-x-4">
-          <button className="text-gray-600 hover:text-gray-800">Home</button>
-          <button className="text-gray-600 hover:text-gray-800">FAQs</button>
-          <button className="text-gray-600 hover:text-gray-800">Support</button>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Available Balance $1850</span>
-            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold">EW</span>
-            </div>
-            <span className="text-xs text-gray-500">ID 00032123</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center space-x-6">
-          <button className="text-gray-600 hover:text-gray-800">Dashboard</button>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg">Listings</button>
-          <button className="text-gray-600 hover:text-gray-800">Availability</button>
-          <button className="text-gray-600 hover:text-gray-800">Bookings</button>
-          <button className="text-gray-600 hover:text-gray-800">Insights</button>
-          <button className="text-gray-600 hover:text-gray-800">Finance</button>
-        </div>
-      </nav>
-
       {/* Main Content */}
-      <div className="p-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Title */}
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Product Management</h1>
 
@@ -64,35 +48,19 @@ const DraftsPage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center space-x-4 mb-6">
+        <div className="flex space-x-2 mb-6">
           <button 
             onClick={() => navigate('/products')}
-            className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-800"
+            className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
           >
-            <span>Active Products</span>
+            <FiTrendingUp className="mr-2 text-green-600" size={16} />
+            Active Products
           </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg">
-            <span>Drafts</span>
-            <span className="bg-white text-blue-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">1</span>
+          <button className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white">
+            <FiFileText className="mr-2 text-white" size={16} />
+            Drafts
+            <span className="ml-2 w-5 h-5 bg-white text-blue-600 text-xs rounded-full flex items-center justify-center">1</span>
           </button>
-        </div>
-
-        {/* Search and Filter */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search products..."
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              <FiFilter size={16} />
-              <span>Filter</span>
-            </button>
-          </div>
         </div>
 
         {/* Draft Products Section */}
@@ -124,13 +92,53 @@ const DraftsPage = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <button 
+                  onClick={() => navigate('/products/create')}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
                   <FiEdit3 size={16} />
                   <span>Continue Editing</span>
                 </button>
-                <button className="p-2 text-gray-400 hover:text-gray-600">
-                  <FiMoreVertical size={20} />
-                </button>
+                <div className="relative" ref={dropdownRef}>
+                  <button 
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="p-2 text-gray-400 hover:text-gray-600"
+                  >
+                    <FiMoreVertical size={20} />
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {showDropdown && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                      <div className="py-2">
+                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
+                          <FiTrash2 size={16} />
+                          <span>Delete</span>
+                        </button>
+                        <div className="border-t border-gray-100"></div>
+                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
+                          <FiSave size={16} />
+                          <span>Save</span>
+                        </button>
+                        <div className="border-t border-gray-100"></div>
+                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
+                          <FiDownload size={16} />
+                          <span>Download</span>
+                        </button>
+                        <div className="border-t border-gray-100"></div>
+                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
+                          <FiSettings size={16} />
+                          <span>Setting</span>
+                        </button>
+                        <div className="border-t border-gray-100"></div>
+                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
+                          <FiFlag size={16} />
+                          <span>Report</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

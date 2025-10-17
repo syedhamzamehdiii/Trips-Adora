@@ -27,7 +27,10 @@ import {
   FiMenu,
   FiHome,
   FiArrowLeft,
-  FiBell
+  FiBell,
+  FiChevronLeft,
+  FiChevronRight,
+  FiX
 } from 'react-icons/fi';
 import PublishProductModal from './PublishProductModal';
 import ApplicationSubmittedModal from './ApplicationSubmittedModal';
@@ -39,6 +42,8 @@ const MountFujiTourPage = () => {
   const [currency, setCurrency] = useState('$ USD - US Dollar');
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   const handlePublishProduct = () => {
     // Add your publish logic here
@@ -52,6 +57,31 @@ const MountFujiTourPage = () => {
     // Navigate to dashboard
     window.location.href = '/dashboard';
   };
+
+  const handlePhotoClick = (index) => {
+    setCurrentPhotoIndex(index);
+    setShowPhotoModal(true);
+  };
+
+  const nextPhoto = () => {
+    setCurrentPhotoIndex((prev) => (prev + 1) % photos.length);
+  };
+
+  const prevPhoto = () => {
+    setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
+  };
+
+  const photos = [
+    { src: "/assets/WhatsApp Image 2025-10-13 at 4.52.46 PM (1).jpeg", alt: "Mount Fuji view 1" },
+    { src: "/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png", alt: "Mount Fuji view 2" },
+    { src: "/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png", alt: "Mount Fuji view 3" },
+    { src: "/assets/WhatsApp Image 2025-10-13 at 4.52.46 PM (1).jpeg", alt: "Mount Fuji view 4" },
+    { src: "/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png", alt: "Mount Fuji view 5" },
+    { src: "/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png", alt: "Mount Fuji view 6" },
+    { src: "/assets/WhatsApp Image 2025-10-13 at 4.52.46 PM (1).jpeg", alt: "Mount Fuji view 7" },
+    { src: "/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png", alt: "Mount Fuji view 8" },
+    { src: "/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png", alt: "Mount Fuji view 9" }
+  ];
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const timeSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
@@ -265,13 +295,54 @@ const MountFujiTourPage = () => {
       {/* Main Content */}
       <div className="w-full py-8">
         <div className="max-w-7xl mx-auto px-4">
-          {/* Hero Section - Proper Container */}
-          <div className="relative mb-8">
-            <img 
-              src="/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg" 
-              alt="Mount Fuji at sunset" 
-              className="w-full h-[500px] object-cover rounded-lg"
-            />
+          {/* Hero Section with Photo Gallery */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
+            {/* Main Hero Image - Left Side */}
+            <div className="lg:col-span-3">
+              <div className="relative">
+                <img 
+                  src="/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg" 
+                  alt="Mount Fuji at sunset" 
+                  className="w-full h-[700px] object-cover rounded-lg"
+                />
+              </div>
+            </div>
+            
+            {/* Photo Gallery - Right Side */}
+            <div className="lg:col-span-1">
+              <div className="bg-white p-2 rounded-lg border border-gray-200 h-[700px] flex flex-col">
+                {/* 4-Grid Photo Gallery */}
+                <div className="grid grid-cols-2 gap-3 flex-1">
+                  {photos.slice(0, 4).map((photo, index) => (
+                    <div 
+                      key={index}
+                      className={`aspect-square rounded-lg overflow-hidden cursor-pointer transition-all ${
+                        index === 3 ? 'relative' : 'hover:opacity-80'
+                      }`}
+                      onClick={() => handlePhotoClick(index)}
+                    >
+                      <img 
+                        src={photo.src} 
+                        alt={photo.alt} 
+                        className={`w-full h-full object-cover ${
+                          index === 3 ? 'blur-sm' : ''
+                        }`}
+                      />
+                      {index === 3 && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                          <button 
+                            onClick={() => handlePhotoClick(0)}
+                            className="bg-white text-gray-900 px-3 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors text-sm"
+                          >
+                            See More
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -326,57 +397,6 @@ const MountFujiTourPage = () => {
               </div>
             </div>
 
-            {/* Photo Gallery */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <div className="flex items-center space-x-2 mb-6">
-                <FiCamera size={20} className="text-blue-600" />
-                <h3 className="text-xl font-bold text-gray-900">Photo Gallery</h3>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                  <img 
-                    src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
-                    alt="Mount Fuji view 1" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                  <img 
-                    src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
-                    alt="Mount Fuji view 2" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                  <img 
-                    src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
-                    alt="Mount Fuji view 3" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                  <img 
-                    src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
-                    alt="Mount Fuji view 4" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                  <img 
-                    src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
-                    alt="Mount Fuji view 5" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="aspect-[4/3] rounded-lg overflow-hidden">
-                  <img 
-                    src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
-                    alt="Mount Fuji view 6" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-            </div>
 
             {/* Trip Details */}
             <div className="bg-white p-6 rounded-lg border border-gray-200">
@@ -805,14 +825,76 @@ const MountFujiTourPage = () => {
         onPublish={handlePublishProduct}
       />
 
-      {/* Application Submitted Success Modal */}
-      <ApplicationSubmittedModal
-        isOpen={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
-        onReturnToDashboard={handleReturnToDashboard}
-      />
-    </div>
-  );
-};
+          {/* Application Submitted Success Modal */}
+          <ApplicationSubmittedModal
+            isOpen={showSuccessModal}
+            onClose={() => setShowSuccessModal(false)}
+            onReturnToDashboard={handleReturnToDashboard}
+          />
 
-export default MountFujiTourPage;
+          {/* Photo Gallery Modal */}
+          {showPhotoModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+              <div className="relative max-w-4xl max-h-[90vh] w-full mx-4">
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowPhotoModal(false)}
+                  className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70"
+                >
+                  <FiX size={24} />
+                </button>
+                
+                {/* Main Photo */}
+                <div className="relative">
+                  <img
+                    src={photos[currentPhotoIndex].src}
+                    alt={photos[currentPhotoIndex].alt}
+                    className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+                  />
+                  
+                  {/* Navigation Arrows */}
+                  <button
+                    onClick={prevPhoto}
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70"
+                  >
+                    <FiChevronLeft size={24} />
+                  </button>
+                  <button
+                    onClick={nextPhoto}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70"
+                  >
+                    <FiChevronRight size={24} />
+                  </button>
+                </div>
+                
+                {/* Photo Counter */}
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-full">
+                  {currentPhotoIndex + 1} / {photos.length}
+                </div>
+                
+                {/* Thumbnail Strip */}
+                <div className="absolute bottom-4 left-4 right-4 flex space-x-2 overflow-x-auto pb-2">
+                  {photos.map((photo, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentPhotoIndex(index)}
+                      className={`flex-shrink-0 w-16 h-12 rounded overflow-hidden border-2 ${
+                        index === currentPhotoIndex ? 'border-white' : 'border-transparent'
+                      }`}
+                    >
+                      <img
+                        src={photo.src}
+                        alt={photo.alt}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    export default MountFujiTourPage;
