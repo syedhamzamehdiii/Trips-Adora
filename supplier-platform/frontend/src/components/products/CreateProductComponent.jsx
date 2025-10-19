@@ -1047,7 +1047,7 @@ const CreateProductComponent = ({ onClose }) => {
                              <option key={hour} value={hour}>{hour}</option>
                            ))}
                          </select>
-                         <div className="absolute inset-y-0 right-0 flex items-center pr-1 pointer-events-none">
+                         <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                            </svg>
@@ -1065,7 +1065,7 @@ const CreateProductComponent = ({ onClose }) => {
                              <option key={minute} value={minute}>{minute}</option>
                            ))}
                          </select>
-                         <div className="absolute inset-y-0 right-0 flex items-center pr-1 pointer-events-none">
+                         <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                            </svg>
@@ -1323,7 +1323,7 @@ const CreateProductComponent = ({ onClose }) => {
                    <div className="relative">
                      <label className="block text-sm font-medium text-gray-900 mb-2">Transportation Type</label>
                      <select 
-                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5"
                        value={selectedVehicleType}
                        onChange={(e) => handleVehicleTypeChange(e.target.value)}
                      >
@@ -1332,7 +1332,7 @@ const CreateProductComponent = ({ onClose }) => {
                        <option value="car">Car</option>
                        <option value="bus">Bus</option>
                      </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
@@ -1342,7 +1342,7 @@ const CreateProductComponent = ({ onClose }) => {
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-900 mb-2">Make & Variant</label>
                     <select 
-                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5"
                       value={selectedVehicleModel}
                       onChange={(e) => setSelectedVehicleModel(e.target.value)}
                       disabled={!selectedVehicleType}
@@ -1354,7 +1354,7 @@ const CreateProductComponent = ({ onClose }) => {
                         </option>
                       ))}
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
@@ -1363,7 +1363,7 @@ const CreateProductComponent = ({ onClose }) => {
                   
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-900 mb-2">Model of vehicle (optional)</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
                       <option value="2008">2008</option>
                       <option value="2009">2009</option>
                       <option value="2012">2012</option>
@@ -1371,7 +1371,7 @@ const CreateProductComponent = ({ onClose }) => {
                       <option value="2018">2018</option>
                       <option value="2020">2020</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
@@ -1383,7 +1383,7 @@ const CreateProductComponent = ({ onClose }) => {
                   {/* Row 2 */}
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-900 mb-2">Vehicle Attributes</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
                       <option>Select Attributes</option>
                       <option>Comfort 1.2x</option>
                       <option>Economy 1x</option>
@@ -1393,7 +1393,7 @@ const CreateProductComponent = ({ onClose }) => {
                       <option>Hybrid 1.3x</option>
                       <option>Electric 1.4x</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
@@ -1402,13 +1402,13 @@ const CreateProductComponent = ({ onClose }) => {
                   
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-900 mb-2">Number of travellers</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
                       <option>03</option>
                       <option>01</option>
                       <option>02</option>
                       <option>04</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
@@ -1423,14 +1423,14 @@ const CreateProductComponent = ({ onClose }) => {
                   
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-900 mb-2">Currency</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
                       <option>Currency</option>
                       <option>$ US Dollar</option>
                       <option>€ Euro</option>
                       <option>¥ Japanese Yen</option>
                       <option>Rs Pakistani Rupee</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
@@ -1442,14 +1442,14 @@ const CreateProductComponent = ({ onClose }) => {
                   {/* Row 3 */}
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-900 mb-2">Pricing Type</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
                       <option>Select Type</option>
                       <option>Per Group</option>
                       <option>Per Person</option>
                       <option>Shared</option>
                       <option>Hourly Rate</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
@@ -1479,7 +1479,7 @@ const CreateProductComponent = ({ onClose }) => {
                  <div className="relative">
                    <label className="block text-sm font-medium text-gray-900 mb-2">Total duration</label>
                    <p className="text-sm text-gray-600 mb-3">Specify how long the car will be available for your trip.</p>
-                   <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10">
+                   <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
                      <option>8h</option>
                      <option>1h</option>
                      <option>2h</option>
@@ -1499,7 +1499,7 @@ const CreateProductComponent = ({ onClose }) => {
                      <option>17h</option>
                      <option>18h</option>
                    </select>
-                   <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                      </svg>
@@ -1651,7 +1651,7 @@ const CreateProductComponent = ({ onClose }) => {
                           ? 'bg-blue-600 text-white border-blue-600'
                           : 'bg-white border-gray-800 text-gray-800'}`}
                     >
-                      {stepNumber < step ? <FiCheckCircle size={16} /> : stepNumber}
+                      {stepNumber < step ? <FiCheckCircle size={16} /> : ''}
                     </div>
                     {index < 5 && (
                       <div className={`w-0.5 h-6 mt-2 ${stepNumber < step ? 'bg-blue-600' : 'bg-gray-800'}`}></div>
@@ -1717,10 +1717,10 @@ const CreateProductComponent = ({ onClose }) => {
       {/* Image Tips Modal */}
       {showImageTipsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96 max-w-[90vw] max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-[75vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Images Tips</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Images Tips</h2>
               <button
                 onClick={() => setShowImageTipsModal(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -1733,9 +1733,9 @@ const CreateProductComponent = ({ onClose }) => {
             <p className="text-gray-700 mb-6">Upload clean, non-blurry images</p>
 
             {/* Example Images */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-6 mb-6">
               <div className="text-center">
-                <div className="w-full h-32 bg-gray-100 rounded-lg mb-2 flex items-center justify-center">
+                <div className="w-full h-48 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
                   <img 
                     src="/assets/WhatsApp Image 2025-10-13 at 4.52.46 PM (1).jpeg" 
                     alt="Clear example" 
@@ -1743,13 +1743,13 @@ const CreateProductComponent = ({ onClose }) => {
                   />
                 </div>
                 <div className="flex items-center justify-center">
-                  <FiCheckCircle className="text-green-600 mr-1" size={16} />
-                  <span className="text-sm text-gray-700">Clear, sharp image</span>
+                  <FiCheckCircle className="text-green-600 mr-2" size={18} />
+                  <span className="text-base text-gray-700 font-medium">Clear, sharp image</span>
                 </div>
               </div>
               
               <div className="text-center">
-                <div className="w-full h-32 bg-gray-100 rounded-lg mb-2 flex items-center justify-center">
+                <div className="w-full h-48 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
                   <img 
                     src="/assets/WhatsApp Image 2025-10-13 at 4.19.02 PM.jpeg" 
                     alt="Blurry example" 
@@ -1757,8 +1757,8 @@ const CreateProductComponent = ({ onClose }) => {
                   />
                 </div>
                 <div className="flex items-center justify-center">
-                  <span className="text-red-600 mr-1 font-bold">✗</span>
-                  <span className="text-sm text-gray-700">Blurry, unclear image</span>
+                  <span className="text-red-600 mr-2 font-bold text-lg">✗</span>
+                  <span className="text-base text-gray-700 font-medium">Blurry, unclear image</span>
                 </div>
               </div>
             </div>
@@ -1767,13 +1767,13 @@ const CreateProductComponent = ({ onClose }) => {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowImageTipsModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
               >
                 Back
               </button>
               <button
                 onClick={() => setShowImageTipsModal(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
               >
                 Next
               </button>
