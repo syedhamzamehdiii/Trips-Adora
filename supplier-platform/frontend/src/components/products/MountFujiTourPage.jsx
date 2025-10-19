@@ -33,7 +33,7 @@ import {
   FiX
 } from 'react-icons/fi';
 import PublishProductModal from './PublishProductModal';
-import ApplicationSubmittedModal from './ApplicationSubmittedModal';
+import ApplicationSubmittedPage from './ApplicationSubmittedPage';
 
 const MountFujiTourPage = () => {
   const [selectedDay, setSelectedDay] = useState('Tuesday');
@@ -826,7 +826,7 @@ const MountFujiTourPage = () => {
       />
 
           {/* Application Submitted Success Modal */}
-          <ApplicationSubmittedModal
+          <ApplicationSubmittedPage
             isOpen={showSuccessModal}
             onClose={() => setShowSuccessModal(false)}
             onReturnToDashboard={handleReturnToDashboard}

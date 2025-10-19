@@ -13,6 +13,7 @@ import AddItinerary from './pages/Products/AddItinerary'
 import CompanyProfile from './pages/Settings/CompanyProfile'
 import AccountSettings from './pages/Settings/AccountSettings'
 import InvitePartnerPage from './pages/InvitePartnerPage'
+import ApplicationSubmitted from './pages/Products/ApplicationSubmitted'
 import DashboardLayout from './layouts/DashboardLayout'
 
 function AppRoutes() {
@@ -78,6 +79,10 @@ function AppRoutes() {
               <AddItinerary />
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/products/application-submitted" 
+          element={isAuthenticated ? <ApplicationSubmitted /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/settings/company-profile" 
