@@ -18,6 +18,9 @@ export const ROUTES = {
   SETTINGS_KEY_INFO_BY_SUPPLIER: '/settings/key-information/by-supplier',
   SETTINGS_INVITE_PARTNER: '/settings/invite-partner',
   PARTNERS: '/partners',
+  INSIGHTS: '/insights',
+  AVAILABILITY: '/availability',
+  BOOKINGS: '/bookings',
 }
 
 // API endpoints

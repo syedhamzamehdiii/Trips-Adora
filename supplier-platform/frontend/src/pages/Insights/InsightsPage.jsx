@@ -19,28 +19,44 @@ import {
   FiMoreVertical,
   FiStar,
   FiClock,
-  FiX
+  FiX,
+  FiCheck,
+  FiHelpCircle
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import SettingsDropdown from '@/components/common/SettingsDropdown';
+import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
+import FromSupplierModal from '@/components/modals/FromSupplierModal';
 
 const InsightsPage = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [showListingsDropdown, setShowListingsDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
+  const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [showChartDropdown, setShowChartDropdown] = useState(false);
   const [selectedCountryOption, setSelectedCountryOption] = useState('Top 10 Countries');
   const [selectedChartOption, setSelectedChartOption] = useState('Last 6 months');
   const [language, setLanguage] = useState('EN');
   const [currency, setCurrency] = useState('$ USD - US Dollar');
+  const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
   const languageRef = useRef(null);
+  const profileRef = useRef(null);
   const countryDropdownRef = useRef(null);
   const chartDropdownRef = useRef(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowListingsDropdown(false);
+      }
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setShowNotifications(false);
       }
@@ -55,14 +71,14 @@ const InsightsPage = () => {
       }
     };
 
-    if (showNotifications || showLanguageDropdown || showCountryDropdown || showChartDropdown) {
+    if (showListingsDropdown || showNotifications || showLanguageDropdown || showCountryDropdown || showChartDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showNotifications, showLanguageDropdown, showCountryDropdown, showChartDropdown]);
+  }, [showListingsDropdown, showNotifications, showLanguageDropdown, showCountryDropdown, showChartDropdown]);
 
   const summaryStats = [
     { number: '124', label: 'Booking this month' },
@@ -106,9 +122,13 @@ const InsightsPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white relative">
+      {/* Blur Overlay */}
+      {(showSettingsDropdown) && (
+        <div className="fixed inset-0 bg-black/10 z-40 pointer-events-none"></div>
+      )}
       {/* Top Navigation Bar */}
-      <div className="bg-white border-b border-gray-200 relative transition-all duration-300">
+      <div className={`bg-white border-b border-gray-200 relative transition-all duration-300 ${showSettingsDropdown ? 'blur-sm' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             {/* Left side - Logo */}
@@ -143,6 +163,44 @@ const InsightsPage = () => {
                   </svg>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
                 </button>
+                
+                {/* Notifications Dropdown */}
+                {showNotifications && (
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="p-4">
+                      <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
+                      <div className="space-y-3">
+                        <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">New booking received</p>
+                            <p className="text-xs text-gray-600">Mount Fuji tour - 2 guests</p>
+                            <p className="text-xs text-gray-500">2 minutes ago</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Payment received</p>
+                            <p className="text-xs text-gray-600">$240 for Tokyo City Tour</p>
+                            <p className="text-xs text-gray-500">1 hour ago</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Review received</p>
+                            <p className="text-xs text-gray-600">5 stars for Kyoto Temple Tour</p>
+                            <p className="text-xs text-gray-500">3 hours ago</p>
+                          </div>
+                        </div>
+                      </div>
+                      <button className="w-full mt-3 text-center text-sm text-blue-600 hover:text-blue-800 font-medium">
+                        View all notifications
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Language Dropdown */}
@@ -152,50 +210,142 @@ const InsightsPage = () => {
                   className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
                 >
                   <span className="text-sm">EN</span>
-                  <FiChevronDown size={14} />
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
                 </button>
+                
+                {/* Language Dropdown Menu */}
+                {showLanguageDropdown && (
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="py-2">
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">EN</span>
+                        <span>English</span>
+                      </button>
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">ES</span>
+                        <span>Español</span>
+                      </button>
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">FR</span>
+                        <span>Français</span>
+                      </button>
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">DE</span>
+                        <span>Deutsch</span>
+                      </button>
+                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                        <span className="font-medium">JA</span>
+                        <span>日本語</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* User Profile */}
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium text-gray-700">IM</span>
-                </div>
-                <div className="text-left">
-                  <div className="text-sm font-medium text-gray-900">Isabella Martinez</div>
-                  <div className="text-xs text-gray-500">ID 10002333</div>
-                </div>
+              {/* Profile Section */}
+              <div className="relative" ref={profileRef}>
+                <button 
+                  onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+                  className="bg-[#1d236b] rounded-lg px-4 py-2 flex items-center space-x-3 hover:bg-[#1d236b]/90 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                    <span className="text-xs font-semibold text-gray-600">EW</span>
+                  </div>
+                  <div className="text-white">
+                    <div className="text-sm font-semibold">Edward William</div>
+                    <div className="text-xs text-gray-300">ID 00032123</div>
+                  </div>
+                </button>
+                
+                {/* Settings Dropdown */}
+                <SettingsDropdown 
+                  isOpen={showSettingsDropdown}
+                  onClose={() => setShowSettingsDropdown(false)}
+                  profileRef={profileRef}
+                  onOpenFromTravellerModal={() => {
+                    setShowSettingsDropdown(false);
+                    setShowTravellerSectionModal(true);
+                  }}
+                  onOpenFromSupplierModal={() => {
+                    setShowSettingsDropdown(false);
+                    setShowFromSupplierModal(true);
+                  }}
+                />
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Secondary Navigation Tabs */}
-      <div className="bg-white border-b border-gray-200">
+      {/* Dashboard Navigation */}
+      <div className="bg-gray-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-1 py-2">
-            {['Dashboard', 'Listings', 'Availability', 'Bookings', 'Insights', 'Finance'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => {
-                  if (tab === 'Dashboard') {
-                    navigate('/dashboard');
-                  } else if (tab === 'Listings') {
-                    navigate('/products');
-                  } else if (tab === 'Bookings') {
-                    navigate('/bookings');
-                  }
-                }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  tab === 'Insights'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+          <div className="flex space-x-8 py-4">
+            <button 
+              onClick={() => navigate('/dashboard')}
+              className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 hover:bg-gray-100"
+            >
+              Dashboard
+            </button>
+            <div className="relative" ref={dropdownRef}>
+              <button 
+                onClick={() => setShowListingsDropdown(!showListingsDropdown)}
+                className="px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center bg-white text-gray-700 hover:bg-gray-100"
               >
-                {tab}
+                Listings
+                <FiChevronDown className="ml-1" size={14} />
               </button>
-            ))}
+              
+              {/* Listings Dropdown */}
+              {showListingsDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-56 bg-gray-100 rounded-lg shadow-lg z-50">
+                  <div className="py-2">
+                    <button
+                      onClick={() => {
+                        setShowListingsDropdown(false);
+                        navigate('/products/create');
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-900 hover:bg-gray-200 transition-colors rounded-lg mx-2"
+                    >
+                      Create new product
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setShowListingsDropdown(false);
+                        navigate('/products');
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-900 hover:bg-gray-200 transition-colors rounded-lg mx-2"
+                    >
+                      Active Product listing
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button 
+              onClick={() => navigate('/availability')}
+              className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 hover:bg-gray-100"
+            >
+              Availability
+            </button>
+            <button 
+              onClick={() => navigate('/bookings')}
+              className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 hover:bg-gray-100"
+            >
+              Bookings
+            </button>
+            <button 
+              onClick={() => navigate('/insights')}
+              className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white"
+            >
+              Insights
+            </button>
+            <button className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 hover:bg-gray-100">
+              Finance
+            </button>
           </div>
         </div>
       </div>
@@ -885,6 +1035,25 @@ const InsightsPage = () => {
           </div>
         </div>
       </footer>
+
+      {/* Traveller Section Modal */}
+      <TravellerSectionModal 
+        isOpen={showTravellerSectionModal}
+        onClose={() => setShowTravellerSectionModal(false)}
+        userProfile={{
+          name: "Edward William",
+          initials: "EW", 
+          balance: 1850,
+          id: "00032123",
+          profileImage: "/assets/profile-placeholder.jpg"
+        }}
+      />
+
+      {/* From Supplier Modal */}
+      <FromSupplierModal 
+        isOpen={showFromSupplierModal}
+        onClose={() => setShowFromSupplierModal(false)}
+      />
     </div>
   );
 };
