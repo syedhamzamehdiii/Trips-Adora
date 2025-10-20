@@ -109,7 +109,11 @@ function AppRoutes() {
         />
         <Route 
           path="/bookings" 
-          element={isAuthenticated ? <BookingsPage /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? (
+            <DashboardLayout>
+              <BookingsPage />
+            </DashboardLayout>
+          ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/insights" 

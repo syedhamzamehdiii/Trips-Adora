@@ -5,7 +5,6 @@ import {
   FiFilter, 
   FiDownload, 
   FiPlus,
-  FiChevronDown,
   FiShare2,
   FiTrash2,
   FiChevronLeft,
@@ -15,11 +14,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 const BookingsPage = () => {
-  const [language, setLanguage] = useState('EN');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const navigate = useNavigate();
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     productName: '',
     travelDateStart: '',
@@ -29,29 +26,6 @@ const BookingsPage = () => {
     referenceCode: '',
     status: 'All Status'
   });
-  const navigate = useNavigate();
-  const notificationRef = useRef(null);
-  const languageRef = useRef(null);
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
-        setShowNotifications(false);
-      }
-      if (languageRef.current && !languageRef.current.contains(event.target)) {
-        setShowLanguageDropdown(false);
-      }
-    };
-
-    if (showNotifications || showLanguageDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showNotifications, showLanguageDropdown]);
 
   const bookingStats = [
     { number: '52', label: 'Total Bookings' },
@@ -100,326 +74,161 @@ const BookingsPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Top Navigation Bar */}
-      <div className="bg-white border-b border-gray-200 relative transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            {/* Left side - Logo */}
-            <div className="flex items-center">
-              <img 
-                src="/assets/logo.jpg" 
-                alt="TripsAdora Logo" 
-                className="h-12 w-auto"
-              />
-            </div>
-            
-            {/* Center - Main Site Navigation */}
-            <nav className="hidden md:flex space-x-8">
-              <a href="#" className="text-[#1d236b] font-medium relative">
-                Home
-                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
-              </a>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">FAQs</a>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Support</a>
-            </nav>
-            
-            {/* Right side - Profile Section */}
-            <div className="flex items-center space-x-4">
-              {/* Notification Bell */}
-              <div className="relative" ref={notificationRef}>
-                <button 
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-                </button>
-                
-                {/* Notifications Dropdown */}
-                {showNotifications && (
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                    <div className="p-4">
-                      <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
-                      <div className="space-y-3">
-                        <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">New booking received</p>
-                            <p className="text-xs text-gray-600">Mount Fuji tour - 2 guests</p>
-                            <p className="text-xs text-gray-500">2 minutes ago</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Payment received</p>
-                            <p className="text-xs text-gray-600">$240 for Tokyo City Tour</p>
-                            <p className="text-xs text-gray-500">1 hour ago</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
-                          <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Review received</p>
-                            <p className="text-xs text-gray-600">5 stars for Kyoto Temple Tour</p>
-                            <p className="text-xs text-gray-500">3 hours ago</p>
-                          </div>
-                        </div>
-                      </div>
-                      <button className="w-full mt-3 text-center text-sm text-blue-600 hover:text-blue-800 font-medium">
-                        View all notifications
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Language Dropdown */}
-              <div className="relative" ref={languageRef}>
-                <button 
-                  onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-                  className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
-                >
-                  <span className="text-sm">EN</span>
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                
-                {/* Language Dropdown Menu */}
-                {showLanguageDropdown && (
-                  <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                    <div className="py-2">
-                      <button className="w-full text-left px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 flex items-center space-x-2">
-                        <span className="font-medium">EN</span>
-                        <span>English</span>
-                      </button>
-                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                        <span className="font-medium">ES</span>
-                        <span>Español</span>
-                      </button>
-                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                        <span className="font-medium">FR</span>
-                        <span>Français</span>
-                      </button>
-                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                        <span className="font-medium">DE</span>
-                        <span>Deutsch</span>
-                      </button>
-                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                        <span className="font-medium">JA</span>
-                        <span>日本語</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* User Profile Button */}
-              <div className="flex items-center space-x-3">
-                <button className="bg-[#1d236b] text-white px-4 py-2 rounded-lg flex items-center space-x-3 hover:bg-[#1a1f5c] transition-colors">
-                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-gray-700">EW</span>
-                  </div>
-                  <div className="text-left">
-                    <div className="text-sm font-medium">Edward William</div>
-                    <div className="text-xs text-gray-300">ID 00032123</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
+    <div className="max-w-7xl mx-auto px-6 py-8">
+      {/* Bookings Header */}
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">YOUR BOOKINGS</h1>
+        <div className="flex space-x-3">
+          <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <FiDownload size={16} />
+            <span>Export Bookings</span>
+          </button>
+          <button 
+            onClick={() => navigate('/products/create')}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <FiPlus size={16} />
+            <span>Create New Product</span>
+          </button>
         </div>
       </div>
 
-      {/* Secondary Navigation Tabs */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-1 py-2">
-            {['Dashboard', 'Listings', 'Availability', 'Bookings', 'Insights', 'Finance'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => {
-                  if (tab === 'Dashboard') {
-                    navigate('/dashboard');
-                  } else if (tab === 'Listings') {
-                    navigate('/products');
-                  }
-                  // Add other navigation logic as needed
-                }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  tab === 'Bookings'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {bookingStats.map((stat, index) => (
+          <div key={index} className="bg-gray-50 rounded-lg p-6 border border-gray-200 shadow-sm">
+            <div className="text-3xl font-bold text-gray-900 mb-1">{stat.number}</div>
+            <div className="text-sm text-gray-600">{stat.label}</div>
           </div>
+        ))}
+      </div>
+
+      {/* Search and Filters */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex-1 max-w-md relative">
+          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <input
+            type="text"
+            placeholder="Search bookings..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        <div className="flex items-center space-x-3">
+          <button className="p-2 text-gray-600 hover:text-gray-900 transition-colors">
+            <FiRefreshCw size={20} />
+          </button>
+          <button 
+            onClick={() => setShowFilterModal(true)}
+            className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <FiFilter size={20} />
+          </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Bookings Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">YOUR BOOKINGS</h1>
-          <div className="flex space-x-3">
-            <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-              <FiDownload size={16} />
-              <span>Export Bookings</span>
-            </button>
-            <button 
-              onClick={() => navigate('/products/create')}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <FiPlus size={16} />
-              <span>Create New Product</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {bookingStats.map((stat, index) => (
-            <div key={index} className="bg-gray-50 rounded-lg p-6 border border-gray-200 shadow-sm">
-              <div className="text-3xl font-bold text-gray-900 mb-1">{stat.number}</div>
-              <div className="text-sm text-gray-600">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex-1 max-w-md relative">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search bookings..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div className="flex items-center space-x-3">
-            <button className="p-2 text-gray-600 hover:text-gray-900 transition-colors">
-              <FiRefreshCw size={20} />
-            </button>
-            <button 
-              onClick={() => setShowFilterModal(true)}
-              className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <FiFilter size={20} />
-            </button>
-          </div>
-        </div>
-
-        {/* Bookings Table */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left">
+      {/* Bookings Table */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left">
+                  <input type="checkbox" className="rounded border-gray-300" />
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Reference Code
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Bookings
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name of Customer
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Booked on
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Travel Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {bookings.map((booking) => (
+                <tr key={booking.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <input type="checkbox" className="rounded border-gray-300" />
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Reference Code
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Bookings
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name of Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Booked on
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Travel Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{booking.referenceCode}</div>
+                    <div className="text-sm text-gray-500">{booking.productId}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{booking.booking}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{booking.customerName}</div>
+                    <div className="text-sm text-gray-500">{booking.customerEmail}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{booking.bookedOn}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{booking.travelDate}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      booking.status === 'Confirmed' 
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {booking.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{booking.amount}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                      {booking.id === 1 ? <FiShare2 size={16} /> : <FiTrash2 size={16} />}
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {bookings.map((booking) => (
-                  <tr key={booking.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <input type="checkbox" className="rounded border-gray-300" />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{booking.referenceCode}</div>
-                      <div className="text-sm text-gray-500">{booking.productId}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{booking.booking}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{booking.customerName}</div>
-                      <div className="text-sm text-gray-500">{booking.customerEmail}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{booking.bookedOn}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{booking.travelDate}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        booking.status === 'Confirmed' 
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {booking.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{booking.amount}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                        {booking.id === 1 ? <FiShare2 size={16} /> : <FiTrash2 size={16} />}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
+      </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between mt-6">
-          <div className="flex items-center space-x-2">
-            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-              <FiChevronLeft size={16} />
-            </button>
-            <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm">1</button>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">2</button>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">3</button>
-            <span className="px-2 text-gray-500">...</span>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">12</button>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">13</button>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">14</button>
-            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-              <FiChevronRight size={16} />
-            </button>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">1\10</span>
-          </div>
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-6">
+        <div className="flex items-center space-x-2">
+          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+            <FiChevronLeft size={16} />
+          </button>
+          <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm">1</button>
+          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">2</button>
+          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">3</button>
+          <span className="px-2 text-gray-500">...</span>
+          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">12</button>
+          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">13</button>
+          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">14</button>
+          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+            <FiChevronRight size={16} />
+          </button>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-600">1/10</span>
         </div>
       </div>
 

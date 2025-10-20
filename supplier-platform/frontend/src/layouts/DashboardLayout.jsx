@@ -23,6 +23,7 @@ const DashboardLayout = ({ children }) => {
 
   const isProductsPage = location.pathname.includes('/products');
   const isInsightsPage = location.pathname === '/insights';
+  const isBookingsPage = location.pathname === '/bookings';
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -208,7 +209,7 @@ const DashboardLayout = ({ children }) => {
             <button 
               onClick={() => navigate('/dashboard')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                !isProductsPage && !isInsightsPage
+                !isProductsPage && !isInsightsPage && !isBookingsPage
                   ? 'bg-gray-200 text-gray-900' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
@@ -265,7 +266,14 @@ const DashboardLayout = ({ children }) => {
             >
               Availability
             </button>
-            <button className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 hover:bg-gray-100">
+            <button 
+              onClick={() => navigate('/bookings')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                isBookingsPage
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
               Bookings
             </button>
             <button 
