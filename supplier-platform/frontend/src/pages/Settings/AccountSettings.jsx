@@ -20,6 +20,15 @@ const AccountSettings = () => {
     contactValue: '87654320'
   });
 
+  // Contact information state for multiple phone numbers
+  const [contactNumbers, setContactNumbers] = useState([
+    {
+      id: 1,
+      type: 'QQ Number',
+      value: '876543210'
+    }
+  ]);
+
   // File uploads
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState(null);
@@ -81,6 +90,89 @@ const AccountSettings = () => {
       ...prev,
       [field]: value
     }));
+  };
+
+  // Contact number management functions
+  const addContactNumber = () => {
+    const newId = Math.max(...contactNumbers.map(c => c.id), 0) + 1;
+    setContactNumbers(prev => [
+      ...prev,
+      {
+        id: newId,
+        type: 'WhatsApp number',
+        value: ''
+      }
+    ]);
+  };
+
+  const removeContactNumber = (id) => {
+    if (contactNumbers.length > 1) {
+      setContactNumbers(prev => prev.filter(contact => contact.id !== id));
+    }
+  };
+
+  const updateContactNumber = (id, field, value) => {
+    setContactNumbers(prev => 
+      prev.map(contact => 
+        contact.id === id 
+          ? { ...contact, [field]: value }
+          : contact
+      )
+    );
+  };
+
+  // User management modal states
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [showLoginAccessModal, setShowLoginAccessModal] = useState(false);
+  const [userAccess, setUserAccess] = useState({
+    allowLogin: true,
+    roles: {
+      administration: false,
+      finance: false,
+      manageBooking: false,
+      travelQueries: false
+    }
+  });
+
+  // Track if a user has been added (one-time button)
+  const [hasAddedUser, setHasAddedUser] = useState(false);
+  const [addedUserEmail, setAddedUserEmail] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [personalMessage, setPersonalMessage] = useState('');
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+
+  // Get enabled roles for display
+  const getEnabledRoles = () => {
+    const enabledRoles = [];
+    if (userAccess.roles.administration) enabledRoles.push('Administration');
+    if (userAccess.roles.finance) enabledRoles.push('Finance');
+    if (userAccess.roles.manageBooking) enabledRoles.push('Manage Booking');
+    if (userAccess.roles.travelQueries) enabledRoles.push('Travel Queries');
+    return enabledRoles;
+  };
+
+
+  const handleUserAccessToggle = (role) => {
+    setUserAccess(prev => ({
+      ...prev,
+      roles: {
+        ...prev.roles,
+        [role]: !prev.roles[role]
+      }
+    }));
+  };
+
+  const handleLoginToggle = () => {
+    setUserAccess(prev => ({
+      ...prev,
+      allowLogin: !prev.allowLogin
+    }));
+  };
+
+  const handleRemoveUser = () => {
+    setHasAddedUser(false);
+    setAddedUserEmail('');
+    setShowRemoveConfirm(false);
   };
 
   const handleFileUpload = (type, event) => {
@@ -269,14 +361,6 @@ const AccountSettings = () => {
               <FiAlertCircle size={16} className="mr-2" />
               Account verification
             </button>
-            <button className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
-              <FiUserPlus size={16} className="mr-2" />
-              Add a new user
-            </button>
-            <button className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-              <FiLock size={16} className="mr-2" />
-              Login access
-            </button>
           </div>
         </div>
       </div>
@@ -342,27 +426,47 @@ const AccountSettings = () => {
               </div>
               <div>
                 <p className="font-medium mb-1">Contact information:</p>
-                <div className="flex items-center border rounded-lg overflow-hidden">
-                  <select className="bg-gray-100 text-gray-700 text-sm px-2 py-2 border-r outline-none">
-                    <option>WhatsApp number</option>
-                    <option>IMO number</option>
-                    <option selected>QQ Number</option>
-                    <option>DingTalk Number</option>
-                    <option>Rakuten Viber</option>
-                  </select>
-                  <input
-                    type="text"
-                    value="876543210"
-                    className="flex-1 px-3 py-2 outline-none bg-gray-50 text-gray-600"
-                    readOnly
-                  />
+                <div className="space-y-2">
+                  {contactNumbers.map((contact, index) => (
+                    <div key={contact.id} className="flex items-center border rounded-lg overflow-hidden">
+                      <select 
+                        className="bg-gray-100 text-gray-700 text-sm px-2 py-2 border-r outline-none"
+                        value={contact.type}
+                        onChange={(e) => updateContactNumber(contact.id, 'type', e.target.value)}
+                      >
+                        <option value="WhatsApp number">WhatsApp number</option>
+                        <option value="IMO number">IMO number</option>
+                        <option value="QQ Number">QQ Number</option>
+                        <option value="DingTalk Number">DingTalk Number</option>
+                        <option value="Rakuten Viber">Rakuten Viber</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={contact.value}
+                        onChange={(e) => updateContactNumber(contact.id, 'value', e.target.value)}
+                        placeholder="Enter contact number"
+                        className="flex-1 px-3 py-2 outline-none bg-gray-50 text-gray-600"
+                      />
+                      {contactNumbers.length > 1 && (
+                        <button
+                          onClick={() => removeContactNumber(contact.id)}
+                          className="px-2 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                          title="Remove contact number"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <a
-                  href="#"
+                <button
+                  onClick={addContactNumber}
                   className="text-blue-500 text-xs mt-1 inline-block hover:underline"
                 >
                   Add more
-                </a>
+                </button>
               </div>
             </div>
           </section>
@@ -451,6 +555,82 @@ const AccountSettings = () => {
               </li>
             ))}
           </ul>
+        </div>
+      </div>
+
+      {/* User Management Section */}
+      <div className="bg-white w-full max-w-6xl rounded-xl shadow-sm border border-gray-200 p-8 mt-8">
+        <h2 className="text-xl font-semibold text-gray-800 mb-6">User Management</h2>
+        
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Left side - User Information */}
+          <div className="flex-1">
+            <div className="border border-gray-200 rounded-lg p-6">
+              <h3 className="font-medium text-gray-900 mb-4">Current User Information</h3>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <span className="text-sm font-medium text-gray-700 w-24">Email:</span>
+                  <span className="text-sm text-gray-900">
+                    {hasAddedUser ? addedUserEmail : 'No user added'}
+                  </span>
+                </div>
+                <div className="flex items-start">
+                  <span className="text-sm font-medium text-gray-700 w-24 mt-1">Role access:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {hasAddedUser ? (
+                      getEnabledRoles().length > 0 ? (
+                        getEnabledRoles().map((role, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                          >
+                            {role}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-gray-500 italic">No roles accessible</span>
+                      )
+                    ) : (
+                      <span className="text-sm text-gray-500 italic">No roles</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Right side - Action Buttons */}
+          <div className="lg:w-80">
+            <div className="space-y-4">
+              {!hasAddedUser ? (
+                <button 
+                  onClick={() => setShowUserModal(true)}
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors w-full"
+                >
+                  <FiUserPlus size={16} className="mr-2" />
+                  Add a new user
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setShowRemoveConfirm(true)}
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors w-full"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Remove user
+                </button>
+              )}
+              
+              <button 
+                onClick={() => setShowLoginAccessModal(true)}
+                className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors w-full"
+              >
+                <FiLock size={16} className="mr-2" />
+                Login access
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -842,6 +1022,212 @@ const AccountSettings = () => {
         </div>
       </div>
       </div>
+
+      {/* Add New User Modal */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Add a new user profile</h3>
+              <p className="text-sm text-gray-600">Continue by entering an email address</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <textarea
+                  placeholder="Personal message (Optional)"
+                  rows={3}
+                  value={personalMessage}
+                  onChange={(e) => setPersonalMessage(e.target.value)}
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={() => {
+                  if (newUserEmail.trim()) {
+                    // Set the added user email and mark as added
+                    setAddedUserEmail(newUserEmail.trim());
+                    setHasAddedUser(true);
+                    // Reset form
+                    setNewUserEmail('');
+                    setPersonalMessage('');
+                    // Close modal
+                    setShowUserModal(false);
+                  }
+                }}
+                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors w-full"
+              >
+                Send invite to access
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Login Access Modal */}
+      {showLoginAccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-lg w-full mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Role and login access</h3>
+              <button
+                onClick={() => setShowLoginAccessModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            
+            
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <div className="space-y-4">
+                {/* Administration */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">Administration</h4>
+                    <p className="text-sm text-gray-600">All access, including adding/removing users</p>
+                  </div>
+                  <button
+                    onClick={() => handleUserAccessToggle('administration')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      userAccess.roles.administration ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        userAccess.roles.administration ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Finance */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">Finance</h4>
+                    <p className="text-sm text-gray-600">Has access to financial information only.</p>
+                  </div>
+                  <button
+                    onClick={() => handleUserAccessToggle('finance')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      userAccess.roles.finance ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        userAccess.roles.finance ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Manage Booking */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">Manage booking</h4>
+                    <p className="text-sm text-gray-600">Can access financial info only.</p>
+                  </div>
+                  <button
+                    onClick={() => handleUserAccessToggle('manageBooking')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      userAccess.roles.manageBooking ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        userAccess.roles.manageBooking ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Travel Queries */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">Travel Queries</h4>
+                    <p className="text-sm text-gray-600">Can access financial info only.</p>
+                  </div>
+                  <button
+                    onClick={() => handleUserAccessToggle('travelQueries')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      userAccess.roles.travelQueries ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        userAccess.roles.travelQueries ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={() => {
+                  // The roles are already updated in state, just close the modal
+                  setShowLoginAccessModal(false);
+                }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove User Confirmation Modal */}
+      {showRemoveConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="text-center mb-6">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Are you sure?</h3>
+              <p className="text-sm text-gray-600">
+                Are you sure you want to remove the user <span className="font-medium">{addedUserEmail}</span>? 
+                This action cannot be undone.
+              </p>
+            </div>
+            
+            <div className="flex justify-center space-x-3">
+              <button
+                onClick={() => setShowRemoveConfirm(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveUser}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Remove User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="bg-[#1d236b] text-white py-16 w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
