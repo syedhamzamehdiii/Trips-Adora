@@ -6,7 +6,6 @@ import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
 import GoogleCallback from './pages/Auth/GoogleCallback'
 import Dashboard from './pages/Dashboard/Dashboard'
-import CreateProduct from './pages/Products/CreateProduct'
 import Products from './pages/Products/Products'
 import DraftsPage from './pages/Products/DraftsPage'
 import AddItinerary from './pages/Products/AddItinerary'
@@ -70,10 +69,6 @@ function AppRoutes() {
               <DraftsPage />
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/products/create" 
-          element={isAuthenticated ? <CreateProduct /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/products/add-itinerary" 
