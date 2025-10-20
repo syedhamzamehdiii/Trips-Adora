@@ -18,6 +18,7 @@ export const ROUTES = {
   SETTINGS_INVITE_PARTNER: '/settings/invite-partner',
   PARTNERS: '/partners',
   INSIGHTS: '/insights',
+  FINANCE: '/finance',
   AVAILABILITY: '/availability',
   BOOKINGS: '/bookings',
 }

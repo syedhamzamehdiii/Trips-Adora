@@ -17,6 +17,7 @@ import ApplicationSubmitted from './pages/Products/ApplicationSubmitted'
 import BookingsPage from './pages/Bookings/BookingsPage'
 import InsightsPage from './pages/Insights/InsightsPage'
 import AvailabilityCalendar from './pages/Availability/AvailabilityCalendar'
+import FinancePage from './pages/Finance/FinancePage'
 import DashboardLayout from './layouts/DashboardLayout'
 
 function AppRoutes() {
@@ -128,6 +129,14 @@ function AppRoutes() {
           element={isAuthenticated ? (
             <DashboardLayout>
               <AvailabilityCalendar />
+            </DashboardLayout>
+          ) : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/finance" 
+          element={isAuthenticated ? (
+            <DashboardLayout>
+              <FinancePage />
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
         />

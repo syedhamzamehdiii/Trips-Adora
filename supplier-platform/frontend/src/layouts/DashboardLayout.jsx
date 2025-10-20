@@ -288,7 +288,14 @@ const DashboardLayout = ({ children }) => {
             >
               Insights
             </button>
-            <button className="px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 hover:bg-gray-100">
+            <button 
+              onClick={() => navigate('/finance')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                location.pathname === '/finance'
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
               Finance
             </button>
           </div>

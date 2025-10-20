@@ -499,7 +499,9 @@ const Dashboard = () => {
             >
               Insights
             </button>
-            <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
+            <button 
+              onClick={() => navigate('/finance')}
+              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
               Finance
             </button>
           </div>
