@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, FiMoreVertical } from 'react-icons/fi';
+import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, FiMoreVertical, FiChevronDown } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 
 const Products = () => {
@@ -8,6 +8,7 @@ const Products = () => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [filters, setFilters] = useState({
     productName: '',
     minRevenue: 50,
@@ -16,6 +17,7 @@ const Products = () => {
   });
   const dropdownRefs = useRef({});
   const filtersRef = useRef(null);
+  const statusDropdownRef = useRef(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -33,16 +35,21 @@ const Products = () => {
       if (filtersRef.current && !filtersRef.current.contains(event.target)) {
         setShowFilters(false);
       }
+
+      // Close status dropdown
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
+        setShowStatusDropdown(false);
+      }
     };
 
-    if (openDropdown !== null || showFilters) {
+    if (openDropdown !== null || showFilters || showStatusDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [openDropdown, showFilters]);
+  }, [openDropdown, showFilters, showStatusDropdown]);
 
   // Mock data for demonstration
   const products = [
@@ -197,6 +204,47 @@ const Products = () => {
             >
               <FiFilter size={20} />
             </button>
+            
+            {/* Status Filter Dropdown */}
+            <div className="relative" ref={statusDropdownRef}>
+              <button 
+                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                className="flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+              >
+                {filters.status}
+                <FiChevronDown className="ml-1" size={14} />
+              </button>
+              
+              {showStatusDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div className="py-1">
+                    {[
+                      { value: 'All Status', label: 'All Status', color: 'bg-gray-400' },
+                      { value: 'Active', label: 'Active', color: 'bg-green-500' },
+                      { value: 'Draft', label: 'Draft', color: 'bg-gray-500' },
+                      { value: 'Pending', label: 'Pending', color: 'bg-yellow-500' },
+                      { value: 'Rejected', label: 'Rejected', color: 'bg-red-500' },
+                      { value: 'Archived', label: 'Archived', color: 'bg-gray-700' }
+                    ].map((status) => (
+                      <button
+                        key={status.value}
+                        onClick={() => {
+                          handleFilterChange('status', status.value);
+                          setShowStatusDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
+                          filters.status === status.value ? 'bg-gray-100' : ''
+                        }`}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${status.color}`}></div>
+                        <span>{status.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="relative">
               <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               <input
@@ -308,7 +356,7 @@ const Products = () => {
                         
                         {/* Action Dropdown */}
                         {openDropdown === product.id && (
-                          <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                             <div className="py-1">
                               <button
                                 onClick={() => handleAction('edit', product.id)}
@@ -397,22 +445,32 @@ const Products = () => {
               {/* By Revenue */}
               <div>
                 <label className="block text-sm font-bold text-gray-900 mb-2">By Revenue</label>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="text-sm text-gray-600">$</span>
                   <input
                     type="number"
                     value={filters.minRevenue}
                     onChange={(e) => handleFilterChange('minRevenue', parseInt(e.target.value) || 0)}
-                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                    className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
                   />
                   <span className="text-sm text-gray-600">To</span>
+                  <span className="text-sm text-gray-600">$</span>
                   <input
                     type="number"
                     value={filters.maxRevenue}
                     onChange={(e) => handleFilterChange('maxRevenue', parseInt(e.target.value) || 0)}
-                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                    className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
                   />
-                  <span className="text-xs text-gray-500">Max-fixed</span>
                 </div>
+                <div className="text-xs text-gray-500 mb-3">Max-fixed</div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1000"
+                  value={filters.minRevenue}
+                  onChange={(e) => handleFilterChange('minRevenue', parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                />
               </div>
 
               {/* Status */}
@@ -424,9 +482,11 @@ const Products = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="All Status">All Status</option>
-                  <option value="Published">Published</option>
+                  <option value="Active">Active</option>
                   <option value="Draft">Draft</option>
+                  <option value="Pending">Pending</option>
                   <option value="Rejected">Rejected</option>
+                  <option value="Archived">Archived</option>
                 </select>
               </div>
             </div>

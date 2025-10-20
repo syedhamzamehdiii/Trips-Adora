@@ -143,19 +143,22 @@ const MountFujiTourPage = () => {
     <div className="min-h-screen bg-white">
       {/* Header Navbar */}
       <header className="bg-white border-b border-gray-200">
-        <div className="w-full px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-4">
             {/* Logo */}
             <div className="flex items-center">
               <img src="/assets/logo.jpg" alt="TripsAdora" className="h-12 w-auto" />
             </div>
             
             {/* Navigation Links */}
-            <div className="flex items-center space-x-8">
-              <a href="#" className="text-blue-600 font-medium underline">Home</a>
-              <a href="#" className="text-gray-700 font-medium hover:text-gray-900">FAQs</a>
-              <a href="#" className="text-gray-700 font-medium hover:text-gray-900">Support</a>
-            </div>
+            <nav className="hidden md:flex space-x-8">
+              <a href="#" className="text-[#1d236b] font-medium relative">
+                Home
+                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
+              </a>
+              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">FAQs</a>
+              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Support</a>
+            </nav>
             
             {/* User Info Section */}
             <div className="flex items-center space-x-6">
