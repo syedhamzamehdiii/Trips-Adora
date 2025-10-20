@@ -12,10 +12,17 @@ import {
   FiX
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import Footer from '@/components/common/Footer';
+import ShareTripModal from '@/components/modals/ShareTripModal';
+import BookingDetailsModal from '@/components/modals/BookingDetailsModal';
 
 const BookingsPage = () => {
   const navigate = useNavigate();
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showBookingDetails, setShowBookingDetails] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     productName: '',
@@ -73,8 +80,29 @@ const BookingsPage = () => {
     }
   ];
 
+  const handleShareTrip = (trip) => {
+    setSelectedTrip(trip);
+    setShowShareModal(true);
+  };
+
+  const handleCloseShareModal = () => {
+    setShowShareModal(false);
+    setSelectedTrip(null);
+  };
+
+  const handleViewBookingDetails = (booking) => {
+    setSelectedBooking(booking);
+    setShowBookingDetails(true);
+  };
+
+  const handleCloseBookingDetails = () => {
+    setShowBookingDetails(false);
+    setSelectedBooking(null);
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Bookings Header */}
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-gray-900">YOUR BOOKINGS</h1>
@@ -165,7 +193,11 @@ const BookingsPage = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {bookings.map((booking) => (
-                <tr key={booking.id} className="hover:bg-gray-50">
+                <tr 
+                  key={booking.id} 
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleViewBookingDetails(booking)}
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input type="checkbox" className="rounded border-gray-300" />
                   </td>
@@ -199,9 +231,24 @@ const BookingsPage = () => {
                     <div className="text-sm font-medium text-gray-900">{booking.amount}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                      {booking.id === 1 ? <FiShare2 size={16} /> : <FiTrash2 size={16} />}
-                    </button>
+                    {booking.id === 1 ? (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShareTrip(booking);
+                        }}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <FiShare2 size={16} />
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <FiTrash2 size={16} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -373,6 +420,23 @@ const BookingsPage = () => {
           </div>
         </div>
       )}
+      </div>
+
+      {/* Share Trip Modal */}
+      <ShareTripModal 
+        isOpen={showShareModal}
+        onClose={handleCloseShareModal}
+        tripData={selectedTrip}
+      />
+
+      {/* Booking Details Modal */}
+      <BookingDetailsModal 
+        isOpen={showBookingDetails}
+        onClose={handleCloseBookingDetails}
+        bookingData={selectedBooking}
+      />
+
+      <Footer />
     </div>
   );
 };
