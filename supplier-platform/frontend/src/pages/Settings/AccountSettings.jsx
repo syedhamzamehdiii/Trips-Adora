@@ -39,6 +39,9 @@ const AccountSettings = () => {
   const [logo, setLogo] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
 
+  // Global user photo state for all instances
+  const [globalUserPhoto, setGlobalUserPhoto] = useState(null);
+
   // Profile completion data
   const [profileCompletion] = useState({
     percentage: 70,
@@ -140,6 +143,18 @@ const AccountSettings = () => {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [personalMessage, setPersonalMessage] = useState('');
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [showAccountVerification, setShowAccountVerification] = useState(false);
+  const [editableInfo, setEditableInfo] = useState({
+    publicName: 'Suneel Pirkash',
+    legalName: 'SUMEIL PIRKASH',
+    email: 'suneelpirkash@gmail.com',
+    streetAddress: '1 Chome-1 Nishi-Shinjuku, Shinjuku City, Tokyo',
+    zipCode: '160-0022',
+    city: 'Shinjuku',
+    state: 'Tokyo Prefecture',
+    country: 'Japan'
+  });
 
   // Get enabled roles for display
   const getEnabledRoles = () => {
@@ -175,6 +190,27 @@ const AccountSettings = () => {
     setShowRemoveConfirm(false);
   };
 
+  const handleEditInfo = () => {
+    setIsEditingInfo(true);
+  };
+
+  const handleSaveInfo = () => {
+    setIsEditingInfo(false);
+    // Here you would typically save the data to backend
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingInfo(false);
+    // Reset to original values if needed
+  };
+
+  const handleInfoChange = (field, value) => {
+    setEditableInfo(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const handleFileUpload = (type, event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -199,6 +235,7 @@ const AccountSettings = () => {
         case 'profile':
           setProfilePhoto(file);
           setProfilePhotoPreview(e.target.result);
+          setGlobalUserPhoto(e.target.result); // Update global photo
           break;
         case 'businessLicense':
           setBusinessLicense(file);
@@ -293,20 +330,20 @@ const AccountSettings = () => {
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           {/* Left: Profile Photo and Info */}
           <div className="flex flex-col lg:flex-row items-center lg:items-start space-y-4 lg:space-y-0 lg:space-x-6">
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
-                {profilePhotoPreview ? (
-                  <img
-                    src={profilePhotoPreview}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                    <FiUserPlus className="text-gray-500" size={40} />
-                  </div>
-                )}
-              </div>
+              <div className="relative">
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
+                  {globalUserPhoto || profilePhotoPreview ? (
+                    <img
+                      src={globalUserPhoto || profilePhotoPreview}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                      <FiUserPlus className="text-gray-500" size={40} />
+                    </div>
+                  )}
+                </div>
               <input
                 type="file"
                 onChange={(e) => handleFileUpload('profile', e)}
@@ -357,7 +394,10 @@ const AccountSettings = () => {
 
           {/* Right: Action Buttons */}
           <div className="flex flex-col space-y-3 w-full lg:w-auto">
-            <button className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors">
+            <button 
+              onClick={() => setShowAccountVerification(true)}
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
+            >
               <FiAlertCircle size={16} className="mr-2" />
               Account verification
             </button>
@@ -371,9 +411,35 @@ const AccountSettings = () => {
         <div className="lg:col-span-2 space-y-8 pr-8 border-r border-gray-200">
           {/* Your Information */}
           <section>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Your information
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Your information
+              </h2>
+              {!isEditingInfo ? (
+                <button
+                  onClick={handleEditInfo}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
+                >
+                  <FiEdit size={14} className="mr-1" />
+                  Edit
+                </button>
+              ) : (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleSaveInfo}
+                    className="text-green-600 hover:text-green-700 text-sm font-medium"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="text-gray-600 hover:text-gray-700 text-sm font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
 
             <div className="space-y-3 text-sm text-gray-700">
               <p>
@@ -384,15 +450,42 @@ const AccountSettings = () => {
               </p>
               <p>
                 <span className="font-medium w-36 inline-block">Public name:</span>
-                Suneel Pirkash
+                {isEditingInfo ? (
+                  <input
+                    type="text"
+                    value={editableInfo.publicName}
+                    onChange={(e) => handleInfoChange('publicName', e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  editableInfo.publicName
+                )}
               </p>
               <p>
                 <span className="font-medium w-36 inline-block">Legal name:</span>
-                SUNEEL PIRKASH
+                {isEditingInfo ? (
+                  <input
+                    type="text"
+                    value={editableInfo.legalName}
+                    onChange={(e) => handleInfoChange('legalName', e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  editableInfo.legalName
+                )}
               </p>
               <p>
                 <span className="font-medium w-36 inline-block">Email:</span>
-                suneelpirkash@gmail.com
+                {isEditingInfo ? (
+                  <input
+                    type="email"
+                    value={editableInfo.email}
+                    onChange={(e) => handleInfoChange('email', e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  editableInfo.email
+                )}
               </p>
             </div>
           </section>
@@ -406,23 +499,68 @@ const AccountSettings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
               <div>
                 <p className="font-medium mb-1">Street address:</p>
-                <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">1 Chome-1 Nishi-Shinjuku, Shinjuku City, Tokyo</p>
+                {isEditingInfo ? (
+                  <input
+                    type="text"
+                    value={editableInfo.streetAddress}
+                    onChange={(e) => handleInfoChange('streetAddress', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.streetAddress}</p>
+                )}
               </div>
               <div>
                 <p className="font-medium mb-1">Zip/Post code:</p>
-                <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">160-0022</p>
+                {isEditingInfo ? (
+                  <input
+                    type="text"
+                    value={editableInfo.zipCode}
+                    onChange={(e) => handleInfoChange('zipCode', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.zipCode}</p>
+                )}
               </div>
               <div>
                 <p className="font-medium mb-1">City:</p>
-                <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">Shinjuku</p>
+                {isEditingInfo ? (
+                  <input
+                    type="text"
+                    value={editableInfo.city}
+                    onChange={(e) => handleInfoChange('city', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.city}</p>
+                )}
               </div>
               <div>
                 <p className="font-medium mb-1">State:</p>
-                <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">Tokyo Prefecture</p>
+                {isEditingInfo ? (
+                  <input
+                    type="text"
+                    value={editableInfo.state}
+                    onChange={(e) => handleInfoChange('state', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.state}</p>
+                )}
               </div>
               <div>
                 <p className="font-medium mb-1">Country:</p>
-                <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">Japan</p>
+                {isEditingInfo ? (
+                  <input
+                    type="text"
+                    value={editableInfo.country}
+                    onChange={(e) => handleInfoChange('country', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                ) : (
+                  <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.country}</p>
+                )}
               </div>
               <div>
                 <p className="font-medium mb-1">Contact information:</p>
@@ -1223,6 +1361,50 @@ const AccountSettings = () => {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Remove User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Account Verification Modal */}
+      {showAccountVerification && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Account verification</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                In order to comply with regulatory requirements, you must verify your account to accept bookings on our platform and receive payments.
+              </p>
+              
+              <div className="space-y-4 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900">Verification holder:</span>
+                  <span className="text-sm text-gray-700">Uzair Ahmad</span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900">Account status:</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      unverified
+                    </span>
+                    <button className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors">
+                      <svg className="w-3 h-3 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowAccountVerification(false)}
+                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
