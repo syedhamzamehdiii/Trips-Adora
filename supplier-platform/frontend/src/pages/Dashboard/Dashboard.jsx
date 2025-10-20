@@ -481,13 +481,22 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
-            <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
+            <button 
+              onClick={() => navigate('/availability')}
+              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200"
+            >
               Availability
             </button>
-            <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
+            <button 
+              onClick={() => navigate('/bookings')}
+              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200"
+            >
               Bookings
             </button>
-            <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
+            <button 
+              onClick={() => navigate('/insights')}
+              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200"
+            >
               Insights
             </button>
             <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
