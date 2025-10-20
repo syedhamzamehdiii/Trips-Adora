@@ -16,6 +16,7 @@ import InvitePartnerPage from './pages/InvitePartnerPage'
 import ApplicationSubmitted from './pages/Products/ApplicationSubmitted'
 import BookingsPage from './pages/Bookings/BookingsPage'
 import InsightsPage from './pages/Insights/InsightsPage'
+import SupportPage from './pages/Support/SupportPage'
 import AvailabilityCalendar from './pages/Availability/AvailabilityCalendar'
 import FinancePage from './pages/Finance/FinancePage'
 import DashboardLayout from './layouts/DashboardLayout'
@@ -123,6 +124,10 @@ function AppRoutes() {
               <InsightsPage />
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/support" 
+          element={isAuthenticated ? <SupportPage /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/availability" 
