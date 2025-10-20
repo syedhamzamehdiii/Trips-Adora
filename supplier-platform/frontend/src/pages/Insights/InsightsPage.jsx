@@ -16,7 +16,10 @@ import {
   FiTwitter,
   FiMessageSquare,
   FiUserPlus,
-  FiMoreVertical
+  FiMoreVertical,
+  FiStar,
+  FiClock,
+  FiX
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 
@@ -96,10 +99,10 @@ const InsightsPage = () => {
   ];
 
   const productPerformance = [
-    { rank: '01', name: 'Mount Fuji Day Trip (Private tour)', revenue: '$23,400', increase: '12.5%', bookings: '156' },
-    { rank: '02', name: 'Mount Fuji Day Trip (Private tour)', revenue: '$23,400', increase: '11.5%', bookings: '135' },
-    { rank: '03', name: 'Mount Fuji Day Trip (Shared tour)', revenue: '$23,400', increase: '9.5%', bookings: '116' },
-    { rank: '04', name: 'Mount Fuji Day Trip (Group tour)', revenue: '$23,400', increase: '8.5%', bookings: '112' }
+    { rank: '01', name: 'Mount Fuji Day Trip', tourType: 'Private tour', revenue: '$23,400', increase: '12.5%', bookings: '156' },
+    { rank: '02', name: 'Mount Fuji Day Trip', tourType: 'Private tour', revenue: '$23,400', increase: '11.5%', bookings: '135' },
+    { rank: '03', name: 'Mount Fuji Day Trip', tourType: 'Shared tour', revenue: '$23,400', increase: '9.5%', bookings: '116' },
+    { rank: '04', name: 'Mount Fuji Day Trip', tourType: 'Group tour', revenue: '$23,400', increase: '8.5%', bookings: '112' }
   ];
 
   return (
@@ -279,16 +282,17 @@ const InsightsPage = () => {
                 </div>
               </div>
             </div>
-            <div className="h-80 bg-gray-50 rounded-lg p-6 relative">
+            <div className="h-96 bg-gray-50 rounded-lg p-8 relative">
               {/* Chart Area */}
               <div className="relative h-full">
                 {/* Y-axis labels */}
                 <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-sm text-gray-500">
                   <span>$50T</span>
+                  <span>$48T</span>
+                  <span>$45T</span>
+                  <span>$43T</span>
                   <span>$40T</span>
-                  <span>$30T</span>
-                  <span>$20T</span>
-                  <span>$10T</span>
+                  <span>$38T</span>
                 </div>
                 <div className="absolute right-0 top-0 h-full flex flex-col justify-between text-sm text-gray-500">
                   <span>54</span>
@@ -300,48 +304,53 @@ const InsightsPage = () => {
                 </div>
                 
                 {/* Chart lines */}
-                <div className="absolute inset-6">
-                  {/* Revenue line (green) - starts high, dips, then peaks */}
+                <div className="absolute inset-8">
+                  {/* Revenue line (green) - starts middle, peaks in Feb, dips in Mar, rises in Apr, declines */}
                   <svg className="w-full h-full" viewBox="0 0 200 150">
                     <path
-                      d="M10,30 Q50,50 90,40 T170,25"
+                      d="M10,80 Q50,40 90,60 T170,70"
                       stroke="#10b981"
                       strokeWidth="3"
                       fill="none"
                       strokeDasharray="none"
                     />
                     {/* Revenue dots */}
-                    <circle cx="10" cy="30" r="4" fill="#10b981" />
-                    <circle cx="50" cy="50" r="4" fill="#10b981" />
-                    <circle cx="90" cy="40" r="4" fill="#10b981" />
-                    <circle cx="130" cy="35" r="4" fill="#10b981" />
-                    <circle cx="170" cy="25" r="4" fill="#10b981" />
+                    <circle cx="10" cy="80" r="4" fill="#10b981" />
+                    <circle cx="50" cy="40" r="4" fill="#10b981" />
+                    <circle cx="90" cy="60" r="4" fill="#10b981" />
+                    <circle cx="130" cy="55" r="4" fill="#10b981" />
+                    <circle cx="170" cy="70" r="4" fill="#10b981" />
                   </svg>
                   
-                  {/* Bookings area (blue) - starts high, dips, then peaks */}
+                  {/* Bookings area (blue) - starts high, dips in Feb, peaks in Apr, declines */}
                   <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 150">
+                    <defs>
+                      <linearGradient id="bookingsGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style={{stopColor:'#3b82f6', stopOpacity:0.8}} />
+                        <stop offset="100%" style={{stopColor:'#3b82f6', stopOpacity:0.1}} />
+                      </linearGradient>
+                    </defs>
                     <path
-                      d="M10,40 Q50,60 90,50 T170,35 L170,150 L10,150 Z"
-                      fill="#3b82f6"
-                      fillOpacity="0.25"
+                      d="M10,30 Q50,50 90,40 T170,50 L170,150 L10,150 Z"
+                      fill="url(#bookingsGradient)"
                     />
                     <path
-                      d="M10,40 Q50,60 90,50 T170,35"
+                      d="M10,30 Q50,50 90,40 T170,50"
                       stroke="#3b82f6"
                       strokeWidth="3"
                       fill="none"
                     />
                     {/* Bookings dots */}
-                    <circle cx="10" cy="40" r="4" fill="#3b82f6" />
-                    <circle cx="50" cy="60" r="4" fill="#3b82f6" />
-                    <circle cx="90" cy="50" r="4" fill="#3b82f6" />
+                    <circle cx="10" cy="30" r="4" fill="#3b82f6" />
+                    <circle cx="50" cy="50" r="4" fill="#3b82f6" />
+                    <circle cx="90" cy="40" r="4" fill="#3b82f6" />
                     <circle cx="130" cy="45" r="4" fill="#3b82f6" />
-                    <circle cx="170" cy="35" r="4" fill="#3b82f6" />
+                    <circle cx="170" cy="50" r="4" fill="#3b82f6" />
                   </svg>
                 </div>
                 
                 {/* X-axis labels */}
-                <div className="absolute bottom-0 left-6 right-6 flex justify-between text-sm text-gray-500">
+                <div className="absolute bottom-0 left-8 right-8 flex justify-between text-sm text-gray-500">
                   <span>Jan</span>
                   <span>Feb</span>
                   <span>Mar</span>
@@ -351,7 +360,7 @@ const InsightsPage = () => {
                 </div>
                 
                 {/* Legend */}
-                <div className="absolute bottom-6 left-6 flex space-x-6 text-sm">
+                <div className="absolute bottom-8 left-8 flex space-x-6 text-sm">
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 rounded" style={{ backgroundColor: '#3b82f6' }}></div>
                     <span className="text-gray-600 font-medium">Bookings</span>
@@ -517,7 +526,7 @@ const InsightsPage = () => {
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-gray-900">&lt;1 hour</div>
-                  <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Excellent</span>
+                  <span className="inline-flex px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Needs Improvement</span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
@@ -527,7 +536,7 @@ const InsightsPage = () => {
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-gray-900">3.2%</div>
-                  <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Good</span>
+                  <span className="inline-flex px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Good</span>
                 </div>
               </div>
             </div>
@@ -538,42 +547,56 @@ const InsightsPage = () => {
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Personalized Improvement Recommendations</h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="border border-gray-200 rounded-lg p-4">
+            <div className="bg-green-50 border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium text-gray-900">Price Alignment (92%)</h4>
-                <FiTrendingUp className="text-green-600" size={20} />
+                <FiDollarSign className="text-green-600" size={20} />
               </div>
               <p className="text-sm text-gray-600">
                 Your pricing is competitive and well-positioned in the market. Consider seasonal pricing adjustments for peak demand periods. Monitor competitor pricing weekly to maintain your edge.
               </p>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
+            <div className="bg-yellow-50 border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium text-gray-900">Customer Reviews (4.8/5)</h4>
-                <FiUsers className="text-green-600" size={20} />
+                <FiStar className="text-yellow-600" size={20} />
               </div>
               <p className="text-sm text-gray-600">
                 Excellent rating! Continue providing exceptional experiences. Follow up with guests post-experience to encourage more reviews. Respond to all reviews to show engagement and care.
               </p>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
+            <div className="bg-blue-50 border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-gray-900">Response Time (&lt;1 hour)</h4>
-                <FiMessageCircle className="text-green-600" size={20} />
+                <h4 className="font-medium text-gray-900">Response Time (&lt;2 hours)</h4>
+                <FiClock className="text-blue-600" size={20} />
               </div>
               <p className="text-sm text-gray-600">
                 Outstanding response times! Keep up the great work! Set up mobile notifications to maintain quick responses. Consider auto-responses for common inquiries.
               </p>
             </div>
-            <div className="border border-gray-200 rounded-lg p-4">
+            <div className="bg-purple-50 border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium text-gray-900">Cancellation Rate (3.2%)</h4>
-                <FiRefreshCw className="text-green-600" size={20} />
+                <FiX className="text-purple-600" size={20} />
               </div>
               <p className="text-sm text-gray-600">
                 Exceptional cancellation rate far below danger threshold. Send confirmation reminders 24-48 hours before activities. Maintain clear communication about weather policies.
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Overall Performance Status */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">
+          <div className="flex items-center space-x-3">
+            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <p className="text-sm text-gray-700">
+              <span className="font-medium">Excellent Performance Across All Metrics!</span> You're operating at a high standard with strong customer satisfaction and efficient operations. Keep up the great work!
+            </p>
           </div>
         </div>
 
@@ -584,19 +607,21 @@ const InsightsPage = () => {
             {productPerformance.map((product, index) => (
               <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                 <div className="flex items-center space-x-4">
-                  <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                  <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">
                     {product.rank}
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">{product.name}</div>
-                    <div className="text-sm text-gray-600">{product.bookings} bookings</div>
+                    <div className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full inline-block mt-1">
+                      {product.tourType}
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-gray-900">{product.revenue}</div>
                   <div className="flex items-center space-x-1 text-green-600">
                     <FiTrendingUp size={16} />
-                    <span className="text-sm">{product.increase}</span>
+                    <span className="text-sm">{product.increase} {product.bookings} bookings</span>
                   </div>
                 </div>
               </div>
