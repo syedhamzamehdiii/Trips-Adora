@@ -150,7 +150,7 @@ const ApplicationSubmittedPage = ({ isOpen, onClose, onReturnToDashboard }) => {
               </a>
             </div>
             
-            <div className="flex justify-end space-x-4">
+            <div className="flex justify-center space-x-4">
               <button className="flex items-center space-x-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
                 <FiDownload size={16} />
                 <span>Download Receipt</span>

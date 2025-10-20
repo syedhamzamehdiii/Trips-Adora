@@ -1323,7 +1323,7 @@ const CreateProductComponent = ({ onClose }) => {
                    <div className="relative">
                      <label className="block text-sm font-medium text-gray-900 mb-2">Transportation Type</label>
                      <select 
-                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5"
+                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
                        value={selectedVehicleType}
                        onChange={(e) => handleVehicleTypeChange(e.target.value)}
                      >
@@ -1332,8 +1332,8 @@ const CreateProductComponent = ({ onClose }) => {
                        <option value="car">Car</option>
                        <option value="bus">Bus</option>
                      </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
-                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
                      </div>
@@ -1354,8 +1354,8 @@ const CreateProductComponent = ({ onClose }) => {
                         </option>
                       ))}
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
-                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
                      </div>
@@ -1371,8 +1371,8 @@ const CreateProductComponent = ({ onClose }) => {
                       <option value="2018">2018</option>
                       <option value="2020">2020</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
-                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
                      </div>
@@ -1393,8 +1393,8 @@ const CreateProductComponent = ({ onClose }) => {
                       <option>Hybrid 1.3x</option>
                       <option>Electric 1.4x</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
-                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
                      </div>
@@ -1408,8 +1408,8 @@ const CreateProductComponent = ({ onClose }) => {
                       <option>02</option>
                       <option>04</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
-                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
                      </div>
@@ -1430,8 +1430,8 @@ const CreateProductComponent = ({ onClose }) => {
                       <option>¥ Japanese Yen</option>
                       <option>Rs Pakistani Rupee</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
-                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
                      </div>
@@ -1449,8 +1449,8 @@ const CreateProductComponent = ({ onClose }) => {
                       <option>Shared</option>
                       <option>Hourly Rate</option>
                     </select>
-                     <div className="absolute inset-y-0 right-0 flex items-center pointer-events-none">
-                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                        </svg>
                      </div>

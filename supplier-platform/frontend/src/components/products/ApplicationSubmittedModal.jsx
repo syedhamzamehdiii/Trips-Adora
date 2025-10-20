@@ -123,7 +123,7 @@ const ApplicationSubmittedModal = ({ isOpen, onClose, onReturnToDashboard }) => 
               </div>
               
               {/* Action Buttons */}
-              <div className="flex justify-end space-x-4">
+              <div className="flex justify-center space-x-4">
                 <button className="flex items-center space-x-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                   <FiDownload size={16} />
                   <span>Download Receipt</span>
