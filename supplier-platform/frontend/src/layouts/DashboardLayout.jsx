@@ -72,7 +72,12 @@ const DashboardLayout = ({ children }) => {
                 <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
               </a>
               <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">FAQs</a>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Support</a>
+              <button 
+                onClick={() => navigate('/support')}
+                className="text-gray-700 hover:text-gray-900 font-medium"
+              >
+                Support
+              </button>
             </nav>
             
             {/* Right side - Profile Section */}
