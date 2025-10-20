@@ -14,6 +14,7 @@ import CompanyProfile from './pages/Settings/CompanyProfile'
 import AccountSettings from './pages/Settings/AccountSettings'
 import InvitePartnerPage from './pages/InvitePartnerPage'
 import ApplicationSubmitted from './pages/Products/ApplicationSubmitted'
+import BookingsPage from './pages/Bookings/BookingsPage'
 import DashboardLayout from './layouts/DashboardLayout'
 
 function AppRoutes() {
@@ -103,6 +104,10 @@ function AppRoutes() {
         <Route 
           path="/settings/invite-partner" 
           element={isAuthenticated ? <InvitePartnerPage /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/bookings" 
+          element={isAuthenticated ? <BookingsPage /> : <Navigate to="/login" />} 
         />
         {/* Default Route */}
         <Route 

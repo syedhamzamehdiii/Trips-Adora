@@ -56,11 +56,11 @@ const Dashboard = () => {
       {/* Top Navigation Bar */}
       <div className={`bg-white border-b border-gray-200 relative transition-all duration-300 ${(showSettingsDropdown || showNestedDropdown) ? 'blur-sm' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex items-center justify-between py-4">
             {/* Left side - Logo */}
-              <div className="flex items-center">
-                <img 
-                  src="/assets/logo.jpg" 
+            <div className="flex items-center">
+              <img 
+                src="/assets/logo.jpg" 
                 alt="TripsAdora Logo" 
                 className="h-12 w-auto"
               />
@@ -484,7 +484,10 @@ const Dashboard = () => {
             <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
               Availability
             </button>
-            <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
+            <button 
+              onClick={() => navigate('/bookings')}
+              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200"
+            >
               Bookings
             </button>
             <button className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
