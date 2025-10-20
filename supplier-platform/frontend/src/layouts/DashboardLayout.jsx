@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import SettingsDropdown from '@/components/common/SettingsDropdown';
 import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
 import FromSupplierModal from '@/components/modals/FromSupplierModal';
+import CreateProductComponent from '@/components/products/CreateProductComponent';
 
 const DashboardLayout = ({ children }) => {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ const DashboardLayout = ({ children }) => {
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
   const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
@@ -236,7 +238,7 @@ const DashboardLayout = ({ children }) => {
                     <button
                       onClick={() => {
                         setShowListingsDropdown(false);
-                        navigate('/products/create');
+                        setShowCreateProduct(true);
                       }}
                       className="w-full text-left px-4 py-3 text-gray-900 hover:bg-gray-200 transition-colors rounded-lg mx-2"
                     >
@@ -316,6 +318,11 @@ const DashboardLayout = ({ children }) => {
         isOpen={showFromSupplierModal}
         onClose={() => setShowFromSupplierModal(false)}
       />
+
+      {/* Create Product Component */}
+      {showCreateProduct && (
+        <CreateProductComponent onClose={() => setShowCreateProduct(false)} />
+      )}
     </div>
   );
 };

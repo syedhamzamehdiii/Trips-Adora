@@ -5,7 +5,6 @@ export const ROUTES = {
   FORGOT_PASSWORD: '/forgot-password',
   DASHBOARD: '/dashboard',
   PRODUCTS: '/products',
-  PRODUCTS_CREATE: '/products/create',
   PRODUCTS_EDIT: '/products/edit',
   PRODUCTS_DETAIL: '/products/detail',
   ORDERS: '/orders',

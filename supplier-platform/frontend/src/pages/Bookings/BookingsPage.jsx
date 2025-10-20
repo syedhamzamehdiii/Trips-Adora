@@ -12,10 +12,12 @@ import {
   FiX
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import CreateProductComponent from '@/components/products/CreateProductComponent';
 
 const BookingsPage = () => {
   const navigate = useNavigate();
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     productName: '',
@@ -84,7 +86,7 @@ const BookingsPage = () => {
             <span>Export Bookings</span>
           </button>
           <button 
-            onClick={() => navigate('/products/create')}
+            onClick={() => setShowCreateProduct(true)}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <FiPlus size={16} />
@@ -372,6 +374,11 @@ const BookingsPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Create Product Component */}
+      {showCreateProduct && (
+        <CreateProductComponent onClose={() => setShowCreateProduct(false)} />
       )}
     </div>
   );

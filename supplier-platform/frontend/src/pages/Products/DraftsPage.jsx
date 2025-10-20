@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiClock, FiEdit3, FiMoreVertical, FiSearch, FiFilter, FiTrendingUp, FiFileText, FiTrash2, FiSave, FiDownload, FiSettings, FiFlag } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import CreateProductComponent from '@/components/products/CreateProductComponent';
 
 const DraftsPage = () => {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -93,7 +95,7 @@ const DraftsPage = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <button 
-                  onClick={() => navigate('/products/create')}
+                  onClick={() => setShowCreateProduct(true)}
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   <FiEdit3 size={16} />
@@ -144,6 +146,11 @@ const DraftsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Create Product Component */}
+      {showCreateProduct && (
+        <CreateProductComponent onClose={() => setShowCreateProduct(false)} />
+      )}
     </div>
   );
 };
