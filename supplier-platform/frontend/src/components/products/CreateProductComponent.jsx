@@ -31,6 +31,17 @@ const CreateProductComponent = ({ onClose }) => {
   const [selectedActivityType, setSelectedActivityType] = useState('Private');
   const [selectedLanguage, setSelectedLanguage] = useState('Select Language');
   
+  // Step navigation hover menu (return to step 1 from step 2)
+  const [showStep1Menu, setShowStep1Menu] = useState(false);
+  const [topMenuStep, setTopMenuStep] = useState(null); // 1 or 2 when hovering top circles
+  const descriptionRef = React.useRef(null);
+  const highlightsRef = React.useRef(null);
+  const scrollToRef = (ref) => {
+    if (ref && ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+  
   // Accessibility & Comfort toggles
   const [accessibilityToggles, setAccessibilityToggles] = useState({
     wheelchair: true,
@@ -132,12 +143,41 @@ const CreateProductComponent = ({ onClose }) => {
               <div className="flex items-center space-x-2">
                 {[1, 2, 3, 4, 5, 6].map((s, index) => (
                   <React.Fragment key={s}>
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
-                        ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
-                    >
-                      {s < step ? <FiCheckCircle size={16} /> : s}
-                    </div>
+                    {s === 1 ? (
+                      <div 
+                        className="relative"
+                        onMouseEnter={() => { if (step > 1) setShowStep1Menu(true) }}
+                        onMouseLeave={() => setShowStep1Menu(false)}
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 cursor-pointer
+                            ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
+                          onClick={() => setStep(s)}
+                        >
+                          {s < step ? <FiCheckCircle size={16} /> : s}
+                        </div>
+                        {showStep1Menu && step > 1 && (
+                          <div className="absolute left-1/2 -translate-x-1/2 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-44 overflow-visible">
+                            <div className="py-1 text-center text-xs text-gray-500 border-b border-gray-100">Step 1</div>
+                            <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm">Project Title</button>
+                            <div className="border-t border-gray-100" />
+                            <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm">Category</button>
+                            <div className="border-t border-gray-100" />
+                            <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm">Style/Theme</button>
+                            <div className="border-t border-gray-100" />
+                            <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm">Tagline</button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 cursor-pointer
+                          ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
+                        onClick={() => setStep(s)}
+                      >
+                        {s < step ? <FiCheckCircle size={16} /> : s}
+                      </div>
+                    )}
                     {index < 5 && (
                       <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
                     )}
@@ -218,14 +258,35 @@ const CreateProductComponent = ({ onClose }) => {
           <div>
             {/* Steps Indicator */}
             <div className="flex items-center justify-center mb-8">
-              <div className="flex items-center space-x-2">
+              <div className="relative flex items-center space-x-2"
+                   onMouseLeave={() => setTopMenuStep(null)}>
                 {[1, 2, 3, 4, 5, 6].map((s, index) => (
                   <React.Fragment key={s}>
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
+                      className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 cursor-pointer
                         ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
+                      onMouseEnter={() => { if (s < step) setTopMenuStep(s); }}
+                      onClick={() => { if (s !== 2) setStep(s) }}
                     >
                       {s < step ? <FiCheckCircle size={16} /> : s}
+                      {topMenuStep === 1 && s === 1 && step > 1 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Project Title</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Category</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Style/Theme</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Tagline</button>
+                        </div>
+                      )}
+                      {topMenuStep === 2 && s === 2 && step > 2 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => scrollToRef(descriptionRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Description</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => scrollToRef(highlightsRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Highlights</button>
+                        </div>
+                      )}
                     </div>
                     {index < 5 && (
                       <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
@@ -245,7 +306,7 @@ const CreateProductComponent = ({ onClose }) => {
 
             <div className="space-y-8">
               {/* Description Section */}
-              <div>
+              <div ref={descriptionRef}>
                 <h3 className="text-2xl font-bold text-gray-900 mb-3">Description</h3>
                 <p className="text-gray-600 mb-4">Describe your product or service clearly, highlighting key features and benefits in detail.</p>
                 <textarea
@@ -256,7 +317,7 @@ const CreateProductComponent = ({ onClose }) => {
               </div>
               
               {/* Highlights Section */}
-              <div>
+              <div ref={highlightsRef}>
                 <h3 className="text-2xl font-bold text-gray-900 mb-3">Highlights</h3>
                 <p className="text-gray-600 mb-4">Describe in 3-5 sentences what makes your activity unique and different from others. Highlight the special features or experiences that set it apart, so customers can easily compare and see why yours is the best choice.</p>
                 
@@ -1660,6 +1721,7 @@ const CreateProductComponent = ({ onClose }) => {
                 ))}
               </div>
             </div>
+            
           </div>
         </div>
 

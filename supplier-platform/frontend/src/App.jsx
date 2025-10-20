@@ -140,10 +140,10 @@ function AppRoutes() {
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
         />
-        {/* Default Route */}
+        {/* Homepage renders Dashboard */}
         <Route 
           path="/" 
-          element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} 
+          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} 
         />
         
         {/* Catch all route */}
