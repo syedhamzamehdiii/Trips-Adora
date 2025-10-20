@@ -6,7 +6,7 @@ import {
 } from 'react-icons/fi';
 import CancelSuccessModal from './CancelSuccessModal';
 
-const CancelBookingModal = ({ isOpen, onClose, bookingData }) => {
+const CancelBookingModal = ({ isOpen, onClose, bookingData, onNavigateToBookings }) => {
   const [selectedReason, setSelectedReason] = useState('');
   const [showReasonDropdown, setShowReasonDropdown] = useState(false);
   const [customReason, setCustomReason] = useState('');
@@ -54,7 +54,10 @@ const CancelBookingModal = ({ isOpen, onClose, bookingData }) => {
 
   const handleReturnToBookings = () => {
     setShowSuccessModal(false);
-    onClose(); // Close the cancel modal and return to bookings
+    onClose(); // Close the cancel modal
+    if (onNavigateToBookings) {
+      onNavigateToBookings(); // Navigate to bookings page
+    }
   };
 
   return (
@@ -149,24 +152,24 @@ const CancelBookingModal = ({ isOpen, onClose, bookingData }) => {
 
         {/* Action Buttons */}
         <div className="flex space-x-3 p-6 border-t border-gray-200">
-          <button
-            onClick={handleKeepBooking}
-            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Keep Booking
-          </button>
-          <button
-            onClick={handleDivertToSupplier}
-            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            Divert to other Supplier
-          </button>
-          <button
-            onClick={handleSendCancelRequest}
-            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Send Cancel Request to Admin
-          </button>
+            <button
+              onClick={handleKeepBooking}
+              className="flex-1 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            >
+              Keep Booking
+            </button>
+            <button
+              onClick={handleDivertToSupplier}
+              className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+            >
+              Divert to other Supplier
+            </button>
+            <button
+              onClick={handleSendCancelRequest}
+              className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+            >
+              Send Cancel Request to Admin
+            </button>
         </div>
       </div>
 

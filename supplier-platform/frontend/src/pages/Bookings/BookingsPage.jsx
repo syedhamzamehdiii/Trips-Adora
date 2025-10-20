@@ -12,7 +12,6 @@ import {
   FiX
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
-import CreateProductComponent from '@/components/products/CreateProductComponent';
 import Footer from '@/components/common/Footer';
 import ShareTripModal from '@/components/modals/ShareTripModal';
 import BookingDetailsModal from '@/components/modals/BookingDetailsModal';
@@ -20,7 +19,6 @@ import BookingDetailsModal from '@/components/modals/BookingDetailsModal';
 const BookingsPage = () => {
   const navigate = useNavigate();
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState(null);
@@ -102,6 +100,12 @@ const BookingsPage = () => {
     setSelectedBooking(null);
   };
 
+  const handleNavigateToBookings = () => {
+    setShowBookingDetails(false);
+    setSelectedBooking(null);
+    // Already on bookings page, just close the modal
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -114,7 +118,7 @@ const BookingsPage = () => {
             <span>Export Bookings</span>
           </button>
           <button 
-            onClick={() => setShowCreateProduct(true)}
+            onClick={() => navigate('/products/create')}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <FiPlus size={16} />
@@ -422,11 +426,7 @@ const BookingsPage = () => {
           </div>
         </div>
       )}
-
-      {/* Create Product Component */}
-      {showCreateProduct && (
-        <CreateProductComponent onClose={() => setShowCreateProduct(false)} />
-      )}
+      </div>
 
       {/* Share Trip Modal */}
       <ShareTripModal 
@@ -436,14 +436,14 @@ const BookingsPage = () => {
       />
 
       {/* Booking Details Modal */}
-      <BookingDetailsModal 
-        isOpen={showBookingDetails}
-        onClose={handleCloseBookingDetails}
-        bookingData={selectedBooking}
-      />
+        <BookingDetailsModal 
+          isOpen={showBookingDetails}
+          onClose={handleCloseBookingDetails}
+          bookingData={selectedBooking}
+          onNavigateToBookings={handleNavigateToBookings}
+        />
 
       <Footer />
-      </div>
     </div>
   );
 };

@@ -12,7 +12,7 @@ import {
 } from 'react-icons/fi';
 import CancelBookingModal from './CancelBookingModal';
 
-const BookingDetailsModal = ({ isOpen, onClose, bookingData }) => {
+const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBookings }) => {
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   if (!isOpen) return null;
@@ -270,6 +270,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData }) => {
         isOpen={showCancelModal}
         onClose={handleCloseCancelModal}
         bookingData={bookingData}
+        onNavigateToBookings={onNavigateToBookings}
       />
     </div>
   );

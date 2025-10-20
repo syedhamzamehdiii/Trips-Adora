@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, FiMoreVertical, FiChevronDown } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import Footer from '@/components/common/Footer';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -145,7 +146,8 @@ const Products = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -512,6 +514,9 @@ const Products = () => {
           </div>
         </div>
       )}
+      </div> {/* Closing div for max-w-7xl container */}
+
+      <Footer />
     </div>
   );
 };
