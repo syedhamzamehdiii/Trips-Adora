@@ -34,12 +34,35 @@ const CreateProductComponent = ({ onClose }) => {
   // Step navigation hover menu (return to step 1 from step 2)
   const [showStep1Menu, setShowStep1Menu] = useState(false);
   const [topMenuStep, setTopMenuStep] = useState(null); // 1 or 2 when hovering top circles
+  
+  // Refs for all sections to enable scroll navigation
+  const projectTitleRef = React.useRef(null);
+  const categoryRef = React.useRef(null);
+  const styleThemeRef = React.useRef(null);
+  const taglineRef = React.useRef(null);
   const descriptionRef = React.useRef(null);
   const highlightsRef = React.useRef(null);
+  const photosRef = React.useRef(null);
+  const guideActivityRef = React.useRef(null);
+  const languageRef = React.useRef(null);
+  const accessibilityRef = React.useRef(null);
+  const thingsToCarryRef = React.useRef(null);
+  const includedExcludedRef = React.useRef(null);
+  const vehicleTitleRef = React.useRef(null);
+  const transportationRef = React.useRef(null);
+  const durationRef = React.useRef(null);
+  const addVehicleRef = React.useRef(null);
+  
   const scrollToRef = (ref) => {
     if (ref && ref.current) {
       ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  };
+  
+  const navigateToSection = (stepNumber, ref) => {
+    setStep(stepNumber);
+    // Use setTimeout to ensure the step has rendered before scrolling
+    setTimeout(() => scrollToRef(ref), 100);
   };
   
   // Accessibility & Comfort toggles
@@ -140,44 +163,18 @@ const CreateProductComponent = ({ onClose }) => {
           <div>
             {/* Steps Indicator */}
             <div className="flex items-center justify-center mb-8">
-              <div className="flex items-center space-x-2">
+              <div className="relative flex items-center space-x-2"
+                   onMouseLeave={() => setTopMenuStep(null)}>
                 {[1, 2, 3, 4, 5, 6].map((s, index) => (
                   <React.Fragment key={s}>
-                    {s === 1 ? (
-                      <div 
-                        className="relative"
-                        onMouseEnter={() => { if (step > 1) setShowStep1Menu(true) }}
-                        onMouseLeave={() => setShowStep1Menu(false)}
-                      >
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 cursor-pointer
-                            ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
-                          onClick={() => setStep(s)}
-                        >
-                          {s < step ? <FiCheckCircle size={16} /> : s}
-                        </div>
-                        {showStep1Menu && step > 1 && (
-                          <div className="absolute left-1/2 -translate-x-1/2 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-44 overflow-visible">
-                            <div className="py-1 text-center text-xs text-gray-500 border-b border-gray-100">Step 1</div>
-                            <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm">Project Title</button>
-                            <div className="border-t border-gray-100" />
-                            <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm">Category</button>
-                            <div className="border-t border-gray-100" />
-                            <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm">Style/Theme</button>
-                            <div className="border-t border-gray-100" />
-                            <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm">Tagline</button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 cursor-pointer
-                          ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
-                        onClick={() => setStep(s)}
-                      >
-                        {s < step ? <FiCheckCircle size={16} /> : s}
-                      </div>
-                    )}
+                    <div
+                      className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${s < step ? 'cursor-pointer' : 'cursor-not-allowed'}
+                        ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
+                      onMouseEnter={() => { if (s < step) setTopMenuStep(s); }}
+                      onClick={() => { if (s < step) setStep(s) }}
+                    >
+                      {s < step ? <FiCheckCircle size={16} /> : s}
+                    </div>
                     {index < 5 && (
                       <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
                     )}
@@ -263,25 +260,25 @@ const CreateProductComponent = ({ onClose }) => {
                 {[1, 2, 3, 4, 5, 6].map((s, index) => (
                   <React.Fragment key={s}>
                     <div
-                      className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 cursor-pointer
+                      className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${s < step ? 'cursor-pointer' : 'cursor-not-allowed'}
                         ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
                       onMouseEnter={() => { if (s < step) setTopMenuStep(s); }}
-                      onClick={() => { if (s !== 2) setStep(s) }}
+                      onClick={() => { if (s < step) setStep(s) }}
                     >
                       {s < step ? <FiCheckCircle size={16} /> : s}
                       {topMenuStep === 1 && s === 1 && step > 1 && (
-                        <div className="absolute left-1/2 -translate-x-1/2 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
-                          <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Project Title</button>
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(1, projectTitleRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Project Title</button>
                           <div className="border-t border-gray-100" />
-                          <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Category</button>
+                          <button onClick={() => navigateToSection(1, categoryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Category</button>
                           <div className="border-t border-gray-100" />
-                          <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Style/Theme</button>
+                          <button onClick={() => navigateToSection(1, styleThemeRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Style/Theme</button>
                           <div className="border-t border-gray-100" />
-                          <button onClick={() => setStep(1)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Tagline</button>
+                          <button onClick={() => navigateToSection(1, taglineRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Tagline</button>
                         </div>
                       )}
                       {topMenuStep === 2 && s === 2 && step > 2 && (
-                        <div className="absolute left-1/2 -translate-x-1/2 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
                           <button onClick={() => scrollToRef(descriptionRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Description</button>
                           <div className="border-t border-gray-100" />
                           <button onClick={() => scrollToRef(highlightsRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Highlights</button>
@@ -348,14 +345,35 @@ const CreateProductComponent = ({ onClose }) => {
           <div>
             {/* Steps Indicator */}
             <div className="flex items-center justify-center mb-8">
-              <div className="flex items-center space-x-2">
+              <div className="relative flex items-center space-x-2"
+                   onMouseLeave={() => setTopMenuStep(null)}>
                 {[1, 2, 3, 4, 5, 6].map((s, index) => (
                   <React.Fragment key={s}>
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
+                      className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${s < step ? 'cursor-pointer' : 'cursor-not-allowed'}
                         ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
+                      onMouseEnter={() => { if (s < step) setTopMenuStep(s); }}
+                      onClick={() => { if (s < step) setStep(s) }}
                     >
                       {s < step ? <FiCheckCircle size={16} /> : s}
+                      {topMenuStep === 1 && s === 1 && step > 1 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(1, projectTitleRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Project Title</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(1, categoryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Category</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(1, styleThemeRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Style/Theme</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(1, taglineRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Tagline</button>
+                        </div>
+                      )}
+                      {topMenuStep === 2 && s === 2 && step > 2 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(2, descriptionRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Description</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(2, highlightsRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Highlights</button>
+                        </div>
+                      )}
                     </div>
                     {index < 5 && (
                       <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
@@ -493,14 +511,40 @@ const CreateProductComponent = ({ onClose }) => {
           <div>
             {/* Steps Indicator */}
             <div className="flex items-center justify-center mb-8">
-              <div className="flex items-center space-x-2">
+              <div className="relative flex items-center space-x-2"
+                   onMouseLeave={() => setTopMenuStep(null)}>
                 {[1, 2, 3, 4, 5, 6].map((s, index) => (
                   <React.Fragment key={s}>
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
+                      className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${s < step ? 'cursor-pointer' : 'cursor-not-allowed'}
                         ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
+                      onMouseEnter={() => { if (s < step) setTopMenuStep(s); }}
+                      onClick={() => { if (s < step) setStep(s) }}
                     >
                       {s < step ? <FiCheckCircle size={16} /> : s}
+                      {topMenuStep === 1 && s === 1 && step > 1 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(1, projectTitleRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Project Title</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(1, categoryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Category</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(1, styleThemeRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Style/Theme</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(1, taglineRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Tagline</button>
+                        </div>
+                      )}
+                      {topMenuStep === 2 && s === 2 && step > 2 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(2, descriptionRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Description</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(2, highlightsRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Highlights</button>
+                        </div>
+                      )}
+                      {topMenuStep === 3 && s === 3 && step > 3 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(3, photosRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Add photos</button>
+                        </div>
+                      )}
                     </div>
                     {index < 5 && (
                       <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
@@ -731,14 +775,64 @@ const CreateProductComponent = ({ onClose }) => {
            <div>
              {/* Steps Indicator */}
              <div className="flex items-center justify-center mb-8">
-               <div className="flex items-center space-x-2">
+               <div className="relative flex items-center space-x-2"
+                    onMouseLeave={() => setTopMenuStep(null)}>
                  {[1, 2, 3, 4, 5, 6].map((s, index) => (
                    <React.Fragment key={s}>
                      <div
-                       className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
+                       className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${s < step ? 'cursor-pointer' : 'cursor-not-allowed'}
                          ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
+                       onMouseEnter={() => { if (s < step) setTopMenuStep(s); }}
+                       onClick={() => { if (s < step) setStep(s) }}
                      >
                        {s < step ? <FiCheckCircle size={16} /> : s}
+                       {topMenuStep === 1 && s === 1 && step > 1 && (
+                         <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                           <button onClick={() => navigateToSection(1, projectTitleRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Project Title</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(1, categoryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Category</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(1, styleThemeRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Style/Theme</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(1, taglineRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Tagline</button>
+                         </div>
+                       )}
+                       {topMenuStep === 2 && s === 2 && step > 2 && (
+                         <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                           <button onClick={() => navigateToSection(2, descriptionRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Description</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(2, highlightsRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Highlights</button>
+                         </div>
+                       )}
+                       {topMenuStep === 3 && s === 3 && step > 3 && (
+                         <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                           <button onClick={() => navigateToSection(3, photosRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Add photos</button>
+                         </div>
+                       )}
+                       {topMenuStep === 4 && s === 4 && step > 4 && (
+                         <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                           <button onClick={() => navigateToSection(4, guideActivityRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Guide & activity</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(4, languageRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Language</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(4, accessibilityRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Accessibility</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(4, thingsToCarryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Things to carry</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(4, includedExcludedRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Included & excluded</button>
+                         </div>
+                       )}
+                       {topMenuStep === 5 && s === 5 && step > 5 && (
+                         <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                           <button onClick={() => navigateToSection(5, vehicleTitleRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Title to your Option</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(5, transportationRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Transportation</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(5, durationRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Total duration</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(5, addVehicleRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Add new vehicle</button>
+                         </div>
+                       )}
                      </div>
                      {index < 5 && (
                        <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
@@ -1339,14 +1433,53 @@ const CreateProductComponent = ({ onClose }) => {
           <div>
             {/* Steps Indicator */}
             <div className="flex items-center justify-center mb-8">
-              <div className="flex items-center space-x-2">
+              <div className="relative flex items-center space-x-2"
+                   onMouseLeave={() => setTopMenuStep(null)}>
                 {[1, 2, 3, 4, 5, 6].map((s, index) => (
                   <React.Fragment key={s}>
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2
+                      className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${s < step ? 'cursor-pointer' : 'cursor-not-allowed'}
                         ${s === step ? 'bg-blue-600 text-white border-blue-600' : s < step ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-300 text-gray-700'}`}
+                      onMouseEnter={() => { if (s < step) setTopMenuStep(s); }}
+                      onClick={() => { if (s < step) setStep(s) }}
                     >
                       {s < step ? <FiCheckCircle size={16} /> : s}
+                      {topMenuStep === 1 && s === 1 && step > 1 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(1, projectTitleRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Project Title</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(1, categoryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Category</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(1, styleThemeRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Style/Theme</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(1, taglineRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Tagline</button>
+                        </div>
+                      )}
+                      {topMenuStep === 2 && s === 2 && step > 2 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(2, descriptionRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Description</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(2, highlightsRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Highlights</button>
+                        </div>
+                      )}
+                      {topMenuStep === 3 && s === 3 && step > 3 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(3, photosRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Add photos</button>
+                        </div>
+                      )}
+                      {topMenuStep === 4 && s === 4 && step > 4 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 top-8 pt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                          <button onClick={() => navigateToSection(4, guideActivityRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Guide & activity</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(4, languageRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Language</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(4, accessibilityRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Accessibility</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(4, thingsToCarryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Things to carry</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(4, includedExcludedRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Included & excluded</button>
+                        </div>
+                      )}
                     </div>
                     {index < 5 && (
                       <div className={`w-8 h-0.5 border-t-2 ${s < step ? 'border-blue-600' : 'border-gray-300'}`}></div>
