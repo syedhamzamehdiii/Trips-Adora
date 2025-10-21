@@ -356,35 +356,43 @@ const Products = () => {
                           <FiMoreVertical size={16} />
                         </button>
                         
-                        {/* Action Dropdown */}
+                        {/* Action Dropdown - List Style */}
                         {openDropdown === product.id && (
-                          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                            <div className="py-1">
-                              <button
-                                onClick={() => handleAction('edit', product.id)}
-                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleAction('clone', product.id)}
-                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                Clone
-                              </button>
-                              <button
-                                onClick={() => handleAction('share', product.id)}
-                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                Share product
-                              </button>
-                              <button
-                                onClick={() => handleAction('delete', product.id)}
-                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                Delete
-                              </button>
-                            </div>
+                          <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                            <ul className="divide-y divide-gray-100">
+                              <li>
+                                <button
+                                  onClick={() => handleAction('edit', product.id)}
+                                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                >
+                                  Edit
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  onClick={() => handleAction('clone', product.id)}
+                                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                >
+                                  Clone
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  onClick={() => handleAction('share', product.id)}
+                                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                >
+                                  Share product
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  onClick={() => handleAction('delete', product.id)}
+                                  className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              </li>
+                            </ul>
                           </div>
                         )}
                       </div>
