@@ -19,6 +19,8 @@ import InsightsPage from './pages/Insights/InsightsPage'
 import SupportPage from './pages/Support/SupportPage'
 import AvailabilityCalendar from './pages/Availability/AvailabilityCalendar'
 import FinancePage from './pages/Finance/FinancePage'
+import FAQPage from './pages/FAQPage'
+import TermsOfService from './pages/TermsOfService'
 import DashboardLayout from './layouts/DashboardLayout'
 
 function AppRoutes() {
@@ -128,6 +130,18 @@ function AppRoutes() {
         <Route 
           path="/support" 
           element={isAuthenticated ? <SupportPage /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/faq" 
+          element={<FAQPage />} 
+        />
+        <Route 
+          path="/terms" 
+          element={<TermsOfService />} 
+        />
+        <Route 
+          path="/privacy" 
+          element={<TermsOfService />} 
         />
         <Route 
           path="/availability" 

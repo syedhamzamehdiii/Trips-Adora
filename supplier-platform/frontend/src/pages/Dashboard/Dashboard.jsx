@@ -7,6 +7,7 @@ import CreateProductComponent from '@/components/products/CreateProductComponent
 import SettingsDropdown from '@/components/common/SettingsDropdown';
 import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
 import FromSupplierModal from '@/components/modals/FromSupplierModal';
+import RefundPolicyModal from '@/components/modals/RefundPolicyModal';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -18,6 +19,7 @@ const Dashboard = () => {
   const [showNestedDropdown, setShowNestedDropdown] = useState(false);
   const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
   const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
+  const [isRefundPolicyOpen, setIsRefundPolicyOpen] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
@@ -68,11 +70,16 @@ const Dashboard = () => {
             
             {/* Center - Main Site Navigation */}
             <nav className="hidden md:flex space-x-8">
-              <a href="#" className="text-[#1d236b] font-medium relative">
+              <button className="text-[#1d236b] font-medium relative">
                 Home
                 <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
-              </a>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">FAQs</a>
+              </button>
+              <button 
+                onClick={() => navigate('/faq')}
+                className="text-gray-700 hover:text-gray-900 font-medium"
+              >
+                FAQs
+              </button>
               <button 
                 onClick={() => navigate('/support')}
                 className="text-gray-700 hover:text-gray-900 font-medium"
@@ -421,7 +428,10 @@ const Dashboard = () => {
         </div>
 
         {/* Help Button */}
-        <button className="w-full text-white py-4 px-6 rounded-xl transition-colors text-sm font-medium flex items-center justify-center space-x-3 bg-[#1d236b] hover:bg-[#1a1f5a] shadow-lg border border-blue-300/20">
+        <button 
+          onClick={() => navigate('/faq')}
+          className="w-full text-white py-4 px-6 rounded-xl transition-colors text-sm font-medium flex items-center justify-center space-x-3 bg-[#1d236b] hover:bg-[#1a1f5a] shadow-lg border border-blue-300/20"
+        >
           <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
             <FiHelpCircle size={16} />
           </div>
@@ -686,7 +696,6 @@ const Dashboard = () => {
                 <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Destinations</a></li>
                 <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Experiences</a></li>
                 <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Tours</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Activities</a></li>
               </ul>
             </div>
             
@@ -694,11 +703,10 @@ const Dashboard = () => {
             <div>
               <h3 className="text-lg font-semibold mb-4">Help & Support</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">FAQ</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Contact Support</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Refund Policy</a></li>
+                <li><button onClick={() => navigate('/faq')} className="text-white hover:text-gray-300 transition-colors">FAQ</button></li>
+                <li><button onClick={() => navigate('/support')} className="text-white hover:text-gray-300 transition-colors">Contact Support</button></li>
+                <li><button onClick={() => navigate('/privacy')} className="text-white hover:text-gray-300 transition-colors">Privacy Policy</button></li>
+                <li><button onClick={() => setIsRefundPolicyOpen(true)} className="text-white hover:text-gray-300 transition-colors">Refund Policy</button></li>
                 <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Safety Guidelines</a></li>
               </ul>
             </div>
@@ -862,6 +870,12 @@ const Dashboard = () => {
       <FromSupplierModal 
         isOpen={showFromSupplierModal}
         onClose={() => setShowFromSupplierModal(false)}
+      />
+
+      {/* Refund Policy Modal */}
+      <RefundPolicyModal 
+        isOpen={isRefundPolicyOpen}
+        onClose={() => setIsRefundPolicyOpen(false)}
       />
 
     </div>

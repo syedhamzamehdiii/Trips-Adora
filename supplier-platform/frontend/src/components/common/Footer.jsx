@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import RefundPolicyModal from '../modals/RefundPolicyModal';
 
 const Footer = () => {
+  const navigate = useNavigate();
+  const [isRefundPolicyOpen, setIsRefundPolicyOpen] = useState(false);
+  
   return (
     <footer className="bg-[#1d236b] text-white py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -22,7 +27,6 @@ const Footer = () => {
               <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Destinations</a></li>
               <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Experiences</a></li>
               <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Tours</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Activities</a></li>
             </ul>
           </div>
           
@@ -30,11 +34,10 @@ const Footer = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4">Help & Support</h3>
             <ul className="space-y-2">
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">FAQ</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Contact Support</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Terms of Service</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Refund Policy</a></li>
+              <li><button onClick={() => navigate('/faq')} className="text-white hover:text-gray-300 transition-colors">FAQ</button></li>
+              <li><button onClick={() => navigate('/support')} className="text-white hover:text-gray-300 transition-colors">Contact Support</button></li>
+              <li><button onClick={() => navigate('/privacy')} className="text-white hover:text-gray-300 transition-colors">Privacy Policy</button></li>
+              <li><button onClick={() => setIsRefundPolicyOpen(true)} className="text-white hover:text-gray-300 transition-colors">Refund Policy</button></li>
               <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Safety Guidelines</a></li>
             </ul>
           </div>
@@ -174,6 +177,12 @@ const Footer = () => {
           </div>
         </div>
       </div>
+      
+      {/* Refund Policy Modal */}
+      <RefundPolicyModal 
+        isOpen={isRefundPolicyOpen} 
+        onClose={() => setIsRefundPolicyOpen(false)} 
+      />
     </footer>
   );
 };

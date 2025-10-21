@@ -67,11 +67,19 @@ const DashboardLayout = ({ children }) => {
             
             {/* Center - Main Site Navigation */}
             <nav className="hidden md:flex space-x-8">
-              <a href="#" className="text-[#1d236b] font-medium relative">
+              <button 
+                onClick={() => navigate('/dashboard')}
+                className="text-[#1d236b] font-medium relative"
+              >
                 Home
                 <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
-              </a>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">FAQs</a>
+              </button>
+              <button 
+                onClick={() => navigate('/faq')}
+                className="text-gray-700 hover:text-gray-900 font-medium"
+              >
+                FAQs
+              </button>
               <button 
                 onClick={() => navigate('/support')}
                 className="text-gray-700 hover:text-gray-900 font-medium"

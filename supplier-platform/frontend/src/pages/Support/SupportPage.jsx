@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
 import { 
   FiBook, FiUsers, FiCalendar, FiDollarSign, FiMessageSquare, 
   FiShield, FiSettings, FiHelpCircle, FiStar, FiMail, FiSend,
-  FiCheckCircle, FiAlertCircle, FiInfo, FiClock, FiTrendingUp
+  FiCheckCircle, FiAlertCircle, FiInfo, FiClock, FiTrendingUp, FiX
 } from 'react-icons/fi';
 
 const SupportPage = () => {
@@ -13,9 +13,52 @@ const SupportPage = () => {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [language, setLanguage] = useState('US English');
   const [currency, setCurrency] = useState('$ USD - US Dollar');
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
+  // Auto-hide success message after 5 seconds
+  useEffect(() => {
+    if (showSuccessMessage) {
+      const timer = setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessMessage]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setShowSuccessMessage(true);
+    // Reset form
+    e.target.reset();
+  };
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Success Message Notification */}
+      {showSuccessMessage && (
+        <div className="fixed top-8 right-8 z-50 slide-in-right">
+          <div className="bg-white rounded-2xl shadow-2xl border-2 border-green-500 p-6 flex items-start space-x-4 max-w-md">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                <FiCheckCircle className="w-7 h-7 text-white" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Message Sent Successfully!</h3>
+              <p className="text-sm text-gray-600">
+                Thank you for reaching out. Our support team will get back to you within 24 hours.
+              </p>
+            </div>
+            <button 
+              onClick={() => setShowSuccessMessage(false)}
+              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Navigation Bar */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -32,16 +75,21 @@ const SupportPage = () => {
             {/* Center - Main Site Navigation */}
             <nav className="hidden md:flex space-x-8">
               <button 
-                onClick={() => navigate('/home')}
+                onClick={() => navigate('/dashboard')}
                 className="text-gray-700 hover:text-gray-900 font-medium"
               >
                 Home
               </button>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">FAQs</a>
-              <a href="#" className="text-[#1d236b] font-medium relative">
+              <button 
+                onClick={() => navigate('/faq')}
+                className="text-gray-700 hover:text-gray-900 font-medium"
+              >
+                FAQs
+              </button>
+              <button className="text-[#1d236b] font-medium relative">
                 Support
                 <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
-              </a>
+              </button>
             </nav>
             
             {/* Right side - User Info Section */}
@@ -842,12 +890,13 @@ const SupportPage = () => {
             <p className="text-lg text-gray-600">We'd love to hear about your experience or answer any questions</p>
           </div>
           
-          <form className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">Name</label>
                 <input 
                   type="text" 
+                  required
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-transparent transition-all"
                   placeholder="Your name"
                 />
@@ -856,6 +905,7 @@ const SupportPage = () => {
                 <label className="block text-sm font-semibold text-gray-700 mb-3">Email address</label>
                 <input 
                   type="email" 
+                  required
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-transparent transition-all"
                   placeholder="your.email@example.com"
                 />
@@ -866,6 +916,7 @@ const SupportPage = () => {
               <label className="block text-sm font-semibold text-gray-700 mb-3">Subject</label>
               <input 
                 type="text" 
+                required
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-transparent transition-all"
                 placeholder="What's this about?"
               />
@@ -875,6 +926,7 @@ const SupportPage = () => {
               <label className="block text-sm font-semibold text-gray-700 mb-3">Tell us more about your inquiry or feedback...</label>
               <textarea 
                 rows={5}
+                required
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-transparent transition-all resize-none"
                 placeholder="Describe your question or feedback in detail..."
               ></textarea>
