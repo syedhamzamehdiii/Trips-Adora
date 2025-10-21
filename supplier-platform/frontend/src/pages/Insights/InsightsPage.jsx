@@ -23,6 +23,9 @@ import {
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
+import BookingRevenueChart from '@/components/dashboard/BookingRevenueChart';
+import FeedbackReviewChart from '@/components/dashboard/FeedbackReviewChart';
+import ResponseInsightsChart from '@/components/dashboard/ResponseInsightsChart';
 
 const InsightsPage = () => {
   const navigate = useNavigate();
@@ -144,367 +147,104 @@ const InsightsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Left Chart - Changes based on active tab */}
           <div className="bg-white border border-gray-200 rounded-lg p-6 h-full">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {activeTab === 'overview' ? 'Bookings & revenue' : 'Feedbacks & Reviews'}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {activeTab === 'overview' ? 'Countries analysis' : 'Customer satisfaction trends'}
-                </p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Toggle</span>
-                <div className="w-12 h-6 bg-gray-200 rounded-full relative">
-                  <div className="w-5 h-5 bg-blue-600 rounded-full absolute top-0.5 right-0.5 transition-all"></div>
-                </div>
-                <div className="relative" ref={chartDropdownRef}>
-                  <button 
-                    onClick={() => setShowChartDropdown(!showChartDropdown)}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <FiMoreVertical size={20} />
-                  </button>
-                  
-                  {/* Chart Options Dropdown */}
-                  {showChartDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                      <div className="py-2">
-                        {chartOptions.map((option) => (
-                          <button
-                            key={option}
-                            onClick={() => {
-                              setSelectedChartOption(option);
-                              setShowChartDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center space-x-3 ${
-                              selectedChartOption === option ? 'bg-blue-50' : ''
-                            }`}
-                          >
-                            <div className={`w-4 h-4 border-2 rounded ${
-                              selectedChartOption === option 
-                                ? 'bg-blue-600 border-blue-600' 
-                                : 'border-gray-300'
-                            }`}>
-                              {selectedChartOption === option && (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                                </div>
-                              )}
-                            </div>
-                            <span className={selectedChartOption === option ? 'text-blue-600 font-medium' : 'text-gray-700'}>
-                              {option}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="h-96 bg-gray-50 rounded-lg p-8 relative">
-              {/* Chart Area */}
-              <div className="relative h-full">
-                {/* Y-axis labels */}
-                <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-sm text-gray-500">
-                  {activeTab === 'overview' ? (
-                    <>
-                      <span>$50T</span>
-                      <span>$48T</span>
-                      <span>$45T</span>
-                      <span>$43T</span>
-                      <span>$40T</span>
-                      <span>$38T</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>40</span>
-                      <span>37</span>
-                      <span>34</span>
-                      <span>31</span>
-                      <span>28</span>
-                      <span>25</span>
-                    </>
-                  )}
-                </div>
-                <div className="absolute right-0 top-0 h-full flex flex-col justify-between text-sm text-gray-500">
-                  {activeTab === 'overview' ? (
-                    <>
-                      <span>54</span>
-                      <span>47</span>
-                      <span>40</span>
-                      <span>32</span>
-                      <span>27</span>
-                      <span>21</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>4.8</span>
-                      <span>4.5</span>
-                      <span>4.2</span>
-                      <span>3.9</span>
-                      <span>3.6</span>
-                      <span>3.3</span>
-                    </>
-                  )}
-                </div>
-                
-                {/* Chart lines */}
-                <div className="absolute inset-8">
-                  {activeTab === 'overview' ? (
-                    <>
-                      {/* Revenue line (green) - starts middle, peaks in Feb, dips in Mar, rises in Apr, declines */}
-                      <svg className="w-full h-full" viewBox="0 0 200 150">
-                        <path
-                          d="M10,80 Q50,40 90,60 T170,70"
-                          stroke="#10b981"
-                          strokeWidth="3"
-                          fill="none"
-                          strokeDasharray="none"
-                        />
-                        {/* Revenue dots */}
-                        <circle cx="10" cy="80" r="4" fill="#10b981" />
-                        <circle cx="50" cy="40" r="4" fill="#10b981" />
-                        <circle cx="90" cy="60" r="4" fill="#10b981" />
-                        <circle cx="130" cy="55" r="4" fill="#10b981" />
-                        <circle cx="170" cy="70" r="4" fill="#10b981" />
-                      </svg>
-                      
-                      {/* Bookings area (blue) - starts high, dips in Feb, peaks in Apr, declines */}
-                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 150">
-                        <defs>
-                          <linearGradient id="bookingsGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style={{stopColor:'#3b82f6', stopOpacity:0.8}} />
-                            <stop offset="100%" style={{stopColor:'#3b82f6', stopOpacity:0.1}} />
-                          </linearGradient>
-                        </defs>
-                        <path
-                          d="M10,30 Q50,50 90,40 T170,50 L170,150 L10,150 Z"
-                          fill="url(#bookingsGradient)"
-                        />
-                        <path
-                          d="M10,30 Q50,50 90,40 T170,50"
-                          stroke="#3b82f6"
-                          strokeWidth="3"
-                          fill="none"
-                        />
-                        {/* Bookings dots */}
-                        <circle cx="10" cy="30" r="4" fill="#3b82f6" />
-                        <circle cx="50" cy="50" r="4" fill="#3b82f6" />
-                        <circle cx="90" cy="40" r="4" fill="#3b82f6" />
-                        <circle cx="130" cy="45" r="4" fill="#3b82f6" />
-                        <circle cx="170" cy="50" r="4" fill="#3b82f6" />
-                      </svg>
-                    </>
-                  ) : (
-                    <>
-                      {/* Feedback line (blue) - fluctuating trend */}
-                      <svg className="w-full h-full" viewBox="0 0 200 150">
-                        <path
-                          d="M10,100 Q50,60 90,80 T170,70"
-                          stroke="#3b82f6"
-                          strokeWidth="3"
-                          fill="none"
-                          strokeDasharray="none"
-                        />
-                        {/* Feedback dots */}
-                        <circle cx="10" cy="100" r="4" fill="#3b82f6" />
-                        <circle cx="50" cy="60" r="4" fill="#3b82f6" />
-                        <circle cx="90" cy="80" r="4" fill="#3b82f6" />
-                        <circle cx="130" cy="75" r="4" fill="#3b82f6" />
-                        <circle cx="170" cy="70" r="4" fill="#3b82f6" />
-                      </svg>
-                      
-                      {/* Reviews area (blue gradient) */}
-                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 150">
-                        <defs>
-                          <linearGradient id="reviewsGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style={{stopColor:'#3b82f6', stopOpacity:0.6}} />
-                            <stop offset="100%" style={{stopColor:'#3b82f6', stopOpacity:0.1}} />
-                          </linearGradient>
-                        </defs>
-                        <path
-                          d="M10,100 Q50,60 90,80 T170,70 L170,150 L10,150 Z"
-                          fill="url(#reviewsGradient)"
-                        />
-                      </svg>
-                    </>
-                  )}
-                </div>
-                
-                {/* X-axis labels */}
-                <div className="absolute bottom-0 left-8 right-8 flex justify-between text-sm text-gray-500">
-                  <span>Jan</span>
-                  <span>Feb</span>
-                  <span>Mar</span>
-                  <span>Apr</span>
-                  <span>Jul</span>
-                  <span>Jun</span>
-                </div>
-                
-                {/* Legend */}
-                <div className="absolute bottom-8 left-8 flex space-x-6 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: '#3b82f6' }}></div>
-                    <span className="text-gray-600 font-medium">
-                      {activeTab === 'overview' ? 'Bookings' : 'Feedbacks'}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: activeTab === 'overview' ? '#10b981' : '#3b82f6' }}></div>
-                    <span className="text-gray-600 font-medium">
-                      {activeTab === 'overview' ? 'Revenues' : 'Reviews'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {activeTab === 'overview' ? (
+              <BookingRevenueChart />
+            ) : (
+              <FeedbackReviewChart />
+            )}
           </div>
 
           {/* Right Chart - Changes based on active tab */}
           <div className="bg-white border border-gray-200 rounded-lg p-6 h-full">
-            <div className="mb-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {activeTab === 'overview' ? 'Detailed Country Analytics' : 'Insights of your response'}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    {activeTab === 'overview' 
-                      ? 'Complete breakdown of booking metrics and product preferences by country.' 
-                      : 'Response time analysis and customer interaction patterns.'
-                    }
-                  </p>
-                </div>
-                <div className="relative" ref={countryDropdownRef}>
-                  <button 
-                    onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <FiMoreVertical size={20} />
-                  </button>
-                  
-                  {/* Country Options Dropdown */}
-                  {showCountryDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                      <div className="py-2">
-                        {countryOptions.map((option) => (
-                          <button
-                            key={option}
-                            onClick={() => {
-                              setSelectedCountryOption(option);
-                              setShowCountryDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center space-x-3 ${
-                              selectedCountryOption === option ? 'bg-blue-50' : ''
-                            }`}
-                          >
-                            <div className={`w-4 h-4 border-2 rounded ${
-                              selectedCountryOption === option 
-                                ? 'bg-blue-600 border-blue-600' 
-                                : 'border-gray-300'
-                            }`}>
-                              {selectedCountryOption === option && (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <div className="w-2 h-2 bg-white rounded-full"></div>
+            {activeTab === 'overview' ? (
+              <>
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Detailed Country Analytics
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Complete breakdown of booking metrics and product preferences by country.
+                      </p>
+                    </div>
+                    <div className="relative" ref={countryDropdownRef}>
+                      <button 
+                        onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <FiMoreVertical size={20} />
+                      </button>
+                      
+                      {/* Country Options Dropdown */}
+                      {showCountryDropdown && (
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                          <div className="py-2">
+                            {countryOptions.map((option) => (
+                              <button
+                                key={option}
+                                onClick={() => {
+                                  setSelectedCountryOption(option);
+                                  setShowCountryDropdown(false);
+                                }}
+                                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center space-x-3 ${
+                                  selectedCountryOption === option ? 'bg-blue-50' : ''
+                                }`}
+                              >
+                                <div className={`w-4 h-4 border-2 rounded ${
+                                  selectedCountryOption === option 
+                                    ? 'bg-blue-600 border-blue-600' 
+                                    : 'border-gray-300'
+                                }`}>
+                                  {selectedCountryOption === option && (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            <span className={selectedCountryOption === option ? 'text-blue-600 font-medium' : 'text-gray-700'}>
-                              {option}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              {activeTab === 'overview' ? (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Rank</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Country</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Bookings</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Top Product</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Usage</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {countryData.map((country, index) => (
-                      <tr key={index} className="border-b border-gray-100">
-                        <td className="py-3 px-4 text-sm text-gray-900">#{country.rank}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900">{country.country}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900">{country.bookings}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900">{country.topProduct}</td>
-                        <td className="py-3 px-4">
-                          <span className={`text-sm font-medium ${country.usage >= 80 ? 'text-green-600' : 'text-red-600'}`}>
-                            {country.usage}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="h-80 bg-gray-50 rounded-lg p-8 relative">
-                  {/* Response Time Chart */}
-                  <div className="relative h-full">
-                    {/* Y-axis labels */}
-                    <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-sm text-gray-500">
-                      <span>47</span>
-                      <span>44</span>
-                      <span>41</span>
-                      <span>38</span>
-                      <span>35</span>
-                      <span>32</span>
-                    </div>
-                    
-                    {/* Chart lines */}
-                    <div className="absolute inset-8">
-                      {/* Response time line (orange) */}
-                      <svg className="w-full h-full" viewBox="0 0 200 150">
-                        <path
-                          d="M10,120 Q50,80 90,100 T170,90"
-                          stroke="#f97316"
-                          strokeWidth="3"
-                          fill="none"
-                          strokeDasharray="none"
-                        />
-                        {/* Response time dots */}
-                        <circle cx="10" cy="120" r="4" fill="#f97316" />
-                        <circle cx="50" cy="80" r="4" fill="#f97316" />
-                        <circle cx="90" cy="100" r="4" fill="#f97316" />
-                        <circle cx="130" cy="95" r="4" fill="#f97316" />
-                        <circle cx="170" cy="90" r="4" fill="#f97316" />
-                      </svg>
-                    </div>
-                    
-                    {/* X-axis labels */}
-                    <div className="absolute bottom-0 left-8 right-8 flex justify-between text-sm text-gray-500">
-                      <span>Jan</span>
-                      <span>Feb</span>
-                      <span>Mar</span>
-                      <span>Apr</span>
-                      <span>Jul</span>
-                      <span>Jun</span>
-                    </div>
-                    
-                    {/* Legend */}
-                    <div className="absolute bottom-8 left-8 flex space-x-6 text-sm">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-4 h-4 rounded" style={{ backgroundColor: '#f97316' }}></div>
-                        <span className="text-gray-600 font-medium">Response Time (min)</span>
-                      </div>
+                                <span className={selectedCountryOption === option ? 'text-blue-600 font-medium' : 'text-gray-700'}>
+                                  {option}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Rank</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Country</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Bookings</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Top Product</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Usage</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {countryData.map((country, index) => (
+                        <tr key={index} className="border-b border-gray-100">
+                          <td className="py-3 px-4 text-sm text-gray-900">#{country.rank}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">{country.country}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">{country.bookings}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">{country.topProduct}</td>
+                          <td className="py-3 px-4">
+                            <span className={`text-sm font-medium ${country.usage >= 80 ? 'text-green-600' : 'text-red-600'}`}>
+                              {country.usage}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <ResponseInsightsChart />
+            )}
           </div>
         </div>
 
