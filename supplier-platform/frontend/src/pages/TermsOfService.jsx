@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiMessageCircle, FiMail, FiPhone } from 'react-icons/fi';
+import Footer from '@/components/common/Footer';
+import Header from '@/components/common/Header';
 
 const TermsOfService = () => {
   const navigate = useNavigate();
@@ -13,8 +15,12 @@ const TermsOfService = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+      {/* Header */}
+      <Header activePage="" />
+      
+      <div className="py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-block mb-4">
@@ -286,7 +292,11 @@ const TermsOfService = () => {
             Save & Continue →
           </button>
         </div>
+        </div>
       </div>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };

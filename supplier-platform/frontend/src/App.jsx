@@ -21,6 +21,7 @@ import AvailabilityCalendar from './pages/Availability/AvailabilityCalendar'
 import FinancePage from './pages/Finance/FinancePage'
 import FAQPage from './pages/FAQPage'
 import TermsOfService from './pages/TermsOfService'
+import SafetyGuidelinesPage from './pages/SafetyGuidelinesPage'
 import DashboardLayout from './layouts/DashboardLayout'
 
 function AppRoutes() {
@@ -142,6 +143,10 @@ function AppRoutes() {
         <Route 
           path="/privacy" 
           element={<TermsOfService />} 
+        />
+        <Route 
+          path="/safety-guidelines" 
+          element={<SafetyGuidelinesPage />} 
         />
         <Route 
           path="/availability" 

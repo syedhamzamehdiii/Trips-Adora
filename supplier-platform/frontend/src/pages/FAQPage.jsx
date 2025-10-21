@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
+import Header from '@/components/common/Header';
 import { 
   FiUser, 
   FiMapPin, 
@@ -122,80 +123,8 @@ const FAQPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation Bar */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            {/* Left side - Logo */}
-            <div className="flex items-center">
-              <img 
-                src="/assets/logo.jpg" 
-                alt="TripsAdora Logo" 
-                className="h-12 w-auto cursor-pointer"
-                onClick={() => navigate('/dashboard')}
-              />
-            </div>
-            
-            {/* Center - Main Site Navigation */}
-            <nav className="hidden md:flex space-x-8">
-              <button 
-                onClick={() => navigate('/dashboard')}
-                className="text-gray-700 hover:text-gray-900 font-medium"
-              >
-                Home
-              </button>
-              <button className="text-[#1d236b] font-medium relative">
-                FAQs
-                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
-              </button>
-              <button 
-                onClick={() => navigate('/support')}
-                className="text-gray-700 hover:text-gray-900 font-medium"
-              >
-                Support
-              </button>
-            </nav>
-            
-            {/* Right side - User Info Section */}
-            <div className="flex items-center space-x-6">
-              {/* Notification Bell */}
-              <div className="relative">
-                <button 
-                  className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-                </button>
-              </div>
-              
-              {/* Language Dropdown */}
-              <div className="relative">
-                <button 
-                  className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
-                >
-                  <span className="text-sm">EN</span>
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-              
-              {/* User Profile */}
-              <div className="flex items-center space-x-2 bg-[#1d236b] text-white px-4 py-2 rounded-full">
-                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
-                  <span className="text-sm font-medium text-gray-700">EW</span>
-                </div>
-                <div>
-                  <div className="text-sm font-medium">Edward William</div>
-                  <div className="text-xs text-blue-200">ID 00032123</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Header */}
+      <Header activePage="faq" />
 
       {/* Hero Section */}
       <div className="bg-white py-16">

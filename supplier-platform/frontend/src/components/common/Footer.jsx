@@ -38,7 +38,7 @@ const Footer = () => {
               <li><button onClick={() => navigate('/support')} className="text-white hover:text-gray-300 transition-colors">Contact Support</button></li>
               <li><button onClick={() => navigate('/privacy')} className="text-white hover:text-gray-300 transition-colors">Privacy Policy</button></li>
               <li><button onClick={() => setIsRefundPolicyOpen(true)} className="text-white hover:text-gray-300 transition-colors">Refund Policy</button></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Safety Guidelines</a></li>
+              <li><button onClick={() => navigate('/safety-guidelines')} className="text-white hover:text-gray-300 transition-colors">Safety Guidelines</button></li>
             </ul>
           </div>
 
