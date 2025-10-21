@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import ScrollToTop from './components/common/ScrollToTop'
 
 // Import pages
 import Login from './pages/Auth/Login'
@@ -40,6 +41,7 @@ function AppRoutes() {
 
   return (
     <div className="App">
+      <ScrollToTop />
       <Routes>
         {/* Public Routes */}
         <Route 
