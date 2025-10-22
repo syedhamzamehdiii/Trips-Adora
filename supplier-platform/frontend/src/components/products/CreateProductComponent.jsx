@@ -10,6 +10,40 @@ const CreateProductComponent = ({ onClose }) => {
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
   const [selectedVehicleModel, setSelectedVehicleModel] = useState('');
   
+  // Step 1 - Product Information
+  const [productTitle, setProductTitle] = useState('');
+  const [productCategory, setProductCategory] = useState('');
+  const [sellingPoints, setSellingPoints] = useState('');
+  const [tagline, setTagline] = useState('');
+  
+  // Step 2 - Description & Highlights
+  const [description, setDescription] = useState('');
+  
+  // Photo Management
+  const [uploadedPhotos, setUploadedPhotos] = useState([]);
+  const [coverImage, setCoverImage] = useState(null);
+  const fileInputRef = React.useRef(null);
+  
+  // Highlights Management
+  const [highlights, setHighlights] = useState([
+    { id: 1, text: '' }
+  ]);
+  
+  // Vehicle Management
+  const [vehicles, setVehicles] = useState([]);
+  const [editingVehicleIndex, setEditingVehicleIndex] = useState(null);
+  
+  // Step 5 - Vehicle Form Fields
+  const [vehicleTitle, setVehicleTitle] = useState('');
+  const [vehicleYear, setVehicleYear] = useState('2024');
+  const [vehicleAttributes, setVehicleAttributes] = useState('');
+  const [numTravellers, setNumTravellers] = useState('');
+  const [currency, setCurrency] = useState('');
+  const [pricingType, setPricingType] = useState('');
+  const [productAmount, setProductAmount] = useState('');
+  const [totalDuration, setTotalDuration] = useState('');
+  const [vehicleDescription, setVehicleDescription] = useState('');
+  
   // Step 6 dropdown states
   const [showSelectLocationsDropdown, setShowSelectLocationsDropdown] = useState(false);
   const [selectedLocationType, setSelectedLocationType] = useState('All Location');
@@ -65,6 +99,12 @@ const CreateProductComponent = ({ onClose }) => {
     setTimeout(() => scrollToRef(ref), 100);
   };
   
+  // Helper function to count words
+  const countWords = (text) => {
+    if (!text) return 0;
+    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  };
+  
   // Accessibility & Comfort toggles
   const [accessibilityToggles, setAccessibilityToggles] = useState({
     wheelchair: true,
@@ -83,6 +123,192 @@ const CreateProductComponent = ({ onClose }) => {
   const handleVehicleTypeChange = (vehicleType) => {
     setSelectedVehicleType(vehicleType);
     setSelectedVehicleModel(''); // Reset model when type changes
+  };
+
+  // === PHOTO UPLOAD HANDLERS ===
+  const handlePhotoUpload = (event) => {
+    const files = Array.from(event.target.files);
+    
+    files.forEach(file => {
+      if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
+        alert(`File ${file.name} is too large. Maximum size is 2GB.`);
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setUploadedPhotos(prev => [...prev, {
+          id: Date.now() + Math.random(),
+          url: e.target.result,
+          file: file,
+          name: file.name
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleCoverImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
+      alert('File is too large. Maximum size is 2GB.');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setCoverImage({
+        id: Date.now(),
+        url: e.target.result,
+        file: file,
+        name: file.name
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePhoto = (photoId) => {
+    setUploadedPhotos(prev => prev.filter(photo => photo.id !== photoId));
+    // If deleted photo was the cover, clear cover
+    if (coverImage && coverImage.id === photoId) {
+      setCoverImage(null);
+    }
+  };
+
+  const removeCoverImage = () => {
+    setCoverImage(null);
+  };
+
+  const replacePhoto = (index, file) => {
+    if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
+      alert(`File ${file.name} is too large. Maximum size is 2GB.`);
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setUploadedPhotos(prev => prev.map((photo, idx) => 
+        idx === index ? {
+          id: Date.now() + Math.random(),
+          url: e.target.result,
+          file: file,
+          name: file.name
+        } : photo
+      ));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const setCoverFromUploadedPhoto = (photoIndex) => {
+    const photo = uploadedPhotos[photoIndex];
+    if (photo) {
+      setCoverImage({ ...photo });
+    }
+  };
+
+  // === HIGHLIGHTS HANDLERS ===
+  const handleHighlightChange = (id, value) => {
+    setHighlights(prev => prev.map(h => 
+      h.id === id ? { ...h, text: value } : h
+    ));
+  };
+
+  const addHighlight = () => {
+    setHighlights(prev => [...prev, { id: Date.now(), text: '' }]);
+  };
+
+  const removeHighlight = (id) => {
+    if (highlights.length > 1) {
+      setHighlights(prev => prev.filter(h => h.id !== id));
+    }
+  };
+
+  // === VEHICLE HANDLERS (Legacy - for modal selection) ===
+  const deleteVehicle = (index) => {
+    if (window.confirm('Are you sure you want to delete this vehicle?')) {
+      setVehicles(prev => prev.filter((_, idx) => idx !== index));
+      // Also clear edit mode if deleting the vehicle being edited
+      if (editingVehicleIndex === index) {
+        clearVehicleForm();
+        setEditingVehicleIndex(null);
+      }
+    }
+  };
+
+  // === STEP 5 VEHICLE FORM HANDLERS ===
+  const saveVehicleOption = () => {
+    // Validate all required fields
+    if (!vehicleTitle || !selectedVehicleType || !selectedVehicleModel || 
+        !vehicleAttributes || !numTravellers || !currency || 
+        !pricingType || !productAmount || !totalDuration || !vehicleDescription) {
+      alert('Please fill in all required fields before saving.');
+      return;
+    }
+
+    const newVehicle = {
+      id: editingVehicleIndex !== null ? vehicles[editingVehicleIndex].id : Date.now(),
+      title: vehicleTitle,
+      type: selectedVehicleType,
+      model: selectedVehicleModel,
+      year: vehicleYear,
+      attributes: vehicleAttributes,
+      capacity: parseInt(numTravellers),
+      currency: currency,
+      pricingType: pricingType,
+      amount: productAmount,
+      duration: totalDuration,
+      description: vehicleDescription
+    };
+
+    if (editingVehicleIndex !== null) {
+      // Update existing vehicle
+      setVehicles(prev => prev.map((v, idx) => 
+        idx === editingVehicleIndex ? newVehicle : v
+      ));
+      setEditingVehicleIndex(null);
+    } else {
+      // Add new vehicle
+      setVehicles(prev => [...prev, newVehicle]);
+    }
+
+    // Clear form
+    clearVehicleForm();
+    alert('Vehicle option saved successfully!');
+  };
+
+  const clearVehicleForm = () => {
+    setVehicleTitle('');
+    setSelectedVehicleType('');
+    setSelectedVehicleModel('');
+    setVehicleYear('2024');
+    setVehicleAttributes('');
+    setNumTravellers('');
+    setCurrency('');
+    setPricingType('');
+    setProductAmount('');
+    setTotalDuration('');
+    setVehicleDescription('');
+  };
+
+  const editVehicleOption = (index) => {
+    const vehicle = vehicles[index];
+    setVehicleTitle(vehicle.title);
+    setSelectedVehicleType(vehicle.type);
+    setSelectedVehicleModel(vehicle.model);
+    setVehicleYear(vehicle.year);
+    setVehicleAttributes(vehicle.attributes);
+    setNumTravellers(vehicle.capacity.toString());
+    setCurrency(vehicle.currency);
+    setPricingType(vehicle.pricingType);
+    setProductAmount(vehicle.amount);
+    setTotalDuration(vehicle.duration);
+    setVehicleDescription(vehicle.description);
+    setEditingVehicleIndex(index);
+    
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const getVehicleModels = () => {
@@ -147,7 +373,43 @@ const CreateProductComponent = ({ onClose }) => {
     setCurrentMonth(newMonth);
   };
 
-  const nextStep = () => setStep((prev) => prev + 1);
+  const nextStep = () => {
+    // Validate Step 1 fields
+    if (step === 1) {
+      if (!productTitle || productTitle.length > 40) {
+        alert('Please enter a product title with maximum 40 characters.');
+        return;
+      }
+      if (!productCategory) {
+        alert('Please select a category.');
+        return;
+      }
+      if (!sellingPoints) {
+        alert('Please select a selling point/style.');
+        return;
+      }
+      if (!tagline || countWords(tagline) < 50) {
+        alert('Please enter a tagline with at least 50 words.');
+        return;
+      }
+    }
+    
+    // Validate Step 2 fields (Description & Highlights)
+    if (step === 2) {
+      if (!description || description.length < 500) {
+        alert('Please enter a description with at least 500 characters.');
+        return;
+      }
+      const filledHighlights = highlights.filter(h => h.text.trim() !== '');
+      if (filledHighlights.length === 0) {
+        alert('Please add at least one highlight.');
+        return;
+      }
+    }
+    
+    setStep((prev) => prev + 1);
+  };
+  
   const prevStep = () => {
     if (step === 1) {
       onClose();
@@ -192,24 +454,38 @@ const CreateProductComponent = ({ onClose }) => {
             {/* Form Fields */}
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Product Title</label>
-                <p className="text-sm text-gray-600 mb-3">Enter a clear and descriptive name for your product or service. (title should be minimum 30 characters)</p>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Product Title <span className="text-red-500">*</span>
+                </label>
+                <p className="text-sm text-gray-600 mb-3">Enter a clear and descriptive name for your product or service. (title should be maximum 40 characters)</p>
                 <input
                   type="text"
-                  defaultValue="Mount fuji, Tokoyo"
+                  value={productTitle}
+                  onChange={(e) => setProductTitle(e.target.value)}
+                  placeholder="e.g., Mount Fuji, Tokyo"
+                  required
+                  maxLength={40}
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">{productTitle.length}/40 characters maximum</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Category</label>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Category <span className="text-red-500">*</span>
+                </label>
                 <p className="text-sm text-gray-600 mb-3">Select the category that best matches your product or service. Choose from Tour, Hotel, or Rent a Car.</p>
                 <div className="relative">
-                  <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
-                    <option>Category</option>
-                    <option>Tour</option>
-                    <option>Hotel</option>
-                    <option>Rent a Car</option>
+                  <select 
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                    value={productCategory}
+                    onChange={(e) => setProductCategory(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Tour">Tour</option>
+                    <option value="Hotel">Hotel</option>
+                    <option value="Rent a Car">Rent a Car</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                     <FiChevronDown className="w-4 h-4 text-gray-400" />
@@ -218,18 +494,25 @@ const CreateProductComponent = ({ onClose }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Selling Points</label>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Selling Points <span className="text-red-500">*</span>
+                </label>
                 <p className="text-sm text-gray-600 mb-3">Choose the overall look, design, or concept that best represents your product.</p>
                 <div className="relative">
-                  <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
-                    <option>Choose Style</option>
-                    <option>Art, Design, & Fashion</option>
-                    <option>Entertainment</option>
-                    <option>Food & Drink</option>
-                    <option>Health & Fitness</option>
-                    <option>History & Culture</option>
-                    <option>Travel</option>
-                    <option>Holidays</option>
+                  <select 
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                    value={sellingPoints}
+                    onChange={(e) => setSellingPoints(e.target.value)}
+                    required
+                  >
+                    <option value="">Choose Style</option>
+                    <option value="Art, Design, & Fashion">Art, Design, & Fashion</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Food & Drink">Food & Drink</option>
+                    <option value="Health & Fitness">Health & Fitness</option>
+                    <option value="History & Culture">History & Culture</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Holidays">Holidays</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                     <FiChevronDown className="w-4 h-4 text-gray-400" />
@@ -238,14 +521,20 @@ const CreateProductComponent = ({ onClose }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">Tagline</label>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Tagline <span className="text-red-500">*</span>
+                </label>
                 <p className="text-sm text-gray-600 mb-1">This description will appear under your activity title.</p>
                 <p className="text-sm text-gray-600 mb-3">Start with a short intro (2-3 sentences), then describe the full experience in order.</p>
                 <textarea
                   rows="4"
-                  placeholder="Please write atleast 50 Characters."
+                  value={tagline}
+                  onChange={(e) => setTagline(e.target.value)}
+                  placeholder="Please write atleast 50 words."
+                  required
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">{countWords(tagline)}/50 words minimum</p>
               </div>
             </div>
           </div>
@@ -304,36 +593,57 @@ const CreateProductComponent = ({ onClose }) => {
             <div className="space-y-8">
               {/* Description Section */}
               <div ref={descriptionRef}>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Description</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  Description <span className="text-red-500">*</span>
+                </h3>
                 <p className="text-gray-600 mb-4">Describe your product or service clearly, highlighting key features and benefits in detail.</p>
                 <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   placeholder="Please write at least 500 Characters."
                   rows="6"
+                  required
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">{description.length}/500 characters minimum</p>
               </div>
               
               {/* Highlights Section */}
               <div ref={highlightsRef}>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Highlights</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  Highlights <span className="text-red-500">*</span>
+                </h3>
                 <p className="text-gray-600 mb-4">Describe in 3-5 sentences what makes your activity unique and different from others. Highlight the special features or experiences that set it apart, so customers can easily compare and see why yours is the best choice.</p>
                 
                 <div className="space-y-4">
-                  {[1, 2, 3, 4].map((index) => (
-                    <div key={index} className="relative">
+                  {highlights.map((highlight, index) => (
+                    <div key={highlight.id} className="relative flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder="Churelto Pagoda and Lake Kawaguchi."
-                        className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={highlight.text}
+                        onChange={(e) => handleHighlightChange(highlight.id, e.target.value)}
+                        placeholder="e.g., Churelto Pagoda and Lake Kawaguchi"
+                        className="flex-1 px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
-                      <span className="absolute right-3 top-3 text-sm text-gray-400">0/30</span>
+                      {highlights.length > 1 && (
+                        <button
+                          onClick={() => removeHighlight(highlight.id)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove highlight"
+                        >
+                          <FiX size={20} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
                 
                 <div className="text-right mt-4">
-                  <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                    Add another highlights
+                  <button 
+                    onClick={addHighlight}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  >
+                    + Add another highlight
                   </button>
                 </div>
               </div>
@@ -409,11 +719,22 @@ const CreateProductComponent = ({ onClose }) => {
 
             {/* Upload Section */}
             <div className="mb-8">
-              <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center mb-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handlePhotoUpload}
+                accept="image/jpeg,image/png,image/svg+xml"
+                multiple
+                className="hidden"
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center mb-2"
+              >
                 <FiUpload className="mr-2" size={16} />
                 Upload Photo
               </button>
-              <p className="text-sm text-gray-600">Only JPG, PNG, SVG (3MB Max)</p>
+              <p className="text-sm text-gray-600">Only JPG, PNG, SVG (2GB Max)</p>
             </div>
 
             {/* Cover Image Section */}
@@ -424,17 +745,43 @@ const CreateProductComponent = ({ onClose }) => {
               <div className="flex gap-6 mb-4">
                 {/* Cover Image Field */}
                 <div className="flex-1">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center h-64 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                      </div>
-                      <p className="text-sm text-gray-600">Drag and drop your cover image here</p>
-                      <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+                  <input
+                    type="file"
+                    onChange={handleCoverImageUpload}
+                    accept="image/jpeg,image/png,image/svg+xml"
+                    className="hidden"
+                    id="cover-image-input"
+                  />
+                  {coverImage ? (
+                    <div className="relative">
+                      <img 
+                        src={coverImage.url} 
+                        alt="Cover"
+                        className="w-full h-64 object-cover rounded-lg"
+                      />
+                      <button
+                        onClick={removeCoverImage}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+                      >
+                        <FiX size={20} />
+                      </button>
                     </div>
-                  </div>
+                  ) : (
+                    <label 
+                      htmlFor="cover-image-input"
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center h-64 flex items-center justify-center cursor-pointer hover:border-blue-500 transition-colors"
+                    >
+                      <div className="text-center">
+                        <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                        <p className="text-sm text-gray-600">Drag and drop your cover image here</p>
+                        <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+                      </div>
+                    </label>
+                  )}
                 </div>
 
                 {/* Do and Don't Sections */}
@@ -481,20 +828,90 @@ const CreateProductComponent = ({ onClose }) => {
                 </div>
               </div>
 
-              <p className="text-sm text-gray-600 mb-4">You can also change cover image</p>
+              <p className="text-sm text-gray-600 mb-4">
+                You can also change cover image - Click on any photo below to set as cover
+              </p>
               
-              {/* Thumbnail Images */}
-              <div className="flex space-x-4">
-                {[1, 2, 3].map((index) => (
-                  <div key={index} className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
+              {/* Thumbnail Images - Dynamic based on uploaded photos */}
+              <div className="flex flex-wrap gap-4">
+                {/* Display uploaded photos */}
+                {uploadedPhotos.map((photo, index) => (
+                  <div key={photo.id} className="relative group">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/svg+xml"
+                      onChange={(e) => {
+                        if (e.target.files[0]) {
+                          replacePhoto(index, e.target.files[0]);
+                        }
+                      }}
+                      className="hidden"
+                      id={`replace-photo-${index}`}
+                    />
+                    <div className="w-32 h-32 border-2 border-gray-300 rounded-lg overflow-hidden relative cursor-pointer">
+                      <img 
+                        src={photo.url} 
+                        alt={photo.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Overlay on hover */}
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <div className="text-center">
+                          <button
+                            onClick={() => setCoverFromUploadedPhoto(index)}
+                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded mb-1 hover:bg-blue-700"
+                          >
+                            Set as Cover
+                          </button>
+                          <button
+                            onClick={() => document.getElementById(`replace-photo-${index}`).click()}
+                            className="px-3 py-1 bg-white text-gray-800 text-xs rounded mb-1 hover:bg-gray-100 block w-full"
+                          >
+                            Replace
+                          </button>
+                          <button
+                            onClick={() => removePhoto(photo.id)}
+                            className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 block w-full"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-500">Add image</p>
+                      {/* Cover indicator */}
+                      {coverImage && coverImage.id === photo.id && (
+                        <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                          Cover
+                        </div>
+                      )}
                     </div>
+                    <p className="text-xs text-gray-600 mt-1 truncate w-32">{photo.name}</p>
+                  </div>
+                ))}
+                
+                {/* Add new image containers - up to 6 total */}
+                {uploadedPhotos.length < 6 && [...Array(Math.min(3, 6 - uploadedPhotos.length))].map((_, index) => (
+                  <div key={`add-${index}`}>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/svg+xml"
+                      multiple
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                      id={`add-photo-${index}`}
+                    />
+                    <label
+                      htmlFor={`add-photo-${index}`}
+                      className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-500 transition-colors"
+                    >
+                      <div className="text-center">
+                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-1">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                        <p className="text-xs text-gray-500">Add image</p>
+                      </div>
+                    </label>
                   </div>
                 ))}
               </div>
@@ -1348,11 +1765,11 @@ const CreateProductComponent = ({ onClose }) => {
              {/* Select Vehicle Modal */}
              {showSelectVehicleModal && (
                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                 <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4">
+                 <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                    {/* Modal Header */}
-                   <div className="p-6 border-b border-gray-200 relative">
-                     <h2 className="text-lg font-semibold text-gray-900">Choose which Vehicle will be assigned for the selected pickup time.</h2>
-                     <p className="text-sm text-gray-600 mt-1">This helps ensure the right vehicle is scheduled and ready for the traveller.</p>
+                   <div className="p-6 border-b border-gray-200 relative sticky top-0 bg-white z-10">
+                     <h2 className="text-lg font-semibold text-gray-900">Select Vehicle</h2>
+                     <p className="text-sm text-gray-600 mt-1">Choose a vehicle for this tour from your saved options.</p>
                      
                      {/* Close Button */}
                      <button
@@ -1363,64 +1780,81 @@ const CreateProductComponent = ({ onClose }) => {
                      </button>
                    </div>
 
-                   {/* Modal Content - Vertical Stacked Layout */}
-                   <div className="p-4 space-y-3">
-                     {/* Vehicle Option 1 - Benz A-Class */}
-                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                       <div className="flex justify-between items-start">
-                         <div className="flex-1">
-                           <div className="flex items-baseline mb-1">
-                             <h3 className="text-lg font-bold text-gray-900">Benz</h3>
-                             <h3 className="text-lg font-bold text-gray-900 ml-2">A-Class</h3>
-                           </div>
-                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
-                             <span className="italic text-gray-600">Luxury Premium</span>
-                             <span className="text-gray-600">2008</span>
-                             <span className="text-gray-600">Best for upto <span className="text-blue-600 font-medium">03</span></span>
-                             <span className="text-gray-600">Approximate time <span className="text-blue-600 font-medium">04h</span></span>
-                           </div>
-                           <p className="text-xs text-gray-500 leading-relaxed">
-                             The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable.
-                           </p>
+                   {/* Modal Content - List of Saved Vehicles */}
+                   <div className="p-6">
+                     {vehicles.length === 0 ? (
+                       <div className="text-center py-12">
+                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                           </svg>
                          </div>
-                         <div className="text-right ml-4">
-                           <div className="text-lg font-bold text-blue-600">$40</div>
-                           <div className="text-xs text-gray-600">Group Based</div>
-                           <div className="text-xs text-gray-400 mt-1">
-                             20% Commission will charge per product according to your vehicle
-                           </div>
-                         </div>
+                         <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
+                         <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
+                         <button
+                           onClick={() => setShowSelectVehicleModal(false)}
+                           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                         >
+                           Close
+                         </button>
                        </div>
-                     </div>
-
-                     {/* Vehicle Option 2 - Coster J3-400 */}
-                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                       <div className="flex justify-between items-start">
-                         <div className="flex-1">
-                           <div className="flex items-baseline mb-1">
-                             <h3 className="text-lg font-bold text-gray-900">Coster</h3>
-                             <h3 className="text-lg font-bold text-gray-900 ml-2">J3-400</h3>
+                     ) : (
+                       <div className="space-y-3">
+                         {vehicles.map((vehicle, index) => (
+                           <div 
+                             key={vehicle.id}
+                             className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all"
+                             onClick={() => {
+                               // Here you would handle vehicle selection for the tour
+                               console.log('Selected vehicle:', vehicle);
+                               setShowSelectVehicleModal(false);
+                             }}
+                           >
+                             <div className="flex justify-between items-start">
+                               <div className="flex-1">
+                                 <div className="flex items-baseline mb-1">
+                                   <h3 className="text-lg font-bold text-gray-900">{vehicle.title}</h3>
+                                 </div>
+                                 <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
+                                   <span className="italic">{vehicle.attributes}</span>
+                                   <span>{vehicle.year}</span>
+                                   <span>Best for upto <span className="text-blue-600 font-medium">{vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span></span>
+                                   <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
+                                 </div>
+                                 <p className="text-xs text-gray-500 leading-relaxed mb-2">
+                                   {vehicle.description}
+                                 </p>
+                                 <div className="flex items-center space-x-2 text-sm">
+                                   <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
+                                   <span className="text-gray-400">•</span>
+                                   <span className="text-gray-600">{vehicle.pricingType}</span>
+                                 </div>
+                               </div>
+                               <div className="text-right ml-4">
+                                 <div className="text-lg font-bold text-blue-600">{vehicle.currency} {vehicle.amount}</div>
+                                 <div className="text-xs text-gray-600">{vehicle.pricingType}</div>
+                                 <div className="text-xs text-gray-400 mt-1">
+                                   20% Commission will be charged
+                                 </div>
+                               </div>
+                             </div>
                            </div>
-                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
-                             <span className="italic text-gray-600">Comfort 1.2x</span>
-                             <span className="text-gray-600">2008</span>
-                             <span className="text-gray-600">Best for upto <span className="text-blue-600 font-medium">03</span></span>
-                             <span className="text-gray-600">Approximate time <span className="text-blue-600 font-medium">04h</span></span>
-                           </div>
-                           <p className="text-xs text-gray-500 leading-relaxed">
-                             The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable.
-                           </p>
-                         </div>
-                         <div className="text-right ml-4">
-                           <div className="text-lg font-bold text-blue-600">$40</div>
-                           <div className="text-xs text-gray-600">Group Based</div>
-                           <div className="text-xs text-gray-400 mt-1">
-                             20% Commission will charge per product according to your vehicle
-                           </div>
-                         </div>
+                         ))}
                        </div>
-                     </div>
+                     )}
                    </div>
+
+                   {/* Modal Footer */}
+                   {vehicles.length > 0 && (
+                     <div className="p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0">
+                       <button
+                         onClick={() => setShowSelectVehicleModal(false)}
+                         className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors"
+                       >
+                         Cancel
+                       </button>
+                     </div>
+                   )}
                  </div>
                </div>
              )}
@@ -1502,10 +1936,18 @@ const CreateProductComponent = ({ onClose }) => {
             <div className="space-y-8">
               {/* Title Section */}
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">Title to your Option</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  Title to your Option
+                  {editingVehicleIndex !== null && (
+                    <span className="ml-3 text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full">Editing</span>
+                  )}
+                </h3>
                 <input
                   type="text"
-                  defaultValue="Mount Fuji tour by private car"
+                  placeholder="Enter option title"
+                  value={vehicleTitle}
+                  onChange={(e) => setVehicleTitle(e.target.value)}
+                  required
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -1514,99 +1956,130 @@ const CreateProductComponent = ({ onClose }) => {
               <div>
                 <div className="grid grid-cols-3 gap-6 mb-6">
                   {/* Row 1 */}
-                   <div className="relative">
+                   <div>
                      <label className="block text-sm font-medium text-gray-900 mb-2">Transportation Type</label>
-                     <select 
-                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
-                       value={selectedVehicleType}
-                       onChange={(e) => handleVehicleTypeChange(e.target.value)}
-                     >
-                       <option value="">Select Vehicle</option>
-                       <option value="van">Van</option>
-                       <option value="car">Car</option>
-                       <option value="bus">Bus</option>
-                     </select>
-                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
+                     <div className="relative">
+                       <select 
+                         className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                         value={selectedVehicleType}
+                         onChange={(e) => handleVehicleTypeChange(e.target.value)}
+                         required
+                       >
+                         <option value="">Select Vehicle</option>
+                         <option value="van">Van</option>
+                         <option value="car">Car</option>
+                         <option value="bus">Bus</option>
+                       </select>
+                       <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                         </svg>
+                       </div>
                      </div>
                    </div>
                   
-                  <div className="relative">
+                  <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Make & Variant</label>
-                    <select 
-                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5"
-                      value={selectedVehicleModel}
-                      onChange={(e) => setSelectedVehicleModel(e.target.value)}
-                      disabled={!selectedVehicleType}
-                    >
-                      <option value="">Select Variant</option>
-                      {getVehicleModels().map((model) => (
-                        <option key={model.value} value={model.value}>
-                          {model.label}
-                        </option>
-                      ))}
-                    </select>
-                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
-                     </div>
+                    <div className="relative">
+                      <select 
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                        value={selectedVehicleModel}
+                        onChange={(e) => setSelectedVehicleModel(e.target.value)}
+                        disabled={!selectedVehicleType}
+                        required
+                      >
+                        <option value="">Select Variant</option>
+                        {getVehicleModels().map((model) => (
+                          <option key={model.value} value={model.value}>
+                            {model.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="relative">
+                  <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Model of vehicle (optional)</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
-                      <option value="2008">2008</option>
-                      <option value="2009">2009</option>
-                      <option value="2012">2012</option>
-                      <option value="2014">2014</option>
-                      <option value="2018">2018</option>
-                      <option value="2020">2020</option>
-                    </select>
-                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
-                     </div>
+                    <div className="relative">
+                      <select 
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                        value={vehicleYear}
+                        onChange={(e) => setVehicleYear(e.target.value)}
+                      >
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                        <option value="2022">2022</option>
+                        <option value="2020">2020</option>
+                        <option value="2018">2018</option>
+                        <option value="2015">2015</option>
+                      </select>
+                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-6 mb-6">
                   {/* Row 2 */}
-                  <div className="relative">
+                  <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Vehicle Attributes</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
-                      <option>Select Attributes</option>
-                      <option>Comfort 1.2x</option>
-                      <option>Economy 1x</option>
-                      <option>Premium 1.5x</option>
-                      <option>Automatic Transmission 1.1x</option>
-                      <option>Manual Transmission 1.1x</option>
-                      <option>Hybrid 1.3x</option>
-                      <option>Electric 1.4x</option>
-                    </select>
-                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
-                     </div>
+                    <div className="relative">
+                      <select 
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                        value={vehicleAttributes}
+                        onChange={(e) => setVehicleAttributes(e.target.value)}
+                        required
+                      >
+                        <option value="">Select Attributes</option>
+                        <option>Comfort 1.2x</option>
+                        <option>Economy 1x</option>
+                        <option>Premium 1.5x</option>
+                        <option>Automatic Transmission 1.1x</option>
+                        <option>Manual Transmission 1.1x</option>
+                        <option>Hybrid 1.3x</option>
+                        <option>Electric 1.4x</option>
+                      </select>
+                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="relative">
+                  <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Number of travellers</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
-                      <option>03</option>
-                      <option>01</option>
-                      <option>02</option>
-                      <option>04</option>
-                    </select>
-                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
-                     </div>
+                    <div className="relative">
+                      <select 
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                        value={numTravellers}
+                        onChange={(e) => setNumTravellers(e.target.value)}
+                        required
+                      >
+                        <option value="">Select</option>
+                        <option>01</option>
+                        <option>02</option>
+                        <option>03</option>
+                        <option>04</option>
+                        <option>05</option>
+                        <option>06</option>
+                        <option>07</option>
+                        <option>08</option>
+                      </select>
+                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                     <div className="flex items-start mt-2">
                       <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
                         <span className="text-white text-xs font-bold">!</span>
@@ -1615,46 +2088,63 @@ const CreateProductComponent = ({ onClose }) => {
                     </div>
                   </div>
                   
-                  <div className="relative">
+                  <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Currency</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
-                      <option>Currency</option>
-                      <option>$ US Dollar</option>
-                      <option>€ Euro</option>
-                      <option>¥ Japanese Yen</option>
-                      <option>Rs Pakistani Rupee</option>
-                    </select>
-                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
-                     </div>
+                    <div className="relative">
+                      <select 
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        required
+                      >
+                        <option value="">Select Currency</option>
+                        <option>$ US Dollar</option>
+                        <option>€ Euro</option>
+                        <option>¥ Japanese Yen</option>
+                        <option>Rs Pakistani Rupee</option>
+                      </select>
+                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-6 mb-6">
                   {/* Row 3 */}
-                  <div className="relative">
+                  <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Pricing Type</label>
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
-                      <option>Select Type</option>
-                      <option>Per Group</option>
-                      <option>Per Person</option>
-                      <option>Shared</option>
-                      <option>Hourly Rate</option>
-                    </select>
-                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
-                     </div>
+                    <div className="relative">
+                      <select 
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                        value={pricingType}
+                        onChange={(e) => setPricingType(e.target.value)}
+                        required
+                      >
+                        <option value="">Select Type</option>
+                        <option>Per Group</option>
+                        <option>Per Person</option>
+                        <option>Shared</option>
+                        <option>Hourly Rate</option>
+                      </select>
+                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Enter the amount of your product</label>
                     <input
-                      type="text"
+                      type="number"
                       placeholder="Enter Amount"
+                      value={productAmount}
+                      onChange={(e) => setProductAmount(e.target.value)}
+                      required
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -1670,46 +2160,74 @@ const CreateProductComponent = ({ onClose }) => {
 
               {/* Total Duration and Description */}
               <div className="grid grid-cols-2 gap-6">
-                 <div className="relative">
+                 <div>
                    <label className="block text-sm font-medium text-gray-900 mb-2">Total duration</label>
                    <p className="text-sm text-gray-600 mb-3">Specify how long the car will be available for your trip.</p>
-                   <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-5">
-                     <option>8h</option>
-                     <option>1h</option>
-                     <option>2h</option>
-                     <option>3h</option>
-                     <option>4h</option>
-                     <option>5h</option>
-                     <option>6h</option>
-                     <option>7h</option>
-                     <option>9h</option>
-                     <option>10h</option>
-                     <option>11h</option>
-                     <option>12h</option>
-                     <option>13h</option>
-                     <option>14h</option>
-                     <option>15h</option>
-                     <option>16h</option>
-                     <option>17h</option>
-                     <option>18h</option>
-                   </select>
-                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                     </svg>
+                   <div className="relative">
+                     <select 
+                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                       value={totalDuration}
+                       onChange={(e) => setTotalDuration(e.target.value)}
+                       required
+                     >
+                       <option value="">Select Duration</option>
+                       <option>1h</option>
+                       <option>2h</option>
+                       <option>3h</option>
+                       <option>4h</option>
+                       <option>5h</option>
+                       <option>6h</option>
+                       <option>7h</option>
+                       <option>8h</option>
+                       <option>9h</option>
+                       <option>10h</option>
+                       <option>11h</option>
+                       <option>12h</option>
+                       <option>13h</option>
+                       <option>14h</option>
+                       <option>15h</option>
+                       <option>16h</option>
+                       <option>17h</option>
+                       <option>18h</option>
+                       <option>Full Day</option>
+                     </select>
+                     <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
+                     </div>
                    </div>
                  </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
                   <textarea
-                    defaultValue="The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable."
+                    placeholder="Enter vehicle description..."
+                    value={vehicleDescription}
+                    onChange={(e) => setVehicleDescription(e.target.value)}
                     rows="4"
+                    required
                     className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
-                  <button className="mt-3 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">
-                    Save
-                  </button>
+                  <div className="flex gap-3 mt-3">
+                    <button 
+                      onClick={saveVehicleOption}
+                      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                    >
+                      {editingVehicleIndex !== null ? 'Update' : 'Save'}
+                    </button>
+                    {editingVehicleIndex !== null && (
+                      <button 
+                        onClick={() => {
+                          clearVehicleForm();
+                          setEditingVehicleIndex(null);
+                        }}
+                        className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1717,65 +2235,57 @@ const CreateProductComponent = ({ onClose }) => {
               <div className="space-y-4">
                 <h3 className="text-xl font-bold text-gray-900">Existing Vehicle Options</h3>
                 
-                {/* Benz A-Class */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h4 className="text-lg font-bold text-gray-900 mb-2">Benz A-Class</h4>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
-                        <span>Luxury Premium</span>
-                        <span>2008</span>
-                        <span>Best for upto 03</span>
-                        <span>Approximate time 04h</span>
-                      </div>
-                      <p className="text-sm text-gray-700">
-                        The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable.
-                      </p>
-                    </div>
-                    <div className="flex space-x-2 ml-4">
-                      <button className="p-2 text-gray-400 hover:text-gray-600">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button className="p-2 text-gray-400 hover:text-gray-600">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
+                {vehicles.length === 0 ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                    <p className="text-gray-500">No vehicles added yet. Click "Select Vehicle" above to add your first vehicle.</p>
                   </div>
-                </div>
-
-                {/* Coster J3-400 */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h4 className="text-lg font-bold text-gray-900 mb-2">Coster J3-400</h4>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
-                        <span>Comfort 1.2x</span>
-                        <span>2008</span>
-                        <span>Best for upto 03</span>
-                        <span>Approximate time 04h</span>
+                ) : (
+                  vehicles.map((vehicle, index) => (
+                    <div key={vehicle.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h4 className="text-lg font-bold text-gray-900 mb-2">
+                            {vehicle.title || `${vehicle.type} - ${vehicle.model.replace('-', ' ')}`}
+                          </h4>
+                          <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
+                            <span>{vehicle.attributes}</span>
+                            <span>{vehicle.year}</span>
+                            <span>Best for upto {vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span>
+                            <span>Approximate time {vehicle.duration}</span>
+                          </div>
+                          <p className="text-sm text-gray-700 mb-2">
+                            {vehicle.description}
+                          </p>
+                          <div className="flex items-center space-x-4 text-sm mt-3">
+                            <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
+                            <span className="text-gray-500">•</span>
+                            <span className="text-gray-600">{vehicle.pricingType}</span>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2 ml-4">
+                          <button 
+                            onClick={() => editVehicleOption(index)}
+                            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Edit vehicle"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button 
+                            onClick={() => deleteVehicle(index)}
+                            className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete vehicle"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-700">
-                        The Mercedes-Benz A-Class combines luxury with modern innovation. It offers a sleek design, premium comfort, and advanced technology features, making every drive stylish and enjoyable.
-                      </p>
                     </div>
-                    <div className="flex space-x-2 ml-4">
-                      <button className="p-2 text-gray-400 hover:text-gray-600">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button className="p-2 text-gray-400 hover:text-gray-600">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -1880,30 +2390,38 @@ const CreateProductComponent = ({ onClose }) => {
            {/* Navigation Buttons */}
            <div className="bg-white border-t border-gray-200 px-8 py-6">
              <div className="max-w-4xl mx-auto flex justify-end space-x-4">
-               {step === 6 ? (
-                 <button
-                   onClick={onClose}
-                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
-                 >
-                   Cancel
-                 </button>
-               ) : (
-                 <button
-                   onClick={prevStep}
-                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
-                 >
-                   Back
-                 </button>
-               )}
-               
-               <button
-                 onClick={step < 6 ? nextStep : () => {
-                   setShowItineraryComponent(true);
-                 }}
-                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-               >
-                 {step < 6 ? 'Continue' : 'Confirm Location & Time'}
-               </button>
+              {step === 6 ? (
+                <>
+                  <button
+                    onClick={prevStep}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={prevStep}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
+                >
+                  Back
+                </button>
+              )}
+              
+              <button
+                onClick={step < 6 ? nextStep : () => {
+                  setShowItineraryComponent(true);
+                }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                {step < 6 ? 'Continue' : 'Confirm Location & Time'}
+              </button>
              </div>
            </div>
         </div>
@@ -1932,7 +2450,7 @@ const CreateProductComponent = ({ onClose }) => {
               <div className="text-center">
                 <div className="w-full h-48 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
                   <img 
-                    src="/assets/WhatsApp Image 2025-10-13 at 4.52.46 PM (1).jpeg" 
+                    src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
                     alt="Clear example" 
                     className="w-full h-full object-cover rounded-lg"
                   />
@@ -2027,6 +2545,16 @@ const CreateProductComponent = ({ onClose }) => {
             onClose();
           }}
           onBack={() => setShowItineraryComponent(false)}
+          coverImage={coverImage}
+          uploadedPhotos={uploadedPhotos}
+          productData={{
+            title: productTitle,
+            category: productCategory,
+            sellingPoints: sellingPoints,
+            tagline: tagline,
+            description: description,
+            highlights: highlights.filter(h => h.text.trim() !== '')
+          }}
         />
       )}
     </div>

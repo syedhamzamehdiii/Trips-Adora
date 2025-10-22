@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FiClock, FiMapPin, FiRotateCcw, FiPlus, FiX, FiCheckCircle, FiChevronDown, FiCamera, FiUpload, FiEdit3, FiTrash2, FiUser, FiStar } from 'react-icons/fi';
 import MountFujiTourPage from './MountFujiTourPage';
 
-const AddItineraryComponent = ({ onClose, onBack }) => {
+const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, productData }) => {
   const [selectedTourType, setSelectedTourType] = useState('One day Tour');
   const [showAddItineraryModal, setShowAddItineraryModal] = useState(false);
   const [showAttractionsDropdown, setShowAttractionsDropdown] = useState(false);
@@ -107,7 +107,12 @@ const AddItineraryComponent = ({ onClose, onBack }) => {
   if (showPreview) {
     return (
       <div className="fixed inset-0 bg-white z-[100] overflow-auto">
-        <MountFujiTourPage />
+        <MountFujiTourPage 
+          coverImage={coverImage} 
+          uploadedPhotos={uploadedPhotos} 
+          productData={productData}
+          onBack={() => setShowPreview(false)}
+        />
       </div>
     );
   }

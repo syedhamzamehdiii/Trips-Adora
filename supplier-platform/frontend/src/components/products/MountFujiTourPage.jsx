@@ -36,7 +36,7 @@ import PublishProductModal from './PublishProductModal';
 import ApplicationSubmittedPage from './ApplicationSubmittedPage';
 import Footer from '@/components/common/Footer';
 
-const MountFujiTourPage = () => {
+const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) => {
   const [selectedDay, setSelectedDay] = useState('Tuesday');
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [language, setLanguage] = useState('US English');
@@ -65,18 +65,37 @@ const MountFujiTourPage = () => {
   };
 
   const nextPhoto = () => {
-    setCurrentPhotoIndex((prev) => (prev + 1) % photos.length);
+    setCurrentPhotoIndex((prev) => (prev + 1) % allPhotos.length);
   };
 
   const prevPhoto = () => {
-    setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
+    setCurrentPhotoIndex((prev) => (prev - 1 + allPhotos.length) % allPhotos.length);
   };
 
-  const photos = [
+  // Use uploaded photos if available, otherwise use default photos
+  const defaultPhotos = [
     { src: "/assets/Screenshot 2025-10-21 at 3.42.38 PM.png", alt: "Mount Fuji view 1" },
     { src: "/assets/Screenshot 2025-10-21 at 3.44.28 PM.png", alt: "Mount Fuji view 2" },
     { src: "/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png", alt: "Mount Fuji view 3" }
   ];
+
+  // Convert uploaded photos to the same format
+  const photos = uploadedPhotos && uploadedPhotos.length > 0 
+    ? uploadedPhotos.map(photo => ({ src: photo.url, alt: photo.name }))
+    : defaultPhotos;
+
+  // All photos for modal (cover + uploaded photos)
+  const allPhotos = coverImage && uploadedPhotos && uploadedPhotos.length > 0
+    ? [{ src: coverImage.url, alt: coverImage.name }, ...photos]
+    : [
+        { src: "/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg", alt: "Mount Fuji cover" },
+        ...defaultPhotos
+      ];
+
+  // Determine main cover image
+  const mainCoverImage = coverImage 
+    ? coverImage.url 
+    : "/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg";
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const timeSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
@@ -91,12 +110,20 @@ const MountFujiTourPage = () => {
     { time: '20:30', title: 'Drop-off in Tokyo', description: 'Return to your hotel with unforgettable memories', icon: 'dropoff' }
   ];
 
-  const highlights = [
+  // Use dynamic highlights from productData or fallback to defaults
+  const defaultHighlights = [
     { icon: 'mountain', text: 'Visit iconic Mount Fuji viewpoints including Lake Kawaguchi' },
     { icon: 'camera', text: 'Explore Chureito Pagoda for the perfect panoramic shots' },
     { icon: 'car', text: 'Comfortable private transport with flexible itinerary' },
     { icon: 'guide', text: 'Multilingual guide (English, Japanese, Hindi available)' }
   ];
+  
+  const highlights = productData?.highlights && productData.highlights.length > 0
+    ? productData.highlights.map((h, index) => ({
+        icon: ['mountain', 'camera', 'car', 'guide'][index % 4],
+        text: h.text
+      }))
+    : defaultHighlights;
 
   const includedItems = [
     'Private Mercedes-Benz A-Class vehicle',
@@ -258,29 +285,33 @@ const MountFujiTourPage = () => {
         </div>
       </nav>
 
-      {/* Breadcrumb Navigation */}
-      <div className="w-full px-6 py-4 bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto">
-            <div className="text-sm text-gray-600">
-              <span className="text-gray-800 font-medium">Klook Travel</span>
-              <span className="mx-2">&gt;</span>
-              <span className="text-gray-800 font-medium">Japan</span>
-              <span className="mx-2">&gt;</span>
-              <span className="text-gray-800 font-medium">Tokyo</span>
-            </div>
-        </div>
-      </div>
-
       {/* Page Header */}
       <div className="w-full px-6 py-6 bg-gray-50">
         <div className="max-w-7xl mx-auto">
+          {/* Back Arrow */}
+          <div className="mb-4">
+            <button 
+              onClick={onBack || (() => window.history.back())}
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <FiArrowLeft size={20} />
+              <span className="text-sm font-medium">Back</span>
+            </button>
+          </div>
+          
           <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Mount Fuji Customized Tour</h1>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              {productData?.title || 'Mount Fuji Customized Tour'}
+            </h1>
             <div className="flex items-center space-x-2">
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">Tour</span>
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                {productData?.category || 'Tour'}
+              </span>
               <span className="text-gray-500">→</span>
-              <span className="px-3 py-1 border border-gray-300 text-gray-600 rounded-full text-sm">Travel & SightSeeing</span>
+              <span className="px-3 py-1 border border-gray-300 text-gray-600 rounded-full text-sm">
+                {productData?.sellingPoints || 'Travel & SightSeeing'}
+              </span>
             </div>
           </div>
           
@@ -310,36 +341,40 @@ const MountFujiTourPage = () => {
           {/* Hero Section with Photo Gallery */}
           <div className="mb-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Main Hero Image - Left Side */}
+              {/* Main Hero Image - Left Side (Cover Image) */}
               <div className="lg:col-span-2">
                 <img 
-                  src="/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg" 
-                  alt="Mount Fuji at sunset" 
-                  className="w-full h-[500px] object-cover rounded-lg"
+                  src={mainCoverImage}
+                  alt="Tour cover" 
+                  className="w-full h-[500px] object-cover rounded-lg cursor-pointer hover:opacity-95 transition-all"
+                  onClick={() => handlePhotoClick(0)}
                 />
               </div>
               
               {/* Photo Gallery - Right Side */}
               <div className="lg:col-span-1 space-y-4">
                 {/* First smaller image */}
+                {photos[0] && (
                 <div className="relative">
                   <img 
-                    src="/assets/5e20accba877ebca3f7fd7f0a8f642697330bd69.png" 
-                    alt="Mount Fuji view 2" 
+                      src={photos[0].src}
+                      alt={photos[0].alt}
                     className="w-full h-[240px] object-cover rounded-lg cursor-pointer hover:opacity-80 transition-all"
                     onClick={() => handlePhotoClick(1)}
                   />
                 </div>
+                )}
                 
                 {/* Second smaller image with See More overlay */}
+                {photos[1] && (
                 <div className="relative">
                   <img 
-                    src="/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png" 
-                    alt="Mount Fuji view 3" 
+                      src={photos[1].src}
+                      alt={photos[1].alt}
                     className="w-full h-[240px] object-cover rounded-lg"
                   />
                   {/* See More Button Overlay */}
-                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center rounded-lg">
                     <button 
                       onClick={() => setShowPhotoModal(true)}
                       className="bg-gray-800 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition-all"
@@ -348,15 +383,15 @@ const MountFujiTourPage = () => {
                     </button>
                   </div>
                 </div>
+                )}
               </div>
             </div>
             
             {/* Description below hero image */}
-            <div className="mt-6 flex justify-center">
-              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm max-w-4xl w-full">
+            <div className="mt-6">
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm w-full">
                 <p className="text-lg text-gray-700 leading-relaxed text-center">
-                  Discover the breathtaking beauty of Mount Fuji with a private guided tour from Tokyo, 
-                  tailored for comfort and unforgettable memories.
+                  {productData?.tagline || 'Discover the breathtaking beauty of Mount Fuji with a private guided tour from Tokyo, tailored for comfort and unforgettable memories.'}
                 </p>
               </div>
             </div>
@@ -377,11 +412,8 @@ const MountFujiTourPage = () => {
                 <h3 className="text-xl font-bold text-gray-800">Tour Description</h3>
               </div>
               <p className="text-gray-600 leading-relaxed">
-                Experience the magic of Mount Fuji on this exclusive one-day private tour designed for 
-                comfort and adventure. Our professional guides will take you to the most scenic spots 
-                including Lake Kawaguchi and the iconic Chureito Pagoda. Enjoy flexible scheduling, 
-                cultural insights, and personalized attention throughout your journey. Perfect for 
-                families, couples, or small groups seeking an authentic Japanese mountain experience.
+                {productData?.description || 
+                  'Experience the magic of Mount Fuji on this exclusive one-day private tour designed for comfort and adventure. Our professional guides will take you to the most scenic spots including Lake Kawaguchi and the iconic Chureito Pagoda. Enjoy flexible scheduling, cultural insights, and personalized attention throughout your journey. Perfect for families, couples, or small groups seeking an authentic Japanese mountain experience.'}
               </p>
             </div>
 
@@ -731,8 +763,8 @@ const MountFujiTourPage = () => {
                 {/* Main Photo */}
                 <div className="relative">
                   <img
-                    src={photos[currentPhotoIndex].src}
-                    alt={photos[currentPhotoIndex].alt}
+                    src={allPhotos[currentPhotoIndex].src}
+                    alt={allPhotos[currentPhotoIndex].alt}
                     className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
                   />
                   
