@@ -5,7 +5,7 @@ import aiofiles
 import os
 from datetime import datetime
 from app.models.user import User, UserRole
-from app.api.v1.auth import get_current_user
+from app.core.dependencies import get_current_user
 from app.models.coi_document import COIDocument, COIStatus
 from app.core.config import settings
 

@@ -25,7 +25,7 @@ export const ROUTES = {
 
 // API endpoints
 export const API_ENDPOINTS = {
-  BASE_URL: 'http://localhost:8000',
+  BASE_URL: 'http://localhost:8001',
   AUTH: {
     LOGIN: '/api/v1/auth/login',
     REGISTER: '/api/v1/auth/register',
