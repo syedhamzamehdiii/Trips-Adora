@@ -560,26 +560,61 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 <FiTruck size={20} className="text-blue-600" />
                 <h3 className="text-xl font-bold text-gray-900">Vehicle & Pricing</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="flex items-start space-x-3">
-                  <FiTruck size={20} className="text-blue-600 mt-1" />
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Vehicle Details</h4>
-                    <p className="text-gray-600">Mercedes-Benz A-Class (2018 model)</p>
+              {productData?.vehicles && productData.vehicles.length > 0 ? (
+                productData.vehicles.map((vehicle, index) => (
+                  <div key={vehicle.id} className="mb-6 last:mb-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="flex items-start space-x-3">
+                        <FiTruck size={20} className="text-blue-600 mt-1" />
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Vehicle Details</h4>
+                          <p className="text-gray-600">{vehicle.title || `${vehicle.type} ${vehicle.model.replace('-', ' ')}`}</p>
+                          <p className="text-sm text-gray-500">{vehicle.year} model</p>
+                          <p className="text-sm text-gray-500">{vehicle.attributes}</p>
+                          <p className="text-sm text-gray-500">Best for up to {vehicle.capacity} travelers</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-3">
+                        <FiClock size={20} className="text-blue-600 mt-1" />
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Duration</h4>
+                          <p className="text-gray-600">{vehicle.duration}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-6 flex items-center space-x-3">
+                      <span className="text-2xl font-bold text-gray-900">{vehicle.currency} {vehicle.amount}</span>
+                      <span className="text-gray-600">{vehicle.pricingType}</span>
+                    </div>
+                    {vehicle.description && (
+                      <p className="text-sm text-gray-600 mt-3">{vehicle.description}</p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="flex items-start space-x-3">
+                      <FiTruck size={20} className="text-blue-600 mt-1" />
+                      <div>
+                        <h4 className="font-semibold text-gray-900">Vehicle Details</h4>
+                        <p className="text-gray-600">Mercedes-Benz A-Class (2018 model)</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <FiClock size={20} className="text-blue-600 mt-1" />
+                      <div>
+                        <h4 className="font-semibold text-gray-900">Duration</h4>
+                        <p className="text-gray-600">10 hours</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6 flex items-center space-x-3">
+                    <span className="text-2xl font-bold text-gray-900">$240</span>
+                    <span className="text-gray-600">Per Group</span>
                   </div>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <FiClock size={20} className="text-blue-600 mt-1" />
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Duration</h4>
-                    <p className="text-gray-600">10 hours</p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 flex items-center space-x-3">
-                <span className="text-2xl font-bold text-gray-900">$240</span>
-                <span className="text-gray-600">Per Group</span>
-              </div>
+              )}
             </div>
 
             {/* Pick-up & Drop-off */}
@@ -596,18 +631,42 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     <h4 className="font-bold text-black mb-2">Pick-up</h4>
                     <div className="flex items-center">
                       <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-                      <p className="text-gray-500">Shibuya Crossing (Tokyo)</p>
+                      <p className="text-gray-500">
+                        {productData?.pickupLocation || 'Shibuya Crossing (Tokyo)'}
+                      </p>
                     </div>
+                    {productData?.pickupTime && (
+                      <p className="text-sm text-gray-600 mt-2">
+                        Time: {productData.pickupTime}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <h4 className="font-bold text-black mb-2">Drop-off</h4>
                     <div className="flex items-center">
                       <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-                      <p className="text-gray-500">Same as Pick-up</p>
+                      <p className="text-gray-500">
+                        {productData?.dropoffLocation || (productData?.pickupLocation ? 'Same as Pick-up' : 'Same as Pick-up')}
+                      </p>
                     </div>
                   </div>
                 </div>
                 <div>
+                  {productData?.weekDay && (
+                    <div className="mb-4">
+                      <h4 className="font-bold text-black mb-2">Selected Days</h4>
+                      <div className="flex items-center gap-2">
+                        <div className="px-3 py-1 rounded-full text-sm font-medium bg-blue-600 text-white">
+                          {productData.weekDay}
+                        </div>
+                        {productData.selectedDate && (
+                          <div className="px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-700">
+                            {productData.selectedDate}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div className="mb-4">
                     <h4 className="font-bold text-black mb-2">Available Days</h4>
                     <div className="flex flex-wrap gap-2">
