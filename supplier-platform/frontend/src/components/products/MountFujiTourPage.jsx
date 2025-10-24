@@ -100,7 +100,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const timeSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
 
-  const itineraryItems = [
+  // Use dynamic itineraries from productData or fallback to defaults
+  const defaultItineraryItems = [
     { time: '06:00', title: 'Pick-up from Tokyo hotel', description: 'Meet your professional guide and start your journey', icon: 'pickup' },
     { time: '09:00', title: 'Lake Kawaguchi visit (2 hrs)', description: 'Enjoy stunning lake views and photo opportunities', icon: 'sightseeing' },
     { time: '11:30', title: 'Chureito Pagoda sight (1.5 hrs)', description: 'Climb to the famous pagoda for panoramic views', icon: 'sightseeing' },
@@ -109,6 +110,18 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     { time: '18:00', title: 'Scenic drive and photo stops', description: 'Additional viewpoints and cultural insights', icon: 'travel' },
     { time: '20:30', title: 'Drop-off in Tokyo', description: 'Return to your hotel with unforgettable memories', icon: 'dropoff' }
   ];
+  
+  const itineraryItems = productData?.itineraries && productData.itineraries.length > 0
+    ? productData.itineraries.map((itinerary, index) => ({
+        time: `${String(6 + index * 2).padStart(2, '0')}:00`, // Generate times starting from 06:00 with 2-hour intervals
+        title: itinerary.location,
+        description: itinerary.description,
+        attractionType: itinerary.attractionType,
+        timeSpent: itinerary.timeSpent,
+        isFree: itinerary.isFree,
+        icon: 'sightseeing'
+      }))
+    : defaultItineraryItems;
 
   // Use dynamic highlights from productData or fallback to defaults
   const defaultHighlights = [
@@ -629,12 +642,21 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 <div>
                   <div className="mb-4">
                     <h4 className="font-bold text-black mb-2">Pick-up</h4>
-                    <div className="flex items-center">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-                      <p className="text-gray-500">
-                        {productData?.pickupLocation || 'Shibuya Crossing (Tokyo)'}
-                      </p>
-                    </div>
+                    {productData?.pickupLocations && productData.pickupLocations.length > 0 ? (
+                      <div className="space-y-2">
+                        {productData.pickupLocations.map((location, index) => (
+                          <div key={index} className="flex items-center">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                            <p className="text-gray-700">{location}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                        <p className="text-gray-500">Shibuya Crossing (Tokyo)</p>
+                      </div>
+                    )}
                     {productData?.pickupTime && (
                       <p className="text-sm text-gray-600 mt-2">
                         Time: {productData.pickupTime}
@@ -643,12 +665,21 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                   </div>
                   <div>
                     <h4 className="font-bold text-black mb-2">Drop-off</h4>
-                    <div className="flex items-center">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-                      <p className="text-gray-500">
-                        {productData?.dropoffLocation || (productData?.pickupLocation ? 'Same as Pick-up' : 'Same as Pick-up')}
-                      </p>
-                    </div>
+                    {productData?.dropoffLocations && productData.dropoffLocations.length > 0 ? (
+                      <div className="space-y-2">
+                        {productData.dropoffLocations.map((location, index) => (
+                          <div key={index} className="flex items-center">
+                            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                            <p className="text-gray-700">{location}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                        <p className="text-gray-500">Same as Pick-up</p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -735,14 +766,29 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
               </div>
               <div className="space-y-4">
                 {itineraryItems.map((item, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                  <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="flex items-start space-x-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                         <span className="text-blue-600 text-xs font-bold">{item.time}</span>
                       </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900 text-sm">{item.title}</h4>
-                        <p className="text-gray-600 text-xs mt-1">{item.description}</p>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 text-sm mb-1">{item.title}</h4>
+                        <p className="text-gray-600 text-xs mt-1 mb-2">{item.description}</p>
+                        {item.attractionType && (
+                          <p className="text-gray-500 text-xs mb-2">{item.attractionType}</p>
+                        )}
+                        <div className="flex items-center space-x-2">
+                          {item.isFree !== undefined && (
+                            <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">
+                              {item.isFree ? 'Free' : 'Paid'}
+                            </span>
+                          )}
+                          {item.timeSpent && (
+                            <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">
+                              {item.timeSpent}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

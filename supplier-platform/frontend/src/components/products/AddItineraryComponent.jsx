@@ -69,6 +69,7 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
     setItineraryEntries(prev => [...prev, newEntry]);
     setShowAddItineraryModal(false);
     setHasSavedItinerary(true);
+    setShowSubmitView(true); // Automatically navigate to the submit view
     
     // Reset form
     setPlaceName('');
@@ -110,7 +111,10 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
         <MountFujiTourPage 
           coverImage={coverImage} 
           uploadedPhotos={uploadedPhotos} 
-          productData={productData}
+          productData={{
+            ...productData,
+            itineraries: itineraryEntries // Pass saved itineraries to preview
+          }}
           onBack={() => setShowPreview(false)}
         />
       </div>
@@ -244,6 +248,45 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                           </div>
                         </div>
                       </div>
+
+                      {/* Pickup Locations */}
+                      {productData?.pickupLocations && productData.pickupLocations.length > 0 && (
+                        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                            <FiMapPin className="mr-2 text-green-600" size={18} />
+                            Pick-up Locations:
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {productData.pickupLocations.map((location, index) => (
+                              <span key={index} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                                {location}
+                              </span>
+                            ))}
+                          </div>
+                          {productData.pickupTime && (
+                            <p className="text-sm text-gray-600 mt-2">
+                              Pick-up Time: {productData.pickupTime}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Drop-off Locations */}
+                      {productData?.dropoffLocations && productData.dropoffLocations.length > 0 && (
+                        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                            <FiMapPin className="mr-2 text-blue-600" size={18} />
+                            Drop-off Locations:
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {productData.dropoffLocations.map((location, index) => (
+                              <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                                {location}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Complete Timeline */}
                       <div className="relative">

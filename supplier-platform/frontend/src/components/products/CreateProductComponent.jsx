@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin } from 'react-icons/fi';
 import AddItineraryComponent from './AddItineraryComponent';
 
 const CreateProductComponent = ({ onClose }) => {
@@ -58,7 +58,30 @@ const CreateProductComponent = ({ onClose }) => {
   const [selectedDate, setSelectedDate] = useState('01 Oct');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showSelectVehicleModal, setShowSelectVehicleModal] = useState(false);
+  const [selectedVehicleForTour, setSelectedVehicleForTour] = useState(null);
   const [useSamePickupLocation, setUseSamePickupLocation] = useState(true);
+  
+  // Real-time location search
+  const [pickupSearchQuery, setPickupSearchQuery] = useState('');
+  const [dropoffSearchQuery, setDropoffSearchQuery] = useState('');
+  const [selectedPickupLocations, setSelectedPickupLocations] = useState([]);
+  const [selectedDropoffLocations, setSelectedDropoffLocations] = useState([]);
+  const [showLocationAddedMessage, setShowLocationAddedMessage] = useState(false);
+  
+  // Time slots management
+  const [applyToAllDays, setApplyToAllDays] = useState(true);
+  const [startTime, setStartTime] = useState('06:35');
+  const [endTime, setEndTime] = useState('20:30');
+  const [duration, setDuration] = useState('30');
+  const [timeSlots, setTimeSlots] = useState({
+    Monday: [],
+    Tuesday: [],
+    Wednesday: [],
+    Thursday: [],
+    Friday: [],
+    Saturday: [],
+    Sunday: []
+  });
   
   // Step 4 state management
   const [selectedGuideType, setSelectedGuideType] = useState('Driver');
@@ -132,6 +155,192 @@ const CreateProductComponent = ({ onClose }) => {
       setShowSavedMessage(false);
       setShowIncludedExcludedModal(false);
     }, 1500);
+  };
+
+  // Japan locations database for real-time search
+  const japanLocations = [
+    // Tokyo
+    'Tokyo Station', 'Shibuya Crossing', 'Shinjuku Station', 'Harajuku', 'Asakusa', 'Akihabara',
+    'Roppongi', 'Ginza', 'Odaiba', 'Ueno', 'Ikebukuro', 'Tokyo Skytree', 'Tokyo Tower',
+    'Tsukiji Fish Market', 'Meiji Shrine', 'Senso-ji Temple', 'Imperial Palace Tokyo',
+    // Kyoto
+    'Kyoto Station', 'Fushimi Inari Shrine', 'Kinkaku-ji (Golden Pavilion)', 'Gion District',
+    'Arashiyama', 'Kiyomizu-dera Temple', 'Nijo Castle', 'Philosopher\'s Path',
+    'Fushimi Sake District', 'Nishiki Market', 'Ginkaku-ji (Silver Pavilion)',
+    // Osaka
+    'Osaka Station', 'Dotonbori', 'Osaka Castle', 'Umeda Sky Building', 'Shinsaibashi',
+    'Namba', 'Universal Studios Japan', 'Tennoji', 'Tsutenkaku Tower',
+    // Hiroshima
+    'Hiroshima Station', 'Hiroshima Peace Memorial Park', 'Atomic Bomb Dome', 'Miyajima Island',
+    'Itsukushima Shrine', 'Shukkeien Garden',
+    // Nara
+    'Nara Station', 'Nara Park', 'Todai-ji Temple', 'Kasuga Taisha Shrine',
+    // Yokohama
+    'Yokohama Station', 'Minato Mirai', 'Yokohama Chinatown', 'Yamashita Park',
+    // Hakone
+    'Hakone-Yumoto Station', 'Lake Ashi', 'Hakone Shrine', 'Owakudani Valley',
+    // Mount Fuji Area
+    'Mount Fuji 5th Station', 'Lake Kawaguchi', 'Fujiyoshida', 'Chureito Pagoda',
+    'Fuji-Q Highland', 'Oshino Hakkai',
+    // Nagoya
+    'Nagoya Station', 'Nagoya Castle', 'Atsuta Shrine', 'Osu Shopping District',
+    // Hokkaido
+    'Sapporo Station', 'Odori Park', 'Susukino', 'Otaru', 'Hakodate', 'Niseko',
+    // Fukuoka
+    'Fukuoka Airport', 'Hakata Station', 'Tenjin', 'Canal City', 'Ohori Park',
+    // Kanazawa
+    'Kanazawa Station', 'Kenroku-en Garden', 'Higashi Chaya District', '21st Century Museum',
+    // Nikko
+    'Nikko Station', 'Toshogu Shrine', 'Lake Chuzenji', 'Kegon Falls',
+    // Kamakura
+    'Kamakura Station', 'Great Buddha of Kamakura', 'Hase-dera Temple', 'Tsurugaoka Hachimangu',
+    // Narita
+    'Narita International Airport', 'Narita Station', 'Narita-san Temple',
+    // Kobe
+    'Kobe Station', 'Kobe Harbor', 'Mount Rokko', 'Arima Onsen',
+    // Other Major Locations
+    'Takayama', 'Shirakawa-go', 'Matsumoto Castle', 'Nagano', 'Okinawa', 'Naha Airport'
+  ];
+
+  // Filter locations based on search query
+  const filterLocations = (query, locationType) => {
+    if (!query || query.length < 2) return [];
+    
+    const searchTerm = query.toLowerCase();
+    let filtered = japanLocations.filter(location =>
+      location.toLowerCase().includes(searchTerm)
+    );
+
+    // Apply location type filter
+    if (locationType === 'Hotels only') {
+      filtered = filtered.filter(loc => 
+        loc.includes('Hotel') || loc.includes('Station') || loc.includes('District')
+      );
+    } else if (locationType === 'Airports only') {
+      filtered = filtered.filter(loc => loc.includes('Airport'));
+    } else if (locationType === 'Seaports only') {
+      filtered = filtered.filter(loc => 
+        loc.includes('Port') || loc.includes('Harbor') || loc.includes('Bay')
+      );
+    }
+
+    return filtered.slice(0, 10); // Limit to 10 results
+  };
+
+  // Add pickup location
+  const addPickupLocation = (location) => {
+    if (!selectedPickupLocations.includes(location)) {
+      setSelectedPickupLocations([...selectedPickupLocations, location]);
+      setShowLocationAddedMessage(true);
+      setTimeout(() => setShowLocationAddedMessage(false), 2000);
+    }
+    setPickupSearchQuery('');
+    setShowPickupDropdown(false);
+  };
+
+  // Remove pickup location
+  const removePickupLocation = (location) => {
+    setSelectedPickupLocations(selectedPickupLocations.filter(loc => loc !== location));
+  };
+
+  // Add drop-off location
+  const addDropoffLocation = (location) => {
+    if (!selectedDropoffLocations.includes(location)) {
+      setSelectedDropoffLocations([...selectedDropoffLocations, location]);
+      setShowLocationAddedMessage(true);
+      setTimeout(() => setShowLocationAddedMessage(false), 2000);
+    }
+    setDropoffSearchQuery('');
+    setShowDropoffDropdown(false);
+  };
+
+  // Remove drop-off location
+  const removeDropoffLocation = (location) => {
+    setSelectedDropoffLocations(selectedDropoffLocations.filter(loc => loc !== location));
+  };
+
+  // Time slot helper functions
+  const parseTime = (timeStr) => {
+    const [hours, minutes] = timeStr.split(':').map(num => parseInt(num.trim()));
+    return hours * 60 + minutes;
+  };
+
+  const formatTimeSlot = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, '0')} : ${mins.toString().padStart(2, '0')}`;
+  };
+
+  // Generate time slots automatically
+  const generateTimeSlots = () => {
+    const start = parseTime(startTime);
+    const end = parseTime(endTime);
+    const interval = parseInt(duration) || 30;
+    
+    const slots = [];
+    let current = start;
+    
+    while (current <= end) {
+      slots.push(formatTimeSlot(current));
+      current += interval;
+    }
+    
+    return slots;
+  };
+
+  // Apply generated time slots to selected days
+  const applyGeneratedSlots = () => {
+    const generatedSlots = generateTimeSlots();
+    
+    if (applyToAllDays) {
+      // Apply to all days
+      const allDaysSlots = {
+        Monday: [...generatedSlots],
+        Tuesday: [...generatedSlots],
+        Wednesday: [...generatedSlots],
+        Thursday: [...generatedSlots],
+        Friday: [...generatedSlots],
+        Saturday: [...generatedSlots],
+        Sunday: [...generatedSlots]
+      };
+      setTimeSlots(allDaysSlots);
+    } else {
+      // Apply only to selected weekday
+      if (selectedWeekDay !== 'week days') {
+        setTimeSlots(prev => ({
+          ...prev,
+          [selectedWeekDay]: [...generatedSlots]
+        }));
+      } else {
+        // Apply to weekdays only (Monday-Friday)
+        setTimeSlots(prev => ({
+          ...prev,
+          Monday: [...generatedSlots],
+          Tuesday: [...generatedSlots],
+          Wednesday: [...generatedSlots],
+          Thursday: [...generatedSlots],
+          Friday: [...generatedSlots]
+        }));
+      }
+    }
+  };
+
+  // Remove a specific time slot from a specific day
+  const removeTimeSlot = (day, timeSlot) => {
+    setTimeSlots(prev => ({
+      ...prev,
+      [day]: prev[day].filter(slot => slot !== timeSlot)
+    }));
+  };
+
+  // Add a custom time slot to a specific day
+  const addCustomTimeSlot = (day, time) => {
+    if (!timeSlots[day].includes(time)) {
+      setTimeSlots(prev => ({
+        ...prev,
+        [day]: [...prev[day], time].sort((a, b) => parseTime(a.replace(' : ', ':')) - parseTime(b.replace(' : ', ':')))
+      }));
+    }
   };
 
   const handleVehicleTypeChange = (vehicleType) => {
@@ -785,15 +994,15 @@ const CreateProductComponent = ({ onClose }) => {
                       htmlFor="cover-image-input"
                       className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center h-64 flex items-center justify-center cursor-pointer hover:border-blue-500 transition-colors"
                     >
-                      <div className="text-center">
-                        <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                        </div>
-                        <p className="text-sm text-gray-600">Drag and drop your cover image here</p>
-                        <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+                    <div className="text-center">
+                      <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
                       </div>
+                      <p className="text-sm text-gray-600">Drag and drop your cover image here</p>
+                      <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+                    </div>
                     </label>
                   )}
                 </div>
@@ -917,14 +1126,14 @@ const CreateProductComponent = ({ onClose }) => {
                       htmlFor={`add-photo-${index}`}
                       className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-500 transition-colors"
                     >
-                      <div className="text-center">
-                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-1">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                        </div>
-                        <p className="text-xs text-gray-500">Add image</p>
+                    <div className="text-center">
+                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-1">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
                       </div>
+                      <p className="text-xs text-gray-500">Add image</p>
+                    </div>
                     </label>
                   </div>
                 ))}
@@ -1084,7 +1293,7 @@ const CreateProductComponent = ({ onClose }) => {
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2">
                     {['Arabic', 'French', 'English'].map((lang) => (
-                      <button 
+                    <button 
                         key={lang}
                         onClick={() => {
                           if (selectedLanguages.includes(lang)) {
@@ -1093,14 +1302,14 @@ const CreateProductComponent = ({ onClose }) => {
                             setSelectedLanguages([...selectedLanguages, lang]);
                           }
                         }}
-                        className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
+                      className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
                           selectedLanguages.includes(lang)
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
                         {lang}
-                      </button>
+                    </button>
                     ))}
                   </div>
                   
@@ -1142,7 +1351,7 @@ const CreateProductComponent = ({ onClose }) => {
                           >
                             <FiX size={14} />
                           </button>
-                        </div>
+                </div>
                       ))}
                     </div>
                   )}
@@ -1249,12 +1458,12 @@ const CreateProductComponent = ({ onClose }) => {
                       </button>
                     </div>
                   ) : (
-                    <button 
-                      onClick={() => setShowIncludedExcludedModal(true)}
-                      className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium"
-                    >
-                      Click to add
-                    </button>
+                  <button 
+                    onClick={() => setShowIncludedExcludedModal(true)}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium"
+                  >
+                    Click to add
+                  </button>
                   )}
                 </div>
               </div>
@@ -1392,11 +1601,14 @@ const CreateProductComponent = ({ onClose }) => {
                  </div>
                  <input
                    type="text"
-                   placeholder="Search or enter pick-up locations"
-                   value={selectedPickupLocation}
-                   onChange={(e) => setSelectedPickupLocation(e.target.value)}
-                   onClick={() => setShowPickupDropdown(!showPickupDropdown)}
-                   className="w-full pl-10 pr-10 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                   placeholder="Search Japan locations (e.g. Tokyo Station, Kyoto...)"
+                   value={pickupSearchQuery}
+                   onChange={(e) => {
+                     setPickupSearchQuery(e.target.value);
+                     setShowPickupDropdown(true);
+                   }}
+                   onFocus={() => setShowPickupDropdown(true)}
+                   className="w-full pl-10 pr-10 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                  />
                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1404,34 +1616,68 @@ const CreateProductComponent = ({ onClose }) => {
                    </svg>
                  </div>
                  
-                 {/* Pick-up Locations Dropdown */}
-                 {showPickupDropdown && (
+                 {/* Real-time Pick-up Locations Dropdown */}
+                 {showPickupDropdown && pickupSearchQuery.length >= 2 && (
                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                      <div className="p-2 max-h-64 overflow-y-auto">
-                       {[
-                         'Shibuya Crossing, Tokyo',
-                         'Asakusa (Senso-ji Temple), Tokyo',
-                         'Fushimi Inari Shrine, Kyoto',
-                         'Arashiyama Bamboo Grove, Kyoto',
-                         'Dotonbori, Osaka',
-                         'Peace Memorial Park, Hiroshima',
-                         'Mount Fuji 5th Station'
-                       ].map((location, index) => (
+                       {filterLocations(pickupSearchQuery, selectedLocationType).length > 0 ? (
+                         filterLocations(pickupSearchQuery, selectedLocationType).map((location, index) => (
                          <div 
                            key={index} 
-                           className="p-2 hover:bg-gray-50 cursor-pointer text-gray-700"
-                           onClick={() => {
-                             setSelectedPickupLocation(location);
-                             setShowPickupDropdown(false);
-                           }}
+                             className="p-3 hover:bg-blue-50 cursor-pointer text-gray-700 rounded flex items-center justify-between group"
+                             onClick={() => addPickupLocation(location)}
+                           >
+                             <div className="flex items-center">
+                               <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                               </svg>
+                               <span>{location}</span>
+                             </div>
+                             <span className="text-xs text-blue-600 opacity-0 group-hover:opacity-100">Click to add</span>
+                           </div>
+                         ))
+                       ) : (
+                         <div className="p-3 text-gray-500 text-center">
+                           <p>No locations found for "{pickupSearchQuery}"</p>
+                           <p className="text-xs mt-1">Try: Tokyo, Kyoto, Osaka, Mount Fuji...</p>
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 )}
+               </div>
+               
+               {/* Selected Pickup Locations */}
+               {selectedPickupLocations.length > 0 && (
+                 <div className="mb-4">
+                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Selected Pick-up Locations:</h4>
+                   <div className="flex flex-wrap gap-2">
+                     {selectedPickupLocations.map((location, index) => (
+                       <div key={index} className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-2 rounded-lg text-sm">
+                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                         </svg>
+                         <span>{location}</span>
+                         <button
+                           onClick={() => removePickupLocation(location)}
+                           className="hover:bg-blue-200 rounded-full p-0.5"
                          >
-                           {location}
+                           <FiX size={14} />
+                         </button>
                          </div>
                        ))}
                      </div>
                    </div>
                  )}
+               
+               {/* Location Added Confirmation */}
+               {showLocationAddedMessage && (
+                 <div className="mb-4 flex items-center gap-2 text-green-600 font-medium bg-green-50 px-4 py-2 rounded-lg">
+                   <FiCheckCircle size={20} />
+                   <span>Location added successfully!</span>
                </div>
+               )}
 
                {/* Map and Action buttons container */}
                <div className="flex gap-4">
@@ -1471,15 +1717,97 @@ const CreateProductComponent = ({ onClose }) => {
 
                  {/* Action buttons on the right */}
                  <div className="flex flex-col space-y-3 w-64">
-                   <button className="px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-200 text-left">
-                     Drag to choose the area you wants to deal
-                   </button>
-                   <button className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                   <div className="px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 text-left text-sm">
+                     <p className="font-medium mb-2">Instructions:</p>
+                     <ul className="text-xs space-y-1 text-gray-600">
+                       <li>• Type to search for any Japan location</li>
+                       <li>• Click on results to add them</li>
+                       <li>• Add multiple pick-up/drop-off areas</li>
+                     </ul>
+                   </div>
+                   <button 
+                     onClick={() => {
+                       setPickupSearchQuery('');
+                       setShowPickupDropdown(false);
+                       document.querySelector('input[placeholder*="Search Japan"]').focus();
+                     }}
+                     className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                   >
                      Add another area
                    </button>
                  </div>
                </div>
              </div>
+
+             {/* From/To Location Display Cards - Shows selected locations */}
+             {(selectedPickupLocations.length > 0 || selectedDropoffLocations.length > 0) && (
+               <div className="mb-8">
+                 {selectedPickupLocations.slice(0, 1).map((pickupLoc, index) => (
+                   <div key={index} className="bg-white border border-gray-200 rounded-lg p-6 mb-4">
+                     <div className="flex items-start justify-between">
+                       {/* Left side - From/To info */}
+                       <div className="flex-1 grid grid-cols-2 gap-8">
+                         {/* From */}
+                         <div>
+                           <div className="flex items-center mb-2">
+                             <span className="text-sm font-semibold text-gray-900">From</span>
+                             <button className="ml-2 text-red-500 hover:text-red-600">
+                               <FiX size={16} />
+                             </button>
+                           </div>
+                           <div className="text-sm text-gray-700">
+                             <p className="font-medium">{pickupLoc.split(',')[0] || pickupLoc}</p>
+                             <p className="text-xs text-gray-500">{pickupLoc}</p>
+                           </div>
+                         </div>
+
+                         {/* To */}
+                         <div>
+                           <div className="flex items-center mb-2">
+                             <span className="text-sm font-semibold text-gray-900">To</span>
+                             <button className="ml-2 text-red-500 hover:text-red-600">
+                               <FiX size={16} />
+                             </button>
+                           </div>
+                           <div className="text-sm text-gray-700">
+                             {selectedDropoffLocations.length > 0 ? (
+                               <>
+                                 <p className="font-medium">{selectedDropoffLocations[0].split(',')[0] || selectedDropoffLocations[0]}</p>
+                                 <p className="text-xs text-gray-500">{selectedDropoffLocations[0]}</p>
+                               </>
+                             ) : (
+                               <p className="text-gray-400 italic">Same as pickup</p>
+                             )}
+                           </div>
+                         </div>
+                       </div>
+
+                       {/* Right side - Distance and Time badges */}
+                       <div className="flex flex-col items-end space-y-2 ml-4">
+                         <div className="px-4 py-2 bg-blue-600 text-white rounded-full text-xs font-medium">
+                           Distance: ~300-350 km
+                         </div>
+                         <div className="px-4 py-2 bg-blue-600 text-white rounded-full text-xs font-medium">
+                           About: ~2 to 3 hours
+                         </div>
+                       </div>
+                     </div>
+
+                     {/* Note */}
+                     {selectedPickupLocations.length > 0 && (
+                       <div className="mt-4 pt-4 border-t border-gray-200">
+                         <p className="text-xs text-gray-500 flex items-center">
+                           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                           </svg>
+                           Note your visit spots to plan your tour better
+                         </p>
+                       </div>
+                     )}
+                   </div>
+                 ))}
+               </div>
+             )}
 
              {/* Use Same Pick-up Toggle */}
              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
@@ -1503,17 +1831,16 @@ const CreateProductComponent = ({ onClose }) => {
                </div>
              </div>
 
-             {/* Drop-off Locations Section */}
+             {/* Drop-off Locations Search Section */}
              {!useSamePickupLocation && (
              <div className="mb-8">
                <div className="flex items-center mb-4">
-                 <FiSend className="text-blue-600 mr-3" size={20} />
+                   <FiMapPin className="text-blue-600 mr-2" size={20} />
                  <h3 className="text-lg font-bold text-gray-900">Drop-off locations</h3>
                </div>
                
-               {/* Search Field */}
                <div className="relative">
-                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                    </svg>
@@ -1521,45 +1848,74 @@ const CreateProductComponent = ({ onClose }) => {
                  <input
                    type="text"
                    placeholder="Search or enters drop-off locations"
-                   value={selectedDropoffLocation}
-                   onChange={(e) => setSelectedDropoffLocation(e.target.value)}
-                   onClick={() => setShowDropoffDropdown(!showDropoffDropdown)}
-                   className="w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                 />
-                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     value={dropoffSearchQuery}
+                     onChange={(e) => {
+                       setDropoffSearchQuery(e.target.value);
+                       setShowDropoffDropdown(true);
+                     }}
+                     onFocus={() => setShowDropoffDropdown(true)}
+                     className="w-full pl-12 pr-12 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                   />
+                   <button className="absolute inset-y-0 right-0 pr-4 flex items-center">
                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                    </svg>
-                 </div>
+                   </button>
                  
-                 {/* Drop-off Locations Dropdown */}
-                 {showDropoffDropdown && (
+                   {/* Real-time Dropdown Results */}
+                   {showDropoffDropdown && dropoffSearchQuery.length >= 2 && (
                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                      <div className="p-2 max-h-64 overflow-y-auto">
-                       {[
-                         'Shibuya Crossing, Tokyo',
-                         'Asakusa (Senso-ji Temple), Tokyo',
-                         'Fushimi Inari Shrine, Kyoto',
-                         'Arashiyama Bamboo Grove, Kyoto',
-                         'Dotonbori, Osaka',
-                         'Peace Memorial Park, Hiroshima',
-                         'Mount Fuji 5th Station'
-                       ].map((location, index) => (
+                         {filterLocations(dropoffSearchQuery, selectedLocationType).length > 0 ? (
+                           filterLocations(dropoffSearchQuery, selectedLocationType).map((location, index) => (
                          <div 
                            key={index} 
-                           className="p-2 hover:bg-gray-50 cursor-pointer text-gray-700"
-                           onClick={() => {
-                             setSelectedDropoffLocation(location);
-                             setShowDropoffDropdown(false);
-                           }}
-                         >
-                           {location}
+                               className="p-3 hover:bg-blue-50 cursor-pointer text-gray-700 rounded flex items-center justify-between group"
+                               onClick={() => addDropoffLocation(location)}
+                             >
+                               <div className="flex items-center">
+                                 <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                 </svg>
+                                 <span>{location}</span>
+                         </div>
+                               <span className="text-xs text-blue-600 opacity-0 group-hover:opacity-100">Click to add</span>
+                     </div>
+                           ))
+                         ) : (
+                           <div className="p-3 text-gray-500 text-center">
+                             <p>No locations found for "{dropoffSearchQuery}"</p>
+                             <p className="text-xs mt-1">Try: Tokyo, Kyoto, Osaka, Mount Fuji...</p>
+                   </div>
+                 )}
+               </div>
+                     </div>
+                   )}
+                 </div>
+                 
+                 {/* Selected Drop-off Locations */}
+                 {selectedDropoffLocations.length > 0 && (
+                   <div className="mt-4">
+                     <h4 className="text-sm font-semibold text-gray-700 mb-2">Selected Drop-off Locations:</h4>
+                     <div className="flex flex-wrap gap-2">
+                       {selectedDropoffLocations.map((location, index) => (
+                         <div key={index} className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-2 rounded-lg text-sm">
+                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                           </svg>
+                           <span>{location}</span>
+                           <button
+                             onClick={() => removeDropoffLocation(location)}
+                             className="hover:bg-green-200 rounded-full p-0.5"
+                           >
+                             <FiX size={14} />
+                           </button>
                          </div>
                        ))}
                      </div>
                    </div>
                  )}
-               </div>
              </div>
              )}
 
@@ -1725,12 +2081,23 @@ const CreateProductComponent = ({ onClose }) => {
                      </div>
                    </div>
                    
-                   <button 
-                     onClick={() => setShowSelectVehicleModal(true)}
-                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                   >
-                     Select Vehicle
-                   </button>
+                   <div>
+                     <button 
+                       onClick={() => setShowSelectVehicleModal(true)}
+                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                     >
+                       {selectedVehicleForTour ? 'Change Vehicle' : 'Select Vehicle'}
+                     </button>
+                     {selectedVehicleForTour && (
+                       <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                         <div className="flex items-center gap-2 text-sm">
+                           <FiCheckCircle className="text-green-600" size={16} />
+                           <span className="font-semibold text-green-900">Vehicle Selected:</span>
+                           <span className="text-green-700">{selectedVehicleForTour.title}</span>
+                         </div>
+                       </div>
+                     )}
+                   </div>
                  </div>
                </div>
 
@@ -1812,7 +2179,7 @@ const CreateProductComponent = ({ onClose }) => {
                      <div className="flex items-center space-x-2 mb-3">
                        <input
                          type="text"
-                         defaultValue="06 : 00"
+                         defaultValue="06 : 35"
                          className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-center text-sm"
                        />
                        <span className="text-gray-500 text-sm">and</span>
@@ -1862,7 +2229,7 @@ const CreateProductComponent = ({ onClose }) => {
                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                            </svg>
-                         </div>
+                           </div>
                          <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
                          <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
                          <button
@@ -1871,62 +2238,90 @@ const CreateProductComponent = ({ onClose }) => {
                          >
                            Close
                          </button>
-                       </div>
+                           </div>
                      ) : (
                        <div className="space-y-3">
-                         {vehicles.map((vehicle, index) => (
+                         {vehicles.map((vehicle, index) => {
+                           const isSelected = selectedVehicleForTour?.id === vehicle.id;
+                           return (
                            <div 
                              key={vehicle.id}
-                             className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all"
+                             className={`rounded-lg p-4 cursor-pointer transition-all ${
+                               isSelected 
+                                 ? 'bg-blue-50 border-2 border-blue-600' 
+                                 : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
+                             }`}
                              onClick={() => {
-                               // Here you would handle vehicle selection for the tour
-                               console.log('Selected vehicle:', vehicle);
-                               setShowSelectVehicleModal(false);
+                               setSelectedVehicleForTour(vehicle);
                              }}
                            >
-                             <div className="flex justify-between items-start">
-                               <div className="flex-1">
-                                 <div className="flex items-baseline mb-1">
+                       <div className="flex justify-between items-start">
+                         <div className="flex-1">
+                           <div className="flex items-baseline mb-1">
                                    <h3 className="text-lg font-bold text-gray-900">{vehicle.title}</h3>
-                                 </div>
-                                 <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
+                                   {isSelected && (
+                                     <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
+                                       <FiCheckCircle className="mr-1" size={14} />
+                                       Selected
+                                     </span>
+                                   )}
+                           </div>
+                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
                                    <span className="italic">{vehicle.attributes}</span>
                                    <span>{vehicle.year}</span>
                                    <span>Best for upto <span className="text-blue-600 font-medium">{vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span></span>
                                    <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
-                                 </div>
+                           </div>
                                  <p className="text-xs text-gray-500 leading-relaxed mb-2">
                                    {vehicle.description}
-                                 </p>
+                           </p>
                                  <div className="flex items-center space-x-2 text-sm">
                                    <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
                                    <span className="text-gray-400">•</span>
                                    <span className="text-gray-600">{vehicle.pricingType}</span>
                                  </div>
-                               </div>
-                               <div className="text-right ml-4">
+                         </div>
+                         <div className="text-right ml-4">
                                  <div className="text-lg font-bold text-blue-600">{vehicle.currency} {vehicle.amount}</div>
                                  <div className="text-xs text-gray-600">{vehicle.pricingType}</div>
-                                 <div className="text-xs text-gray-400 mt-1">
+                           <div className="text-xs text-gray-400 mt-1">
                                    20% Commission will be charged
-                                 </div>
-                               </div>
-                             </div>
                            </div>
-                         ))}
+                         </div>
                        </div>
+                     </div>
+                           );
+                         })}
+                   </div>
                      )}
                    </div>
 
                    {/* Modal Footer */}
                    {vehicles.length > 0 && (
                      <div className="p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0">
-                       <button
-                         onClick={() => setShowSelectVehicleModal(false)}
-                         className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors"
-                       >
-                         Cancel
-                       </button>
+                       <div className="flex items-center gap-3">
+                         <button
+                           onClick={() => {
+                             setSelectedVehicleForTour(null);
+                             setShowSelectVehicleModal(false);
+                           }}
+                           className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors"
+                         >
+                           Cancel
+                         </button>
+                         {selectedVehicleForTour && (
+                           <button
+                             onClick={() => {
+                               // Confirm the selection and close modal
+                               console.log('Confirmed vehicle:', selectedVehicleForTour);
+                               setShowSelectVehicleModal(false);
+                             }}
+                             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                           >
+                             Confirm Selection
+                           </button>
+                         )}
+                       </div>
                      </div>
                    )}
                  </div>
@@ -2033,21 +2428,21 @@ const CreateProductComponent = ({ onClose }) => {
                    <div>
                      <label className="block text-sm font-medium text-gray-900 mb-2">Transportation Type</label>
                      <div className="relative">
-                       <select 
-                         className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
-                         value={selectedVehicleType}
-                         onChange={(e) => handleVehicleTypeChange(e.target.value)}
+                     <select 
+                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                       value={selectedVehicleType}
+                       onChange={(e) => handleVehicleTypeChange(e.target.value)}
                          required
-                       >
-                         <option value="">Select Vehicle</option>
-                         <option value="van">Van</option>
-                         <option value="car">Car</option>
-                         <option value="bus">Bus</option>
-                       </select>
+                     >
+                       <option value="">Select Vehicle</option>
+                       <option value="van">Van</option>
+                       <option value="car">Car</option>
+                       <option value="bus">Bus</option>
+                     </select>
                        <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                         </svg>
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
                        </div>
                      </div>
                    </div>
@@ -2055,26 +2450,26 @@ const CreateProductComponent = ({ onClose }) => {
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Make & Variant</label>
                     <div className="relative">
-                      <select 
+                    <select 
                         className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
-                        value={selectedVehicleModel}
-                        onChange={(e) => setSelectedVehicleModel(e.target.value)}
-                        disabled={!selectedVehicleType}
+                      value={selectedVehicleModel}
+                      onChange={(e) => setSelectedVehicleModel(e.target.value)}
+                      disabled={!selectedVehicleType}
                         required
-                      >
-                        <option value="">Select Variant</option>
-                        {getVehicleModels().map((model) => (
-                          <option key={model.value} value={model.value}>
-                            {model.label}
-                          </option>
-                        ))}
-                      </select>
+                    >
+                      <option value="">Select Variant</option>
+                      {getVehicleModels().map((model) => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </select>
                       <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
                       </div>
-                    </div>
+                     </div>
                   </div>
                   
                   <div>
@@ -2088,16 +2483,16 @@ const CreateProductComponent = ({ onClose }) => {
                         <option value="2024">2024</option>
                         <option value="2023">2023</option>
                         <option value="2022">2022</option>
-                        <option value="2020">2020</option>
+                      <option value="2020">2020</option>
                         <option value="2018">2018</option>
                         <option value="2015">2015</option>
-                      </select>
+                    </select>
                       <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
                       </div>
-                    </div>
+                     </div>
                   </div>
                 </div>
 
@@ -2113,20 +2508,20 @@ const CreateProductComponent = ({ onClose }) => {
                         required
                       >
                         <option value="">Select Attributes</option>
-                        <option>Comfort 1.2x</option>
-                        <option>Economy 1x</option>
-                        <option>Premium 1.5x</option>
-                        <option>Automatic Transmission 1.1x</option>
-                        <option>Manual Transmission 1.1x</option>
-                        <option>Hybrid 1.3x</option>
-                        <option>Electric 1.4x</option>
-                      </select>
+                      <option>Comfort 1.2x</option>
+                      <option>Economy 1x</option>
+                      <option>Premium 1.5x</option>
+                      <option>Automatic Transmission 1.1x</option>
+                      <option>Manual Transmission 1.1x</option>
+                      <option>Hybrid 1.3x</option>
+                      <option>Electric 1.4x</option>
+                    </select>
                       <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
                       </div>
-                    </div>
+                     </div>
                   </div>
                   
                   <div>
@@ -2139,21 +2534,21 @@ const CreateProductComponent = ({ onClose }) => {
                         required
                       >
                         <option value="">Select</option>
-                        <option>01</option>
-                        <option>02</option>
+                      <option>01</option>
+                      <option>02</option>
                         <option>03</option>
-                        <option>04</option>
+                      <option>04</option>
                         <option>05</option>
                         <option>06</option>
                         <option>07</option>
                         <option>08</option>
-                      </select>
+                    </select>
                       <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
                       </div>
-                    </div>
+                     </div>
                     <div className="flex items-start mt-2">
                       <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">
                         <span className="text-white text-xs font-bold">!</span>
@@ -2172,17 +2567,17 @@ const CreateProductComponent = ({ onClose }) => {
                         required
                       >
                         <option value="">Select Currency</option>
-                        <option>$ US Dollar</option>
-                        <option>€ Euro</option>
-                        <option>¥ Japanese Yen</option>
-                        <option>Rs Pakistani Rupee</option>
-                      </select>
+                      <option>$ US Dollar</option>
+                      <option>€ Euro</option>
+                      <option>¥ Japanese Yen</option>
+                      <option>Rs Pakistani Rupee</option>
+                    </select>
                       <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
                       </div>
-                    </div>
+                     </div>
                   </div>
                 </div>
 
@@ -2198,17 +2593,17 @@ const CreateProductComponent = ({ onClose }) => {
                         required
                       >
                         <option value="">Select Type</option>
-                        <option>Per Group</option>
-                        <option>Per Person</option>
-                        <option>Shared</option>
-                        <option>Hourly Rate</option>
-                      </select>
+                      <option>Per Group</option>
+                      <option>Per Person</option>
+                      <option>Shared</option>
+                      <option>Hourly Rate</option>
+                    </select>
                       <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
                       </div>
-                    </div>
+                     </div>
                   </div>
                   
                   <div>
@@ -2245,30 +2640,30 @@ const CreateProductComponent = ({ onClose }) => {
                        required
                      >
                        <option value="">Select Duration</option>
-                       <option>1h</option>
-                       <option>2h</option>
-                       <option>3h</option>
-                       <option>4h</option>
-                       <option>5h</option>
-                       <option>6h</option>
-                       <option>7h</option>
+                     <option>1h</option>
+                     <option>2h</option>
+                     <option>3h</option>
+                     <option>4h</option>
+                     <option>5h</option>
+                     <option>6h</option>
+                     <option>7h</option>
                        <option>8h</option>
-                       <option>9h</option>
-                       <option>10h</option>
-                       <option>11h</option>
-                       <option>12h</option>
-                       <option>13h</option>
-                       <option>14h</option>
-                       <option>15h</option>
-                       <option>16h</option>
-                       <option>17h</option>
-                       <option>18h</option>
+                     <option>9h</option>
+                     <option>10h</option>
+                     <option>11h</option>
+                     <option>12h</option>
+                     <option>13h</option>
+                     <option>14h</option>
+                     <option>15h</option>
+                     <option>16h</option>
+                     <option>17h</option>
+                     <option>18h</option>
                        <option>Full Day</option>
-                     </select>
+                   </select>
                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                     </svg>
                      </div>
                    </div>
                  </div>
@@ -2289,7 +2684,7 @@ const CreateProductComponent = ({ onClose }) => {
                       className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors"
                     >
                       {editingVehicleIndex !== null ? 'Update' : 'Save'}
-                    </button>
+                  </button>
                     {editingVehicleIndex !== null && (
                       <button 
                         onClick={() => {
@@ -2312,52 +2707,52 @@ const CreateProductComponent = ({ onClose }) => {
                 {vehicles.length === 0 ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
                     <p className="text-gray-500">No vehicles added yet. Click "Select Vehicle" above to add your first vehicle.</p>
-                  </div>
+                      </div>
                 ) : (
                   vehicles.map((vehicle, index) => (
                     <div key={vehicle.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
                           <h4 className="text-lg font-bold text-gray-900 mb-2">
                             {vehicle.title || `${vehicle.type} - ${vehicle.model.replace('-', ' ')}`}
                           </h4>
-                          <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
+                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
                             <span>{vehicle.attributes}</span>
                             <span>{vehicle.year}</span>
                             <span>Best for upto {vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span>
                             <span>Approximate time {vehicle.duration}</span>
-                          </div>
+                      </div>
                           <p className="text-sm text-gray-700 mb-2">
                             {vehicle.description}
-                          </p>
+                      </p>
                           <div className="flex items-center space-x-4 text-sm mt-3">
                             <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
                             <span className="text-gray-500">•</span>
                             <span className="text-gray-600">{vehicle.pricingType}</span>
                           </div>
-                        </div>
-                        <div className="flex space-x-2 ml-4">
+                    </div>
+                    <div className="flex space-x-2 ml-4">
                           <button 
                             onClick={() => editVehicleOption(index)}
                             className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
                             title="Edit vehicle"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
                           <button 
                             onClick={() => deleteVehicle(index)}
                             className="p-2 text-gray-400 hover:text-red-600 transition-colors"
                             title="Delete vehicle"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
+                  </div>
+                </div>
                   ))
                 )}
               </div>
@@ -2464,7 +2859,7 @@ const CreateProductComponent = ({ onClose }) => {
            {/* Navigation Buttons */}
            <div className="bg-white border-t border-gray-200 px-8 py-6">
              <div className="max-w-4xl mx-auto flex justify-end space-x-4">
-              {step === 6 ? (
+               {step === 6 ? (
                 <>
                   <button
                     onClick={prevStep}
@@ -2472,30 +2867,30 @@ const CreateProductComponent = ({ onClose }) => {
                   >
                     Back
                   </button>
-                  <button
-                    onClick={onClose}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
-                  >
-                    Cancel
-                  </button>
+                 <button
+                   onClick={onClose}
+                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
+                 >
+                   Cancel
+                 </button>
                 </>
-              ) : (
-                <button
-                  onClick={prevStep}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
-                >
-                  Back
-                </button>
-              )}
-              
-              <button
-                onClick={step < 6 ? nextStep : () => {
-                  setShowItineraryComponent(true);
-                }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                {step < 6 ? 'Continue' : 'Confirm Location & Time'}
-              </button>
+               ) : (
+                 <button
+                   onClick={prevStep}
+                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 bg-white transition-colors"
+                 >
+                   Back
+                 </button>
+               )}
+               
+               <button
+                 onClick={step < 6 ? nextStep : () => {
+                   setShowItineraryComponent(true);
+                 }}
+                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+               >
+                 {step < 6 ? 'Continue' : 'Confirm Location & Time'}
+               </button>
              </div>
            </div>
         </div>
@@ -2651,14 +3046,17 @@ const CreateProductComponent = ({ onClose }) => {
             includedItems: includedItems,
             excludedItems: excludedItems,
             accessibility: accessibilityToggles,
-            // Vehicle data
-            vehicles: vehicles,
-            // Location & Time data
-            pickupLocation: selectedPickupLocation,
-            dropoffLocation: selectedDropoffLocation,
+            // Vehicle data - pass only the selected vehicle as an array
+            vehicles: selectedVehicleForTour ? [selectedVehicleForTour] : vehicles,
+            // Location & Time data (now using arrays for multiple locations)
+            pickupLocations: selectedPickupLocations,
+            dropoffLocations: selectedDropoffLocations,
             pickupTime: `${selectedPickupHour}:${selectedPickupMinute}`,
             weekDay: selectedWeekDay,
-            selectedDate: selectedDate
+            selectedDate: selectedDate,
+            // Time slots for all days
+            timeSlots: timeSlots,
+            applyToAllDays: applyToAllDays
           }}
         />
       )}

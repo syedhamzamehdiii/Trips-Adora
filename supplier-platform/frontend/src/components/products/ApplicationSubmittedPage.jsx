@@ -1,7 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiCheckCircle, FiClock, FiMail, FiArrowRight, FiDownload, FiX } from 'react-icons/fi';
 
 const ApplicationSubmittedPage = ({ isOpen, onClose, onReturnToDashboard }) => {
+  const [applicationId, setApplicationId] = useState('');
+  const [reviewCompletionDate, setReviewCompletionDate] = useState('');
+  const [submissionDateTime, setSubmissionDateTime] = useState('');
+
+  // Generate unique application ID and calculate review date when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const currentDate = new Date();
+      
+      // Generate unique Application ID: #PA-YYYY-XXXX (where XXXX is random)
+      const year = currentDate.getFullYear();
+      const randomNum = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
+      const generatedId = `#PA-${year}-${randomNum}`;
+      setApplicationId(generatedId);
+
+      // Calculate expected review completion date (48 hours from now)
+      const reviewDate = new Date(currentDate.getTime() + 48 * 60 * 60 * 1000); // Add 48 hours
+      
+      // Format date as "Day, Month DD, YYYY"
+      const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      const formattedDate = reviewDate.toLocaleDateString('en-US', dateOptions);
+      setReviewCompletionDate(formattedDate);
+
+      // Format submission date and time
+      const dateTimeOptions = { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      };
+      const formattedDateTime = currentDate.toLocaleString('en-US', dateTimeOptions);
+      setSubmissionDateTime(formattedDateTime);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -65,8 +102,14 @@ const ApplicationSubmittedPage = ({ isOpen, onClose, onReturnToDashboard }) => {
             </p>
             
             <div className="bg-blue-600 text-white px-4 py-2 rounded-lg inline-block">
-              <span className="font-medium">Application ID: #PA-2024-9243</span>
+              <span className="font-medium">Application ID: {applicationId || 'Generating...'}</span>
             </div>
+            
+            {submissionDateTime && (
+              <p className="text-gray-500 text-sm mt-4">
+                Submitted on: {submissionDateTime}
+              </p>
+            )}
           </div>
 
           {/* Review Process Card */}
@@ -86,7 +129,7 @@ const ApplicationSubmittedPage = ({ isOpen, onClose, onReturnToDashboard }) => {
             </p>
             
             <div className="bg-yellow-200 text-yellow-800 px-4 py-2 rounded-lg inline-block">
-              <span className="font-medium">Expected Review Completion: Friday, September 26, 2025</span>
+              <span className="font-medium">Expected Review Completion: {reviewCompletionDate || 'Calculating...'}</span>
             </div>
           </div>
 
