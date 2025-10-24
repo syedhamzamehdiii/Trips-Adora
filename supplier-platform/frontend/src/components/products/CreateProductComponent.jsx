@@ -69,6 +69,7 @@ const CreateProductComponent = ({ onClose }) => {
   const [excludedItems, setExcludedItems] = useState('');
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showThingsToCarryDropdown, setShowThingsToCarryDropdown] = useState(false);
+  const [showSavedMessage, setShowSavedMessage] = useState(false);
   
   // Step navigation hover menu (return to step 1 from step 2)
   const [showStep1Menu, setShowStep1Menu] = useState(false);
@@ -123,6 +124,14 @@ const CreateProductComponent = ({ onClose }) => {
       ...prev,
       [item]: !prev[item]
     }));
+  };
+
+  const handleSaveIncludedExcluded = () => {
+    setShowSavedMessage(true);
+    setTimeout(() => {
+      setShowSavedMessage(false);
+      setShowIncludedExcludedModal(false);
+    }, 1500);
   };
 
   const handleVehicleTypeChange = (vehicleType) => {
@@ -1226,12 +1235,27 @@ const CreateProductComponent = ({ onClose }) => {
                   <h3 className="text-xl font-bold text-gray-900 mb-3">Included & Excluded</h3>
                   <p className="text-gray-600 mb-4 text-sm">Add the things that are Included on the trip and those that are Excluded. (optional)</p>
                   
-                  <button 
-                    onClick={() => setShowIncludedExcludedModal(true)}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium"
-                  >
-                    Click to add
-                  </button>
+                  {(includedItems || excludedItems) ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-green-600 font-medium mb-2">
+                        <FiCheckCircle size={20} />
+                        <span>Saved successfully!</span>
+                      </div>
+                      <button 
+                        onClick={() => setShowIncludedExcludedModal(true)}
+                        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium w-full"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setShowIncludedExcludedModal(true)}
+                      className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium"
+                    >
+                      Click to add
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -2580,10 +2604,22 @@ const CreateProductComponent = ({ onClose }) => {
               {/* Save Button */}
               <div className="flex justify-center pt-4">
                 <button
-                  onClick={() => setShowIncludedExcludedModal(false)}
-                  className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-medium"
+                  onClick={handleSaveIncludedExcluded}
+                  disabled={showSavedMessage}
+                  className={`px-8 py-3 rounded-lg font-medium transition-all ${
+                    showSavedMessage 
+                      ? 'bg-green-600 text-white cursor-not-allowed' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
                 >
-                  Save
+                  {showSavedMessage ? (
+                    <span className="flex items-center gap-2">
+                      <FiCheckCircle size={20} />
+                      Saved!
+                    </span>
+                  ) : (
+                    'Save'
+                  )}
                 </button>
               </div>
             </div>
@@ -2614,7 +2650,15 @@ const CreateProductComponent = ({ onClose }) => {
             thingsToCarry: selectedThingsToCarry,
             includedItems: includedItems,
             excludedItems: excludedItems,
-            accessibility: accessibilityToggles
+            accessibility: accessibilityToggles,
+            // Vehicle data
+            vehicles: vehicles,
+            // Location & Time data
+            pickupLocation: selectedPickupLocation,
+            dropoffLocation: selectedDropoffLocation,
+            pickupTime: `${selectedPickupHour}:${selectedPickupMinute}`,
+            weekDay: selectedWeekDay,
+            selectedDate: selectedDate
           }}
         />
       )}
