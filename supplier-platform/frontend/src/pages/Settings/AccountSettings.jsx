@@ -324,14 +324,14 @@ const AccountSettings = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 flex-1">
       {/* Top Profile Card */}
-      <div className="bg-gray-50 rounded-lg border border-gray-200 p-6 mb-8">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 sm:p-6 mb-6 sm:mb-8">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 sm:gap-6">
           {/* Left: Profile Photo and Info */}
-          <div className="flex flex-col lg:flex-row items-center lg:items-start space-y-4 lg:space-y-0 lg:space-x-6">
+          <div className="flex flex-col lg:flex-row items-center lg:items-start space-y-3 sm:space-y-4 lg:space-y-0 lg:space-x-6">
               <div className="relative">
-                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
                   {globalUserPhoto || profilePhotoPreview ? (
                     <img
                       src={globalUserPhoto || profilePhotoPreview}
@@ -340,7 +340,7 @@ const AccountSettings = () => {
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                      <FiUserPlus className="text-gray-500" size={40} />
+                      <FiUserPlus className="text-gray-500" size={32} />
                     </div>
                   )}
                 </div>
@@ -353,26 +353,26 @@ const AccountSettings = () => {
               />
               <label
                 htmlFor="profile-upload"
-                className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors"
+                className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-blue-600 text-white p-1.5 sm:p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors touch-target"
               >
-                <FiUpload size={16} />
+                <FiUpload size={12} />
               </label>
             </div>
             <div className="text-center lg:text-left">
               <div className="flex flex-col lg:flex-row items-center lg:items-center space-y-2 lg:space-y-0 lg:space-x-3 mb-2">
-                <h2 className="text-2xl font-bold text-gray-900">Edward William</h2>
-                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
-                  <FiEdit size={14} className="mr-1" />
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Edward William</h2>
+                <button className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium flex items-center">
+                  <FiEdit size={12} className="mr-1" />
                   Edit
                 </button>
               </div>
-              <p className="text-gray-600">Notting Hill, London</p>
+              <p className="text-sm sm:text-base text-gray-600">Notting Hill, London</p>
             </div>
           </div>
 
           {/* Middle: Supplier ID and Upload */}
           <div className="text-center">
-            <div className="text-lg font-semibold text-gray-900 mb-2">Supplier ID 00032123</div>
+            <div className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Supplier ID 00032123</div>
             <input
               type="file"
               onChange={(e) => handleFileUpload('profile', e)}
@@ -382,10 +382,11 @@ const AccountSettings = () => {
             />
             <label
               htmlFor="photo-upload"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors mb-2"
+              className="inline-flex items-center px-3 sm:px-4 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors mb-2"
             >
-              <FiUpload size={16} className="mr-2" />
-              Upload new photo
+              <FiUpload size={14} className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Upload new photo</span>
+              <span className="sm:hidden">Upload</span>
             </label>
             <p className="text-xs text-gray-500">
               JPG or PNG, max 5MB
@@ -396,44 +397,45 @@ const AccountSettings = () => {
           <div className="flex flex-col space-y-3 w-full lg:w-auto">
             <button 
               onClick={() => setShowAccountVerification(true)}
-              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
+              className="inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
             >
-              <FiAlertCircle size={16} className="mr-2" />
-              Account verification
+              <FiAlertCircle size={14} className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Account verification</span>
+              <span className="sm:hidden">Verify</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Profile Information Section */}
-      <div className="bg-white w-full max-w-6xl rounded-xl shadow-sm border border-gray-200 p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="bg-white w-full max-w-6xl rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Left Section - Main Content */}
-        <div className="lg:col-span-2 space-y-8 pr-8 border-r border-gray-200">
+        <div className="lg:col-span-2 space-y-6 sm:space-y-8 pr-0 lg:pr-8 border-r-0 lg:border-r border-gray-200">
           {/* Your Information */}
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
                 Your information
               </h2>
               {!isEditingInfo ? (
                 <button
                   onClick={handleEditInfo}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
+                  className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium flex items-center"
                 >
-                  <FiEdit size={14} className="mr-1" />
+                  <FiEdit size={12} className="mr-1" />
                   Edit
                 </button>
               ) : (
                 <div className="flex space-x-2">
                   <button
                     onClick={handleSaveInfo}
-                    className="text-green-600 hover:text-green-700 text-sm font-medium"
+                    className="text-green-600 hover:text-green-700 text-xs sm:text-sm font-medium"
                   >
                     Save
                   </button>
                   <button
                     onClick={handleCancelEdit}
-                    className="text-gray-600 hover:text-gray-700 text-sm font-medium"
+                    className="text-gray-600 hover:text-gray-700 text-xs sm:text-sm font-medium"
                   >
                     Cancel
                   </button>
@@ -441,50 +443,50 @@ const AccountSettings = () => {
               )}
             </div>
 
-            <div className="space-y-3 text-sm text-gray-700">
-              <p>
-                <span className="font-medium w-36 inline-block">Account type:</span>
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium">
+            <div className="space-y-3 text-xs sm:text-sm text-gray-700">
+              <p className="flex flex-col sm:flex-row sm:items-center">
+                <span className="font-medium w-24 sm:w-36 inline-block mb-1 sm:mb-0">Account type:</span>
+                <span className="bg-blue-100 text-blue-700 px-2 sm:px-3 py-1 rounded-full text-xs font-medium">
                   Private individual
                 </span>
               </p>
-              <p>
-                <span className="font-medium w-36 inline-block">Public name:</span>
+              <p className="flex flex-col sm:flex-row sm:items-center">
+                <span className="font-medium w-24 sm:w-36 inline-block mb-1 sm:mb-0">Public name:</span>
                 {isEditingInfo ? (
                   <input
                     type="text"
                     value={editableInfo.publicName}
                     onChange={(e) => handleInfoChange('publicName', e.target.value)}
-                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                   />
                 ) : (
-                  editableInfo.publicName
+                  <span className="text-gray-900">{editableInfo.publicName}</span>
                 )}
               </p>
-              <p>
-                <span className="font-medium w-36 inline-block">Legal name:</span>
+              <p className="flex flex-col sm:flex-row sm:items-center">
+                <span className="font-medium w-24 sm:w-36 inline-block mb-1 sm:mb-0">Legal name:</span>
                 {isEditingInfo ? (
                   <input
                     type="text"
                     value={editableInfo.legalName}
                     onChange={(e) => handleInfoChange('legalName', e.target.value)}
-                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                   />
                 ) : (
-                  editableInfo.legalName
+                  <span className="text-gray-900">{editableInfo.legalName}</span>
                 )}
               </p>
-              <p>
-                <span className="font-medium w-36 inline-block">Email:</span>
+              <p className="flex flex-col sm:flex-row sm:items-center">
+                <span className="font-medium w-24 sm:w-36 inline-block mb-1 sm:mb-0">Email:</span>
                 {isEditingInfo ? (
                   <input
                     type="email"
                     value={editableInfo.email}
                     onChange={(e) => handleInfoChange('email', e.target.value)}
-                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                   />
                 ) : (
-                  editableInfo.email
+                  <span className="text-gray-900">{editableInfo.email}</span>
                 )}
               </p>
             </div>
@@ -492,11 +494,11 @@ const AccountSettings = () => {
 
           {/* Office Information */}
           <section>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-4">
               Office information
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm text-gray-700">
               <div>
                 <p className="font-medium mb-1">Street address:</p>
                 {isEditingInfo ? (

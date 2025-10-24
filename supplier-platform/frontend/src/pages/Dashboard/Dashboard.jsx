@@ -189,7 +189,7 @@ const Dashboard = () => {
               </div>
 
       {/* Blue Sidebar - starts from top navigation and extends through hero */}
-      <div className="absolute right-0 top-0 w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-4 text-white z-50" style={{top: '-80px', height: 'calc(max(70vh, 800px) + 161px)', paddingTop: '80px'}}>
+      <div className="absolute right-0 top-0 w-64 sm:w-72 lg:w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-3 sm:p-4 text-white z-50 hidden lg:block" style={{top: '-80px', height: 'calc(max(70vh, 800px) + 161px)', paddingTop: '80px'}}>
         {/* Available Balance and Profile */}
         <div className="mb-4 bg-white/10 rounded-lg p-3 relative">
           <div className="flex justify-between items-center">
@@ -441,7 +441,7 @@ const Dashboard = () => {
       </div>
 
       {/* Hero Section with Blurred Background and Featured Image */}
-      <div className={`relative h-[70vh] min-h-[800px] overflow-hidden transition-all duration-300 ${(showSettingsDropdown || showNestedDropdown) ? 'blur-sm' : ''}`}>
+      <div className={`relative h-[60vh] sm:h-[70vh] min-h-[600px] sm:min-h-[800px] overflow-hidden transition-all duration-300 ${(showSettingsDropdown || showNestedDropdown) ? 'blur-sm' : ''}`}>
         {/* Completely Blurred Background */}
         <div className="absolute inset-0 bg-cover bg-center bg-no-repeat backdrop-blur-xl" 
                 style={{
@@ -455,31 +455,31 @@ const Dashboard = () => {
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent"></div>
         
-        {/* Dashboard Navigation - positioned inside hero */}
-        <div className="absolute top-0 left-0 right-0 z-30 px-16 py-8">
-          <div className="flex justify-center space-x-16">
-            <button className="text-black font-bold hover:border-b-2 hover:border-black pb-2 transition-all duration-200">
+        {/* Dashboard Navigation - positioned inside hero - Hidden on mobile */}
+        <div className="absolute top-0 left-0 right-0 z-30 px-4 sm:px-8 lg:px-16 py-4 sm:py-6 lg:py-8 hidden lg:block">
+          <div className="flex justify-center space-x-8 xl:space-x-16">
+            <button className="text-black font-bold hover:border-b-2 hover:border-black pb-2 transition-all duration-200 text-sm lg:text-base">
               Dashboard
             </button>
             <div className="relative" ref={dropdownRef}>
               <button 
                 onClick={() => setShowListingsDropdown(!showListingsDropdown)}
-                className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 flex items-center transition-all duration-200"
+                className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 flex items-center transition-all duration-200 text-sm lg:text-base"
               >
               Listings
-                <FiChevronDown className="ml-1" size={16} />
+                <FiChevronDown className="ml-1" size={14} />
               </button>
               
               {/* Listings Dropdown */}
               {showListingsDropdown && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div className="absolute top-full left-0 mt-2 w-56 lg:w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                   <div className="p-3 space-y-2">
                     <button
                       onClick={() => {
                         setShowListingsDropdown(false);
                         setShowCreateProduct(true);
                       }}
-                      className="w-full text-center px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900 font-medium"
+                      className="w-full text-center px-3 lg:px-4 py-2 lg:py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900 font-medium text-sm"
                     >
                       Create new product
                     </button>
@@ -489,107 +489,107 @@ const Dashboard = () => {
                         setShowListingsDropdown(false);
                         navigate('/products');
                       }}
-                      className="w-full text-center px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900 font-medium"
+                      className="w-full text-center px-3 lg:px-4 py-2 lg:py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900 font-medium text-sm"
                     >
                       Active Product listing
-            </button>
+                    </button>
                   </div>
                 </div>
               )}
             </div>
             <button 
               onClick={() => navigate('/availability')}
-              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200"
+              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200 text-sm lg:text-base"
             >
               Availability
             </button>
             <button 
               onClick={() => navigate('/bookings')}
-              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200"
+              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200 text-sm lg:text-base"
             >
               Bookings
             </button>
             <button 
               onClick={() => navigate('/insights')}
-              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200"
+              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200 text-sm lg:text-base"
             >
               Insights
             </button>
             <button 
               onClick={() => navigate('/finance')}
-              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200">
+              className="text-black hover:text-gray-700 hover:border-b-2 hover:border-black font-medium pb-2 transition-all duration-200 text-sm lg:text-base">
               Finance
             </button>
           </div>
         </div>
         
         {/* Hero content with featured image */}
-        <div className="relative h-full flex items-start pt-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="relative h-full flex items-start pt-8 sm:pt-12 lg:pt-16">
+          <div className="responsive-container w-full">
             <div className="relative">
               {/* Text content positioned to overlap image */}
-              <div className="absolute left-0 top-28 z-30 max-w-2xl">
-                <div className="space-y-12">
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-800 leading-tight drop-shadow-lg" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>
+              <div className="absolute left-0 top-8 sm:top-16 lg:top-28 z-30 max-w-xs sm:max-w-md lg:max-w-2xl">
+                <div className="space-y-6 sm:space-y-8 lg:space-y-12">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-gray-800 leading-tight drop-shadow-lg" style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>
                     Grow Your
                     <br />
                     Business with
                 </h1>
-                  <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight drop-shadow-2xl whitespace-nowrap" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                  <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white leading-tight drop-shadow-2xl" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
                     THE NEW HORIZON
                   </h2>
               </div>
             </div>
 
-              {/* Featured unblurred image positioned on the right */}
-              <div className="absolute right-10 top-8 z-20">
-                <div className="relative">
-                  {/* Rounded corner frame for the image */}
-                  <div className="w-80 h-96 lg:w-96 lg:h-[500px] rounded-2xl overflow-hidden shadow-2xl border-4 border-white/30 bg-white/20">
-                    <img 
-                      src="/assets/49f555cdd6a046078f7f2a1e0a835fc0c68a4e3a.jpg" 
-                      alt="Person overlooking canyon"
-                      className="w-full h-full object-cover"
-                      style={{ filter: 'none' }}
-                    />
-                    </div>
-                  </div>
+            {/* Featured unblurred image positioned on the right - Hidden on mobile */}
+            <div className="absolute right-4 sm:right-6 lg:right-10 top-4 sm:top-6 lg:top-8 z-20 hidden sm:block">
+              <div className="relative">
+                {/* Rounded corner frame for the image */}
+                <div className="w-48 h-60 sm:w-64 sm:h-80 lg:w-80 lg:h-96 xl:w-96 xl:h-[500px] rounded-2xl overflow-hidden shadow-2xl border-4 border-white/30 bg-white/20">
+                  <img 
+                    src="/assets/49f555cdd6a046078f7f2a1e0a835fc0c68a4e3a.jpg" 
+                    alt="Person overlooking canyon"
+                    className="w-full h-full object-cover"
+                    style={{ filter: 'none' }}
+                  />
+                </div>
               </div>
+            </div>
 
             </div>
 
         </div>
 
           {/* Stats Cards Overlay - More visible and with proper blur */}
-          <div className="absolute bottom-4 left-0 right-0 z-20">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 z-20">
+            <div className="responsive-container">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                 {/* Total Products Card */}
-                <div className="bg-white/20 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/30">
-                  <h3 className="text-sm font-medium text-white mb-2">Total Products</h3>
-                  <p className="text-4xl font-bold text-white mb-2">12</p>
-                  <p className="text-sm text-white/80 leading-relaxed">Total number of products you have created and listed on the platform.</p>
+                <div className="bg-white/20 backdrop-blur-md rounded-xl p-3 sm:p-4 lg:p-6 shadow-2xl border border-white/30">
+                  <h3 className="text-xs sm:text-sm font-medium text-white mb-1 sm:mb-2">Total Products</h3>
+                  <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-1 sm:mb-2">12</p>
+                  <p className="text-xs sm:text-sm text-white/80 leading-relaxed">Total number of products you have created and listed on the platform.</p>
                 </div>
 
                 {/* Cancellation Rate Card */}
-                <div className="bg-white/20 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/30">
-                  <h3 className="text-sm font-medium text-white mb-2">Cancellation rate</h3>
-                  <p className="text-4xl font-bold text-white mb-2">0%</p>
-                  <p className="text-sm text-white/80 leading-relaxed">The percentage of bookings that were canceled.</p>
+                <div className="bg-white/20 backdrop-blur-md rounded-xl p-3 sm:p-4 lg:p-6 shadow-2xl border border-white/30">
+                  <h3 className="text-xs sm:text-sm font-medium text-white mb-1 sm:mb-2">Cancellation rate</h3>
+                  <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-1 sm:mb-2">0%</p>
+                  <p className="text-xs sm:text-sm text-white/80 leading-relaxed">The percentage of bookings that were canceled.</p>
                 </div>
 
                 {/* Fresh Reviews Card */}
-                <div className="bg-white/20 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/30">
-                  <h3 className="text-sm font-medium text-white mb-2">Fresh Reviews</h3>
-                  <p className="text-4xl font-bold text-orange-300 mb-2">4.8</p>
-                  <p className="text-sm text-white/80 leading-relaxed">Booking canceled by you</p>
+                <div className="bg-white/20 backdrop-blur-md rounded-xl p-3 sm:p-4 lg:p-6 shadow-2xl border border-white/30">
+                  <h3 className="text-xs sm:text-sm font-medium text-white mb-1 sm:mb-2">Fresh Reviews</h3>
+                  <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-orange-300 mb-1 sm:mb-2">4.8</p>
+                  <p className="text-xs sm:text-sm text-white/80 leading-relaxed">Booking canceled by you</p>
                 </div>
 
                 {/* Today's Balance Card */}
-                <div className="bg-white/20 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/30">
-                  <h3 className="text-sm font-medium text-white mb-2">Today's balance</h3>
-                  <p className="text-4xl font-bold text-white mb-2">$760</p>
-                  <p className="text-sm text-white/80 leading-relaxed">Amount earned and available for today.</p>
+                <div className="bg-white/20 backdrop-blur-md rounded-xl p-3 sm:p-4 lg:p-6 shadow-2xl border border-white/30">
+                  <h3 className="text-xs sm:text-sm font-medium text-white mb-1 sm:mb-2">Today's balance</h3>
+                  <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-1 sm:mb-2">$760</p>
+                  <p className="text-xs sm:text-sm text-white/80 leading-relaxed">Amount earned and available for today.</p>
                 </div>
               </div>
             </div>
@@ -598,52 +598,52 @@ const Dashboard = () => {
       </div>
 
       {/* Spacer to account for overlapping cards */}
-      <div className="h-40 bg-white"></div>
+      <div className="h-20 sm:h-32 lg:h-40 bg-white"></div>
 
       {/* Main Content Area */}
-      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-all duration-300 ${(showSettingsDropdown || showNestedDropdown) ? 'blur-sm' : ''}`}>
-        <div className="flex gap-8">
+      <div className={`responsive-container py-6 sm:py-8 transition-all duration-300 ${(showSettingsDropdown || showNestedDropdown) ? 'blur-sm' : ''}`}>
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Left Content - takes remaining space */}
-          <div className="flex-1 space-y-8">
+          <div className="flex-1 space-y-6 sm:space-y-8">
             {/* Wrap Up Your Product Setup */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Wrap Up Your Product Setup</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-6 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Wrap Up Your Product Setup</h2>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-lg shadow-sm border border-gray-200 space-y-3 sm:space-y-0">
                   <div className="flex-1">
-                    <h3 className="font-bold text-gray-900 mb-1">Mount fuji 5th station</h3>
-                    <p className="text-sm text-gray-600 mb-4">Started on Friday, August 1, 2002</p>
-                    <div className="w-full bg-gray-200 rounded-full h-3 relative">
-                      <div className="h-3 rounded-full flex items-center justify-end pr-2" style={{ width: '20%', backgroundColor: '#1d236b' }}>
+                    <h3 className="font-bold text-gray-900 mb-1 text-sm sm:text-base">Mount fuji 5th station</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Started on Friday, August 1, 2002</p>
+                    <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 relative">
+                      <div className="h-2 sm:h-3 rounded-full flex items-center justify-end pr-1 sm:pr-2" style={{ width: '20%', backgroundColor: '#1d236b' }}>
                         <span className="text-white text-xs font-medium">20%</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-400 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">i</span>
                     </div>
-                    <button className="bg-[#1d236b] hover:bg-[#1a1f5a] text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                    <button className="bg-[#1d236b] hover:bg-[#1a1f5a] text-white px-3 sm:px-6 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm touch-button">
                       Continue
                     </button>
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between p-6 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 bg-gray-50 rounded-lg shadow-sm border border-gray-200 space-y-3 sm:space-y-0">
                   <div className="flex-1">
-                    <h3 className="font-bold text-gray-900 mb-1">Mount fuji 4th station</h3>
-                    <p className="text-sm text-gray-600 mb-4">Started on Friday, August 1, 2002</p>
-                    <div className="w-full bg-gray-200 rounded-full h-3 relative">
-                      <div className="h-3 rounded-full flex items-center justify-end pr-2" style={{ width: '80%', backgroundColor: '#1d236b' }}>
+                    <h3 className="font-bold text-gray-900 mb-1 text-sm sm:text-base">Mount fuji 4th station</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Started on Friday, August 1, 2002</p>
+                    <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 relative">
+                      <div className="h-2 sm:h-3 rounded-full flex items-center justify-end pr-1 sm:pr-2" style={{ width: '80%', backgroundColor: '#1d236b' }}>
                         <span className="text-white text-xs font-medium">80%</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-400 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">i</span>
                     </div>
-                    <button className="bg-[#1d236b] hover:bg-[#1a1f5a] text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                    <button className="bg-[#1d236b] hover:bg-[#1a1f5a] text-white px-3 sm:px-6 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm touch-button">
                       Continue
                     </button>
                   </div>
@@ -652,19 +652,19 @@ const Dashboard = () => {
             </div>
 
             {/* Most Popular Activities */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Most Popular Activities</h2>
-              <div className="space-y-4">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Most Popular Activities</h2>
+              <div className="space-y-3 sm:space-y-4">
                 {[1, 2, 3].map((item) => (
-                  <div key={item} className="p-6 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
-                    <div className="flex justify-between items-start">
+                  <div key={item} className="p-4 sm:p-6 bg-gray-50 rounded-lg shadow-sm border border-gray-200">
+                    <div className="flex flex-col sm:flex-row justify-between items-start space-y-3 sm:space-y-0">
                       <div className="flex-1">
-                        <h3 className="font-bold text-gray-900 mb-3">Mount fuji 5th station tour by car with pickup</h3>
-                        <p className="text-sm text-gray-600 leading-relaxed">A highly demanded tour to Mount Fuji's 5th Station by private car with convenient pickup service. This experience has been one of the most popular choices among travelers in recent days.</p>
+                        <h3 className="font-bold text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Mount fuji 5th station tour by car with pickup</h3>
+                        <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">A highly demanded tour to Mount Fuji's 5th Station by private car with convenient pickup service. This experience has been one of the most popular choices among travelers in recent days.</p>
                       </div>
-                      <div className="flex items-center ml-6 text-green-600">
-                        <FiTrendingUp size={20} className="mr-2" />
-                        <span className="font-bold text-xl">14.6%</span>
+                      <div className="flex items-center text-green-600 ml-0 sm:ml-6">
+                        <FiTrendingUp size={16} className="mr-1 sm:mr-2" />
+                        <span className="font-bold text-lg sm:text-xl">14.6%</span>
                       </div>
                     </div>
                   </div>
