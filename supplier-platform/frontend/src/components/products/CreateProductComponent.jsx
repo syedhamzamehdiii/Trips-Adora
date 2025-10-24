@@ -63,7 +63,12 @@ const CreateProductComponent = ({ onClose }) => {
   // Step 4 state management
   const [selectedGuideType, setSelectedGuideType] = useState('Driver');
   const [selectedActivityType, setSelectedActivityType] = useState('Private');
-  const [selectedLanguage, setSelectedLanguage] = useState('Select Language');
+  const [selectedLanguages, setSelectedLanguages] = useState([]);
+  const [selectedThingsToCarry, setSelectedThingsToCarry] = useState([]);
+  const [includedItems, setIncludedItems] = useState('');
+  const [excludedItems, setExcludedItems] = useState('');
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [showThingsToCarryDropdown, setShowThingsToCarryDropdown] = useState(false);
   
   // Step navigation hover menu (return to step 1 from step 2)
   const [showStep1Menu, setShowStep1Menu] = useState(false);
@@ -1065,56 +1070,73 @@ const CreateProductComponent = ({ onClose }) => {
               {/* Language Card */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm">
                 <h3 className="text-xl font-bold text-gray-900 mb-3">Language</h3>
-                <p className="text-gray-600 mb-4 text-sm">Select the language your tour guide will use during the trip.</p>
+                <p className="text-gray-600 mb-4 text-sm">Select the languages your tour guide will use during the trip.</p>
                 
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2">
-                    <button 
-                      onClick={() => setSelectedLanguage('Arabic')}
-                      className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
-                        selectedLanguage === 'Arabic' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      Arabic
-                    </button>
-                    <button 
-                      onClick={() => setSelectedLanguage('French')}
-                      className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
-                        selectedLanguage === 'French' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      French
-                    </button>
-                    <button 
-                      onClick={() => setSelectedLanguage('English')}
-                      className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
-                        selectedLanguage === 'English' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      English
-                    </button>
+                    {['Arabic', 'French', 'English'].map((lang) => (
+                      <button 
+                        key={lang}
+                        onClick={() => {
+                          if (selectedLanguages.includes(lang)) {
+                            setSelectedLanguages(selectedLanguages.filter(l => l !== lang));
+                          } else {
+                            setSelectedLanguages([...selectedLanguages, lang]);
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-full font-medium transition-colors text-sm ${
+                          selectedLanguages.includes(lang)
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {lang}
+                      </button>
+                    ))}
                   </div>
                   
                   <div className="relative">
                     <select 
-                      value={selectedLanguage}
-                      onChange={(e) => setSelectedLanguage(e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && !selectedLanguages.includes(e.target.value)) {
+                          setSelectedLanguages([...selectedLanguages, e.target.value]);
+                        }
+                      }}
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
                     >
-                      <option value="Select Language">Select Language</option>
+                      <option value="">Select Language</option>
                       <option value="English">English</option>
+                      <option value="Spanish">Spanish</option>
+                      <option value="French">French</option>
+                      <option value="German">German</option>
+                      <option value="Italian">Italian</option>
+                      <option value="Japanese">Japanese</option>
                       <option value="Mandarin Chinese">Mandarin Chinese</option>
                       <option value="Hindi">Hindi</option>
                       <option value="Arabic">Arabic</option>
                     </select>
-                    <FiChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <FiChevronDown 
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
+                      size={20} 
+                    />
                   </div>
+                  
+                  {selectedLanguages.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {selectedLanguages.map((lang) => (
+                        <div key={lang} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                          <span>{lang}</span>
+                          <button
+                            onClick={() => setSelectedLanguages(selectedLanguages.filter(l => l !== lang))}
+                            className="hover:bg-blue-200 rounded-full p-0.5"
+                          >
+                            <FiX size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1157,18 +1179,46 @@ const CreateProductComponent = ({ onClose }) => {
                   <p className="text-gray-600 mb-4 text-sm">List the items travellers should bring for the trip.</p>
                   
                   <div className="relative">
-                    <select className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
-                      <option>Camera</option>
-                      <option>Walking Shoes</option>
-                      <option>Weather Suitable Clothes</option>
-                      <option>Umbrella or Raincoat</option>
-                      <option>Camera/Smart Phone</option>
-                      <option>Reusable Water Bottle</option>
-                      <option>Snacks & Light Foods</option>
-                      <option>Power Bank</option>
+                    <select 
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && !selectedThingsToCarry.includes(e.target.value)) {
+                          setSelectedThingsToCarry([...selectedThingsToCarry, e.target.value]);
+                        }
+                      }}
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
+                    >
+                      <option value="">Select Items</option>
+                      <option value="Camera">Camera</option>
+                      <option value="Walking Shoes">Walking Shoes</option>
+                      <option value="Weather Suitable Clothes">Weather Suitable Clothes</option>
+                      <option value="Umbrella or Raincoat">Umbrella or Raincoat</option>
+                      <option value="Camera/Smart Phone">Camera/Smart Phone</option>
+                      <option value="Reusable Water Bottle">Reusable Water Bottle</option>
+                      <option value="Snacks & Light Foods">Snacks & Light Foods</option>
+                      <option value="Power Bank">Power Bank</option>
                     </select>
-                    <FiChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <FiChevronDown 
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
+                      size={20} 
+                    />
                   </div>
+                  
+                  {selectedThingsToCarry.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {selectedThingsToCarry.map((item, index) => (
+                        <div key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                          <span>{item}</span>
+                          <button
+                            onClick={() => setSelectedThingsToCarry(selectedThingsToCarry.filter((_, i) => i !== index))}
+                            className="hover:bg-blue-200 rounded-full p-0.5"
+                          >
+                            <FiX size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Included & Excluded Card */}
@@ -2506,6 +2556,8 @@ const CreateProductComponent = ({ onClose }) => {
                 <h2 className="text-xl font-bold text-gray-900 mb-2">What's Included</h2>
                 <p className="text-gray-600 text-sm mb-4">Clearly list everything covered in the price so customers know exactly what they'll receive.</p>
                 <textarea
+                  value={includedItems}
+                  onChange={(e) => setIncludedItems(e.target.value)}
                   placeholder="Clearly list the services or items covered in the price, such as entry tickets, meals, or equipment, so customers know exactly what they're paying for."
                   rows="4"
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -2517,6 +2569,8 @@ const CreateProductComponent = ({ onClose }) => {
                 <h2 className="text-xl font-bold text-gray-900 mb-2">What's Excluded</h2>
                 <p className="text-gray-600 text-sm mb-4">Clearly list everything not covered in the price so customers know exactly what they'll receive.</p>
                 <textarea
+                  value={excludedItems}
+                  onChange={(e) => setExcludedItems(e.target.value)}
                   placeholder="Clearly list the services or items NOT covered in the price, such as entry tickets, meals, or equipment, so customers know exactly what they're paying for."
                   rows="4"
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -2553,7 +2607,14 @@ const CreateProductComponent = ({ onClose }) => {
             sellingPoints: sellingPoints,
             tagline: tagline,
             description: description,
-            highlights: highlights.filter(h => h.text.trim() !== '')
+            highlights: highlights.filter(h => h.text.trim() !== ''),
+            guideType: selectedGuideType,
+            activityType: selectedActivityType,
+            languages: selectedLanguages,
+            thingsToCarry: selectedThingsToCarry,
+            includedItems: includedItems,
+            excludedItems: excludedItems,
+            accessibility: accessibilityToggles
           }}
         />
       )}

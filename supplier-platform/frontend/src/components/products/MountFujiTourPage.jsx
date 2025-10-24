@@ -455,7 +455,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     <FiUser size={20} className="text-blue-600 mt-1" />
                     <div>
                       <h4 className="font-semibold text-gray-900">Guide Type</h4>
-                      <p className="text-gray-600">Driver + Guide</p>
+                      <p className="text-gray-600">{productData?.guideType || 'Driver + Guide'}</p>
                     </div>
                   </div>
                   
@@ -463,7 +463,11 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     <FiBriefcase size={20} className="text-blue-600 mt-1" />
                     <div>
                       <h4 className="font-semibold text-gray-900">Things to Carry</h4>
-                      <p className="text-gray-600">Camera, Walking Shoes, Water Bottle, +4 more</p>
+                      <p className="text-gray-600">
+                        {productData?.thingsToCarry && productData.thingsToCarry.length > 0
+                          ? productData.thingsToCarry.join(', ')
+                          : 'Camera, Walking Shoes, Water Bottle, +4 more'}
+                      </p>
                     </div>
                   </div>
                   
@@ -471,7 +475,11 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     <FiGlobe size={20} className="text-blue-600 mt-1" />
                     <div>
                       <h4 className="font-semibold text-gray-900">Languages</h4>
-                      <p className="text-gray-600">English, Japanese, Hindi</p>
+                      <p className="text-gray-600">
+                        {productData?.languages && productData.languages.length > 0
+                          ? productData.languages.join(', ')
+                          : 'English, Japanese, Hindi'}
+                      </p>
                     </div>
                   </div>
                   
@@ -479,14 +487,18 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     <FiCheckCircle size={20} className="text-green-600 mt-1" />
                     <div>
                       <h4 className="font-semibold text-gray-900">Included</h4>
-                      <ul className="text-gray-600 space-y-1">
-                        {includedItems.map((item, index) => (
-                          <li key={index} className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      {productData?.includedItems ? (
+                        <p className="text-gray-600 whitespace-pre-line">{productData.includedItems}</p>
+                      ) : (
+                        <ul className="text-gray-600 space-y-1">
+                          {includedItems.map((item, index) => (
+                            <li key={index} className="flex items-start">
+                              <span className="mr-2">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -497,7 +509,18 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     <span className="text-blue-600 mt-1">♿</span>
                     <div>
                       <h4 className="font-semibold text-gray-900">Accessibility</h4>
-                      <p className="text-gray-600">Wheelchair accessible, stroller friendly</p>
+                      <p className="text-gray-600">
+                        {productData?.accessibility 
+                          ? Object.entries(productData.accessibility)
+                              .filter(([key, value]) => value)
+                              .map(([key]) => key === 'wheelchair' ? 'Wheelchair accessible' :
+                                              key === 'serviceAnimals' ? 'Service animals allowed' :
+                                              key === 'infantSeat' ? 'Infant seat available' :
+                                              key === 'stroller' ? 'Stroller friendly' : '')
+                              .filter(Boolean)
+                              .join(', ')
+                          : 'Wheelchair accessible, stroller friendly'}
+                      </p>
                     </div>
                   </div>
                   
@@ -505,7 +528,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     <FiUser size={20} className="text-blue-600 mt-1" />
                     <div>
                       <h4 className="font-semibold text-gray-900">Activity Type</h4>
-                      <p className="text-gray-600">Private, Customizable</p>
+                      <p className="text-gray-600">{productData?.activityType || 'Private, Customizable'}</p>
                     </div>
                   </div>
                   
@@ -513,14 +536,18 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     <span className="text-red-600 mt-1">✗</span>
                     <div>
                       <h4 className="font-semibold text-gray-900">Excluded</h4>
-                      <ul className="text-gray-600 space-y-1">
-                        {excludedItems.map((item, index) => (
-                          <li key={index} className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      {productData?.excludedItems ? (
+                        <p className="text-gray-600 whitespace-pre-line">{productData.excludedItems}</p>
+                      ) : (
+                        <ul className="text-gray-600 space-y-1">
+                          {excludedItems.map((item, index) => (
+                            <li key={index} className="flex items-start">
+                              <span className="mr-2">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </div>
                 </div>
