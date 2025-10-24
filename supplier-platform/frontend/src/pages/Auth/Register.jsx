@@ -118,27 +118,27 @@ const Register = () => {
 
       {/* Content - Centered Register Card */}
       <div className="relative z-10 flex items-center justify-center min-h-screen p-4 -mt-20">
-        <div className="w-full max-w-xs sm:max-w-sm">
+        <div className="w-full max-w-xs sm:max-w-sm md:max-w-md">
 
           {/* Register Card */}
-          <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl shadow-xl p-4 sm:p-5">
-            <h3 className="text-2xl font-bold text-black mb-2 text-center">Signup</h3>
-            <p className="text-gray-700 mb-4 text-center">
+          <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl shadow-xl p-4 sm:p-5 md:p-6">
+            <h3 className="text-xl sm:text-2xl font-bold text-black mb-2 text-center">Signup</h3>
+            <p className="text-sm sm:text-base text-gray-700 mb-4 text-center">
               Sign up to connect with travelers and showcase your experiences.
             </p>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
               {/* Full Name */}
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Full Name"
-                  className="w-full px-4 py-2 pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
                   {...register('fullName')}
                 />
-                <FiUser className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <FiUser className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
                         {errors.fullName && (
-                          <p className="text-red-500 text-sm mt-1">{errors.fullName.message}</p>
+                          <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.fullName.message}</p>
                         )}
               </div>
 
@@ -147,12 +147,12 @@ const Register = () => {
                 <input
                   type="email"
                   placeholder="Enter Email"
-                  className="w-full px-4 py-2 pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
                   {...register('email')}
                 />
-                <FiMail className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <FiMail className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
                 {errors.email && (
-                  <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.email.message}</p>
                 )}
               </div>
 
@@ -161,17 +161,17 @@ const Register = () => {
                 <input
                   type="text"
                   placeholder="Verification Code"
-                  className="w-full px-4 py-2 pr-24 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 pr-20 sm:pr-24 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
                   {...register('verificationCode')}
                 />
                 <button
                   type="button"
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-600 font-medium hover:text-blue-700 transition-colors"
+                  className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-blue-600 font-medium hover:text-blue-700 transition-colors text-xs sm:text-sm"
                 >
                   Get Code
                 </button>
                 {errors.verificationCode && (
-                  <p className="text-red-500 text-sm mt-1">{errors.verificationCode.message}</p>
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.verificationCode.message}</p>
                 )}
               </div>
 
@@ -180,18 +180,18 @@ const Register = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter Password"
-                  className="w-full px-4 py-2 pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
                   {...register('password')}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? <FiLock size={20} /> : <FiLock size={20} />}
+                  {showPassword ? <FiLock size={16} /> : <FiLock size={16} />}
                 </button>
                 {errors.password && (
-                  <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.password.message}</p>
                 )}
               </div>
 
@@ -199,31 +199,31 @@ const Register = () => {
               <div className="relative">
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="Enter Password"
-                  className="w-full px-4 py-2 pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Confirm Password"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
                   {...register('confirmPassword')}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showConfirmPassword ? <FiLock size={20} /> : <FiLock size={20} />}
+                  {showConfirmPassword ? <FiLock size={16} /> : <FiLock size={16} />}
                 </button>
                 {errors.confirmPassword && (
-                  <p className="text-red-500 text-sm mt-1">{errors.confirmPassword.message}</p>
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.confirmPassword.message}</p>
                 )}
               </div>
 
               {/* Terms and Conditions */}
-              <div className="mt-6 flex items-start space-x-2">
+              <div className="mt-4 sm:mt-6 flex items-start space-x-2">
                 <input
                   type="checkbox"
                   id="terms"
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
                   {...register('terms')}
                 />
-                <label htmlFor="terms" className="text-xs text-gray-700 leading-relaxed">
+                <label htmlFor="terms" className="text-xs sm:text-sm text-gray-700 leading-relaxed">
                   By proceeding, you agree to our{' '}
                   <a href="#" className="text-blue-600 hover:underline">Terms of Use</a>
                   {' '}and confirm you have read our{' '}
@@ -231,14 +231,14 @@ const Register = () => {
                 </label>
               </div>
               {errors.terms && (
-                <p className="text-red-500 text-sm mt-1">{errors.terms.message}</p>
+                <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.terms.message}</p>
               )}
 
               {/* Submit Button */}
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full text-white py-2 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full text-white py-2 sm:py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 style={{ 
                   backgroundColor: '#1d236b',
                   '--hover-color': '#1d236b'
@@ -251,35 +251,35 @@ const Register = () => {
             </form>
 
             {/* Divider */}
-            <div className="relative my-6 flex items-center">
+            <div className="relative my-4 sm:my-6 flex items-center">
               <div className="flex-1 border-t border-gray-300"></div>
-              <span className="px-4 text-gray-500 font-medium text-sm">OR</span>
+              <span className="px-3 sm:px-4 text-gray-500 font-medium text-xs sm:text-sm">OR</span>
               <div className="flex-1 border-t border-gray-300"></div>
             </div>
 
                 {/* Social Login */}
-                <div className="flex justify-center space-x-4 mb-4">
+                <div className="flex justify-center space-x-3 sm:space-x-4 mb-4">
                   {/* Google - Black circle with white G */}
                   <button 
                     onClick={handleGoogleLogin}
-                    className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors"
+                    className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors touch-target"
                   >
-                    <span className="font-bold text-lg text-white">G</span>
+                    <span className="font-bold text-sm sm:text-lg text-white">G</span>
                   </button>
                   {/* Facebook - Black circle with white f */}
-                      <button className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors">
-                        <span className="font-bold text-lg text-white">f</span>
+                      <button className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors touch-target">
+                        <span className="font-bold text-sm sm:text-lg text-white">f</span>
                       </button>
                       {/* Apple - Black circle with white Apple logo */}
-                      <button className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors">
-                        <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <button className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors touch-target">
+                        <svg className="w-4 h-4 sm:w-6 sm:h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                         </svg>
                       </button>
                     </div>
 
                     {/* Login Link */}
-                    <p className="text-center text-sm text-gray-700">
+                    <p className="text-center text-xs sm:text-sm text-gray-700">
                       Already have an account?{' '}
                       <Link
                         to={ROUTES.LOGIN}
