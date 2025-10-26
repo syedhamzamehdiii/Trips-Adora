@@ -147,76 +147,74 @@ const Products = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-4 sm:py-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Product Management</h1>
+          <div className="py-6">
+            <h1 className="text-3xl font-bold text-gray-900">Product Management</h1>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">5</div>
-            <div className="text-xs sm:text-sm text-gray-600">Total Products</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-gray-900 mb-2">5</div>
+            <div className="text-sm text-gray-600">Total Products</div>
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">03</div>
-            <div className="text-xs sm:text-sm text-gray-600">Active Products</div>
+          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-gray-900 mb-2">03</div>
+            <div className="text-sm text-gray-600">Active Products</div>
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">1</div>
-            <div className="text-xs sm:text-sm text-gray-600">Draft products</div>
+          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-gray-900 mb-2">1</div>
+            <div className="text-sm text-gray-600">Draft products</div>
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 text-center">
-            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">$71,570</div>
-            <div className="text-xs sm:text-sm text-gray-600">Total Revenue</div>
+          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-gray-900 mb-2">$71,570</div>
+            <div className="text-sm text-gray-600">Total Revenue</div>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mb-4 sm:mb-6">
+        <div className="flex space-x-2 mb-6">
           <button
             onClick={() => setActiveTab('active')}
-            className="flex items-center justify-center px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors bg-blue-600 text-white"
+            className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white"
           >
-            <FiTrendingUp className="mr-1 sm:mr-2 text-white" size={14} />
-            <span className="hidden sm:inline">Active Products</span>
-            <span className="sm:hidden">Active</span>
+            <FiTrendingUp className="mr-2 text-white" size={16} />
+            Active Products
           </button>
           <button
             onClick={() => navigate('/products/drafts')}
-            className="flex items-center justify-center px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+            className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
           >
-            <FiFileText className="mr-1 sm:mr-2 text-green-600" size={14} />
+            <FiFileText className="mr-2 text-green-600" size={16} />
             Drafts
-            <span className="ml-1 sm:ml-2 w-4 h-4 sm:w-5 sm:h-5 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">1</span>
+            <span className="ml-2 w-5 h-5 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">1</span>
           </button>
         </div>
 
         {/* Search and Actions Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
-          <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
             <button 
               onClick={toggleFilters}
-              className="p-2 text-gray-600 hover:text-gray-900 touch-target"
+              className="p-2 text-gray-600 hover:text-gray-900"
             >
-              <FiFilter size={18} />
+              <FiFilter size={20} />
             </button>
             
             {/* Status Filter Dropdown */}
             <div className="relative" ref={statusDropdownRef}>
               <button 
                 onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                className="flex items-center px-2 sm:px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-gray-700 hover:bg-gray-50"
+                className="flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
               >
-                <span className="hidden sm:inline">{filters.status}</span>
-                <span className="sm:hidden">Status</span>
-                <FiChevronDown className="ml-1" size={12} />
+                {filters.status}
+                <FiChevronDown className="ml-1" size={14} />
               </button>
               
               {showStatusDropdown && (
@@ -249,26 +247,26 @@ const Products = () => {
               )}
             </div>
 
-            <div className="relative flex-1 sm:flex-none">
-              <FiSearch className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
                 placeholder="Search..."
-                className="w-full sm:w-48 pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
           
-          <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-end">
-            <button className="p-2 text-gray-600 hover:text-gray-900 touch-target">
-              <FiRefreshCw size={18} />
+          <div className="flex items-center space-x-4">
+            <button className="p-2 text-gray-600 hover:text-gray-900">
+              <FiRefreshCw size={20} />
             </button>
             {selectedProducts.length > 0 && (
               <>
-                <span className="text-xs sm:text-sm text-gray-600">{selectedProducts.length} Selected</span>
-                <button className="flex items-center px-2 sm:px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs sm:text-sm">
-                  <FiArchive className="mr-1 sm:mr-2" size={14} />
-                  <span className="hidden sm:inline">Archive</span>
+                <span className="text-sm text-gray-600">{selectedProducts.length} Selected</span>
+                <button className="flex items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                  <FiArchive className="mr-2" size={16} />
+                  Archive
                 </button>
               </>
             )}
@@ -281,7 +279,7 @@ const Products = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 sm:px-6 py-3 text-left">
+                  <th className="px-6 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={selectedProducts.length === products.length && products.length > 0}
@@ -289,29 +287,28 @@ const Products = () => {
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <span className="hidden sm:inline">Product Name</span>
-                    <span className="sm:hidden">Name</span>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Product Name
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Reference Code
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Bookings
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Revenue
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Creation Date
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Ratings
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Action
                   </th>
                 </tr>
@@ -319,7 +316,7 @@ const Products = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {products.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={selectedProducts.includes(product.id)}
@@ -327,48 +324,46 @@ const Products = () => {
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      <div className="max-w-xs truncate">
-                        {product.name}
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {product.name}
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.referenceCode}
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                      <span className={`text-xs sm:text-sm font-medium ${getStatusColor(product.status)}`}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`text-sm font-medium ${getStatusColor(product.status)}`}>
                         {product.status}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.bookings}
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.revenue}
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden xl:table-cell">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.creationDate}
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden xl:table-cell">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.ratings}
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500 relative">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 relative">
                       <div ref={el => dropdownRefs.current[product.id] = el}>
                         <button 
                           onClick={() => toggleDropdown(product.id)}
-                          className="text-gray-400 hover:text-gray-600 touch-target"
+                          className="text-gray-400 hover:text-gray-600"
                         >
-                          <FiMoreVertical size={14} />
+                          <FiMoreVertical size={16} />
                         </button>
                         
                         {/* Action Dropdown - List Style */}
                         {openDropdown === product.id && (
-                          <div className="absolute right-0 top-full mt-1 w-40 sm:w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                          <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
                             <ul className="divide-y divide-gray-100">
                               <li>
                                 <button
                                   onClick={() => handleAction('edit', product.id)}
-                                  className="w-full text-left px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                                 >
                                   Edit
                                 </button>
@@ -376,7 +371,7 @@ const Products = () => {
                               <li>
                                 <button
                                   onClick={() => handleAction('clone', product.id)}
-                                  className="w-full text-left px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                                 >
                                   Clone
                                 </button>
@@ -384,16 +379,15 @@ const Products = () => {
                               <li>
                                 <button
                                   onClick={() => handleAction('share', product.id)}
-                                  className="w-full text-left px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                                 >
-                                  <span className="hidden sm:inline">Share product</span>
-                                  <span className="sm:hidden">Share</span>
+                                  Share product
                                 </button>
                               </li>
                               <li>
                                 <button
                                   onClick={() => handleAction('delete', product.id)}
-                                  className="w-full text-left px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                  className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
                                 >
                                   Delete
                                 </button>
@@ -411,25 +405,25 @@ const Products = () => {
         </div>
 
         {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between mt-4 sm:mt-6 space-y-3 sm:space-y-0">
-          <div className="flex items-center space-x-1 sm:space-x-2">
-            <button className="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 touch-target" disabled>
+        <div className="flex items-center justify-between mt-6">
+          <div className="flex items-center space-x-2">
+            <button className="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50" disabled>
               ←
             </button>
-            <button className="px-2 sm:px-3 py-1 bg-blue-600 text-white rounded text-xs sm:text-sm">1</button>
-            <button className="px-2 sm:px-3 py-1 text-gray-600 hover:text-gray-900 text-xs sm:text-sm">2</button>
-            <button className="px-2 sm:px-3 py-1 text-gray-600 hover:text-gray-900 text-xs sm:text-sm">3</button>
-            <span className="text-gray-600 text-xs sm:text-sm">...</span>
-            <button className="px-2 sm:px-3 py-1 text-gray-600 hover:text-gray-900 text-xs sm:text-sm">12</button>
-            <button className="px-2 sm:px-3 py-1 text-gray-600 hover:text-gray-900 text-xs sm:text-sm">13</button>
-            <button className="px-2 sm:px-3 py-1 text-gray-600 hover:text-gray-900 text-xs sm:text-sm">14</button>
-            <button className="p-2 text-gray-600 hover:text-gray-900 touch-target">
+            <button className="px-3 py-1 bg-blue-600 text-white rounded">1</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">2</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">3</button>
+            <span className="text-gray-600">...</span>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">12</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">13</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">14</button>
+            <button className="p-2 text-gray-600 hover:text-gray-900">
               →
             </button>
           </div>
           
           <div className="flex items-center space-x-2">
-            <select className="px-2 sm:px-3 py-1 border border-gray-300 rounded text-xs sm:text-sm">
+            <select className="px-3 py-1 border border-gray-300 rounded text-sm">
               <option>1 \ 10</option>
             </select>
           </div>
@@ -438,10 +432,10 @@ const Products = () => {
 
       {/* Filters Modal */}
       {showFilters && (
-        <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50">
           <div 
             ref={filtersRef}
-            className="bg-white rounded-lg shadow-lg p-4 sm:p-6 w-full max-w-sm sm:max-w-md"
+            className="bg-white rounded-lg shadow-lg p-6 w-80"
           >
             <h3 className="text-lg font-bold text-gray-900 mb-4">Filters</h3>
             

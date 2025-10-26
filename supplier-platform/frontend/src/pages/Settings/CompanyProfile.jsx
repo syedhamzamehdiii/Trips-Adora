@@ -382,18 +382,18 @@ const CompanyProfile = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Page Header */}
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Company profile</h1>
-        <p className="text-sm sm:text-base text-gray-600">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Company profile</h1>
+        <p className="text-gray-600">
           Maintain accurate company records to keep your profile professional and trustworthy
         </p>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="border-b border-gray-200 mb-4 sm:mb-6">
-        <nav className="-mb-px flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-8">
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -411,12 +411,12 @@ const CompanyProfile = () => {
       </div>
 
       {/* Information Banner */}
-      <div className={`border rounded-lg p-3 sm:p-4 mb-6 sm:mb-8 ${
+      <div className={`border rounded-lg p-4 mb-8 ${
         verificationStatus === 'verified' 
           ? 'bg-green-50 border-green-200' 
           : 'bg-blue-50 border-blue-200'
       }`}>
-        <div className="flex flex-col sm:flex-row items-start justify-between space-y-3 sm:space-y-0">
+        <div className="flex items-start justify-between">
           <div className="flex items-start space-x-3">
             <div className="flex-shrink-0">
               {verificationStatus === 'verified' ? (
@@ -438,7 +438,7 @@ const CompanyProfile = () => {
                   : 'Verify your business details'
                 }
               </h3>
-              <p className={`text-xs sm:text-sm ${
+              <p className={`text-sm ${
                 verificationStatus === 'verified' ? 'text-green-800' : 'text-blue-800'
               }`}>
                 {verificationStatus === 'verified'
@@ -455,7 +455,6 @@ const CompanyProfile = () => {
               onClick={handleVerification}
               loading={isVerifying}
               disabled={isVerifying}
-              className="w-full sm:w-auto"
             >
               {isVerifying ? 'Verifying...' : 'Verify Now'}
             </Button>
@@ -465,17 +464,17 @@ const CompanyProfile = () => {
 
       {/* Company Details Tab Content */}
       {activeTab === 'company-details' && (
-        <div className="space-y-6 sm:space-y-8">
+        <div className="space-y-8">
           {/* Company Details Section */}
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Company details</h2>
-            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Company details</h2>
+            <p className="text-gray-600 mb-6">
               Your registered business information that ensures transparency and builds customer trust. 
               These details appear on your TravelMate activity provider profile, allowing travelers to confirm 
               your legitimacy as a commercial tourism company.
             </p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Column */}
               <div className="space-y-4">
                 <div>

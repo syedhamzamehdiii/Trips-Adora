@@ -61,7 +61,7 @@ const Login = () => {
       {/* Background Image - Japanese Landscape */}
       <div className="absolute inset-0 z-0">
         <div 
-          className="w-full h-full bg-cover bg-center bg-no-repeat"
+          className="w-full h-full bg-cover bg-center"
           style={{
             backgroundImage: `url('/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png')`,
           }}
@@ -71,40 +71,40 @@ const Login = () => {
       </div>
 
       {/* Header - Navbar with Logo */}
-      <div className="relative z-10 h-16 sm:h-20 flex items-center px-4 sm:px-6 bg-white">
+      <div className="relative z-10 h-20 flex items-center px-6 bg-white">
         <div className="flex items-center">
           {/* TripsAdora Logo */}
           <img 
             src="/assets/logo.jpg" 
             alt="TripsAdora Logo" 
-            className="h-8 sm:h-10 lg:h-12 w-auto"
+            className="h-12 w-auto"
           />
         </div>
       </div>
 
       {/* Content - Centered Login Card */}
-      <div className="relative z-10 flex items-center justify-center min-h-screen p-4 -mt-16 sm:-mt-20">
-        <div className="w-full max-w-xs sm:max-w-sm lg:max-w-md">
+      <div className="relative z-10 flex items-center justify-center min-h-screen p-4 -mt-20">
+        <div className="w-full max-w-md">
 
           {/* Login Card */}
-          <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl shadow-xl p-4 sm:p-5 lg:p-6">
-            <h3 className="text-xl sm:text-2xl font-bold text-black mb-2 text-center">Login</h3>
-            <p className="text-sm sm:text-base text-gray-700 mb-4 sm:mb-6 text-center">
+          <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl shadow-xl p-6">
+            <h3 className="text-2xl font-bold text-black mb-2 text-center">Login</h3>
+            <p className="text-gray-700 mb-6 text-center">
               Sign in to connect with travelers and showcase your experiences.
             </p>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               {/* Email Field */}
               <div className="relative">
                 <input
                   type="email"
                   placeholder="Enter Email"
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
+                  className="w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   {...register('email')}
                 />
-                <FiMail className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                <FiMail className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 {errors.email && (
-                  <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.email.message}</p>
+                  <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
                 )}
               </div>
 
@@ -113,12 +113,12 @@ const Login = () => {
                 <input
                   type="password"
                   placeholder="Enter Password"
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm sm:text-base"
+                  className="w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   {...register('password')}
                 />
-                <FiLock className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                <FiLock className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 {errors.password && (
-                  <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.password.message}</p>
+                  <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
                 )}
               </div>
 
@@ -126,7 +126,7 @@ const Login = () => {
               <div className="text-right">
                 <Link
                   to={ROUTES.FORGOT_PASSWORD}
-                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Forget password?
                 </Link>
@@ -136,7 +136,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full text-white py-2 sm:py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-button text-sm sm:text-base"
+                className="w-full text-white py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
                   backgroundColor: '#1d236b',
                   '--hover-color': '#1d236b'
@@ -149,35 +149,35 @@ const Login = () => {
             </form>
 
             {/* Divider */}
-            <div className="relative my-4 sm:my-6 flex items-center">
+            <div className="relative my-6 flex items-center">
               <div className="flex-1 border-t border-gray-300"></div>
-              <span className="px-3 sm:px-4 text-gray-500 font-medium text-xs sm:text-sm">OR</span>
+              <span className="px-4 text-gray-500 font-medium text-sm">OR</span>
               <div className="flex-1 border-t border-gray-300"></div>
             </div>
 
-            {/* Social Login */}
-            <div className="flex justify-center space-x-3 sm:space-x-4 mb-4">
-              {/* Google - Black circle with white G */}
-              <button 
-                onClick={handleGoogleLogin}
-                className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors touch-target"
-              >
-                <span className="font-bold text-sm sm:text-lg text-white">G</span>
-              </button>
-              {/* Facebook - Black circle with white f */}
-              <button className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors touch-target">
-                <span className="font-bold text-sm sm:text-lg text-white">f</span>
-              </button>
-              {/* Apple - Black circle with white Apple logo */}
-              <button className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors touch-target">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                </svg>
-              </button>
-            </div>
+                {/* Social Login */}
+                <div className="flex justify-center space-x-4 mb-4">
+                  {/* Google - Black circle with white G */}
+                  <button 
+                    onClick={handleGoogleLogin}
+                    className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors"
+                  >
+                    <span className="font-bold text-lg text-white">G</span>
+                  </button>
+                  {/* Facebook - Black circle with white f */}
+                      <button className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors">
+                        <span className="font-bold text-lg text-white">f</span>
+                      </button>
+                      {/* Apple - Black circle with white Apple logo */}
+                      <button className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors">
+                        <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                        </svg>
+                      </button>
+                    </div>
 
             {/* Register Link */}
-            <p className="text-center text-xs sm:text-sm text-gray-700">
+            <p className="text-center text-sm text-gray-700">
               Don't have supplier account{' '}
               <Link
                 to={ROUTES.REGISTER}
@@ -188,11 +188,11 @@ const Login = () => {
             </p>
 
             {/* Terms */}
-            <div className="mt-4 sm:mt-6 flex items-start space-x-2">
+            <div className="mt-6 flex items-start space-x-2">
               <input
                 type="checkbox"
                 id="terms"
-                className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5 flex-shrink-0"
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
               />
               <label htmlFor="terms" className="text-xs text-gray-700 leading-relaxed">
                 By continuing, you agree to the{' '}

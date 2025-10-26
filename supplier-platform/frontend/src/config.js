@@ -1,7 +1,7 @@
 // Configuration file for the application
 export const config = {
   // API Configuration
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001',
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
   
   // Google OAuth Configuration
   GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID || '353190546831-i9oc4kvu61gs3po363k3u646jnbt0mv4.apps.googleusercontent.com',
