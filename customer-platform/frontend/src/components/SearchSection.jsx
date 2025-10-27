@@ -3,11 +3,11 @@ import { FiSearch, FiCalendar, FiChevronDown } from 'react-icons/fi'
 
 const SearchSection = () => {
   return (
-    <section className="relative -mt-24 z-20">
+    <section className="relative -mt-12 z-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-3xl shadow-2xl p-10">
           {/* Title */}
-          <h2 className="text-4xl font-bold text-gray-900 mb-10">Find Your Escape</h2>
+          <h2 className="text-4xl font-bold text-gray-900 mb-10 mt-8">Find Your Escape</h2>
           
           {/* Search Form */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
