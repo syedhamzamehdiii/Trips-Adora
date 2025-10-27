@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin, FiClock } from 'react-icons/fi';
 import AddItineraryComponent from './AddItineraryComponent';
 
 const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
@@ -50,7 +50,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
   const [selectedLocationType, setSelectedLocationType] = useState('All Location');
   const [showPickupDropdown, setShowPickupDropdown] = useState(false);
   const [showDropoffDropdown, setShowDropoffDropdown] = useState(false);
-  const [selectedPickupHour, setSelectedPickupHour] = useState('06');
+  const [selectedPickupHour, setSelectedPickupHour] = useState('00');
   const [selectedPickupMinute, setSelectedPickupMinute] = useState('00');
   const [selectedWeekDay, setSelectedWeekDay] = useState('week days');
   const [selectedPickupLocation, setSelectedPickupLocation] = useState('');
@@ -73,11 +73,15 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
   const [manualPickupRegion, setManualPickupRegion] = useState('');
   const [manualDropoffRegion, setManualDropoffRegion] = useState('');
   
+  // Active/highlighted locations (clicked by user)
+  const [activePickupLocations, setActivePickupLocations] = useState([]);
+  const [activeDropoffLocations, setActiveDropoffLocations] = useState([]);
+  
   // Time slots management
-  const [applyToAllDays, setApplyToAllDays] = useState(true);
-  const [startTime, setStartTime] = useState('06:35');
-  const [endTime, setEndTime] = useState('20:30');
-  const [duration, setDuration] = useState('30');
+  const [applyToAllDays, setApplyToAllDays] = useState(false);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [duration, setDuration] = useState('');
   const [timeSlots, setTimeSlots] = useState({
     Monday: [],
     Tuesday: [],
@@ -87,6 +91,9 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
     Saturday: [],
     Sunday: []
   });
+  
+  // Vehicle-Time Allocations (time + vehicle pairings)
+  const [vehicleTimeAllocations, setVehicleTimeAllocations] = useState([]);
   
   // Step 4 state management
   const [selectedGuideType, setSelectedGuideType] = useState('Driver');
@@ -232,11 +239,17 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
             setSelectedPickupLocations(draftData.selectedPickupLocations);
           }
           if (draftData.selectedDropoffLocations) setSelectedDropoffLocations(draftData.selectedDropoffLocations);
+          if (draftData.activePickupLocations) setActivePickupLocations(draftData.activePickupLocations);
+          if (draftData.activeDropoffLocations) setActiveDropoffLocations(draftData.activeDropoffLocations);
           if (draftData.selectedPickupHour) setSelectedPickupHour(draftData.selectedPickupHour);
           if (draftData.selectedPickupMinute) setSelectedPickupMinute(draftData.selectedPickupMinute);
           if (draftData.selectedWeekDay) setSelectedWeekDay(draftData.selectedWeekDay);
           if (draftData.selectedDate) setSelectedDate(draftData.selectedDate);
           if (draftData.timeSlots) setTimeSlots(draftData.timeSlots);
+          if (draftData.vehicleTimeAllocations) {
+            console.log('✅ Loading vehicle-time allocations:', draftData.vehicleTimeAllocations.length);
+            setVehicleTimeAllocations(draftData.vehicleTimeAllocations);
+          }
           
           // Load current step
           if (draftData.step) {
@@ -313,11 +326,14 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
           // Step 6 data
           selectedPickupLocations,
           selectedDropoffLocations,
+          activePickupLocations,
+          activeDropoffLocations,
           selectedPickupHour,
           selectedPickupMinute,
           selectedWeekDay,
           selectedDate,
           timeSlots,
+          vehicleTimeAllocations,
           
           // Current step
           step,
@@ -348,10 +364,56 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
     vehicles, vehicleTitle, selectedVehicleType, selectedVehicleModel, vehicleYear,
     vehicleAttributes, numTravellers, currency, pricingType, productAmount,
     totalDuration, vehicleDescription, selectedVehicleForTour,
-    selectedPickupLocations, selectedDropoffLocations, selectedPickupHour,
-    selectedPickupMinute, selectedWeekDay, selectedDate, timeSlots,
+    selectedPickupLocations, selectedDropoffLocations, activePickupLocations, activeDropoffLocations,
+    selectedPickupHour, selectedPickupMinute, selectedWeekDay, selectedDate, timeSlots,
+    vehicleTimeAllocations,
     step, draftId
   ]);
+
+  // Auto-generate time slots when start/end time, duration, or weekday changes
+  useEffect(() => {
+    if (startTime && endTime && duration && !isLoadingDraft) {
+      console.log('🕐 Auto-generating time slots:', { startTime, endTime, duration, selectedWeekDay, applyToAllDays });
+      
+      const generatedSlots = generateTimeSlots();
+      
+      if (generatedSlots.length > 0) {
+        if (applyToAllDays) {
+          // Apply to all days
+          setTimeSlots({
+            Monday: [...generatedSlots],
+            Tuesday: [...generatedSlots],
+            Wednesday: [...generatedSlots],
+            Thursday: [...generatedSlots],
+            Friday: [...generatedSlots],
+            Saturday: [...generatedSlots],
+            Sunday: [...generatedSlots]
+          });
+          console.log('✅ Generated', generatedSlots.length, 'time slots for ALL days');
+        } else {
+          // Apply only to selected weekday
+          if (selectedWeekDay !== 'week days') {
+            setTimeSlots(prev => ({
+              ...prev,
+              [selectedWeekDay]: [...generatedSlots]
+            }));
+            console.log('✅ Generated', generatedSlots.length, 'time slots for', selectedWeekDay);
+          } else {
+            // If "week days" is selected, apply to Monday-Friday
+            setTimeSlots(prev => ({
+              ...prev,
+              Monday: [...generatedSlots],
+              Tuesday: [...generatedSlots],
+              Wednesday: [...generatedSlots],
+              Thursday: [...generatedSlots],
+              Friday: [...generatedSlots]
+            }));
+            console.log('✅ Generated', generatedSlots.length, 'time slots for weekdays (Mon-Fri)');
+          }
+        }
+      }
+    }
+  }, [startTime, endTime, duration, selectedWeekDay, applyToAllDays, isLoadingDraft]);
 
   // Japan regions and their locations database
   const japanRegionsMap = {
@@ -511,10 +573,35 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
   // Remove drop-off location
   const removeDropoffLocation = (location) => {
     setSelectedDropoffLocations(selectedDropoffLocations.filter(loc => loc !== location));
+    // Also remove from active locations if it was active
+    setActiveDropoffLocations(activeDropoffLocations.filter(loc => loc !== location));
+  };
+
+  // Toggle active/highlighted state for pickup locations
+  const togglePickupLocationActive = (location) => {
+    if (activePickupLocations.includes(location)) {
+      // Remove from active
+      setActivePickupLocations(activePickupLocations.filter(loc => loc !== location));
+    } else {
+      // Add to active
+      setActivePickupLocations([...activePickupLocations, location]);
+    }
+  };
+
+  // Toggle active/highlighted state for drop-off locations
+  const toggleDropoffLocationActive = (location) => {
+    if (activeDropoffLocations.includes(location)) {
+      // Remove from active
+      setActiveDropoffLocations(activeDropoffLocations.filter(loc => loc !== location));
+    } else {
+      // Add to active
+      setActiveDropoffLocations([...activeDropoffLocations, location]);
+    }
   };
 
   // Time slot helper functions
   const parseTime = (timeStr) => {
+    if (!timeStr || !timeStr.includes(':')) return 0;
     const [hours, minutes] = timeStr.split(':').map(num => parseInt(num.trim()));
     return hours * 60 + minutes;
   };
@@ -527,9 +614,13 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
 
   // Generate time slots automatically
   const generateTimeSlots = () => {
+    if (!startTime || !endTime || !duration) return [];
+    
     const start = parseTime(startTime);
     const end = parseTime(endTime);
     const interval = parseInt(duration) || 30;
+    
+    if (start >= end || interval <= 0) return [];
     
     const slots = [];
     let current = start;
@@ -848,6 +939,34 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
     const newMonth = new Date(currentMonth);
     newMonth.setMonth(newMonth.getMonth() + direction);
     setCurrentMonth(newMonth);
+  };
+
+  // === VEHICLE-TIME ALLOCATION HANDLERS ===
+  const addVehicleTimeAllocation = () => {
+    if (!selectedVehicleForTour) {
+      alert('Please select a vehicle first!');
+      return;
+    }
+    
+    const timeString = `${selectedPickupHour}:${selectedPickupMinute}`;
+    const allocation = {
+      id: Date.now(),
+      time: timeString,
+      vehicle: selectedVehicleForTour,
+      date: selectedDate
+    };
+    
+    setVehicleTimeAllocations(prev => [...prev, allocation]);
+    console.log('✅ Vehicle-time allocation added:', timeString, selectedVehicleForTour.title);
+    
+    // Reset for next allocation
+    setSelectedVehicleForTour(null);
+    setSelectedPickupHour('06');
+    setSelectedPickupMinute('00');
+  };
+  
+  const removeVehicleTimeAllocation = (id) => {
+    setVehicleTimeAllocations(prev => prev.filter(allocation => allocation.id !== id));
   };
 
   const nextStep = () => {
@@ -1841,9 +1960,12 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
 
              {/* Pick-up Locations Section */}
              <div className="mb-8">
-               <div className="flex items-center mb-4">
+              <div className="mb-4">
+                <div className="flex items-center">
                  <FiSend className="text-blue-600 mr-3" size={20} />
-                 <h3 className="text-lg font-bold text-gray-900">Pick-up locations</h3>
+                  <h3 className="text-lg font-bold text-gray-900">Pick-up Points</h3>
+                </div>
+                <p className="text-sm text-gray-500 ml-9">Select specific pickup locations within your starting region</p>
                </div>
                
                {/* Search Field */}
@@ -1902,25 +2024,41 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                  )}
                </div>
                
-               {/* Selected Pickup Locations */}
-               {selectedPickupLocations.length > 0 && (
-                 <div className="mb-4">
-                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Selected Pick-up Locations:</h4>
-                   <div className="flex flex-wrap gap-2">
-                     {selectedPickupLocations.map((location, index) => (
-                       <div key={index} className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-2 rounded-lg text-sm">
-                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                         </svg>
-                         <span>{location}</span>
-                         <button
-                           onClick={() => removePickupLocation(location)}
-                           className="hover:bg-blue-200 rounded-full p-0.5"
-                         >
-                           <FiX size={14} />
-                         </button>
+              {/* Selected Pickup Locations */}
+              {selectedPickupLocations.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Selected Pick-up Locations:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPickupLocations.map((location, index) => {
+                      const isActive = activePickupLocations.includes(location);
+                      return (
+                        <div 
+                          key={index} 
+                          onClick={() => togglePickupLocationActive(location)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-all ${
+                            isActive 
+                              ? 'bg-blue-600 text-white border-2 border-blue-700 shadow-md' 
+                              : 'bg-blue-100 text-blue-800 border-2 border-transparent hover:bg-blue-200'
+                          }`}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          </svg>
+                          <span>{location}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent triggering the parent onClick
+                              removePickupLocation(location);
+                            }}
+                            className={`rounded-full p-0.5 ${
+                              isActive ? 'hover:bg-blue-500' : 'hover:bg-blue-300'
+                            }`}
+                          >
+                            <FiX size={14} />
+                          </button>
                          </div>
-                       ))}
+                      );
+                    })}
                      </div>
                    </div>
                  )}
@@ -1999,87 +2137,71 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                 <div className="flex items-start justify-between">
                   {/* Left side - From/To editable inputs */}
                   <div className="flex-1 grid grid-cols-2 gap-8">
-                    {/* From */}
+                    {/* From Region */}
                     <div>
                       <div className="flex items-center mb-2">
                         <span className="text-sm font-semibold text-gray-900">From</span>
-                        {manualPickupRegion && (
-                          <button 
-                            onClick={() => {
-                              setManualPickupRegion('');
-                              setSelectedPickupLocations([]);
-                            }}
-                            className="ml-2 text-red-500 hover:text-red-600"
-                          >
-                            <FiX size={16} />
-                          </button>
-                        )}
                       </div>
                       <input
                         type="text"
-                        placeholder="Type region (e.g. Tokyo, Kyoto...)"
+                        placeholder="Starting region (e.g. Tokyo, Kyoto...)"
                         value={manualPickupRegion}
                         onChange={(e) => {
-                          setManualPickupRegion(e.target.value);
-                          // Auto-detect and populate locations from region
-                          const detectedRegions = detectRegionsFromInput(e.target.value);
-                          if (detectedRegions.length > 0) {
-                            const pickupRegion = detectedRegions.find(r => r.type === 'pickup' || r.type === 'both');
-                            if (pickupRegion && pickupRegion.locations.length > 0) {
-                              setSelectedPickupLocations(pickupRegion.locations.slice(0, 3));
+                          const value = e.target.value;
+                          setManualPickupRegion(value);
+                          
+                          // Auto-detect region and show available pickup points
+                          if (value.length >= 2) {
+                            const detectedRegions = detectRegionsFromInput(value);
+                            if (detectedRegions.length > 0) {
+                              const region = detectedRegions.find(r => r.type === 'pickup' || r.type === 'both');
+                              if (region && region.locations.length > 0) {
+                                setSelectedPickupLocations(region.locations);
+                                console.log('📍 Detected start region:', region.region, '→', region.locations.length, 'pickup points available');
+                              }
                             }
                           }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                       {manualPickupRegion && selectedPickupLocations.length > 0 && (
-                        <p className="text-xs text-gray-500 mt-1">{selectedPickupLocations[0]}</p>
+                        <p className="text-xs text-green-600 mt-1">
+                          ✓ {selectedPickupLocations.length} pickup points available in this region
+                        </p>
                       )}
                     </div>
 
-                    {/* To */}
+                    {/* To Region */}
                     <div>
                       <div className="flex items-center mb-2">
                         <span className="text-sm font-semibold text-gray-900">To</span>
-                        {manualDropoffRegion && (
-                          <button 
-                            onClick={() => {
-                              setManualDropoffRegion('');
-                              setSelectedDropoffLocations([]);
-                            }}
-                            className="ml-2 text-red-500 hover:text-red-600"
-                          >
-                            <FiX size={16} />
-                          </button>
-                        )}
                       </div>
-                      {useSamePickupLocation ? (
-                        <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 italic">
-                          Same as pickup
-                        </div>
-                      ) : (
-                        <>
-                          <input
-                            type="text"
-                            placeholder="Type region (e.g. Mount Fuji...)"
-                            value={manualDropoffRegion}
-                            onChange={(e) => {
-                              setManualDropoffRegion(e.target.value);
-                              // Auto-detect and populate locations from region
-                              const detectedRegions = detectRegionsFromInput(e.target.value);
-                              if (detectedRegions.length > 0) {
-                                const dropoffRegion = detectedRegions.find(r => r.type === 'dropoff' || r.type === 'both');
-                                if (dropoffRegion && dropoffRegion.locations.length > 0) {
-                                  setSelectedDropoffLocations(dropoffRegion.locations.slice(0, 3));
-                                }
+                      <input
+                        type="text"
+                        placeholder="Ending region (e.g. Mount Fuji, Osaka...)"
+                        value={manualDropoffRegion}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setManualDropoffRegion(value);
+                          
+                          // Auto-detect region and show available drop-off points
+                          if (value.length >= 2) {
+                            const detectedRegions = detectRegionsFromInput(value);
+                            if (detectedRegions.length > 0) {
+                              const region = detectedRegions.find(r => r.type === 'dropoff' || r.type === 'both');
+                              if (region && region.locations.length > 0) {
+                                setSelectedDropoffLocations(region.locations);
+                                console.log('📍 Detected end region:', region.region, '→', region.locations.length, 'drop-off points available');
                               }
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                          />
-                          {manualDropoffRegion && selectedDropoffLocations.length > 0 && (
-                            <p className="text-xs text-gray-500 mt-1">{selectedDropoffLocations[0]}</p>
-                          )}
-                        </>
+                            }
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                      {manualDropoffRegion && selectedDropoffLocations.length > 0 && (
+                        <p className="text-xs text-green-600 mt-1">
+                          ✓ {selectedDropoffLocations.length} drop-off points available in this region
+                        </p>
                       )}
                     </div>
                   </div>
@@ -2101,11 +2223,11 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                     <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Note your visit spots to plan your tour better
+                    Define your tour route regions - pickup and drop-off points will be available within these areas
                   </p>
-                </div>
-              </div>
-            </div>
+                 </div>
+               </div>
+             </div>
 
              {/* Use Same Pick-up Toggle */}
              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
@@ -2132,9 +2254,12 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
              {/* Drop-off Locations Search Section */}
              {!useSamePickupLocation && (
              <div className="mb-8">
-               <div className="flex items-center mb-4">
-                   <FiMapPin className="text-blue-600 mr-2" size={20} />
-                 <h3 className="text-lg font-bold text-gray-900">Drop-off locations</h3>
+              <div className="mb-4">
+                <div className="flex items-center">
+                  <FiMapPin className="text-blue-600 mr-2" size={20} />
+                  <h3 className="text-lg font-bold text-gray-900">Drop-off Points</h3>
+                </div>
+                <p className="text-sm text-gray-500 ml-9">Select specific drop-off locations within your ending region</p>
                </div>
                
                <div className="relative">
@@ -2192,28 +2317,44 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                    )}
                  </div>
                  
-                 {/* Selected Drop-off Locations */}
-                 {selectedDropoffLocations.length > 0 && (
-                   <div className="mt-4">
-                     <h4 className="text-sm font-semibold text-gray-700 mb-2">Selected Drop-off Locations:</h4>
-                     <div className="flex flex-wrap gap-2">
-                       {selectedDropoffLocations.map((location, index) => (
-                         <div key={index} className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-2 rounded-lg text-sm">
-                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                           </svg>
-                           <span>{location}</span>
-                           <button
-                             onClick={() => removeDropoffLocation(location)}
-                             className="hover:bg-green-200 rounded-full p-0.5"
-                           >
-                             <FiX size={14} />
-                           </button>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                 )}
+                {/* Selected Drop-off Locations */}
+                {selectedDropoffLocations.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Selected Drop-off Locations:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedDropoffLocations.map((location, index) => {
+                        const isActive = activeDropoffLocations.includes(location);
+                        return (
+                          <div 
+                            key={index} 
+                            onClick={() => toggleDropoffLocationActive(location)}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-all ${
+                              isActive 
+                                ? 'bg-green-600 text-white border-2 border-green-700 shadow-md' 
+                                : 'bg-green-100 text-green-800 border-2 border-transparent hover:bg-green-200'
+                            }`}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            </svg>
+                            <span>{location}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent triggering the parent onClick
+                                removeDropoffLocation(location);
+                              }}
+                              className={`rounded-full p-0.5 ${
+                                isActive ? 'hover:bg-green-500' : 'hover:bg-green-300'
+                              }`}
+                            >
+                              <FiX size={14} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
              </div>
              )}
 
@@ -2373,41 +2514,95 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                        </div>
                        <span className="text-gray-500 font-medium">Minutes</span>
                        
-                       <button className="ml-4 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium">
-                         Add new time
+                      <button 
+                        onClick={() => setShowSelectVehicleModal(true)}
+                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                      >
+                        {selectedVehicleForTour ? 'Change Vehicle' : 'Select Vehicle'}
                        </button>
                      </div>
                    </div>
                    
-                   <div>
+                  <div>
                    <button 
-                     onClick={() => setShowSelectVehicleModal(true)}
-                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                      onClick={addVehicleTimeAllocation}
+                      className="px-6 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
                    >
-                       {selectedVehicleForTour ? 'Change Vehicle' : 'Select Vehicle'}
+                      Add new time
                    </button>
-                     {selectedVehicleForTour && (
-                       <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                         <div className="flex items-center gap-2 text-sm">
-                           <FiCheckCircle className="text-green-600" size={16} />
-                           <span className="font-semibold text-green-900">Vehicle Selected:</span>
-                           <span className="text-green-700">{selectedVehicleForTour.title}</span>
-                         </div>
-                       </div>
-                     )}
-                   </div>
+                    {selectedVehicleForTour && (
+                      <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-sm">
+                          <FiCheckCircle className="text-green-600" size={16} />
+                          <span className="font-semibold text-green-900">Vehicle Selected:</span>
+                          <span className="text-green-700">{selectedVehicleForTour.title}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                  </div>
                </div>
 
                {/* Gap between Pick-up time container and below content */}
                <div className="mb-8"></div>
 
+              {/* Display Vehicle-Time Allocations */}
+              {vehicleTimeAllocations.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Allocated Time Slots</h3>
+                  <div className="space-y-3">
+                    {vehicleTimeAllocations.map((allocation) => (
+                      <div 
+                        key={allocation.id} 
+                        className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
+                            <FiClock className="text-blue-600" size={24} />
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-3">
+                              <span className="text-lg font-bold text-gray-900">{allocation.time}</span>
+                              <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                {allocation.date}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                              </svg>
+                              <span className="text-sm text-gray-600 font-medium">{allocation.vehicle.title}</span>
+                              <span className="text-xs text-gray-400">•</span>
+                              <span className="text-xs text-gray-500">{allocation.vehicle.attributes}</span>
+                              <span className="text-xs text-gray-400">•</span>
+                              <span className="text-xs text-gray-500">Max {allocation.vehicle.capacity} travelers</span>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeVehicleTimeAllocation(allocation.id)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove allocation"
+                        >
+                          <FiX size={20} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
                {/* Checkbox and Week Days */}
-               <div className="flex items-center space-x-4 mb-6">
-                 <label className="flex items-center">
-                   <input type="checkbox" className="mr-2 w-4 h-4 text-blue-600 bg-blue-600 border-blue-600 rounded" defaultChecked />
-                   <span className="text-sm text-gray-700">Apply the same for all days</span>
-                 </label>
+              <div className="flex items-center space-x-4 mb-6">
+                <label className="flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={applyToAllDays}
+                    onChange={(e) => setApplyToAllDays(e.target.checked)}
+                    className="mr-2 w-4 h-4 text-blue-600 bg-blue-600 border-blue-600 rounded cursor-pointer" 
+                  />
+                  <span className="text-sm text-gray-700">Apply the same for all days</span>
+                </label>
                  
                  <div className="relative">
                    <select 
@@ -2432,73 +2627,79 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                  </div>
                </div>
 
-               {/* Main Content Grid - Monday/Tuesday on left, Auto Intervals on right */}
-               <div className="grid grid-cols-3 gap-6">
-                 {/* Left Side - Monday & Tuesday Time Slots */}
-                 <div className="col-span-2 space-y-6">
-                   {/* Monday */}
-                   <div>
-                     <h4 className="text-sm font-bold text-gray-900 mb-3">Monday</h4>
-                     <div className="grid grid-cols-5 gap-2">
-                       {['06 : 00', '06 : 30', '07 : 00', '07 : 30', '08 : 00', '08 : 30', '09 : 00', '09 : 30', '10 : 00', '10 : 30', '11 : 00', '11 : 30', '12 : 00', '12 : 30', '13 : 00'].map((time, index) => (
-                         <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
-                           <span className="text-gray-700">{time}</span>
-                           <button className="text-gray-400 hover:text-red-500">
-                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                             </svg>
-                           </button>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
+              {/* Auto Intervals Container - Full Width */}
+              <div className="mb-8 flex justify-center">
+                <div className="bg-gray-100 border border-gray-200 rounded-lg p-6 w-full max-w-xl">
+                  <div className="flex items-center justify-center space-x-2 mb-4">
+                    <input
+                     type="time"
+                     value={startTime}
+                     onChange={(e) => setStartTime(e.target.value)}
+                     className="w-32 px-3 py-2 bg-white border border-gray-300 rounded text-center text-sm"
+                    />
+                    <span className="text-gray-500 text-sm">and</span>
+                    <input
+                     type="time"
+                     value={endTime}
+                     onChange={(e) => setEndTime(e.target.value)}
+                     className="w-32 px-3 py-2 bg-white border border-gray-300 rounded text-center text-sm"
+                    />
+                  </div>
+                <p className="text-xs text-gray-600 mb-4 leading-relaxed text-center">You can add starting and ending time with the auto intervals of time.</p>
+                <div className="flex items-center justify-center gap-3">
+                   <input
+                    type="number"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    min="1"
+                    max="720"
+                    placeholder="30"
+                     className="w-24 px-3 py-2 bg-white border border-gray-300 rounded text-center text-sm flex-shrink-0"
+                   />
+                   <p className="text-xs text-gray-600 leading-relaxed">Duration between the time in minutes.</p>
+                 </div>
+                </div>
+              </div>
 
-                   {/* Tuesday */}
-                   <div>
-                     <h4 className="text-sm font-bold text-gray-900 mb-3">Tuesday</h4>
-                     <div className="grid grid-cols-5 gap-2">
-                       {['06 : 00', '06 : 30', '07 : 00', '07 : 30', '08 : 00', '08 : 30', '09 : 00', '09 : 30', '10 : 00', '10 : 30', '11 : 00', '11 : 30', '12 : 00', '12 : 30', '13 : 00'].map((time, index) => (
-                         <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
-                           <span className="text-gray-700">{time}</span>
-                           <button className="text-gray-400 hover:text-red-500">
-                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                             </svg>
-                           </button>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                 </div>
-                 
-                 {/* Right Side - Auto Intervals Container */}
-                 <div className="col-span-1">
-                   <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 h-fit">
-                     <div className="flex items-center space-x-2 mb-3">
-                       <input
-                         type="text"
-                         defaultValue="06 : 35"
-                         className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-center text-sm"
-                       />
-                       <span className="text-gray-500 text-sm">and</span>
-                       <input
-                         type="text"
-                         defaultValue="20 : 30"
-                         className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-center text-sm"
-                       />
-                     </div>
-                     <p className="text-xs text-gray-600 mb-3">You can add starting and ending time with the auto intervals of time.</p>
-                     <div className="flex items-center space-x-2">
-                       <input
-                         type="text"
-                         defaultValue="00 : 30"
-                         className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-center text-sm"
-                       />
-                       <span className="text-xs text-gray-600">Duration between the time in minutes.</span>
-                     </div>
-                   </div>
-                 </div>
-               </div>
+              {/* Time Slots Section - Dynamic for all weekdays */}
+              <div className="space-y-6">
+                {Object.keys(timeSlots).map((day) => (
+                  timeSlots[day] && timeSlots[day].length > 0 && (
+                    <div key={day}>
+                      <h4 className="text-sm font-bold text-gray-900 mb-3">{day}</h4>
+                      <div className="grid grid-cols-5 gap-2">
+                        {timeSlots[day].map((time, index) => (
+                          <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
+                            <span className="text-gray-700">{time}</span>
+                            <button 
+                              onClick={() => {
+                                setTimeSlots(prev => ({
+                                  ...prev,
+                                  [day]: prev[day].filter((_, i) => i !== index)
+                                }));
+                              }}
+                              className="text-gray-400 hover:text-red-500"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                ))}
+                
+                {/* Show message if no slots configured yet */}
+                {Object.values(timeSlots).every(slots => !slots || slots.length === 0) && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 italic">
+                      Select a weekday, then set start time, end time, and duration to generate time slots
+                    </p>
+                  </div>
+                )}
+              </div>
              </div>
 
              {/* Select Vehicle Modal */}
