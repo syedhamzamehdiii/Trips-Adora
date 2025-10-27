@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { FiClock, FiMapPin, FiRotateCcw, FiPlus, FiX, FiCheckCircle, FiChevronDown, FiCamera, FiUpload, FiEdit3, FiTrash2, FiUser, FiStar } from 'react-icons/fi';
+import ReactCrop from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 import MountFujiTourPage from './MountFujiTourPage';
 
 const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, productData }) => {
@@ -17,6 +19,15 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
   const [showPreview, setShowPreview] = useState(false);
   const [placeName, setPlaceName] = useState('');
   const [description, setDescription] = useState('');
+  const [uploadedPhoto, setUploadedPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [croppedPhoto, setCroppedPhoto] = useState(null);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState(null);
+  const [crop, setCrop] = useState({ unit: '%', width: 100, aspect: 1 });
+  const [completedCrop, setCompletedCrop] = useState(null);
+  const photoInputRef = useRef(null);
+  const imgRef = useRef(null);
 
   const tourTypes = [
     { 
@@ -43,6 +54,86 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
     setSelectedTourType(tourType.name);
   };
 
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please upload an image file');
+        return;
+      }
+      
+      // Validate file size (max 2GB)
+      if (file.size > 2 * 1024 * 1024 * 1024) {
+        alert('File size must be less than 2GB');
+        return;
+      }
+      
+      setUploadedPhoto(file);
+      
+      // Create preview and show crop modal
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImageToCrop(reader.result);
+        setShowCropModal(true);
+      };
+      reader.readAsDataURL(file);
+      
+      console.log('✅ Photo uploaded:', file.name);
+    }
+  };
+
+  const getCroppedImg = (image, crop) => {
+    const canvas = document.createElement('canvas');
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+    canvas.width = crop.width;
+    canvas.height = crop.height;
+    const ctx = canvas.getContext('2d');
+
+    ctx.drawImage(
+      image,
+      crop.x * scaleX,
+      crop.y * scaleY,
+      crop.width * scaleX,
+      crop.height * scaleY,
+      0,
+      0,
+      crop.width,
+      crop.height
+    );
+
+    return canvas.toDataURL('image/jpeg');
+  };
+
+  const handleCropComplete = () => {
+    if (completedCrop && imgRef.current) {
+      const croppedImageUrl = getCroppedImg(imgRef.current, completedCrop);
+      setPhotoPreview(croppedImageUrl);
+      setCroppedPhoto(croppedImageUrl);
+      setShowCropModal(false);
+      console.log('✅ Photo cropped successfully');
+    }
+  };
+
+  const handleCancelCrop = () => {
+    setShowCropModal(false);
+    setImageToCrop(null);
+    setUploadedPhoto(null);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = '';
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setUploadedPhoto(null);
+    setPhotoPreview(null);
+    setCroppedPhoto(null);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = '';
+    }
+  };
+
   const attractionsOptions = [
     'Slightseeing & Photography',
     'Cultural Visits',
@@ -63,7 +154,8 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
       attractionType: selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
       timeSpent: `${hours}h ${minutes}min`,
       isFree: entryIsFree,
-      hasPhoto: false
+      hasPhoto: uploadedPhoto !== null,
+      photo: photoPreview // Store the preview URL
     };
     
     setItineraryEntries(prev => [...prev, newEntry]);
@@ -78,6 +170,15 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
     setHours('02');
     setMinutes('30');
     setEntryIsFree(true);
+    setUploadedPhoto(null);
+    setPhotoPreview(null);
+    setCroppedPhoto(null);
+    setImageToCrop(null);
+    setCrop({ unit: '%', width: 100, aspect: 1 });
+    setCompletedCrop(null);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = () => {
@@ -326,12 +427,21 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                         {/* Itinerary Entries */}
                         {itineraryEntries.map((entry, index) => (
                           <div key={entry.id} className="flex items-start mb-8 relative">
-                            <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
-                              {/* Person torso with head icon */}
-                              <div className="w-4 h-4 flex flex-col items-center justify-center">
-                                <div className="w-0.5 h-0.5 bg-black rounded-full mb-0.5"></div>
-                                <div className="w-2 h-1.5 bg-black rounded-sm"></div>
-                              </div>
+                            <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10 overflow-hidden">
+                              {entry.photo ? (
+                                /* Show uploaded photo */
+                                <img 
+                                  src={entry.photo} 
+                                  alt={entry.placeName}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                /* Person torso with head icon */
+                                <div className="w-4 h-4 flex flex-col items-center justify-center">
+                                  <div className="w-0.5 h-0.5 bg-black rounded-full mb-0.5"></div>
+                                  <div className="w-2 h-1.5 bg-black rounded-sm"></div>
+                                </div>
+                              )}
                             </div>
                             <div className="flex-1">
                               <h3 className="text-2xl font-bold text-black mb-2">{entry.location}</h3>
@@ -694,13 +804,66 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
               {/* Upload Photo */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Upload your Photo</label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <div className="flex flex-col items-center">
-                    <FiCamera className="w-8 h-8 text-gray-400 mb-2" />
-                    <span className="text-gray-600 mb-1">Upload Photo</span>
-                    <FiUpload className="w-4 h-4 text-gray-400" />
+                {photoPreview ? (
+                  // Show uploaded photo preview - Circular cropped version
+                  <div className="border-2 border-gray-300 rounded-lg p-6">
+                    <div className="flex flex-col items-center">
+                      {/* Circular Preview - Same as it will appear on timeline */}
+                      <div className="relative mb-4">
+                        <div className="w-32 h-32 border-4 border-black bg-gray-200 rounded-full overflow-hidden flex items-center justify-center">
+                          <img 
+                            src={photoPreview} 
+                            alt="Cropped preview" 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <button
+                          onClick={handleRemovePhoto}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                        >
+                          <FiX size={16} />
+                        </button>
+                      </div>
+                      
+                      {/* Info and Actions */}
+                      <div className="text-center w-full">
+                        <span className="text-sm text-green-600 font-medium flex items-center justify-center mb-3">
+                          <FiCheckCircle className="mr-1" size={16} />
+                          Photo cropped successfully
+                        </span>
+                        <p className="text-xs text-gray-600 mb-3">This is how your photo will appear on the itinerary timeline</p>
+                        <button
+                          onClick={() => photoInputRef.current?.click()}
+                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Change Photo
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  // Show upload area
+                  <div 
+                    onClick={() => photoInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                  >
+                    <div className="flex flex-col items-center">
+                      <FiCamera className="w-8 h-8 text-gray-400 mb-2" />
+                      <span className="text-gray-600 mb-1">Upload Photo</span>
+                      <FiUpload className="w-4 h-4 text-gray-400" />
+                      <p className="text-xs text-gray-500 mt-2">Click to browse or drag and drop</p>
+                      <p className="text-xs text-gray-400 mt-1">Max size: 2GB</p>
+                    </div>
+                  </div>
+                )}
+                {/* Hidden file input */}
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
               </div>
             </div>
 
@@ -711,6 +874,63 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Crop Modal */}
+      {showCropModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[80]">
+          <div className="bg-white rounded-lg shadow-xl w-[700px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-black">Crop Your Photo</h2>
+              <button
+                onClick={handleCancelCrop}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+
+            {/* Crop Area */}
+            <div className="p-6">
+              <div className="flex justify-center mb-4">
+                <ReactCrop
+                  crop={crop}
+                  onChange={(c) => setCrop(c)}
+                  onComplete={(c) => setCompletedCrop(c)}
+                  aspect={1}
+                  circularCrop
+                >
+                  <img
+                    ref={imgRef}
+                    src={imageToCrop}
+                    alt="Crop preview"
+                    style={{ maxWidth: '100%', maxHeight: '400px' }}
+                  />
+                </ReactCrop>
+              </div>
+              <p className="text-sm text-gray-600 text-center mb-4">
+                Drag to adjust the circular crop area. The photo will be displayed in a circle on your itinerary.
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={handleCancelCrop}
+                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCropComplete}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Apply Crop
               </button>
             </div>
           </div>
