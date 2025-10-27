@@ -1,6 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { LoadScript } from '@react-google-maps/api'
 import ScrollToTop from './components/common/ScrollToTop'
+
+// Google Maps libraries configuration (defined once to prevent re-loading)
+const GOOGLE_MAPS_LIBRARIES = ['places', 'geometry']
 
 // Import pages
 import Login from './pages/Auth/Login'
@@ -181,9 +185,15 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <LoadScript
+      googleMapsApiKey="AIzaSyCVM4pEynAGwWoPR4Nqg76jSXze_9_GE-c"
+      libraries={GOOGLE_MAPS_LIBRARIES}
+      loadingElement={<div>Loading Maps...</div>}
+    >
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </LoadScript>
   )
 }
 

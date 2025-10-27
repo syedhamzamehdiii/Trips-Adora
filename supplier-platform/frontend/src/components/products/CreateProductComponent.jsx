@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin, FiClock } from 'react-icons/fi';
+import { GoogleMap, Marker } from '@react-google-maps/api';
 import AddItineraryComponent from './AddItineraryComponent';
 
 const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
@@ -95,6 +96,11 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
   // Vehicle-Time Allocations (time + vehicle pairings)
   const [vehicleTimeAllocations, setVehicleTimeAllocations] = useState([]);
   
+  // Google Maps state
+  const [mapCenter, setMapCenter] = useState({ lat: 35.3606, lng: 138.7274 }); // Mount Fuji area
+  const [mapZoom, setMapZoom] = useState(8);
+  const [map, setMap] = useState(null);
+  
   // Step 4 state management
   const [selectedGuideType, setSelectedGuideType] = useState('Driver');
   const [selectedActivityType, setSelectedActivityType] = useState('Private');
@@ -144,6 +150,65 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
   const countWords = (text) => {
     if (!text) return 0;
     return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  };
+  
+  // Helper function to get coordinates for a location
+  const getLocationCoordinates = (location) => {
+    const coordinates = {
+      // Tokyo areas
+      'Shibuya Crossing (Tokyo)': { lat: 35.6595, lng: 139.7004 },
+      'Tokyo Tower (Tokyo)': { lat: 35.6586, lng: 139.7454 },
+      'Sensoji Temple (Asakusa, Tokyo)': { lat: 35.7148, lng: 139.7967 },
+      'Shinjuku Station (Tokyo)': { lat: 35.6896, lng: 139.7006 },
+      'Akihabara (Tokyo)': { lat: 35.7023, lng: 139.7745 },
+      'Harajuku (Tokyo)': { lat: 35.6702, lng: 139.7028 },
+      'Roppongi Hills (Tokyo)': { lat: 35.6604, lng: 139.7292 },
+      'Tokyo Skytree (Tokyo)': { lat: 35.7101, lng: 139.8107 },
+      'Odaiba (Tokyo)': { lat: 35.6265, lng: 139.7734 },
+      'Ginza (Tokyo)': { lat: 35.6717, lng: 139.7653 },
+      
+      // Mount Fuji areas
+      'Mount Fuji (Yamanashi)': { lat: 35.3606, lng: 138.7274 },
+      'Kawaguchiko Lake (Mount Fuji)': { lat: 35.5110, lng: 138.7643 },
+      'Gotemba Premium Outlets (Mount Fuji)': { lat: 35.3331, lng: 138.9503 },
+      'Hakone (Kanagawa)': { lat: 35.2323, lng: 139.1070 },
+      'Oshino Hakkai (Mount Fuji)': { lat: 35.4571, lng: 138.8447 },
+      
+      // Osaka areas
+      'Osaka Castle (Osaka)': { lat: 34.6873, lng: 135.5262 },
+      'Dotonbori (Osaka)': { lat: 34.6686, lng: 135.5004 },
+      'Universal Studios Japan (Osaka)': { lat: 34.6654, lng: 135.4322 },
+      'Shinsekai (Osaka)': { lat: 34.6524, lng: 135.5064 },
+      'Umeda Sky Building (Osaka)': { lat: 34.7055, lng: 135.4903 },
+      
+      // Kyoto areas
+      'Fushimi Inari Shrine (Kyoto)': { lat: 34.9671, lng: 135.7727 },
+      'Kinkaku-ji Temple (Kyoto)': { lat: 35.0394, lng: 135.7292 },
+      'Arashiyama Bamboo Grove (Kyoto)': { lat: 35.0170, lng: 135.6719 },
+      'Kiyomizu-dera Temple (Kyoto)': { lat: 34.9948, lng: 135.7850 },
+      'Gion District (Kyoto)': { lat: 35.0038, lng: 135.7753 },
+      'Nijo Castle (Kyoto)': { lat: 35.0142, lng: 135.7481 },
+      
+      // Yokohama
+      'Yokohama Chinatown (Yokohama)': { lat: 35.4437, lng: 139.6455 },
+      'Minato Mirai (Yokohama)': { lat: 35.4561, lng: 139.6364 },
+      'Yokohama Red Brick Warehouse (Yokohama)': { lat: 35.4532, lng: 139.6425 },
+      
+      // Hiroshima
+      'Hiroshima Peace Memorial (Hiroshima)': { lat: 34.3955, lng: 132.4536 },
+      'Itsukushima Shrine (Miyajima)': { lat: 34.2958, lng: 132.3197 },
+      
+      // Nara
+      'Todai-ji Temple (Nara)': { lat: 34.6890, lng: 135.8398 },
+      'Nara Park (Nara)': { lat: 34.6851, lng: 135.8431 },
+      
+      // Other major cities
+      'Nagoya Castle (Nagoya)': { lat: 35.1852, lng: 136.8991 },
+      'Sapporo Snow Festival Site (Sapporo)': { lat: 43.0618, lng: 141.3545 },
+      'Fukuoka Tower (Fukuoka)': { lat: 33.5936, lng: 130.3560 }
+    };
+    
+    return coordinates[location] || null;
   };
   
   // Accessibility & Comfort toggles
@@ -2063,49 +2128,88 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                    </div>
                  )}
                
-               {/* Location Added Confirmation */}
-               {showLocationAddedMessage && (
-                 <div className="mb-4 flex items-center gap-2 text-green-600 font-medium bg-green-50 px-4 py-2 rounded-lg">
-                   <FiCheckCircle size={20} />
-                   <span>Location added successfully!</span>
-               </div>
-               )}
+              {/* Location Added Confirmation */}
+              {showLocationAddedMessage && (
+                <div className="mb-4 flex items-center gap-2 text-green-600 font-medium bg-green-50 px-4 py-2 rounded-lg">
+                  <FiCheckCircle size={20} />
+                  <span>Location added successfully!</span>
+              </div>
+              )}
 
-               {/* Map and Action buttons container */}
-               <div className="flex gap-4">
-                 {/* Map Component */}
-                 <div className="flex-1 relative bg-gray-100 border border-gray-300 rounded-lg h-64">
-                   <div className="absolute inset-0 flex items-center justify-center">
-                     <div className="text-center">
-                       <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                         <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                         </svg>
-                       </div>
-                       <p className="text-gray-600">Map View</p>
-                       <p className="text-sm text-gray-500">Tokyo area highlighted</p>
-                     </div>
-                   </div>
-                   
-                   {/* Map Controls */}
-                   <div className="absolute top-4 right-4 flex flex-col space-y-2">
-                     <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-50">
-                       <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                       </svg>
-                     </button>
-                     <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-50">
-                       <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
-                       </svg>
-                     </button>
-                     <button className="w-8 h-8 bg-white border border-gray-300 rounded flex items-center justify-center hover:bg-gray-50">
-                       <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                       </svg>
-                     </button>
-                   </div>
-                 </div>
+              {/* Map Section Header */}
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Find a location to select</h3>
+                <p className="text-sm text-gray-600 mb-3">Select locations on the map or use the search above to find specific places in Japan</p>
+              </div>
+
+              {/* Map and Action buttons container */}
+              <div className="flex gap-4">
+                {/* Map Component */}
+                <div className="flex-1 relative bg-gray-100 border border-gray-300 rounded-lg overflow-hidden" style={{ height: '400px' }}>
+                  <GoogleMap
+                      mapContainerStyle={{ width: '100%', height: '100%' }}
+                      center={mapCenter}
+                      zoom={mapZoom}
+                      onLoad={map => setMap(map)}
+                      options={{
+                        zoomControl: true,
+                        streetViewControl: false,
+                        mapTypeControl: false,
+                        fullscreenControl: true,
+                        styles: []
+                      }}
+                    >
+                      {/* Markers for selected pickup locations */}
+                      {window.google && selectedPickupLocations.map((location, index) => {
+                        const coords = getLocationCoordinates(location);
+                        return coords ? (
+                          <Marker
+                            key={`pickup-${index}`}
+                            position={coords}
+                            label={{
+                              text: "Free",
+                              color: "#000",
+                              fontSize: "12px",
+                              fontWeight: "bold"
+                            }}
+                            icon={{
+                              path: window.google.maps.SymbolPath.CIRCLE,
+                              scale: 20,
+                              fillColor: "#4F46E5",
+                              fillOpacity: 0.9,
+                              strokeColor: "#312E81",
+                              strokeWeight: 2,
+                            }}
+                          />
+                        ) : null;
+                      })}
+                      
+                      {/* Markers for selected drop-off locations */}
+                      {window.google && selectedDropoffLocations.map((location, index) => {
+                        const coords = getLocationCoordinates(location);
+                        return coords ? (
+                          <Marker
+                            key={`dropoff-${index}`}
+                            position={coords}
+                            label={{
+                              text: "Free",
+                              color: "#000",
+                              fontSize: "12px",
+                              fontWeight: "bold"
+                            }}
+                            icon={{
+                              path: window.google.maps.SymbolPath.CIRCLE,
+                              scale: 20,
+                              fillColor: "#10B981",
+                              fillOpacity: 0.9,
+                              strokeColor: "#047857",
+                              strokeWeight: 2,
+                            }}
+                          />
+                        ) : null;
+                      })}
+                    </GoogleMap>
+                </div>
 
                  {/* Action buttons on the right */}
                  <div className="flex flex-col space-y-3 w-64">
