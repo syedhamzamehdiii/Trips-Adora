@@ -271,6 +271,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         attractionType: itinerary.attractionType,
         timeSpent: itinerary.timeSpent,
         isFree: itinerary.isFree,
+        photo: itinerary.photo, // Include cropped photo
         icon: 'sightseeing'
       }))
     : defaultItineraryItems;
@@ -726,30 +727,40 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
               </div>
               {productData?.vehicles && productData.vehicles.length > 0 ? (
                 productData.vehicles.map((vehicle, index) => (
-                  <div key={vehicle.id} className="mb-6 last:mb-0">
+                  <div key={vehicle.id || index} className="mb-6 last:mb-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="flex items-start space-x-3">
                         <FiTruck size={20} className="text-blue-600 mt-1" />
                         <div>
                           <h4 className="font-semibold text-gray-900">Vehicle Details</h4>
-                          <p className="text-gray-600">{vehicle.title || `${vehicle.type} ${vehicle.model.replace('-', ' ')}`}</p>
-                          <p className="text-sm text-gray-500">{vehicle.year} model</p>
-                          <p className="text-sm text-gray-500">{vehicle.attributes}</p>
-                          <p className="text-sm text-gray-500">Best for up to {vehicle.capacity} travelers</p>
+                          <p className="text-gray-600">
+                            {vehicle.title || (vehicle.type && vehicle.model ? `${vehicle.type} ${vehicle.model.replace('-', ' ')}` : 'Vehicle')}
+                          </p>
+                          {vehicle.year && <p className="text-sm text-gray-500">{vehicle.year} model</p>}
+                          {vehicle.attributes && <p className="text-sm text-gray-500">{vehicle.attributes}</p>}
+                          {vehicle.capacity && <p className="text-sm text-gray-500">Best for up to {vehicle.capacity} travelers</p>}
                         </div>
                       </div>
                       <div className="flex items-start space-x-3">
                         <FiClock size={20} className="text-blue-600 mt-1" />
                         <div>
                           <h4 className="font-semibold text-gray-900">Duration</h4>
-                          <p className="text-gray-600">{vehicle.duration}</p>
+                          <p className="text-gray-600">{vehicle.duration || 'N/A'}</p>
                         </div>
                       </div>
                     </div>
-                    <div className="mt-6 flex items-center space-x-3">
-                      <span className="text-2xl font-bold text-gray-900">{vehicle.currency} {vehicle.amount}</span>
-                      <span className="text-gray-600">{vehicle.pricingType}</span>
-                    </div>
+                    {(vehicle.currency || vehicle.amount || vehicle.pricingType) && (
+                      <div className="mt-6 flex items-center space-x-3">
+                        {(vehicle.currency || vehicle.amount) && (
+                          <span className="text-2xl font-bold text-gray-900">
+                            {vehicle.currency || '$'} {vehicle.amount || '0'}
+                          </span>
+                        )}
+                        {vehicle.pricingType && (
+                          <span className="text-gray-600">{vehicle.pricingType}</span>
+                        )}
+                      </div>
+                    )}
                     {vehicle.description && (
                       <p className="text-sm text-gray-600 mt-3">{vehicle.description}</p>
                     )}
@@ -919,11 +930,26 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 {itineraryItems.map((item, index) => (
                   <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="flex items-start space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-blue-600 text-xs font-bold">{item.time}</span>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-gray-300 overflow-hidden bg-blue-100">
+                        {item.photo ? (
+                          /* Show cropped circular photo */
+                          <img 
+                            src={item.photo} 
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          /* Show time if no photo */
+                          <span className="text-blue-600 text-xs font-bold">{item.time}</span>
+                        )}
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 text-sm mb-1">{item.title}</h4>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-gray-900 text-sm">{item.title}</h4>
+                          {item.photo && (
+                            <span className="text-blue-600 text-xs font-medium">{item.time}</span>
+                          )}
+                        </div>
                         <p className="text-gray-600 text-xs mt-1 mb-2">{item.description}</p>
                         {item.attractionType && (
                           <p className="text-gray-500 text-xs mb-2">{item.attractionType}</p>

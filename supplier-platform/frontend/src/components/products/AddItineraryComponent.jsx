@@ -805,12 +805,11 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Upload your Photo</label>
                 {photoPreview ? (
-                  // Show uploaded photo preview - Circular cropped version
+                  // Show cropped photo preview in circular format
                   <div className="border-2 border-gray-300 rounded-lg p-6">
                     <div className="flex flex-col items-center">
-                      {/* Circular Preview - Same as it will appear on timeline */}
                       <div className="relative mb-4">
-                        <div className="w-32 h-32 border-4 border-black bg-gray-200 rounded-full overflow-hidden flex items-center justify-center">
+                        <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg">
                           <img 
                             src={photoPreview} 
                             alt="Cropped preview" 
@@ -819,19 +818,16 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                         </div>
                         <button
                           onClick={handleRemovePhoto}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                          className="absolute top-0 right-0 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-md"
                         >
                           <FiX size={16} />
                         </button>
                       </div>
-                      
-                      {/* Info and Actions */}
-                      <div className="text-center w-full">
-                        <span className="text-sm text-green-600 font-medium flex items-center justify-center mb-3">
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-sm text-green-600 font-medium flex items-center">
                           <FiCheckCircle className="mr-1" size={16} />
-                          Photo cropped successfully
+                          Photo uploaded successfully
                         </span>
-                        <p className="text-xs text-gray-600 mb-3">This is how your photo will appear on the itinerary timeline</p>
                         <button
                           onClick={() => photoInputRef.current?.click()}
                           className="text-sm text-blue-600 hover:text-blue-700 font-medium"
