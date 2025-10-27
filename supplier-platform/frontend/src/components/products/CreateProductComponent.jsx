@@ -69,6 +69,10 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
   const [selectedDropoffLocations, setSelectedDropoffLocations] = useState([]);
   const [showLocationAddedMessage, setShowLocationAddedMessage] = useState(false);
   
+  // Manual region input
+  const [manualPickupRegion, setManualPickupRegion] = useState('');
+  const [manualDropoffRegion, setManualDropoffRegion] = useState('');
+  
   // Time slots management
   const [applyToAllDays, setApplyToAllDays] = useState(true);
   const [startTime, setStartTime] = useState('06:35');
@@ -349,59 +353,114 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
     step, draftId
   ]);
 
-  // Japan locations database for real-time search
-  const japanLocations = [
-    // Tokyo
-    'Tokyo Station', 'Shibuya Crossing', 'Shinjuku Station', 'Harajuku', 'Asakusa', 'Akihabara',
-    'Roppongi', 'Ginza', 'Odaiba', 'Ueno', 'Ikebukuro', 'Tokyo Skytree', 'Tokyo Tower',
-    'Tsukiji Fish Market', 'Meiji Shrine', 'Senso-ji Temple', 'Imperial Palace Tokyo',
-    // Kyoto
-    'Kyoto Station', 'Fushimi Inari Shrine', 'Kinkaku-ji (Golden Pavilion)', 'Gion District',
-    'Arashiyama', 'Kiyomizu-dera Temple', 'Nijo Castle', 'Philosopher\'s Path',
-    'Fushimi Sake District', 'Nishiki Market', 'Ginkaku-ji (Silver Pavilion)',
-    // Osaka
-    'Osaka Station', 'Dotonbori', 'Osaka Castle', 'Umeda Sky Building', 'Shinsaibashi',
-    'Namba', 'Universal Studios Japan', 'Tennoji', 'Tsutenkaku Tower',
-    // Hiroshima
-    'Hiroshima Station', 'Hiroshima Peace Memorial Park', 'Atomic Bomb Dome', 'Miyajima Island',
-    'Itsukushima Shrine', 'Shukkeien Garden',
-    // Nara
-    'Nara Station', 'Nara Park', 'Todai-ji Temple', 'Kasuga Taisha Shrine',
-    // Yokohama
-    'Yokohama Station', 'Minato Mirai', 'Yokohama Chinatown', 'Yamashita Park',
-    // Hakone
-    'Hakone-Yumoto Station', 'Lake Ashi', 'Hakone Shrine', 'Owakudani Valley',
-    // Mount Fuji Area
-    'Mount Fuji 5th Station', 'Lake Kawaguchi', 'Fujiyoshida', 'Chureito Pagoda',
-    'Fuji-Q Highland', 'Oshino Hakkai',
-    // Nagoya
-    'Nagoya Station', 'Nagoya Castle', 'Atsuta Shrine', 'Osu Shopping District',
-    // Hokkaido
-    'Sapporo Station', 'Odori Park', 'Susukino', 'Otaru', 'Hakodate', 'Niseko',
-    // Fukuoka
-    'Fukuoka Airport', 'Hakata Station', 'Tenjin', 'Canal City', 'Ohori Park',
-    // Kanazawa
-    'Kanazawa Station', 'Kenroku-en Garden', 'Higashi Chaya District', '21st Century Museum',
-    // Nikko
-    'Nikko Station', 'Toshogu Shrine', 'Lake Chuzenji', 'Kegon Falls',
-    // Kamakura
-    'Kamakura Station', 'Great Buddha of Kamakura', 'Hase-dera Temple', 'Tsurugaoka Hachimangu',
-    // Narita
-    'Narita International Airport', 'Narita Station', 'Narita-san Temple',
-    // Kobe
-    'Kobe Station', 'Kobe Harbor', 'Mount Rokko', 'Arima Onsen',
-    // Other Major Locations
-    'Takayama', 'Shirakawa-go', 'Matsumoto Castle', 'Nagano', 'Okinawa', 'Naha Airport'
-  ];
+  // Japan regions and their locations database
+  const japanRegionsMap = {
+    'tokyo': [
+      'Tokyo Station', 'Shibuya Crossing', 'Shinjuku Station', 'Harajuku', 'Asakusa', 'Akihabara',
+      'Roppongi', 'Ginza', 'Odaiba', 'Ueno', 'Ikebukuro', 'Tokyo Skytree', 'Tokyo Tower',
+      'Tsukiji Fish Market', 'Meiji Shrine', 'Senso-ji Temple', 'Imperial Palace Tokyo'
+    ],
+    'kyoto': [
+      'Kyoto Station', 'Fushimi Inari Shrine', 'Kinkaku-ji (Golden Pavilion)', 'Gion District',
+      'Arashiyama', 'Kiyomizu-dera Temple', 'Nijo Castle', 'Philosopher\'s Path',
+      'Fushimi Sake District', 'Nishiki Market', 'Ginkaku-ji (Silver Pavilion)'
+    ],
+    'osaka': [
+      'Osaka Station', 'Dotonbori', 'Osaka Castle', 'Umeda Sky Building', 'Shinsaibashi',
+      'Namba', 'Universal Studios Japan', 'Tennoji', 'Tsutenkaku Tower'
+    ],
+    'hiroshima': [
+      'Hiroshima Station', 'Hiroshima Peace Memorial Park', 'Atomic Bomb Dome', 'Miyajima Island',
+      'Itsukushima Shrine', 'Shukkeien Garden'
+    ],
+    'nara': ['Nara Station', 'Nara Park', 'Todai-ji Temple', 'Kasuga Taisha Shrine'],
+    'yokohama': ['Yokohama Station', 'Minato Mirai', 'Yokohama Chinatown', 'Yamashita Park'],
+    'hakone': ['Hakone-Yumoto Station', 'Lake Ashi', 'Hakone Shrine', 'Owakudani Valley'],
+    'mount fuji': [
+      'Mount Fuji 5th Station', 'Lake Kawaguchi', 'Fujiyoshida', 'Chureito Pagoda',
+      'Fuji-Q Highland', 'Oshino Hakkai'
+    ],
+    'fuji': [
+      'Mount Fuji 5th Station', 'Lake Kawaguchi', 'Fujiyoshida', 'Chureito Pagoda',
+      'Fuji-Q Highland', 'Oshino Hakkai'
+    ],
+    'nagoya': ['Nagoya Station', 'Nagoya Castle', 'Atsuta Shrine', 'Osu Shopping District'],
+    'hokkaido': ['Sapporo Station', 'Odori Park', 'Susukino', 'Otaru', 'Hakodate', 'Niseko'],
+    'sapporo': ['Sapporo Station', 'Odori Park', 'Susukino'],
+    'fukuoka': ['Fukuoka Airport', 'Hakata Station', 'Tenjin', 'Canal City', 'Ohori Park'],
+    'kanazawa': ['Kanazawa Station', 'Kenrokuen Garden', 'Higashi Chaya District', 'Kanazawa Castle']
+  };
 
-  // Filter locations based on search query
+  // Flat list of all locations for backward compatibility
+  const japanLocations = Object.values(japanRegionsMap).flat();
+
+  // Intelligent region detection from user input
+  const detectRegionsFromInput = (searchQuery) => {
+    if (!searchQuery || searchQuery.length < 3) return [];
+    
+    const query = searchQuery.toLowerCase();
+    const detectedRegions = [];
+    
+    // Check for "from X to Y" pattern
+    const patterns = [
+      /from\s+([a-z\s]+)\s+to\s+([a-z\s]+)/i,
+      /([a-z\s]+)\s+to\s+([a-z\s]+)/i,
+      /([a-z\s]+)\s*-\s*([a-z\s]+)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = query.match(pattern);
+      if (match) {
+        console.log('🎯 Detected region pattern:', match[0]);
+        const region1 = match[1].trim();
+        const region2 = match[2].trim();
+        
+        // Find locations for both regions
+        for (const [regionKey, locations] of Object.entries(japanRegionsMap)) {
+          if (regionKey.includes(region1) || region1.includes(regionKey)) {
+            console.log('✅ Found pickup region:', regionKey, '→', locations.length, 'points');
+            detectedRegions.push({ type: 'pickup', region: regionKey, locations });
+          }
+          if (regionKey.includes(region2) || region2.includes(regionKey)) {
+            console.log('✅ Found dropoff region:', regionKey, '→', locations.length, 'points');
+            detectedRegions.push({ type: 'dropoff', region: regionKey, locations });
+          }
+        }
+        return detectedRegions;
+      }
+    }
+    
+    // If no pattern match, check if query is a single region
+    for (const [regionKey, locations] of Object.entries(japanRegionsMap)) {
+      if (query.includes(regionKey) || regionKey.includes(query)) {
+        detectedRegions.push({ type: 'both', region: regionKey, locations });
+      }
+    }
+    
+    return detectedRegions;
+  };
+
+  // Filter locations based on search query with intelligent region detection
   const filterLocations = (query, locationType) => {
     if (!query || query.length < 2) return [];
     
-    const searchTerm = query.toLowerCase();
-    let filtered = japanLocations.filter(location =>
-      location.toLowerCase().includes(searchTerm)
-    );
+    // First, try intelligent region detection
+    const detectedRegions = detectRegionsFromInput(query);
+    let filtered = [];
+    
+    if (detectedRegions.length > 0) {
+      // If regions detected, show all points from those regions
+      console.log('📍 Showing points from detected regions');
+      detectedRegions.forEach(({ region, locations }) => {
+        filtered = [...filtered, ...locations];
+      });
+    } else {
+      // Fallback to regular search
+      const searchTerm = query.toLowerCase();
+      filtered = japanLocations.filter(location =>
+        location.toLowerCase().includes(searchTerm)
+      );
+    }
 
     // Apply location type filter
     if (locationType === 'Hotels only') {
@@ -416,7 +475,10 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
       );
     }
 
-    return filtered.slice(0, 10); // Limit to 10 results
+    // Remove duplicates
+    filtered = [...new Set(filtered)];
+
+    return filtered.slice(0, 20); // Return top 20 results
   };
 
   // Add pickup location
@@ -1931,75 +1993,119 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                </div>
              </div>
 
-             {/* From/To Location Display Cards - Shows selected locations */}
-             {(selectedPickupLocations.length > 0 || selectedDropoffLocations.length > 0) && (
-               <div className="mb-8">
-                 {selectedPickupLocations.slice(0, 1).map((pickupLoc, index) => (
-                   <div key={index} className="bg-white border border-gray-200 rounded-lg p-6 mb-4">
-                     <div className="flex items-start justify-between">
-                       {/* Left side - From/To info */}
-                       <div className="flex-1 grid grid-cols-2 gap-8">
-                         {/* From */}
-                         <div>
-                           <div className="flex items-center mb-2">
-                             <span className="text-sm font-semibold text-gray-900">From</span>
-                             <button className="ml-2 text-red-500 hover:text-red-600">
-                               <FiX size={16} />
-                             </button>
-                           </div>
-                           <div className="text-sm text-gray-700">
-                             <p className="font-medium">{pickupLoc.split(',')[0] || pickupLoc}</p>
-                             <p className="text-xs text-gray-500">{pickupLoc}</p>
-                           </div>
-                         </div>
+            {/* Manual Region Input Card - Editable From/To */}
+            <div className="mb-8">
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="flex items-start justify-between">
+                  {/* Left side - From/To editable inputs */}
+                  <div className="flex-1 grid grid-cols-2 gap-8">
+                    {/* From */}
+                    <div>
+                      <div className="flex items-center mb-2">
+                        <span className="text-sm font-semibold text-gray-900">From</span>
+                        {manualPickupRegion && (
+                          <button 
+                            onClick={() => {
+                              setManualPickupRegion('');
+                              setSelectedPickupLocations([]);
+                            }}
+                            className="ml-2 text-red-500 hover:text-red-600"
+                          >
+                            <FiX size={16} />
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Type region (e.g. Tokyo, Kyoto...)"
+                        value={manualPickupRegion}
+                        onChange={(e) => {
+                          setManualPickupRegion(e.target.value);
+                          // Auto-detect and populate locations from region
+                          const detectedRegions = detectRegionsFromInput(e.target.value);
+                          if (detectedRegions.length > 0) {
+                            const pickupRegion = detectedRegions.find(r => r.type === 'pickup' || r.type === 'both');
+                            if (pickupRegion && pickupRegion.locations.length > 0) {
+                              setSelectedPickupLocations(pickupRegion.locations.slice(0, 3));
+                            }
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                      {manualPickupRegion && selectedPickupLocations.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">{selectedPickupLocations[0]}</p>
+                      )}
+                    </div>
 
-                         {/* To */}
-                         <div>
-                           <div className="flex items-center mb-2">
-                             <span className="text-sm font-semibold text-gray-900">To</span>
-                             <button className="ml-2 text-red-500 hover:text-red-600">
-                               <FiX size={16} />
-                             </button>
-                           </div>
-                           <div className="text-sm text-gray-700">
-                             {selectedDropoffLocations.length > 0 ? (
-                               <>
-                                 <p className="font-medium">{selectedDropoffLocations[0].split(',')[0] || selectedDropoffLocations[0]}</p>
-                                 <p className="text-xs text-gray-500">{selectedDropoffLocations[0]}</p>
-                               </>
-                             ) : (
-                               <p className="text-gray-400 italic">Same as pickup</p>
-                             )}
-                           </div>
-                         </div>
-                       </div>
+                    {/* To */}
+                    <div>
+                      <div className="flex items-center mb-2">
+                        <span className="text-sm font-semibold text-gray-900">To</span>
+                        {manualDropoffRegion && (
+                          <button 
+                            onClick={() => {
+                              setManualDropoffRegion('');
+                              setSelectedDropoffLocations([]);
+                            }}
+                            className="ml-2 text-red-500 hover:text-red-600"
+                          >
+                            <FiX size={16} />
+                          </button>
+                        )}
+                      </div>
+                      {useSamePickupLocation ? (
+                        <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 italic">
+                          Same as pickup
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            placeholder="Type region (e.g. Mount Fuji...)"
+                            value={manualDropoffRegion}
+                            onChange={(e) => {
+                              setManualDropoffRegion(e.target.value);
+                              // Auto-detect and populate locations from region
+                              const detectedRegions = detectRegionsFromInput(e.target.value);
+                              if (detectedRegions.length > 0) {
+                                const dropoffRegion = detectedRegions.find(r => r.type === 'dropoff' || r.type === 'both');
+                                if (dropoffRegion && dropoffRegion.locations.length > 0) {
+                                  setSelectedDropoffLocations(dropoffRegion.locations.slice(0, 3));
+                                }
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          />
+                          {manualDropoffRegion && selectedDropoffLocations.length > 0 && (
+                            <p className="text-xs text-gray-500 mt-1">{selectedDropoffLocations[0]}</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
 
-                       {/* Right side - Distance and Time badges */}
-                       <div className="flex flex-col items-end space-y-2 ml-4">
-                         <div className="px-4 py-2 bg-blue-600 text-white rounded-full text-xs font-medium">
-                           Distance: ~300-350 km
-                         </div>
-                         <div className="px-4 py-2 bg-blue-600 text-white rounded-full text-xs font-medium">
-                           About: ~2 to 3 hours
-                         </div>
-                       </div>
-                     </div>
+                  {/* Right side - Distance and Time badges */}
+                  <div className="flex flex-col items-end space-y-2 ml-4">
+                    <div className="px-4 py-2 bg-blue-600 text-white rounded-full text-xs font-medium">
+                      Distance: ~300-350 km
+                    </div>
+                    <div className="px-4 py-2 bg-blue-600 text-white rounded-full text-xs font-medium">
+                      About: ~2 to 3 hours
+                    </div>
+                  </div>
+                </div>
 
-                     {/* Note */}
-                     {selectedPickupLocations.length > 0 && (
-                       <div className="mt-4 pt-4 border-t border-gray-200">
-                         <p className="text-xs text-gray-500 flex items-center">
-                           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                           </svg>
-                           Note your visit spots to plan your tour better
-                         </p>
-                       </div>
-                     )}
-                   </div>
-                 ))}
-               </div>
-             )}
+                {/* Note */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 flex items-center">
+                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Note your visit spots to plan your tour better
+                  </p>
+                </div>
+              </div>
+            </div>
 
              {/* Use Same Pick-up Toggle */}
              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
