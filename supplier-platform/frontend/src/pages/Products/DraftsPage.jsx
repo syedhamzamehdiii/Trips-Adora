@@ -5,21 +5,78 @@ import CreateProductComponent from '@/components/products/CreateProductComponent
 
 const DraftsPage = () => {
   const navigate = useNavigate();
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(null);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
-  const dropdownRef = useRef(null);
+  const [editingDraftId, setEditingDraftId] = useState(null); // Track which draft is being edited
+  const [draftData, setDraftData] = useState(null);
+  const [draftProducts, setDraftProducts] = useState([]);
+  const [productStats, setProductStats] = useState({
+    total: 0,
+    active: 0,
+    draft: 0,
+    revenue: 0
+  });
+  const dropdownRefs = useRef({});
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
+      Object.keys(dropdownRefs.current).forEach(key => {
+        if (dropdownRefs.current[key] && !dropdownRefs.current[key].contains(event.target)) {
+          if (showDropdown === parseInt(key)) {
+            setShowDropdown(null);
+          }
+        }
+      });
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    if (showDropdown !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
+  }, [showDropdown]);
+
+  // Load draft data and product stats from localStorage
+  useEffect(() => {
+    const loadData = () => {
+      try {
+        // Load draft info
+        const savedDraft = localStorage.getItem('product_draft_current_draft');
+        if (savedDraft) {
+          const parsed = JSON.parse(savedDraft);
+          setDraftData(parsed);
+        }
+        
+        // Load product stats and draft products
+        const allProductsData = localStorage.getItem('all_products');
+        if (allProductsData) {
+          const allProducts = JSON.parse(allProductsData);
+          const published = allProducts.filter(p => p.status === 'Published').length;
+          const drafts = allProducts.filter(p => p.status === 'Draft');
+          const totalRevenue = allProducts
+            .filter(p => p.status === 'Published')
+            .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
+          
+          setDraftProducts(drafts);
+          setProductStats({
+            total: allProducts.length,
+            active: published,
+            draft: drafts.length,
+            revenue: totalRevenue
+          });
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+    
+    loadData();
+    
+    // Refresh data every 5 seconds to show real-time updates (reduced from 2 seconds)
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -32,19 +89,19 @@ const DraftsPage = () => {
         {/* Summary Cards */}
         <div className="grid grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-center">
-            <div className="text-4xl font-bold text-gray-900 mb-2">5</div>
+            <div className="text-4xl font-bold text-gray-900 mb-2">{productStats.total}</div>
             <div className="text-gray-600">Total Products</div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-center">
-            <div className="text-4xl font-bold text-gray-900 mb-2">03</div>
+            <div className="text-4xl font-bold text-gray-900 mb-2">{String(productStats.active).padStart(2, '0')}</div>
             <div className="text-gray-600">Active Products</div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-center">
-            <div className="text-4xl font-bold text-gray-900 mb-2">1</div>
+            <div className="text-4xl font-bold text-gray-900 mb-2">{productStats.draft}</div>
             <div className="text-gray-600">Draft products</div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 text-center">
-            <div className="text-4xl font-bold text-gray-900 mb-2">$71,570</div>
+            <div className="text-4xl font-bold text-gray-900 mb-2">${productStats.revenue.toLocaleString()}</div>
             <div className="text-gray-600">Total Revenue</div>
           </div>
         </div>
@@ -61,7 +118,7 @@ const DraftsPage = () => {
           <button className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white">
             <FiFileText className="mr-2 text-white" size={16} />
             Drafts
-            <span className="ml-2 w-5 h-5 bg-white text-blue-600 text-xs rounded-full flex items-center justify-center">1</span>
+            <span className="ml-2 w-5 h-5 bg-white text-blue-600 text-xs rounded-full flex items-center justify-center">{productStats.draft}</span>
           </button>
         </div>
 
@@ -73,83 +130,107 @@ const DraftsPage = () => {
           </div>
           <p className="text-gray-600 mb-6">Complete these draft Products to make them available for booking</p>
 
-          {/* Draft Product Card */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Osake Castle & Gardens</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                  <div>
-                    <span className="font-medium">Category:</span> Historical
-                  </div>
-                  <div>
-                    <span className="font-medium">Price:</span> $75
-                  </div>
-                  <div>
-                    <span className="font-medium">Modified:</span> 2024-01-10
-                  </div>
-                  <div>
-                    <span className="font-medium">Creator:</span> Emily Davis
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button 
-                  onClick={() => setShowCreateProduct(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  <FiEdit3 size={16} />
-                  <span>Continue Editing</span>
-                </button>
-                <div className="relative" ref={dropdownRef}>
-                  <button 
-                    onClick={() => setShowDropdown(!showDropdown)}
-                    className="p-2 text-gray-400 hover:text-gray-600"
-                  >
-                    <FiMoreVertical size={20} />
-                  </button>
-                  
-                  {/* Dropdown Menu */}
-                  {showDropdown && (
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                      <div className="py-2">
-                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
-                          <FiTrash2 size={16} />
-                          <span>Delete</span>
-                        </button>
-                        <div className="border-t border-gray-100"></div>
-                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
-                          <FiSave size={16} />
-                          <span>Save</span>
-                        </button>
-                        <div className="border-t border-gray-100"></div>
-                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
-                          <FiDownload size={16} />
-                          <span>Download</span>
-                        </button>
-                        <div className="border-t border-gray-100"></div>
-                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
-                          <FiSettings size={16} />
-                          <span>Setting</span>
-                        </button>
-                        <div className="border-t border-gray-100"></div>
-                        <button className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 flex items-center space-x-3">
-                          <FiFlag size={16} />
-                          <span>Report</span>
-                        </button>
+          {/* No Drafts Message */}
+          {draftProducts.length === 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+              <FiClock className="text-gray-400 mx-auto mb-3" size={48} />
+              <p className="text-gray-600">No draft products found. Create a new product to get started!</p>
+            </div>
+          )}
+
+          {/* Draft Product Cards */}
+          <div className="space-y-4">
+            {draftProducts.map((draft) => (
+              <div key={draft.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      {draft.name}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                      <div>
+                        <span className="font-medium">Reference Code:</span> {draft.referenceCode}
+                      </div>
+                      <div>
+                        <span className="font-medium">Revenue:</span> ${draft.revenue.toLocaleString()}
+                      </div>
+                      <div>
+                        <span className="font-medium">Created:</span> {draft.creationDate}
+                      </div>
+                      <div>
+                        <span className="font-medium">Status:</span> <span className="text-orange-600 font-semibold">{draft.status}</span>
                       </div>
                     </div>
-                  )}
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <button 
+                      onClick={() => {
+                        setEditingDraftId(draft.id); // Set which draft is being edited
+                        setShowCreateProduct(true);
+                      }}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      <FiEdit3 size={16} />
+                      <span>Continue Editing</span>
+                    </button>
+                    <div className="relative" ref={(el) => (dropdownRefs.current[draft.id] = el)}>
+                      <button 
+                        onClick={() => setShowDropdown(showDropdown === draft.id ? null : draft.id)}
+                        className="p-2 text-gray-400 hover:text-gray-600"
+                      >
+                        <FiMoreVertical size={20} />
+                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      {showDropdown === draft.id && (
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                          <div className="py-2">
+                            <button 
+                              onClick={() => {
+                                const confirmed = window.confirm(`Are you sure you want to delete "${draft.name}"?`);
+                                if (confirmed) {
+                                  // Remove from all_products
+                                  const updatedProducts = draftProducts.filter(p => p.id !== draft.id);
+                                  const allProductsData = localStorage.getItem('all_products');
+                                  const allProducts = JSON.parse(allProductsData);
+                                  const newAllProducts = allProducts.filter(p => p.id !== draft.id);
+                                  localStorage.setItem('all_products', JSON.stringify(newAllProducts));
+                                  
+                                  // Also remove the full draft data
+                                  localStorage.removeItem(`product_draft_${draft.id}`);
+                                  console.log(`🗑️ Deleted full draft data: product_draft_${draft.id}`);
+                                  
+                                  setDraftProducts(updatedProducts);
+                                  setShowDropdown(null);
+                                  alert('Draft deleted successfully!');
+                                }
+                              }}
+                              className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 flex items-center space-x-3"
+                            >
+                              <FiTrash2 size={16} />
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Create Product Component */}
       {showCreateProduct && (
-        <CreateProductComponent onClose={() => setShowCreateProduct(false)} />
+        <CreateProductComponent 
+          onClose={() => {
+            setShowCreateProduct(false);
+            setEditingDraftId(null); // Reset editing draft ID when closing
+          }} 
+          draftId={editingDraftId || "current_draft"} // Use the specific draft ID or fallback to current_draft
+        />
       )}
     </div>
   );

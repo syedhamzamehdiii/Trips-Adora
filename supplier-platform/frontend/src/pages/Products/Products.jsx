@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, FiMoreVertical, FiChevronDown } from 'react-icons/fi';
+import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, FiMoreVertical, FiChevronDown, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
 
@@ -10,34 +10,50 @@ const Products = () => {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     productName: '',
-    minRevenue: 50,
-    maxRevenue: 885,
+    minRevenue: 0,
+    maxRevenue: 100000,
     status: 'All Status'
   });
+  const [products, setProducts] = useState([]);
+  const [productStats, setProductStats] = useState({
+    total: 0,
+    active: 0,
+    draft: 0,
+    revenue: 0
+  });
   const dropdownRefs = useRef({});
+  const dropdownMenuRefs = useRef({});
   const filtersRef = useRef(null);
   const statusDropdownRef = useRef(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Close action dropdowns
-      Object.keys(dropdownRefs.current).forEach(key => {
-        if (dropdownRefs.current[key] && !dropdownRefs.current[key].contains(event.target)) {
-          if (openDropdown === parseInt(key)) {
-            setOpenDropdown(null);
-          }
+      // Close action dropdowns - check both button AND dropdown menu
+      if (openDropdown !== null) {
+        const buttonElement = dropdownRefs.current[openDropdown];
+        const menuElement = dropdownMenuRefs.current[openDropdown];
+        
+        const clickedInsideButton = buttonElement && buttonElement.contains(event.target);
+        const clickedInsideMenu = menuElement && menuElement.contains(event.target);
+        
+        if (!clickedInsideButton && !clickedInsideMenu) {
+          console.log('👆 Clicked outside dropdown, closing...');
+          setOpenDropdown(null);
+        } else {
+          console.log('👆 Clicked inside dropdown or button, keeping open');
         }
-      });
+      }
 
       // Close filters modal
       if (filtersRef.current && !filtersRef.current.contains(event.target)) {
         setShowFilters(false);
       }
 
-      // Close status dropdown
+      // Close status dropdown (used in filters modal)
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
         setShowStatusDropdown(false);
       }
@@ -52,49 +68,83 @@ const Products = () => {
     };
   }, [openDropdown, showFilters, showStatusDropdown]);
 
-  // Mock data for demonstration
-  const products = [
-    {
-      id: 1,
-      name: "Mount Fuji Day Trip",
-      referenceCode: "T-4003",
-      status: "Published",
-      bookings: 243,
-      revenue: "$36,207",
-      creationDate: "15-10-2025",
-      ratings: "4.5/5"
-    },
-    {
-      id: 2,
-      name: "Mount Fuji Day Trip",
-      referenceCode: "T-4003",
-      status: "Rejected",
-      bookings: 243,
-      revenue: "$36,207",
-      creationDate: "15-10-2025",
-      ratings: "4.5/5"
-    },
-    {
-      id: 3,
-      name: "Mount Fuji Day Trip",
-      referenceCode: "T-4003",
-      status: "Draft",
-      bookings: 243,
-      revenue: "$36,207",
-      creationDate: "15-10-2025",
-      ratings: "4.5/5"
-    },
-    {
-      id: 4,
-      name: "Mount Fuji Day Trip",
-      referenceCode: "T-4003",
-      status: "Published",
-      bookings: 243,
-      revenue: "$36,207",
-      creationDate: "15-10-2025",
-      ratings: "4.5/5"
+  // Load products from localStorage and update stats
+  useEffect(() => {
+    const loadProducts = () => {
+      try {
+        const allProductsData = localStorage.getItem('all_products');
+        let loadedProducts = [];
+        
+        if (allProductsData) {
+          loadedProducts = JSON.parse(allProductsData);
+        } else {
+          // Start with empty products list
+          loadedProducts = [];
+          localStorage.setItem('all_products', JSON.stringify(loadedProducts));
+        }
+        
+        // Calculate stats
+        const published = loadedProducts.filter(p => p.status === 'Published').length;
+        const draft = loadedProducts.filter(p => p.status === 'Draft').length;
+        const totalRevenue = loadedProducts
+          .filter(p => p.status === 'Published')
+          .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
+        
+        // Only update state if data has changed (prevent unnecessary re-renders)
+        setProducts(prevProducts => {
+          const hasChanged = JSON.stringify(prevProducts) !== JSON.stringify(loadedProducts);
+          return hasChanged ? loadedProducts : prevProducts;
+        });
+        
+        setProductStats({
+          total: loadedProducts.length,
+          active: published,
+          draft: draft,
+          revenue: totalRevenue
+        });
+      } catch (error) {
+        console.error('Error loading products:', error);
+      }
+    };
+    
+    // Initial load
+    loadProducts();
+    
+    // Refresh every 5 seconds to show real-time updates (reduced from 2 seconds)
+    const interval = setInterval(loadProducts, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Filter products based on active tab, search query, and filters
+  const displayedProducts = products.filter(product => {
+    // Tab filter - Show all products (Published, Draft, Rejected, etc.) in Active Products tab
+    let matchesTab = true;
+    if (activeTab === 'drafts') {
+      // Drafts tab only shows drafts
+      matchesTab = product.status === 'Draft';
     }
-  ];
+    // activeTab === 'active' shows ALL products regardless of status
+    
+    // Search query filter
+    const matchesSearch = searchQuery === '' || 
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.referenceCode.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Product name filter
+    const matchesProductName = filters.productName === '' ||
+      product.name.toLowerCase().includes(filters.productName.toLowerCase());
+    
+    // Revenue filter
+    const matchesRevenue = product.revenue >= filters.minRevenue && 
+      product.revenue <= filters.maxRevenue;
+    
+    // Status filter
+    const matchesStatus = filters.status === 'All Status' || 
+      product.status === filters.status;
+    
+    return matchesTab && matchesSearch && matchesProductName && matchesRevenue && matchesStatus;
+  });
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -118,20 +168,147 @@ const Products = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedProducts.length === products.length) {
+    if (selectedProducts.length === displayedProducts.length) {
       setSelectedProducts([]);
     } else {
-      setSelectedProducts(products.map(p => p.id));
+      setSelectedProducts(displayedProducts.map(p => p.id));
     }
   };
 
   const toggleDropdown = (productId) => {
-    setOpenDropdown(openDropdown === productId ? null : productId);
+    console.log('⋮ Dropdown toggle clicked for product:', productId);
+    const newState = openDropdown === productId ? null : productId;
+    console.log('Dropdown state changing from', openDropdown, 'to', newState);
+    setOpenDropdown(newState);
   };
 
   const handleAction = (action, productId) => {
-    console.log(`${action} product ${productId}`);
+    console.log(`🎬 ACTION TRIGGERED: ${action} for product ID: ${productId}`);
     setOpenDropdown(null);
+    
+    if (action === 'edit') {
+      console.log('📝 Edit action started');
+      // Find the product
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        if (product.status === 'Draft') {
+          // Navigate to drafts page to continue editing
+          console.log('📝 Opening draft for editing:', product.name);
+          navigate('/products/drafts');
+        } else if (product.status === 'Published') {
+          alert('📌 This product is already published.\n\nTo make changes:\n• Use "Clone" to create an editable copy\n• Or create a new version of this product');
+        } else if (product.status === 'Rejected') {
+          alert('❌ This product was rejected.\n\nPlease contact support or create a new product.');
+        } else {
+          alert('⚠️ This product cannot be edited at this time.');
+        }
+      }
+    } else if (action === 'clone') {
+      console.log('📋 Clone action started');
+      // Clone the product as a new draft
+      const product = products.find(p => p.id === productId);
+      console.log('Product found for cloning:', product);
+      if (product) {
+        const confirmed = window.confirm(`📋 Clone "${product.name}"?\n\nThis will create a duplicate draft that you can edit.`);
+        console.log('User confirmation for clone:', confirmed);
+        
+        if (confirmed) {
+          const newDraftId = Date.now();
+          const clonedProduct = {
+            ...product,
+            id: newDraftId,
+            name: `${product.name} (Copy)`,
+            referenceCode: `T-${Math.floor(1000 + Math.random() * 9000)}`,
+            status: 'Draft',
+            bookings: 0,
+            creationDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
+          };
+          
+          // Add to products
+          const updatedProducts = [...products, clonedProduct];
+          localStorage.setItem('all_products', JSON.stringify(updatedProducts));
+          setProducts(updatedProducts);
+          
+          // Try to clone full draft data if it exists
+          const originalDraftData = localStorage.getItem(`product_draft_${productId}`);
+          if (originalDraftData) {
+            const parsedData = JSON.parse(originalDraftData);
+            const clonedDraftData = {
+              ...parsedData,
+              draftId: newDraftId,
+              productTitle: `${parsedData.productTitle} (Copy)`,
+              lastModified: new Date().toISOString()
+            };
+            localStorage.setItem(`product_draft_${newDraftId}`, JSON.stringify(clonedDraftData));
+          }
+          
+          console.log('✅ Product cloned successfully:', clonedProduct);
+          alert(`✅ Product cloned successfully!\n\n"${clonedProduct.name}" is now in your drafts.`);
+        }
+      }
+    } else if (action === 'share') {
+      console.log('🔗 Share action started');
+      // Share the product
+      const product = products.find(p => p.id === productId);
+      console.log('Product found for sharing:', product);
+      if (product) {
+        if (product.status === 'Published') {
+          // Generate shareable link
+          const shareUrl = `${window.location.origin}/preview/${product.referenceCode}`;
+          
+          // Try to copy to clipboard
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareUrl)
+              .then(() => {
+                alert(`🔗 Link copied to clipboard!\n\n${shareUrl}\n\nShare this link with your customers.`);
+              })
+              .catch(() => {
+                // Fallback if clipboard API fails
+                prompt('📋 Copy this link to share:', shareUrl);
+              });
+          } else {
+            // Fallback for browsers that don't support clipboard API
+            prompt('📋 Copy this link to share:', shareUrl);
+          }
+          console.log('🔗 Share link generated:', shareUrl);
+        } else {
+          alert(`⚠️ Only published products can be shared.\n\nCurrent status: ${product.status}\n\nPlease publish this product first.`);
+        }
+      }
+    } else if (action === 'delete') {
+      console.log('🗑️ Delete action started');
+      // Delete the product
+      const product = products.find(p => p.id === productId);
+      console.log('Product found for deletion:', product);
+      const productName = product ? product.name : 'this product';
+      const confirmed = window.confirm(`⚠️ Delete "${productName}"?\n\nThis action cannot be undone!`);
+      console.log('User confirmation for delete:', confirmed);
+      
+      if (confirmed) {
+        const updatedProducts = products.filter(p => p.id !== productId);
+        localStorage.setItem('all_products', JSON.stringify(updatedProducts));
+        setProducts(updatedProducts);
+        
+        // Also remove draft data if it's a draft being deleted
+        if (product && product.status === 'Draft') {
+          // Remove the full draft data
+          localStorage.removeItem(`product_draft_${product.id}`);
+          console.log(`🗑️ Deleted full draft data: product_draft_${product.id}`);
+          
+          // Also check if this is the current draft
+          const draftData = localStorage.getItem('product_draft_current_draft');
+          if (draftData) {
+            const parsedDraft = JSON.parse(draftData);
+            if (parsedDraft.productTitle === product.name) {
+              localStorage.removeItem('product_draft_current_draft');
+            }
+          }
+        }
+        
+        console.log('✅ Product deleted successfully');
+        alert('✅ Product deleted successfully!');
+      }
+    }
   };
 
   const toggleFilters = () => {
@@ -145,9 +322,79 @@ const Products = () => {
     }));
   };
 
+  const handleResetFilters = () => {
+    setFilters({
+      productName: '',
+      minRevenue: 0,
+      maxRevenue: 100000,
+      status: 'All Status'
+    });
+    setSearchQuery('');
+  };
+
+  const handleRefresh = () => {
+    console.log('🔄 Refresh button clicked');
+    try {
+      const allProductsData = localStorage.getItem('all_products');
+      if (allProductsData) {
+        const loadedProducts = JSON.parse(allProductsData);
+        
+        // Recalculate stats
+        const published = loadedProducts.filter(p => p.status === 'Published').length;
+        const draft = loadedProducts.filter(p => p.status === 'Draft').length;
+        const totalRevenue = loadedProducts
+          .filter(p => p.status === 'Published')
+          .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
+        
+        setProducts(loadedProducts);
+        setProductStats({
+          total: loadedProducts.length,
+          active: published,
+          draft: draft,
+          revenue: totalRevenue
+        });
+        
+        console.log('✅ Refresh completed:', {
+          totalProducts: loadedProducts.length,
+          published,
+          draft,
+          revenue: totalRevenue
+        });
+        
+        // Optional: Show brief success message
+        const refreshBtn = document.querySelector('button[title="Refresh"]');
+        if (refreshBtn) {
+          refreshBtn.classList.add('animate-spin');
+          setTimeout(() => {
+            refreshBtn.classList.remove('animate-spin');
+          }, 500);
+        }
+      } else {
+        console.log('⚠️ No products found in localStorage');
+      }
+    } catch (error) {
+      console.error('❌ Error during refresh:', error);
+      alert('Error refreshing products. Please try again.');
+    }
+  };
+
+  const handleArchive = () => {
+    if (selectedProducts.length === 0) return;
+    
+    const updatedProducts = products.map(product => {
+      if (selectedProducts.includes(product.id)) {
+        return { ...product, status: 'Archived' };
+      }
+      return product;
+    });
+    
+    localStorage.setItem('all_products', JSON.stringify(updatedProducts));
+    setProducts(updatedProducts);
+    setSelectedProducts([]);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-6 py-8">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -161,19 +408,19 @@ const Products = () => {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-            <div className="text-3xl font-bold text-gray-900 mb-2">5</div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">{productStats.total}</div>
             <div className="text-sm text-gray-600">Total Products</div>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-            <div className="text-3xl font-bold text-gray-900 mb-2">03</div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">{String(productStats.active).padStart(2, '0')}</div>
             <div className="text-sm text-gray-600">Active Products</div>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-            <div className="text-3xl font-bold text-gray-900 mb-2">1</div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">{productStats.draft}</div>
             <div className="text-sm text-gray-600">Draft products</div>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-            <div className="text-3xl font-bold text-gray-900 mb-2">$71,570</div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">${productStats.revenue.toLocaleString()}</div>
             <div className="text-sm text-gray-600">Total Revenue</div>
           </div>
         </div>
@@ -193,7 +440,7 @@ const Products = () => {
           >
             <FiFileText className="mr-2 text-green-600" size={16} />
             Drafts
-            <span className="ml-2 w-5 h-5 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">1</span>
+            <span className="ml-2 w-5 h-5 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">{productStats.draft}</span>
           </button>
         </div>
 
@@ -206,65 +453,34 @@ const Products = () => {
             >
               <FiFilter size={20} />
             </button>
-            
-            {/* Status Filter Dropdown */}
-            <div className="relative" ref={statusDropdownRef}>
-              <button 
-                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                className="flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-              >
-                {filters.status}
-                <FiChevronDown className="ml-1" size={14} />
-              </button>
-              
-              {showStatusDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                  <div className="py-1">
-                    {[
-                      { value: 'All Status', label: 'All Status', color: 'bg-gray-400' },
-                      { value: 'Active', label: 'Active', color: 'bg-green-500' },
-                      { value: 'Draft', label: 'Draft', color: 'bg-gray-500' },
-                      { value: 'Pending', label: 'Pending', color: 'bg-yellow-500' },
-                      { value: 'Rejected', label: 'Rejected', color: 'bg-red-500' },
-                      { value: 'Archived', label: 'Archived', color: 'bg-gray-700' }
-                    ].map((status) => (
-                      <button
-                        key={status.value}
-                        onClick={() => {
-                          handleFilterChange('status', status.value);
-                          setShowStatusDropdown(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
-                          filters.status === status.value ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        <div className={`w-2 h-2 rounded-full ${status.color}`}></div>
-                        <span>{status.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
 
             <div className="relative">
               <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
-                placeholder="Search..."
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search.."
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
               />
             </div>
           </div>
           
           <div className="flex items-center space-x-4">
-            <button className="p-2 text-gray-600 hover:text-gray-900">
+            <button 
+              onClick={handleRefresh}
+              className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+              title="Refresh"
+            >
               <FiRefreshCw size={20} />
             </button>
             {selectedProducts.length > 0 && (
               <>
                 <span className="text-sm text-gray-600">{selectedProducts.length} Selected</span>
-                <button className="flex items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                <button 
+                  onClick={handleArchive}
+                  className="flex items-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
                   <FiArchive className="mr-2" size={16} />
                   Archive
                 </button>
@@ -314,7 +530,7 @@ const Products = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products.map((product) => (
+                {displayedProducts.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
@@ -339,7 +555,7 @@ const Products = () => {
                       {product.bookings}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {product.revenue}
+                      ${typeof product.revenue === 'number' ? product.revenue.toLocaleString() : product.revenue}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.creationDate}
@@ -347,54 +563,14 @@ const Products = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.ratings}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 relative">
-                      <div ref={el => dropdownRefs.current[product.id] = el}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="relative" ref={el => dropdownRefs.current[product.id] = el}>
                         <button 
                           onClick={() => toggleDropdown(product.id)}
                           className="text-gray-400 hover:text-gray-600"
                         >
                           <FiMoreVertical size={16} />
                         </button>
-                        
-                        {/* Action Dropdown - List Style */}
-                        {openDropdown === product.id && (
-                          <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
-                            <ul className="divide-y divide-gray-100">
-                              <li>
-                                <button
-                                  onClick={() => handleAction('edit', product.id)}
-                                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                >
-                                  Edit
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  onClick={() => handleAction('clone', product.id)}
-                                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                >
-                                  Clone
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  onClick={() => handleAction('share', product.id)}
-                                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                >
-                                  Share product
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  onClick={() => handleAction('delete', product.id)}
-                                  className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                >
-                                  Delete
-                                </button>
-                              </li>
-                            </ul>
-                          </div>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -404,117 +580,210 @@ const Products = () => {
           </div>
         </div>
 
+        {/* Action Dropdowns - Rendered outside table to avoid overflow issues */}
+        {openDropdown !== null && displayedProducts.map((product) => {
+          if (openDropdown !== product.id) return null;
+          
+          const buttonElement = dropdownRefs.current[product.id];
+          if (!buttonElement) return null;
+          
+          const rect = buttonElement.getBoundingClientRect();
+          
+          return (
+            <div
+              key={product.id}
+              ref={(el) => (dropdownMenuRefs.current[product.id] = el)}
+              className="fixed w-48 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden z-50"
+              style={{
+                top: `${rect.bottom + 4}px`,
+                right: `${window.innerWidth - rect.right}px`
+              }}
+            >
+              <ul className="divide-y divide-gray-100">
+                <li>
+                  <button
+                    onClick={(e) => {
+                      console.log('✅ Edit button CLICKED in dropdown');
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAction('edit', product.id);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={(e) => {
+                      console.log('✅ Clone button CLICKED in dropdown');
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAction('clone', product.id);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer"
+                  >
+                    Clone
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={(e) => {
+                      console.log('✅ Share button CLICKED in dropdown');
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAction('share', product.id);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer"
+                  >
+                    Share product
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={(e) => {
+                      console.log('✅ Delete button CLICKED in dropdown');
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAction('delete', product.id);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                </li>
+              </ul>
+            </div>
+          );
+        })}
+
         {/* Pagination */}
         <div className="flex items-center justify-between mt-6">
           <div className="flex items-center space-x-2">
             <button className="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50" disabled>
-              ←
+              <FiChevronLeft size={20} />
             </button>
-            <button className="px-3 py-1 bg-blue-600 text-white rounded">1</button>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">2</button>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">3</button>
-            <span className="text-gray-600">...</span>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">12</button>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">13</button>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">14</button>
+            <button className="px-3 py-1 bg-blue-600 text-white rounded-md">1</button>
+            <button className="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-md">2</button>
+            <button className="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-md">3</button>
+            <span className="px-2 text-gray-500">...</span>
+            <button className="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-md">12</button>
+            <button className="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-md">13</button>
+            <button className="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-md">14</button>
             <button className="p-2 text-gray-600 hover:text-gray-900">
-              →
+              <FiChevronRight size={20} />
             </button>
           </div>
-          
           <div className="flex items-center space-x-2">
-            <select className="px-3 py-1 border border-gray-300 rounded text-sm">
-              <option>1 \ 10</option>
-            </select>
+            <span className="text-sm text-gray-600">1 \\ 10</span>
+            <button className="p-1 text-gray-600 hover:text-gray-900">
+              <FiChevronDown size={16} />
+            </button>
           </div>
         </div>
       </div>
 
       {/* Filters Modal */}
       {showFilters && (
-        <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div 
             ref={filtersRef}
-            className="bg-white rounded-lg shadow-lg p-6 w-80"
+            className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
           >
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Filters</h3>
-            
-            <div className="space-y-4">
-              {/* Product Name */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900">Filters</h3>
+              <button
+                onClick={toggleFilters}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
               <div>
-                <label className="block text-sm font-bold text-gray-900 mb-2">Product Name</label>
+                <label className="block text-base font-semibold text-gray-900 mb-2">
+                  Product Name
+                </label>
                 <input
                   type="text"
-                  placeholder="Enter Here"
                   value={filters.productName}
                   onChange={(e) => handleFilterChange('productName', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter Here"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
 
-              {/* By Revenue */}
               <div>
-                <label className="block text-sm font-bold text-gray-900 mb-2">By Revenue</label>
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="text-sm text-gray-600">$</span>
+                <label className="block text-base font-semibold text-gray-900 mb-4">
+                  By Revenue
+                </label>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="px-3 py-1 bg-gray-200 rounded text-sm font-medium">${filters.minRevenue}</span>
+                      <span className="text-gray-500 text-sm">To</span>
+                      <span className="px-3 py-1 bg-gray-200 rounded text-sm font-medium">${filters.maxRevenue.toLocaleString()}</span>
+                    </div>
+                    <span className="text-xs text-gray-400">Shows all</span>
+                  </div>
                   <input
-                    type="number"
+                    type="range"
+                    min="0"
+                    max="100000"
                     value={filters.minRevenue}
-                    onChange={(e) => handleFilterChange('minRevenue', parseInt(e.target.value) || 0)}
-                    className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
-                  />
-                  <span className="text-sm text-gray-600">To</span>
-                  <span className="text-sm text-gray-600">$</span>
-                  <input
-                    type="number"
-                    value={filters.maxRevenue}
-                    onChange={(e) => handleFilterChange('maxRevenue', parseInt(e.target.value) || 0)}
-                    className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+                    onChange={(e) => handleFilterChange('minRevenue', parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                   />
                 </div>
-                <div className="text-xs text-gray-500 mb-3">Max-fixed</div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1000"
-                  value={filters.minRevenue}
-                  onChange={(e) => handleFilterChange('minRevenue', parseInt(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                />
               </div>
 
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-bold text-gray-900 mb-2">Status</label>
-                <select
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              <div className="relative">
+                <label className="block text-base font-semibold text-gray-900 mb-2">
+                  Status
+                </label>
+                <button
+                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-left flex items-center justify-between hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
-                  <option value="All Status">All Status</option>
-                  <option value="Active">Active</option>
-                  <option value="Draft">Draft</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Rejected">Rejected</option>
-                  <option value="Archived">Archived</option>
-                </select>
+                  <span className="text-gray-500">{filters.status}</span>
+                  <FiChevronDown size={16} className="text-gray-400" />
+                </button>
+
+                {showStatusDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                    {['All Status', 'Published', 'Draft', 'Rejected'].map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => {
+                          handleFilterChange('status', status);
+                          setShowStatusDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors ${
+                          filters.status === status ? 'bg-gray-100' : ''
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowFilters(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
+            <div className="flex space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => {
-                  console.log('Apply filters:', filters);
-                  setShowFilters(false);
+                  handleResetFilters();
+                  toggleFilters();
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Reset
+              </button>
+              <button
+                onClick={toggleFilters}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Apply
               </button>
@@ -522,7 +791,6 @@ const Products = () => {
           </div>
         </div>
       )}
-      </div> {/* Closing div for max-w-7xl container */}
 
       <Footer />
     </div>

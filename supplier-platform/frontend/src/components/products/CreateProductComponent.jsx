@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin } from 'react-icons/fi';
 import AddItineraryComponent from './AddItineraryComponent';
 
-const CreateProductComponent = ({ onClose }) => {
+const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
   const [step, setStep] = useState(1);
   const [showItineraryComponent, setShowItineraryComponent] = useState(false);
   const [showImageTipsModal, setShowImageTipsModal] = useState(false);
   const [showIncludedExcludedModal, setShowIncludedExcludedModal] = useState(false);
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
   const [selectedVehicleModel, setSelectedVehicleModel] = useState('');
+  const [isLoadingDraft, setIsLoadingDraft] = useState(true);
   
   // Step 1 - Product Information
   const [productTitle, setProductTitle] = useState('');
@@ -156,6 +157,197 @@ const CreateProductComponent = ({ onClose }) => {
       setShowIncludedExcludedModal(false);
     }, 1500);
   };
+
+  // Load draft data when component mounts
+  useEffect(() => {
+    const loadDraftData = () => {
+      try {
+        console.log('🔍 Loading draft with ID:', draftId);
+        console.log('🔍 Looking for key:', `product_draft_${draftId}`);
+        
+        const savedDraft = localStorage.getItem(`product_draft_${draftId}`);
+        
+        if (savedDraft) {
+          console.log('📦 Found draft data in localStorage');
+          const draftData = JSON.parse(savedDraft);
+          console.log('📄 Draft data parsed:', draftData);
+          
+          // Load Step 1 data
+          if (draftData.productTitle) {
+            console.log('✅ Loading title:', draftData.productTitle);
+            setProductTitle(draftData.productTitle);
+          }
+          if (draftData.productCategory) setProductCategory(draftData.productCategory);
+          if (draftData.sellingPoints) setSellingPoints(draftData.sellingPoints);
+          if (draftData.tagline) setTagline(draftData.tagline);
+          
+          // Load Step 2 data
+          if (draftData.description) {
+            console.log('✅ Loading description:', draftData.description.substring(0, 50) + '...');
+            setDescription(draftData.description);
+          }
+          if (draftData.highlights) {
+            console.log('✅ Loading highlights:', draftData.highlights.length, 'items');
+            setHighlights(draftData.highlights);
+          }
+          
+          // Load photo data (will be empty due to quota fix)
+          if (draftData.uploadedPhotos) setUploadedPhotos(draftData.uploadedPhotos);
+          if (draftData.coverImage) setCoverImage(draftData.coverImage);
+          
+          // Load Step 4 data
+          if (draftData.selectedGuideType) setSelectedGuideType(draftData.selectedGuideType);
+          if (draftData.selectedActivityType) setSelectedActivityType(draftData.selectedActivityType);
+          if (draftData.selectedLanguages) setSelectedLanguages(draftData.selectedLanguages);
+          if (draftData.selectedThingsToCarry) setSelectedThingsToCarry(draftData.selectedThingsToCarry);
+          if (draftData.includedItems) setIncludedItems(draftData.includedItems);
+          if (draftData.excludedItems) setExcludedItems(draftData.excludedItems);
+          if (draftData.accessibilityToggles) setAccessibilityToggles(draftData.accessibilityToggles);
+          
+          // Load Step 5 data (Vehicles)
+          if (draftData.vehicles) {
+            console.log('✅ Loading vehicles:', draftData.vehicles.length, 'vehicles');
+            setVehicles(draftData.vehicles);
+          }
+          if (draftData.vehicleTitle) setVehicleTitle(draftData.vehicleTitle);
+          if (draftData.selectedVehicleType) setSelectedVehicleType(draftData.selectedVehicleType);
+          if (draftData.selectedVehicleModel) setSelectedVehicleModel(draftData.selectedVehicleModel);
+          if (draftData.vehicleYear) setVehicleYear(draftData.vehicleYear);
+          if (draftData.vehicleAttributes) setVehicleAttributes(draftData.vehicleAttributes);
+          if (draftData.numTravellers) setNumTravellers(draftData.numTravellers);
+          if (draftData.currency) setCurrency(draftData.currency);
+          if (draftData.pricingType) setPricingType(draftData.pricingType);
+          if (draftData.productAmount) setProductAmount(draftData.productAmount);
+          if (draftData.totalDuration) setTotalDuration(draftData.totalDuration);
+          if (draftData.vehicleDescription) setVehicleDescription(draftData.vehicleDescription);
+          if (draftData.selectedVehicleForTour) setSelectedVehicleForTour(draftData.selectedVehicleForTour);
+          
+          // Load Step 6 data (Location & Time)
+          if (draftData.selectedPickupLocations) {
+            console.log('✅ Loading pickup locations:', draftData.selectedPickupLocations);
+            setSelectedPickupLocations(draftData.selectedPickupLocations);
+          }
+          if (draftData.selectedDropoffLocations) setSelectedDropoffLocations(draftData.selectedDropoffLocations);
+          if (draftData.selectedPickupHour) setSelectedPickupHour(draftData.selectedPickupHour);
+          if (draftData.selectedPickupMinute) setSelectedPickupMinute(draftData.selectedPickupMinute);
+          if (draftData.selectedWeekDay) setSelectedWeekDay(draftData.selectedWeekDay);
+          if (draftData.selectedDate) setSelectedDate(draftData.selectedDate);
+          if (draftData.timeSlots) setTimeSlots(draftData.timeSlots);
+          
+          // Load current step
+          if (draftData.step) {
+            console.log('✅ Loading step:', draftData.step);
+            setStep(draftData.step);
+          }
+          
+          console.log('✅ Draft data loaded successfully!');
+          console.log('📊 Summary: Title=', draftData.productTitle, 'Highlights=', draftData.highlights?.length, 'Vehicles=', draftData.vehicles?.length);
+        } else {
+          console.log('⚠️ No existing draft found for ID:', draftId);
+          console.log('💡 Starting fresh - no saved data to load');
+        }
+      } catch (error) {
+        console.error('❌ Error loading draft data:', error);
+      } finally {
+        // Mark loading as complete
+        setIsLoadingDraft(false);
+        console.log('✅ Draft loading complete, isLoadingDraft set to false');
+      }
+    };
+    
+    loadDraftData();
+  }, [draftId]);
+
+  // Auto-save draft data whenever any field changes
+  useEffect(() => {
+    // Don't auto-save if we're still loading the draft
+    if (isLoadingDraft) {
+      return;
+    }
+    
+    const saveDraftData = () => {
+      try {
+        const draftData = {
+          // Step 1 data
+          productTitle,
+          productCategory,
+          sellingPoints,
+          tagline,
+          
+          // Step 2 data
+          description,
+          highlights,
+          
+          // Photo data - EXCLUDED to avoid localStorage quota errors
+          // uploadedPhotos,
+          // coverImage,
+          
+          // Step 4 data
+          selectedGuideType,
+          selectedActivityType,
+          selectedLanguages,
+          selectedThingsToCarry,
+          includedItems,
+          excludedItems,
+          accessibilityToggles,
+          
+          // Step 5 data
+          vehicles,
+          vehicleTitle,
+          selectedVehicleType,
+          selectedVehicleModel,
+          vehicleYear,
+          vehicleAttributes,
+          numTravellers,
+          currency,
+          pricingType,
+          productAmount,
+          totalDuration,
+          vehicleDescription,
+          selectedVehicleForTour,
+          
+          // Step 6 data
+          selectedPickupLocations,
+          selectedDropoffLocations,
+          selectedPickupHour,
+          selectedPickupMinute,
+          selectedWeekDay,
+          selectedDate,
+          timeSlots,
+          
+          // Current step
+          step,
+          
+          // Metadata
+          lastModified: new Date().toISOString(),
+          draftId: draftId
+        };
+        
+        localStorage.setItem(`product_draft_${draftId}`, JSON.stringify(draftData));
+        console.log('💾 Draft auto-saved to product_draft_' + draftId);
+      } catch (error) {
+        console.error('Error saving draft data:', error);
+      }
+    };
+    
+    // Debounce the save operation (save after 1 second of no changes)
+    const timeoutId = setTimeout(saveDraftData, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [
+    isLoadingDraft,
+    productTitle, productCategory, sellingPoints, tagline,
+    description, highlights,
+    // uploadedPhotos, coverImage, - removed from dependencies to avoid quota errors
+    selectedGuideType, selectedActivityType, selectedLanguages, selectedThingsToCarry,
+    includedItems, excludedItems, accessibilityToggles,
+    vehicles, vehicleTitle, selectedVehicleType, selectedVehicleModel, vehicleYear,
+    vehicleAttributes, numTravellers, currency, pricingType, productAmount,
+    totalDuration, vehicleDescription, selectedVehicleForTour,
+    selectedPickupLocations, selectedDropoffLocations, selectedPickupHour,
+    selectedPickupMinute, selectedWeekDay, selectedDate, timeSlots,
+    step, draftId
+  ]);
 
   // Japan locations database for real-time search
   const japanLocations = [
@@ -2082,12 +2274,12 @@ const CreateProductComponent = ({ onClose }) => {
                    </div>
                    
                    <div>
-                     <button 
-                       onClick={() => setShowSelectVehicleModal(true)}
-                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                     >
+                   <button 
+                     onClick={() => setShowSelectVehicleModal(true)}
+                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                   >
                        {selectedVehicleForTour ? 'Change Vehicle' : 'Select Vehicle'}
-                     </button>
+                   </button>
                      {selectedVehicleForTour && (
                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                          <div className="flex items-center gap-2 text-sm">
@@ -2292,9 +2484,9 @@ const CreateProductComponent = ({ onClose }) => {
                      </div>
                            );
                          })}
-                   </div>
+                           </div>
                      )}
-                   </div>
+                           </div>
 
                    {/* Modal Footer */}
                    {vehicles.length > 0 && (
@@ -2321,8 +2513,8 @@ const CreateProductComponent = ({ onClose }) => {
                              Confirm Selection
                            </button>
                          )}
-                       </div>
-                     </div>
+                         </div>
+                           </div>
                    )}
                  </div>
                </div>

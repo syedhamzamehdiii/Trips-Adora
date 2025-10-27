@@ -46,12 +46,164 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
+  const handleSaveDraft = () => {
+    try {
+      // Get current products from localStorage
+      const allProductsData = localStorage.getItem('all_products');
+      let allProducts = allProductsData ? JSON.parse(allProductsData) : [];
+      
+      console.log('📦 Current products before save:', allProducts.length);
+      
+      // Check if this draft already exists in all_products
+      const existingDraftIndex = allProducts.findIndex(p => 
+        p.name === (productData?.title || 'Untitled Product') && p.status === 'Draft'
+      );
+      
+      // Generate unique draft ID
+      const draftId = existingDraftIndex >= 0 ? allProducts[existingDraftIndex].id : Date.now();
+      
+      const draftProduct = {
+        id: draftId,
+        name: productData?.title || 'Untitled Product',
+        referenceCode: existingDraftIndex >= 0 ? allProducts[existingDraftIndex].referenceCode : `T-${Math.floor(1000 + Math.random() * 9000)}`,
+        status: 'Draft',
+        bookings: 0,
+        revenue: parseInt(productData?.vehicles?.[0]?.amount || 0),
+        creationDate: existingDraftIndex >= 0 ? allProducts[existingDraftIndex].creationDate : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
+        ratings: "0/5"
+      };
+      
+      // Update existing draft or add new one
+      if (existingDraftIndex >= 0) {
+        allProducts[existingDraftIndex] = draftProduct;
+        console.log('✅ Draft updated successfully!', draftProduct);
+      } else {
+        allProducts.push(draftProduct);
+        console.log('✅ Draft saved successfully!', draftProduct);
+      }
+      
+      // Save back to localStorage
+      localStorage.setItem('all_products', JSON.stringify(allProducts));
+      console.log('📦 Total products after save:', allProducts.length);
+      
+      // ** IMPORTANT: Also save the FULL product data for editing later **
+      // NOTE: Images (uploadedPhotos, coverImage) are excluded to avoid localStorage quota errors
+      const fullDraftData = {
+        draftId: draftId,
+        productTitle: productData?.title || 'Untitled Product',
+        productCategory: productData?.category || '',
+        sellingPoints: productData?.sellingPoints || '',
+        tagline: productData?.tagline || '',
+        description: productData?.description || '',
+        highlights: productData?.highlights || [],
+        // uploadedPhotos: excluded due to localStorage size limits
+        // coverImage: excluded due to localStorage size limits
+        selectedGuideType: productData?.guideType || '',
+        selectedActivityType: productData?.activityType || '',
+        selectedLanguages: productData?.languages || [],
+        selectedThingsToCarry: productData?.thingsToCarry || [],
+        includedItems: productData?.includedItems || '',
+        excludedItems: productData?.excludedItems || '',
+        accessibilityToggles: productData?.accessibility || {},
+        vehicles: productData?.vehicles || [],
+        selectedVehicleForTour: productData?.vehicles || [],
+        selectedPickupLocations: productData?.pickupLocations || [],
+        selectedDropoffLocations: productData?.dropoffLocations || [],
+        pickupTime: productData?.pickupTime || '',
+        selectedWeekDay: productData?.weekDay || '',
+        selectedDate: productData?.selectedDate || '',
+        itineraries: productData?.itineraries || [],
+        lastModified: new Date().toISOString()
+      };
+      
+      // Save full draft data under unique key
+      localStorage.setItem(`product_draft_${draftId}`, JSON.stringify(fullDraftData));
+      console.log('💾 Full draft data saved to product_draft_' + draftId + ' (images excluded)');
+      
+      // Verify save
+      const verifyData = localStorage.getItem('all_products');
+      const verifyProducts = JSON.parse(verifyData);
+      console.log('✔️ Verified products in localStorage:', verifyProducts.length);
+      
+      // Show success message
+      alert('✅ Draft saved successfully! Refreshing to show in listings...');
+      
+      // Force reload after 1 second to show the new draft
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      console.error('❌ Error saving draft:', error);
+      alert('Error saving draft. Please try again.');
+    }
+  };
+
   const handlePublishProduct = () => {
-    // Add your publish logic here
-    console.log('Product published successfully!');
+    try {
+      // Get current products from localStorage
+      const allProductsData = localStorage.getItem('all_products');
+      let allProducts = allProductsData ? JSON.parse(allProductsData) : [];
+      
+      console.log('📦 Current products before publish:', allProducts.length);
+      
+      // Find and remove any existing draft with the same name, and track IDs for cleanup
+      const draftIdsToDelete = [];
+      const beforeFilter = allProducts.length;
+      allProducts = allProducts.filter(p => {
+        if (p.name === (productData?.title || 'Untitled Product') && p.status === 'Draft') {
+          draftIdsToDelete.push(p.id); // Track draft ID for full data deletion
+          return false; // Remove this draft
+        }
+        return true; // Keep this product
+      });
+      console.log('🗑️ Removed drafts:', beforeFilter - allProducts.length);
+      
+      // Create new product entry
+      const newProduct = {
+        id: Date.now(), // Use timestamp as unique ID
+        name: productData?.title || 'Untitled Product',
+        referenceCode: `T-${Math.floor(1000 + Math.random() * 9000)}`,
+        status: 'Published',
+        bookings: 0,
+        revenue: parseInt(productData?.vehicles?.[0]?.amount || 0),
+        creationDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
+        ratings: "0/5"
+      };
+      
+      // Add to products array
+      allProducts.push(newProduct);
+      
+      // Save back to localStorage
+      localStorage.setItem('all_products', JSON.stringify(allProducts));
+      console.log('✅ Product published successfully!', newProduct);
+      console.log('📦 Total products after publish:', allProducts.length);
+      
+      // Verify save
+      const verifyData = localStorage.getItem('all_products');
+      const verifyProducts = JSON.parse(verifyData);
+      console.log('✔️ Verified products in localStorage:', verifyProducts.length);
+      
+      // Clear draft data after publishing
+      localStorage.removeItem('product_draft_current_draft');
+      
+      // Also delete full draft data for all removed drafts
+      draftIdsToDelete.forEach(draftId => {
+        localStorage.removeItem(`product_draft_${draftId}`);
+        console.log(`🗑️ Deleted full draft data: product_draft_${draftId}`);
+      });
+      
     // Close publish modal and show success modal
     setShowPublishModal(false);
     setShowSuccessModal(true);
+      
+      // Force reload after 2 seconds to show the new product
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('❌ Error publishing product:', error);
+      alert('Error publishing product. Please try again.');
+    }
   };
 
   const handleReturnToDashboard = () => {
@@ -110,7 +262,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     { time: '18:00', title: 'Scenic drive and photo stops', description: 'Additional viewpoints and cultural insights', icon: 'travel' },
     { time: '20:30', title: 'Drop-off in Tokyo', description: 'Return to your hotel with unforgettable memories', icon: 'dropoff' }
   ];
-  
+
   const itineraryItems = productData?.itineraries && productData.itineraries.length > 0
     ? productData.itineraries.map((itinerary, index) => ({
         time: `${String(6 + index * 2).padStart(2, '0')}:00`, // Generate times starting from 06:00 with 2-hour intervals
@@ -329,17 +481,16 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
           </div>
           
           <div className="flex items-center space-x-3">
-            <button className="flex items-center space-x-2 px-4 py-2 border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 bg-white shadow-sm">
+            <button 
+              onClick={handleSaveDraft}
+              className="flex items-center space-x-2 px-4 py-2 border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 bg-white shadow-sm transition-colors"
+            >
               <FiEdit3 size={16} />
-              <span>Save as Draft</span>
-            </button>
-            <button className="flex items-center space-x-2 px-4 py-2 border border-red-400 text-red-600 rounded-lg hover:bg-red-50 bg-white shadow-sm">
-              <FiSave size={16} />
               <span>Save as Draft</span>
             </button>
             <button 
               onClick={() => setShowPublishModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md"
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md transition-colors"
             >
               <FiUpload size={16} />
               <span>Publish Product</span>
@@ -503,14 +654,14 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                       {productData?.includedItems ? (
                         <p className="text-gray-600 whitespace-pre-line">{productData.includedItems}</p>
                       ) : (
-                        <ul className="text-gray-600 space-y-1">
-                          {includedItems.map((item, index) => (
-                            <li key={index} className="flex items-start">
-                              <span className="mr-2">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
+                      <ul className="text-gray-600 space-y-1">
+                        {includedItems.map((item, index) => (
+                          <li key={index} className="flex items-start">
+                            <span className="mr-2">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
                       )}
                     </div>
                   </div>
@@ -552,14 +703,14 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                       {productData?.excludedItems ? (
                         <p className="text-gray-600 whitespace-pre-line">{productData.excludedItems}</p>
                       ) : (
-                        <ul className="text-gray-600 space-y-1">
-                          {excludedItems.map((item, index) => (
-                            <li key={index} className="flex items-start">
-                              <span className="mr-2">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
+                      <ul className="text-gray-600 space-y-1">
+                        {excludedItems.map((item, index) => (
+                          <li key={index} className="flex items-start">
+                            <span className="mr-2">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
                       )}
                     </div>
                   </div>
@@ -606,26 +757,26 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 ))
               ) : (
                 <div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="flex items-start space-x-3">
-                      <FiTruck size={20} className="text-blue-600 mt-1" />
-                      <div>
-                        <h4 className="font-semibold text-gray-900">Vehicle Details</h4>
-                        <p className="text-gray-600">Mercedes-Benz A-Class (2018 model)</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <FiClock size={20} className="text-blue-600 mt-1" />
-                      <div>
-                        <h4 className="font-semibold text-gray-900">Duration</h4>
-                        <p className="text-gray-600">10 hours</p>
-                      </div>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="flex items-start space-x-3">
+                  <FiTruck size={20} className="text-blue-600 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-gray-900">Vehicle Details</h4>
+                    <p className="text-gray-600">Mercedes-Benz A-Class (2018 model)</p>
                   </div>
-                  <div className="mt-6 flex items-center space-x-3">
-                    <span className="text-2xl font-bold text-gray-900">$240</span>
-                    <span className="text-gray-600">Per Group</span>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <FiClock size={20} className="text-blue-600 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-gray-900">Duration</h4>
+                    <p className="text-gray-600">10 hours</p>
                   </div>
+                </div>
+              </div>
+              <div className="mt-6 flex items-center space-x-3">
+                <span className="text-2xl font-bold text-gray-900">$240</span>
+                <span className="text-gray-600">Per Group</span>
+              </div>
                 </div>
               )}
             </div>
@@ -652,10 +803,10 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                         ))}
                       </div>
                     ) : (
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-                        <p className="text-gray-500">Shibuya Crossing (Tokyo)</p>
-                      </div>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                      <p className="text-gray-500">Shibuya Crossing (Tokyo)</p>
+                    </div>
                     )}
                     {productData?.pickupTime && (
                       <p className="text-sm text-gray-600 mt-2">
@@ -675,10 +826,10 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                         ))}
                       </div>
                     ) : (
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-                        <p className="text-gray-500">Same as Pick-up</p>
-                      </div>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                      <p className="text-gray-500">Same as Pick-up</p>
+                    </div>
                     )}
                   </div>
                 </div>
