@@ -153,7 +153,8 @@ const Products = () => {
       case 'Rejected':
         return 'text-red-600';
       case 'Draft':
-        return 'text-orange-600';
+        // Show drafts in red per requirement
+        return 'text-red-600';
       default:
         return 'text-gray-600';
     }
@@ -282,6 +283,17 @@ const Products = () => {
         } else {
           alert(`⚠️ Only published products can be shared.\n\nCurrent status: ${product.status}\n\nPlease publish this product first.`);
         }
+      }
+    } else if (action === 'unarchive') {
+      // Restore archived product back to Published
+      const product = products.find(p => p.id === productId);
+      if (product && product.status === 'Archived') {
+        const updatedProducts = products.map(p =>
+          p.id === productId ? { ...p, status: 'Published' } : p
+        );
+        localStorage.setItem('all_products', JSON.stringify(updatedProducts));
+        setProducts(updatedProducts);
+        alert('✅ Product restored from archive.');
       }
     } else if (action === 'delete') {
       console.log('🗑️ Delete action started');
@@ -621,6 +633,20 @@ const Products = () => {
                     Edit
                   </button>
                 </li>
+                {product.status === 'Archived' ? (
+                  <li>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleAction('unarchive', product.id);
+                      }}
+                      className="w-full text-left px-4 py-3 text-sm text-green-700 hover:bg-green-50 transition-colors cursor-pointer"
+                    >
+                      Undo Archive
+                    </button>
+                  </li>
+                ) : null}
                 <li>
                   <button
                     onClick={(e) => {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FiClock, FiMapPin, FiRotateCcw, FiPlus, FiX, FiCheckCircle, FiChevronDown, FiCamera, FiUpload, FiEdit3, FiTrash2, FiUser, FiStar } from 'react-icons/fi';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -28,6 +28,24 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
   const [completedCrop, setCompletedCrop] = useState(null);
   const photoInputRef = useRef(null);
   const imgRef = useRef(null);
+
+  // Load existing itineraries from draft when available
+  useEffect(() => {
+    try {
+      const draftId = productData?.draftId;
+      if (!draftId) return;
+      const saved = localStorage.getItem(`product_draft_${draftId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.itineraries) && parsed.itineraries.length > 0) {
+          setItineraryEntries(parsed.itineraries);
+          setHasSavedItinerary(true);
+        }
+      }
+    } catch (e) {
+      console.warn('Unable to load itineraries from draft:', e);
+    }
+  }, [productData?.draftId]);
 
   const tourTypes = [
     { 
@@ -162,6 +180,21 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
     setShowAddItineraryModal(false);
     setHasSavedItinerary(true);
     setShowSubmitView(true); // Automatically navigate to the submit view
+
+    // Persist to draft if available
+    try {
+      const draftId = productData?.draftId;
+      if (draftId) {
+        const key = `product_draft_${draftId}`;
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : {};
+        const existing = Array.isArray(parsed.itineraries) ? parsed.itineraries : [];
+        const updated = [...existing, newEntry];
+        localStorage.setItem(key, JSON.stringify({ ...parsed, itineraries: updated, lastModified: new Date().toISOString() }));
+      }
+    } catch (e) {
+      console.warn('Failed to persist itinerary to draft:', e);
+    }
     
     // Reset form
     setPlaceName('');
@@ -180,6 +213,20 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
       photoInputRef.current.value = '';
     }
   };
+
+  // Persist any changes to itinerary list to draft (e.g., delete)
+  useEffect(() => {
+    try {
+      const draftId = productData?.draftId;
+      if (!draftId) return;
+      const key = `product_draft_${draftId}`;
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(key, JSON.stringify({ ...parsed, itineraries: itineraryEntries, lastModified: new Date().toISOString() }));
+    } catch (e) {
+      // ignore
+    }
+  }, [itineraryEntries, productData?.draftId]);
 
   const handleSubmit = () => {
     if (hasSavedItinerary && !showSubmitView) {

@@ -2837,36 +2837,23 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                      {(() => {
                        // Get all existing vehicles from all products AND drafts in localStorage
                        try {
-                         const allProductsData = localStorage.getItem('all_products');
-                         const allProducts = allProductsData ? JSON.parse(allProductsData) : [];
-                         
-                         // Also get vehicles from drafts
+                         // Only use vehicles from drafts and the current form (avoid published duplicates)
                          const allDraftKeys = Object.keys(localStorage).filter(key => key.startsWith('product_draft_'));
                          
-                         // Collect all vehicles from all products and drafts
+                         // Collect vehicles from drafts
                          const allExistingVehicles = [];
                          const seenVehicles = new Set();
                          
-                         // First, get vehicles from published products
-                         allProducts.forEach(product => {
-                           if (product.vehicles && Array.isArray(product.vehicles)) {
-                             product.vehicles.forEach(vehicle => {
-                               const vehicleKey = `${vehicle.title}-${vehicle.type}-${vehicle.model}`;
-                               if (!seenVehicles.has(vehicleKey)) {
-                                 seenVehicles.add(vehicleKey);
-                                 allExistingVehicles.push(vehicle);
-                               }
-                             });
-                           }
-                         });
-                         
-                         // Then, get vehicles from drafts
+                         // Load vehicles from drafts only
                          allDraftKeys.forEach(key => {
                            try {
                              const draftData = JSON.parse(localStorage.getItem(key));
                              if (draftData && draftData.vehicles && Array.isArray(draftData.vehicles)) {
                                draftData.vehicles.forEach(vehicle => {
-                                 const vehicleKey = `${vehicle.title}-${vehicle.type}-${vehicle.model}`;
+                                const normalizedTitle = (vehicle.title || '').toLowerCase().trim();
+                                const normalizedType = (vehicle.type || '').toLowerCase().trim();
+                                const normalizedModel = (vehicle.model || '').toLowerCase().trim();
+                                const vehicleKey = `${normalizedTitle}|${normalizedType}|${normalizedModel}`;
                                  if (!seenVehicles.has(vehicleKey)) {
                                    seenVehicles.add(vehicleKey);
                                    allExistingVehicles.push(vehicle);
@@ -2878,13 +2865,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                            }
                          });
                          
-                         // Combine with current product's vehicles
-                         const currentVehicles = vehicles.map(v => v.id || v.title);
-                         const uniqueCurrentVehicles = vehicles.filter(v => 
-                           !allExistingVehicles.some(existing => 
-                             (existing.title === v.title && existing.type === v.type)
-                           )
-                         );
+                         // Combine with current product's vehicles (avoid duplicates by normalized fields)
+                         const uniqueCurrentVehicles = vehicles.filter(v => {
+                           const vt = (v.title || '').toLowerCase().trim();
+                           const ty = (v.type || '').toLowerCase().trim();
+                           const md = (v.model || '').toLowerCase().trim();
+                           const key = `${vt}|${ty}|${md}`;
+                           return !seenVehicles.has(key);
+                         });
                          
                          const availableVehicles = [...allExistingVehicles, ...uniqueCurrentVehicles];
                          
@@ -3810,7 +3798,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             selectedDate: selectedDate,
             // Time slots for all days
             timeSlots: timeSlots,
-            applyToAllDays: applyToAllDays
+            vehicleTimeAllocations: vehicleTimeAllocations,
+            applyToAllDays: applyToAllDays,
+            // Provide draftId so AddItineraryComponent can preload existing itineraries
+            draftId: draftId
           }}
         />
       )}

@@ -171,7 +171,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         ratings: "0/5",
         vehicles: Array.isArray(productData?.vehicles) ? productData.vehicles : [],
         // Persist vehicle-time allocations for availability filters
-        vehicleTimeAllocations: Array.isArray(productData?.vehicleTimeAllocations) ? productData.vehicleTimeAllocations : []
+        vehicleTimeAllocations: Array.isArray(productData?.vehicleTimeAllocations) ? productData.vehicleTimeAllocations : [],
+        // Persist generated time slots for availability filters
+        timeSlots: productData?.timeSlots || {}
       };
       
       // Add to products array
@@ -202,6 +204,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         vehicles: Array.isArray(productData?.vehicles) ? productData.vehicles : [],
         selectedVehicleForTour: Array.isArray(productData?.vehicles) ? productData.vehicles : [],
         vehicleTimeAllocations: Array.isArray(productData?.vehicleTimeAllocations) ? productData.vehicleTimeAllocations : [],
+        timeSlots: productData?.timeSlots || {},
         selectedPickupLocations: productData?.pickupLocations || [],
         selectedDropoffLocations: productData?.dropoffLocations || [],
         pickupTime: productData?.pickupTime || '',
@@ -975,12 +978,12 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                           />
                         ) : (
                           /* Show time if no photo */
-                          <span className="text-blue-600 text-xs font-bold">{item.time}</span>
+                        <span className="text-blue-600 text-xs font-bold">{item.time}</span>
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-gray-900 text-sm">{item.title}</h4>
+                        <h4 className="font-semibold text-gray-900 text-sm">{item.title}</h4>
                           {item.photo && (
                             <span className="text-blue-600 text-xs font-medium">{item.time}</span>
                           )}

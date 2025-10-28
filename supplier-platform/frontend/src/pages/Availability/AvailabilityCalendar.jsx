@@ -54,10 +54,13 @@ const AvailabilityCalendar = () => {
     loadRealTimeData();
   }, []);
 
-  const loadRealTimeData = () => {
+  const loadRealTimeData = async () => {
     try {
       setIsRefreshing(true);
       console.log('🔄 Loading real-time data for Availability page...');
+      
+      // Add a small delay to make the animation visible
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Get all products from localStorage
       const allProductsData = localStorage.getItem('all_products');
@@ -130,7 +133,7 @@ const AvailabilityCalendar = () => {
           });
         }
 
-        // Extract time slots (from vehicle-time allocations)
+        // Extract time slots helpers
         const addTimeSlots = (allocations) => {
           allocations.forEach(allocation => {
             if (allocation && allocation.time) {
@@ -138,10 +141,29 @@ const AvailabilityCalendar = () => {
             }
           });
         };
+        const addTimeSlotsFromGenerated = (timeSlotsObj) => {
+          if (!timeSlotsObj || typeof timeSlotsObj !== 'object') return;
+          Object.values(timeSlotsObj).forEach(dayArr => {
+            if (Array.isArray(dayArr)) {
+              dayArr.forEach(t => {
+                if (typeof t === 'string' && t.trim()) {
+                  uniqueTimeSlots.add(t.trim());
+                }
+              });
+            }
+          });
+        };
 
+        // 1) From vehicle-time allocations saved on publish
         if (Array.isArray(product.vehicleTimeAllocations) && product.vehicleTimeAllocations.length > 0) {
           addTimeSlots(product.vehicleTimeAllocations);
-        } else {
+        }
+        // 2) From generated timeSlots stored on the product (if any)
+        if (product.timeSlots) {
+          addTimeSlotsFromGenerated(product.timeSlots);
+        }
+        // 3) Fallbacks to full payloads stored for published/drafts
+        if (!(Array.isArray(product.vehicleTimeAllocations) && product.vehicleTimeAllocations.length > 0) && !product.timeSlots) {
           // Fallback to full payloads stored for published/drafts
           const fullKey = product.id ? `product_full_${product.id}` : null;
           if (fullKey && localStorage.getItem(fullKey)) {
@@ -149,6 +171,9 @@ const AvailabilityCalendar = () => {
               const full = JSON.parse(localStorage.getItem(fullKey));
               if (full && Array.isArray(full.vehicleTimeAllocations) && full.vehicleTimeAllocations.length > 0) {
                 addTimeSlots(full.vehicleTimeAllocations);
+              }
+              if (full && full.timeSlots) {
+                addTimeSlotsFromGenerated(full.timeSlots);
               }
             } catch (e) {
               console.warn('Unable to parse full published payload for time slots', e);
@@ -160,6 +185,9 @@ const AvailabilityCalendar = () => {
               const draft = JSON.parse(localStorage.getItem(draftKeyTs));
               if (draft && Array.isArray(draft.vehicleTimeAllocations) && draft.vehicleTimeAllocations.length > 0) {
                 addTimeSlots(draft.vehicleTimeAllocations);
+              }
+              if (draft && draft.timeSlots) {
+                addTimeSlotsFromGenerated(draft.timeSlots);
               }
             } catch (e) {
               console.warn('Unable to parse draft payload for time slots', e);
@@ -456,7 +484,7 @@ const AvailabilityCalendar = () => {
                 className="hover:scale-110 transition-transform disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FiRefreshCw 
-                  className={`w-8 h-8 text-blue-600 mx-auto mb-2 ${isRefreshing ? 'animate-spin' : ''}`} 
+                  className={`w-8 h-8 text-blue-600 mx-auto mb-2 transition-all duration-300 ${isRefreshing ? 'animate-spin' : ''}`} 
                 />
               </button>
               <div className="text-gray-600">
