@@ -66,9 +66,9 @@ const AvailabilityCalendar = () => {
       const allProductsData = localStorage.getItem('all_products');
       const allProducts = allProductsData ? JSON.parse(allProductsData) : [];
       
-      // Filter only published products
-      const publishedProducts = allProducts.filter(product => product.status === 'Published');
-      console.log('📦 Found published products:', publishedProducts.length);
+      // Show BOTH Published and Draft products in Availability (never hide drafts)
+      const relevantProducts = allProducts.filter(product => product.status === 'Published' || product.status === 'Draft');
+      console.log('📦 Found products for availability (Published + Draft):', relevantProducts.length);
 
       // Extract unique data for filters
       const uniqueVehicles = new Map();
@@ -76,7 +76,7 @@ const AvailabilityCalendar = () => {
       const uniqueGroupSizes = new Set();
       const uniqueTimeSlots = new Set();
 
-      publishedProducts.forEach((product, index) => {
+      relevantProducts.forEach((product, index) => {
         // Product names for product filter
         // (handled separately below)
 
@@ -197,7 +197,7 @@ const AvailabilityCalendar = () => {
       });
 
       // Convert to arrays for display
-      const productOptionsArray = publishedProducts.map((product, index) => ({
+      const productOptionsArray = relevantProducts.map((product, index) => ({
         id: product.id || `product-${index + 1}`,
         name: product.name || product.title || `Product ${index + 1}`
       }));
@@ -220,8 +220,8 @@ const AvailabilityCalendar = () => {
       setGroupSizeOptions(groupSizeOptionsArray);
       setTimeSlotOptions(timeSlotOptionsArray);
 
-      // Create product list for display
-      const productList = publishedProducts.map((product, index) => {
+      // Create product list for display (respect real status)
+      const productList = relevantProducts.map((product, index) => {
         const vehicleCount = product.vehicles?.length || 0;
         const vehicleType = product.vehicles?.[0] ? getVehicleDisplayName(product.vehicles[0]) : 'N/A';
         const groupSize = product.vehicles?.[0]?.capacity ? `1-${product.vehicles[0].capacity} People` : 'N/A';
@@ -229,10 +229,10 @@ const AvailabilityCalendar = () => {
         return {
           id: product.id || `product-${index + 1}`,
           name: product.name || product.title || `Product ${index + 1}`,
-          status: "Active",
+          status: product.status === 'Published' ? 'Active' : 'Inactive',
           details: `${vehicleType} > ${product.category || 'Tour'} > ${groupSize}`,
           vehicles: `${vehicleCount}/${vehicleCount} available`,
-          isActive: true,
+          isActive: product.status === 'Published',
           vehiclesRaw: Array.isArray(product.vehicles) ? product.vehicles : []
         };
       });
@@ -243,7 +243,7 @@ const AvailabilityCalendar = () => {
       const totalCount = productList.length;
       const activeCount = productList.filter(p => p.isActive).length;
       const inactiveCount = productList.filter(p => !p.isActive).length;
-      const totalVehiclesCount = publishedProducts.reduce((sum, p) => sum + (p.vehicles?.length || 0), 0);
+      const totalVehiclesCount = relevantProducts.reduce((sum, p) => sum + (p.vehicles?.length || 0), 0);
 
       setTotalSelectedProducts(totalCount);
       setActiveProducts(activeCount);
@@ -317,31 +317,46 @@ const AvailabilityCalendar = () => {
     setCurrentPage(1);
   }, [selectedProducts, selectedVehicles, selectedTours, selectedGroupSizes, selectedTimeSlots]);
 
-  const handleToggleProduct = (productId) => {
-    setProducts(prevProducts => 
-      prevProducts.map(product => 
-        product.id === productId 
-          ? { 
-              ...product, 
-              isActive: !product.isActive,
-              status: !product.isActive ? "Active" : "Inactive"
-            }
-          : product
-      )
-    );
-    
-    // Update active/inactive counts
+  const handleToggleProduct = (productId, nextActive = null) => {
+    // Determine next state
+    const current = products.find(p => p.id === productId);
+    if (!current) return;
+    const willBeActive = nextActive !== null ? nextActive : !current.isActive;
+
+    // Update UI state immediately
     const updatedProducts = products.map(product => 
       product.id === productId 
-        ? { ...product, isActive: !product.isActive }
+        ? { ...product, isActive: willBeActive, status: willBeActive ? 'Active' : 'Inactive' }
         : product
     );
-    
-    const newActiveCount = updatedProducts.filter(p => p.isActive).length;
-    const newInactiveCount = updatedProducts.filter(p => !p.isActive).length;
-    
-    setActiveProducts(newActiveCount);
-    setInactiveProducts(newInactiveCount);
+    setProducts(updatedProducts);
+
+    // Recompute counters
+    setActiveProducts(updatedProducts.filter(p => p.isActive).length);
+    setInactiveProducts(updatedProducts.filter(p => !p.isActive).length);
+
+    // Persist status change into all_products
+    try {
+      const allProductsData = localStorage.getItem('all_products');
+      const all = allProductsData ? JSON.parse(allProductsData) : [];
+      const idx = all.findIndex(p => (p.id || p.referenceCode) === productId || (p.id === productId));
+      if (idx !== -1) {
+        // Persist as Draft when inactive; Published when active
+        all[idx] = { ...all[idx], status: willBeActive ? 'Published' : 'Draft' };
+        localStorage.setItem('all_products', JSON.stringify(all));
+      }
+      // Store inactive dates per product
+      const inactiveKey = `product_inactive_dates_${productId}`;
+      const existing = localStorage.getItem(inactiveKey);
+      if (willBeActive) {
+        // do nothing here; dates are preserved for history
+      } else {
+        // If turning inactive without dates supplied, ensure key exists
+        if (!existing) localStorage.setItem(inactiveKey, JSON.stringify([]));
+      }
+    } catch (e) {
+      console.warn('Failed to persist product status:', e);
+    }
   };
 
   // Apply filters to products
@@ -819,7 +834,18 @@ const AvailabilityCalendar = () => {
                           type="checkbox" 
                           className="sr-only peer" 
                           checked={product.isActive}
-                          onChange={() => handleToggleProduct(product.id)}
+                          onChange={(e) => {
+                            if (!e.target.checked) {
+                              // Opening calendar to choose inactive dates
+                              setShowCalendarModal(true);
+                              // Temporarily flip UI; final persist in onApply below
+                              handleToggleProduct(product.id, false);
+                              // Stash pending product id on window for simplicity
+                              window.__pendingInactiveProductId = product.id;
+                            } else {
+                              handleToggleProduct(product.id, true);
+                            }
+                          }}
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                       </label>
@@ -908,6 +934,16 @@ const AvailabilityCalendar = () => {
       <Calendar 
         isOpen={showCalendarModal} 
         onClose={() => setShowCalendarModal(false)} 
+        onApply={(dates) => {
+          try {
+            const productId = window.__pendingInactiveProductId;
+            if (productId) {
+              localStorage.setItem(`product_inactive_dates_${productId}`, JSON.stringify(dates));
+              delete window.__pendingInactiveProductId;
+            }
+          } catch (e) {}
+          setShowCalendarModal(false);
+        }}
       />
     </div>
   );

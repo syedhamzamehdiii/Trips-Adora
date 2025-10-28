@@ -118,13 +118,15 @@ const Products = () => {
 
   // Filter products based on active tab, search query, and filters
   const displayedProducts = products.filter(product => {
-    // Tab filter - Show all products (Published, Draft, Rejected, etc.) in Active Products tab
+    // Tab filter
     let matchesTab = true;
     if (activeTab === 'drafts') {
       // Drafts tab only shows drafts
       matchesTab = product.status === 'Draft';
+    } else if (activeTab === 'active') {
+      // Active tab shows Published and Draft (inactive) per requirement
+      matchesTab = product.status === 'Published' || product.status === 'Draft';
     }
-    // activeTab === 'active' shows ALL products regardless of status
     
     // Search query filter
     const matchesSearch = searchQuery === '' || 

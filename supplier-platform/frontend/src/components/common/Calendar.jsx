@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
 
-const Calendar = ({ isOpen, onClose }) => {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 9, 1)); // October 2025
-  const [selectedDate, setSelectedDate] = useState(1);
+// Simple multi-select calendar (month view)
+// Props:
+// - isOpen: boolean
+// - onClose: () => void
+// - onApply: (isoDates: string[]) => void
+// - initialSelectedDates: string[] (ISO YYYY-MM-DD)
+const Calendar = ({ isOpen, onClose, onApply, initialSelectedDates = [] }) => {
+  const today = new Date();
+  const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedDates, setSelectedDates] = useState(new Set(initialSelectedDates));
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragMode, setDragMode] = useState('add'); // 'add' | 'remove'
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -74,9 +83,52 @@ const Calendar = ({ isOpen, onClose }) => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const handleDateClick = (day) => {
-    if (day.isCurrentMonth) {
-      setSelectedDate(day.day);
+  const toISO = (dateObj) => {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const applySelection = (day, mode = 'toggle') => {
+    if (!day.isCurrentMonth) return;
+    const clicked = new Date(currentDate.getFullYear(), currentDate.getMonth(), day.day);
+    const iso = toISO(clicked);
+    setSelectedDates(prev => {
+      const next = new Set(prev);
+      if (mode === 'toggle') {
+        if (next.has(iso)) next.delete(iso); else next.add(iso);
+      } else if (mode === 'add') {
+        next.add(iso);
+      } else if (mode === 'remove') {
+        next.delete(iso);
+      }
+      return next;
+    });
+  };
+
+  const handleMouseDown = (day) => {
+    if (!day.isCurrentMonth) return;
+    const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day.day);
+    const iso = toISO(dateObj);
+    const alreadySelected = selectedDates.has(iso);
+    const mode = alreadySelected ? 'remove' : 'add';
+    setDragMode(mode);
+    setIsDragging(true);
+    applySelection(day, mode);
+    // Prevent text selection while dragging
+    document.body.style.userSelect = 'none';
+  };
+
+  const handleMouseEnter = (day) => {
+    if (!isDragging) return;
+    applySelection(day, dragMode);
+  };
+
+  const handleMouseUp = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      document.body.style.userSelect = '';
     }
   };
 
@@ -146,12 +198,17 @@ const Calendar = ({ isOpen, onClose }) => {
               </div>
 
               {/* Days */}
-              {days.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => (
+              {days.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => {
+                const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day.day);
+                const iso = day.isCurrentMonth ? toISO(dateObj) : '';
+                const isSelected = day.isCurrentMonth && selectedDates.has(iso);
+                return (
                 <button
                   key={dayIndex}
-                  onClick={() => handleDateClick(day)}
+                  onMouseDown={() => handleMouseDown(day)}
+                  onMouseEnter={() => handleMouseEnter(day)}
                   className={`text-sm font-medium py-2 rounded-lg transition-colors ${
-                    day.day === selectedDate && day.isCurrentMonth
+                    isSelected
                       ? 'bg-blue-600 text-white'
                       : day.isCurrentMonth
                       ? day.isWeekend
@@ -162,19 +219,27 @@ const Calendar = ({ isOpen, onClose }) => {
                 >
                   {day.day}
                 </button>
-              ))}
+              );})}
             </div>
           ))}
         </div>
 
-        {/* Close Button */}
-        <div className="flex justify-end mt-8">
+        {/* Actions */}
+        <div className="flex justify-end gap-3 mt-8">
           <button
             onClick={onClose}
             className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
           >
             Close
           </button>
+          {onApply && (
+            <button
+              onClick={() => onApply(Array.from(selectedDates).sort())}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Apply
+            </button>
+          )}
         </div>
       </div>
     </div>
