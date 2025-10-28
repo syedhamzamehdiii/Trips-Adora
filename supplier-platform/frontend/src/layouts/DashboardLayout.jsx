@@ -16,6 +16,7 @@ const DashboardLayout = ({ children }) => {
   const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
   const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [profileVersion, setProfileVersion] = useState(0); // bump to re-render when account settings change
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
@@ -49,6 +50,17 @@ const DashboardLayout = ({ children }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showListingsDropdown, showNotifications, showLanguageDropdown]);
+
+  // Listen for profile updates from Account Settings
+  useEffect(() => {
+    const onUpdate = () => setProfileVersion(v => v + 1);
+    window.addEventListener('account_settings_updated', onUpdate);
+    window.addEventListener('storage', onUpdate);
+    return () => {
+      window.removeEventListener('account_settings_updated', onUpdate);
+      window.removeEventListener('storage', onUpdate);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-white">
@@ -188,12 +200,42 @@ const DashboardLayout = ({ children }) => {
                   onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
                   className="bg-[#1d236b] rounded-lg px-4 py-2 flex items-center space-x-3 hover:bg-[#1d236b]/90 transition-colors"
                 >
-                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-semibold text-gray-600">EW</span>
+                  <div className="w-8 h-8 bg-gray-300 rounded-full overflow-hidden flex items-center justify-center">
+                    {(() => {
+                      try {
+                        const saved = localStorage.getItem('account_settings');
+                        if (saved) {
+                          const data = JSON.parse(saved);
+                          if (data && data.globalUserPhoto) {
+                            return <img src={data.globalUserPhoto} alt="Profile" className="w-full h-full object-cover" />;
+                          }
+                        }
+                      } catch(_) {}
+                      return <span className="text-xs font-semibold text-gray-600">EW</span>;
+                    })()}
                   </div>
                   <div className="text-white">
-                    <div className="text-sm font-semibold">Edward William</div>
-                    <div className="text-xs text-gray-300">ID 00032123</div>
+                    {(() => {
+                      try {
+                        const saved = localStorage.getItem('account_settings');
+                        if (saved) {
+                          const data = JSON.parse(saved);
+                          const name = data?.editableInfo?.publicName || 'Edward William';
+                          return (
+                            <>
+                              <div className="text-sm font-semibold">{name}</div>
+                              <div className="text-xs text-gray-300">ID 00032123</div>
+                            </>
+                          );
+                        }
+                      } catch(_) {}
+                      return (
+                        <>
+                          <div className="text-sm font-semibold">Edward William</div>
+                          <div className="text-xs text-gray-300">ID 00032123</div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </button>
                 

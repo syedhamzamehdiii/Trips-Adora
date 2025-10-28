@@ -1,11 +1,12 @@
 // Frontend/src/pages/Settings/CompanyProfile.jsx
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiInfo, FiUpload, FiArrowUp, FiX, FiCheck, FiArrowRight, FiArrowLeft } from 'react-icons/fi';
 import Button from '@/components/common/Button';
 import Input from '@/components/common/Input';
 
 const CompanyProfile = () => {
   const [activeTab, setActiveTab] = useState('company-details');
+  const isHydratedRef = useRef(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -45,6 +46,60 @@ const CompanyProfile = () => {
     dataProcessingAccepted: false
   });
   const [isCompletingLegal, setIsCompletingLegal] = useState(false);
+
+  // --- Persistence helpers ---
+  const buildPayload = (extra = {}) => {
+    return {
+      activeTab,
+      formData,
+      logoPreview,
+      verificationStatus,
+      legalStep,
+      legalFormData,
+      ...extra
+    };
+  };
+
+  const saveDebounceRef = useRef(null);
+  const persist = (extra = {}) => {
+    try {
+      const raw = buildPayload(extra);
+      let json = JSON.stringify(raw);
+      const limit = 4.5 * 1024 * 1024; // ~4.5MB
+      if (json.length > limit) {
+        // drop heavy previews first
+        const reduced = { ...raw, logoPreview: null, legalFormData: { ...raw.legalFormData, coiPreview: null } };
+        json = JSON.stringify(reduced);
+      }
+      localStorage.setItem('company_profile', json);
+      window.dispatchEvent(new Event('companyProfileUpdated'));
+    } catch (_) {}
+  };
+
+  // Load from storage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('company_profile');
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.activeTab) setActiveTab(data.activeTab);
+        if (data.formData) setFormData(data.formData);
+        if (data.logoPreview) setLogoPreview(data.logoPreview);
+        if (data.verificationStatus) setVerificationStatus(data.verificationStatus);
+        if (typeof data.legalStep === 'number') setLegalStep(data.legalStep);
+        if (data.legalFormData) setLegalFormData(data.legalFormData);
+      }
+    } catch (_) {}
+    isHydratedRef.current = true;
+  }, []);
+
+  // Auto-save with debounce
+  useEffect(() => {
+    if (!isHydratedRef.current) return;
+    if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+    saveDebounceRef.current = setTimeout(() => persist(), 600);
+    return () => saveDebounceRef.current && clearTimeout(saveDebounceRef.current);
+  }, [activeTab, formData, logoPreview, verificationStatus, legalStep, legalFormData]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -86,6 +141,7 @@ const CompanyProfile = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       setLogoPreview(e.target.result);
+      persist({ logoPreview: e.target.result });
     };
     reader.readAsDataURL(file);
   };
@@ -279,6 +335,7 @@ const CompanyProfile = () => {
           ...prev,
           coiPreview: e.target.result
         }));
+        persist({ legalFormData: { ...legalFormData, coiPreview: e.target.result } });
       };
       reader.readAsDataURL(file);
     }
@@ -368,8 +425,10 @@ const CompanyProfile = () => {
     // Simulate completion process
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Redirect to dashboard (you would use navigate from react-router-dom)
-    alert('Legal requirements completed! Redirecting to dashboard...');
+    // Persist final status as verified and completed
+    setVerificationStatus('verified');
+    persist({ verificationStatus: 'verified' });
+    alert('Legal requirements completed and saved!');
     setIsCompletingLegal(false);
     
     // In a real app, you would use:

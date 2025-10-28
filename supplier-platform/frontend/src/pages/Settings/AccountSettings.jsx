@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import ReactCrop from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 import { FiUpload, FiEdit, FiUserPlus, FiLock, FiAlertCircle, FiCheck, FiInfo, FiEye, FiEyeOff, FiSettings } from 'react-icons/fi';
 import Button from '@/components/common/Button';
 import Input from '@/components/common/Input';
@@ -6,9 +8,9 @@ import Input from '@/components/common/Input';
 const AccountSettings = () => {
   // User profile data
   const [profileData, setProfileData] = useState({
-    publicName: 'Suneel Pirkash',
-    legalName: 'SUMEIL PIRKASH',
-    email: 'suneelpikash@gmail.com',
+    publicName: 'Your Public Name',
+    legalName: 'Your Legal Name',
+    email: 'you@gmail.com',
     location: 'Notting Hill, London',
     accountType: 'Private individual',
     streetAddress: '1 Chome-1 Nishi-Shinjuku, Shinjuku City, Tokyo',
@@ -42,51 +44,89 @@ const AccountSettings = () => {
   // Global user photo state for all instances
   const [globalUserPhoto, setGlobalUserPhoto] = useState(null);
 
-  // Profile completion data
-  const [profileCompletion] = useState({
-    percentage: 70,
-    items: [
-      { name: 'Personal info', completed: true, percentage: 10 },
-      { name: 'Setup account', completed: true, percentage: 20 },
-      { name: 'Upload your photo', completed: true, percentage: 10 },
-      { name: 'Notifications', completed: false, percentage: 10 },
-      { name: 'Location', completed: false, percentage: 10 },
-      { name: 'Biography', completed: false, percentage: 30 },
-      { name: 'Bank details', completed: false, percentage: 10 }
-    ]
-  });
+  // Image crop modal state (for profile photo)
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState(null);
+  const [crop, setCrop] = useState({ unit: '%', width: 80, aspect: 1 });
+  const [completedCrop, setCompletedCrop] = useState(null);
+  const imgRef = useRef(null);
+  // hydration flag to avoid overwriting saved data with defaults on first mount
+  const [isHydrated, setIsHydrated] = useState(false);
 
+  // Persist helper (writes immediately)
+  const persistSettings = (next = {}) => {
+    try {
+      const payloadRaw = {
+        profileData,
+        contactNumbers,
+        notifications,
+        reports,
+        twoFactor,
+        passwordData,
+        editableInfo,
+        globalUserPhoto,
+        // store heavy images only as data URLs and truncate if too large
+        businessLicensePreview,
+        liabilityInsurancePreview,
+        logoPreview,
+        ...next
+      };
+      // compress by removing huge images if exceeding ~4.5MB budget
+      let payload = { ...payloadRaw };
+      let json = JSON.stringify(payload);
+      const limit = 4.5 * 1024 * 1024; // ~4.5MB string size budget
+      if (json.length > limit) {
+        payload.businessLicensePreview = null;
+        json = JSON.stringify(payload);
+      }
+      if (json.length > limit) {
+        payload.liabilityInsurancePreview = null;
+        json = JSON.stringify(payload);
+      }
+      if (json.length > limit) {
+        payload.logoPreview = null;
+        json = JSON.stringify(payload);
+      }
+      localStorage.setItem('account_settings', json);
+      window.dispatchEvent(new Event('account_settings_updated'));
+      window.dispatchEvent(new Event('accountSettingsUpdated'));
+    } catch (_) {}
+  };
+  
   // Settings states
   const [notifications, setNotifications] = useState({
     billingAccounting: true,
     newBookings: true,
     faqs: false
   });
-
+  
   const [reports, setReports] = useState({
     weekly: true,
     monthly: true,
     emailInsights: true
   });
-
+  
   const [twoFactor, setTwoFactor] = useState({
     smsAuth: true,
     emailAuth: true,
     authApp: true
   });
-
+  
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
     otp: ''
   });
-
+  
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
     confirm: false
   });
+
+  
+
 
   const handleInputChange = (field, value) => {
     setProfileData(prev => ({
@@ -98,30 +138,28 @@ const AccountSettings = () => {
   // Contact number management functions
   const addContactNumber = () => {
     const newId = Math.max(...contactNumbers.map(c => c.id), 0) + 1;
-    setContactNumbers(prev => [
-      ...prev,
-      {
-        id: newId,
-        type: 'WhatsApp number',
-        value: ''
-      }
-    ]);
+    const updated = [
+      ...contactNumbers,
+      { id: newId, type: 'WhatsApp number', value: '' }
+    ];
+    setContactNumbers(updated);
+    persistSettings({ contactNumbers: updated });
   };
 
   const removeContactNumber = (id) => {
     if (contactNumbers.length > 1) {
-      setContactNumbers(prev => prev.filter(contact => contact.id !== id));
+      const updated = contactNumbers.filter(contact => contact.id !== id);
+      setContactNumbers(updated);
+      persistSettings({ contactNumbers: updated });
     }
   };
 
   const updateContactNumber = (id, field, value) => {
-    setContactNumbers(prev => 
-      prev.map(contact => 
-        contact.id === id 
-          ? { ...contact, [field]: value }
-          : contact
-      )
+    const updated = contactNumbers.map(contact => 
+      contact.id === id ? { ...contact, [field]: value } : contact
     );
+    setContactNumbers(updated);
+    persistSettings({ contactNumbers: updated });
   };
 
   // User management modal states
@@ -144,17 +182,38 @@ const AccountSettings = () => {
   const [personalMessage, setPersonalMessage] = useState('');
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const infoSectionRef = useRef(null);
   const [showAccountVerification, setShowAccountVerification] = useState(false);
   const [editableInfo, setEditableInfo] = useState({
-    publicName: 'Suneel Pirkash',
-    legalName: 'SUMEIL PIRKASH',
-    email: 'suneelpirkash@gmail.com',
+    publicName: 'Your Public Name',
+    legalName: 'Your Legal Name',
+    email: 'example@gmail.com',
     streetAddress: '1 Chome-1 Nishi-Shinjuku, Shinjuku City, Tokyo',
     zipCode: '160-0022',
     city: 'Shinjuku',
     state: 'Tokyo Prefecture',
     country: 'Japan'
   });
+
+  // Derived profile completion (computed from current state)
+  const computeCompletion = () => {
+    const items = [
+      { name: 'Personal Info', completed: Boolean(editableInfo.publicName && editableInfo.legalName && editableInfo.email), percentage: 10 },
+      { name: 'Setup account', completed: true, percentage: 20 },
+      { name: 'Upload your photo', completed: Boolean(globalUserPhoto), percentage: 10 },
+      { name: 'Notifications', completed: notifications.billingAccounting || notifications.newBookings || notifications.faqs, percentage: 10 },
+      { name: 'Location', completed: Boolean(editableInfo.city && editableInfo.country), percentage: 10 },
+      { name: 'Biography', completed: false, percentage: 30 },
+      { name: 'Bank details', completed: true, percentage: 10 },
+    ];
+    const percentage = items.reduce((sum, i) => sum + (i.completed ? i.percentage : 0), 0);
+    return { percentage, items };
+  };
+  const profileCompletion = useMemo(() => computeCompletion(), [editableInfo, notifications, globalUserPhoto]);
+
+  // Required document validation flags
+  const [docErrors, setDocErrors] = useState({ business: false, liability: false, logo: false });
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Get enabled roles for display
   const getEnabledRoles = () => {
@@ -168,35 +227,89 @@ const AccountSettings = () => {
 
 
   const handleUserAccessToggle = (role) => {
-    setUserAccess(prev => ({
-      ...prev,
-      roles: {
-        ...prev.roles,
-        [role]: !prev.roles[role]
-      }
-    }));
+    setUserAccess(prev => {
+      const updated = { ...prev, roles: { ...prev.roles, [role]: !prev.roles[role] } };
+      try {
+        const saved = localStorage.getItem('account_settings');
+        const base = saved ? JSON.parse(saved) : {};
+        localStorage.setItem('account_settings', JSON.stringify({ ...base, userAccess: updated, hasAddedUser, addedUserEmail }));
+      } catch (_) {}
+      return updated;
+    });
   };
 
   const handleLoginToggle = () => {
-    setUserAccess(prev => ({
-      ...prev,
-      allowLogin: !prev.allowLogin
-    }));
+    setUserAccess(prev => {
+      const updated = { ...prev, allowLogin: !prev.allowLogin };
+      try {
+        const saved = localStorage.getItem('account_settings');
+        const base = saved ? JSON.parse(saved) : {};
+        localStorage.setItem('account_settings', JSON.stringify({ ...base, userAccess: updated, hasAddedUser, addedUserEmail }));
+      } catch (_) {}
+      return updated;
+    });
   };
 
   const handleRemoveUser = () => {
     setHasAddedUser(false);
     setAddedUserEmail('');
     setShowRemoveConfirm(false);
+    try {
+      const saved = localStorage.getItem('account_settings');
+      const base = saved ? JSON.parse(saved) : {};
+      localStorage.setItem('account_settings', JSON.stringify({ ...base, hasAddedUser: false, addedUserEmail: '', userAccess }));
+    } catch (_) {}
   };
 
   const handleEditInfo = () => {
     setIsEditingInfo(true);
+    if (infoSectionRef.current) {
+      infoSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const handleSaveInfo = () => {
+    // Validate all required text fields
+    const errors = {};
+    if (!editableInfo.publicName?.trim()) errors.publicName = true;
+    if (!editableInfo.legalName?.trim()) errors.legalName = true;
+    if (!editableInfo.email?.trim()) errors.email = true;
+    if (!editableInfo.streetAddress?.trim()) errors.streetAddress = true;
+    if (!editableInfo.zipCode?.trim()) errors.zipCode = true;
+    if (!editableInfo.city?.trim()) errors.city = true;
+    if (!editableInfo.state?.trim()) errors.state = true;
+    if (!editableInfo.country?.trim()) errors.country = true;
+
+    // Enforce mandatory document uploads
+    const missingBusiness = !businessLicensePreview;
+    const missingLiability = !liabilityInsurancePreview;
+    const missingLogo = !logoPreview;
+    setDocErrors({ business: missingBusiness, liability: missingLiability, logo: missingLogo });
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0 || missingBusiness || missingLiability || missingLogo) {
+      alert('Please complete all required fields and upload all documents before saving.');
+      return;
+    }
+    // Persist immediately on save to avoid losing office info when navigating fast
+    try {
+      const payload = {
+        profileData,
+        contactNumbers,
+        notifications,
+        reports,
+        twoFactor,
+        passwordData,
+        editableInfo,
+        globalUserPhoto,
+        businessLicensePreview,
+        liabilityInsurancePreview,
+        logoPreview
+      };
+      localStorage.setItem('account_settings', JSON.stringify(payload));
+      window.dispatchEvent(new Event('account_settings_updated'));
+    } catch (_) {}
     setIsEditingInfo(false);
-    // Here you would typically save the data to backend
   };
 
   const handleCancelEdit = () => {
@@ -205,10 +318,9 @@ const AccountSettings = () => {
   };
 
   const handleInfoChange = (field, value) => {
-    setEditableInfo(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    const next = { ...editableInfo, [field]: value };
+    setEditableInfo(next);
+    // do not persist per keystroke for large text fields; debounce by using confirm button
   };
 
   const handleFileUpload = (type, event) => {
@@ -234,20 +346,23 @@ const AccountSettings = () => {
       switch (type) {
         case 'profile':
           setProfilePhoto(file);
-          setProfilePhotoPreview(e.target.result);
-          setGlobalUserPhoto(e.target.result); // Update global photo
+          setImageToCrop(e.target.result);
+          setShowCropModal(true);
           break;
         case 'businessLicense':
           setBusinessLicense(file);
           setBusinessLicensePreview(e.target.result);
+          persistSettings({ businessLicensePreview: e.target.result });
           break;
         case 'liabilityInsurance':
           setLiabilityInsurance(file);
           setLiabilityInsurancePreview(e.target.result);
+          persistSettings({ liabilityInsurancePreview: e.target.result });
           break;
         case 'logo':
           setLogo(file);
           setLogoPreview(e.target.result);
+          persistSettings({ logoPreview: e.target.result });
           break;
         default:
           break;
@@ -256,22 +371,133 @@ const AccountSettings = () => {
     reader.readAsDataURL(file);
   };
 
+  // Crop helpers
+  const getCroppedImg = (image, cropArea) => {
+    const canvas = document.createElement('canvas');
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+    const width = cropArea.width * scaleX;
+    const height = cropArea.height * scaleY;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(
+      image,
+      cropArea.x * scaleX,
+      cropArea.y * scaleY,
+      width,
+      height,
+      0,
+      0,
+      width,
+      height
+    );
+    return canvas.toDataURL('image/jpeg');
+  };
+
+  const applyCrop = () => {
+    if (completedCrop && imgRef.current) {
+      const cropped = getCroppedImg(imgRef.current, completedCrop);
+      setProfilePhotoPreview(cropped);
+      setGlobalUserPhoto(cropped);
+      setShowCropModal(false);
+      setImageToCrop(null);
+    }
+  };
+
+  // Persist and load settings in real-time
+  useEffect(() => {
+    try {
+      let saved = localStorage.getItem('account_settings');
+      if (!saved) {
+        saved = sessionStorage.getItem('account_settings');
+      }
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.profileData) setProfileData(data.profileData);
+        if (data.contactNumbers) setContactNumbers(data.contactNumbers);
+        if (data.notifications) setNotifications(data.notifications);
+        if (data.reports) setReports(data.reports);
+        if (data.twoFactor) setTwoFactor(data.twoFactor);
+        if (data.passwordData) setPasswordData(data.passwordData);
+        if (data.editableInfo) setEditableInfo(data.editableInfo);
+        if (data.globalUserPhoto) {
+          setGlobalUserPhoto(data.globalUserPhoto);
+          setProfilePhotoPreview(data.globalUserPhoto);
+        }
+        if (data.businessLicensePreview) setBusinessLicensePreview(data.businessLicensePreview);
+        if (data.liabilityInsurancePreview) setLiabilityInsurancePreview(data.liabilityInsurancePreview);
+        if (data.logoPreview) setLogoPreview(data.logoPreview);
+        if (typeof data.hasAddedUser === 'boolean') setHasAddedUser(data.hasAddedUser);
+        if (data.addedUserEmail) setAddedUserEmail(data.addedUserEmail);
+        if (data.userAccess) setUserAccess(data.userAccess);
+      }
+      setIsHydrated(true);
+    } catch (_) {}
+  }, []);
+
+  // Manual save function (via button)
+  const handleConfirmAndSaveAll = () => {
+    const payloadRaw = {
+      profileData,
+      contactNumbers,
+      notifications,
+      reports,
+      twoFactor,
+      passwordData,
+      editableInfo,
+      globalUserPhoto,
+      businessLicensePreview,
+      liabilityInsurancePreview,
+      logoPreview,
+      hasAddedUser,
+      addedUserEmail,
+      userAccess
+    };
+    try {
+      let payload = { ...payloadRaw };
+      let json = JSON.stringify(payload);
+      const limit = 4.5 * 1024 * 1024;
+      if (json.length > limit) { payload.businessLicensePreview = null; json = JSON.stringify(payload); }
+      if (json.length > limit) { payload.liabilityInsurancePreview = null; json = JSON.stringify(payload); }
+      if (json.length > limit) { payload.logoPreview = null; json = JSON.stringify(payload); }
+      localStorage.setItem('account_settings', json);
+      // fire both events to satisfy all listeners
+      window.dispatchEvent(new Event('account_settings_updated'));
+      window.dispatchEvent(new Event('accountSettingsUpdated'));
+      alert('All account settings saved successfully!');
+    } catch (err) {
+      try {
+        sessionStorage.setItem('account_settings', JSON.stringify(payloadRaw));
+        window.dispatchEvent(new Event('account_settings_updated'));
+        window.dispatchEvent(new Event('accountSettingsUpdated'));
+        alert('All account settings saved successfully!');
+      } catch (e) {
+        console.error('Save error:', e);
+        alert('Failed to save settings. Please try again.');
+      }
+    }
+  };
+
   const handleToggle = (section, key) => {
     if (section === 'notifications') {
-      setNotifications(prev => ({
-        ...prev,
-        [key]: !prev[key]
-      }));
+      setNotifications(prev => {
+        const updated = { ...prev, [key]: !prev[key] };
+        persistSettings({ notifications: updated });
+        return updated;
+      });
     } else if (section === 'reports') {
-      setReports(prev => ({
-        ...prev,
-        [key]: !prev[key]
-      }));
+      setReports(prev => {
+        const updated = { ...prev, [key]: !prev[key] };
+        persistSettings({ reports: updated });
+        return updated;
+      });
     } else if (section === 'twoFactor') {
-      setTwoFactor(prev => ({
-        ...prev,
-        [key]: !prev[key]
-      }));
+      setTwoFactor(prev => {
+        const updated = { ...prev, [key]: !prev[key] };
+        persistSettings({ twoFactor: updated });
+        return updated;
+      });
     }
   };
 
@@ -294,6 +520,7 @@ const AccountSettings = () => {
   };
 
   const handleUpdateSettings = (section) => {
+    // Data is already persisted via handleToggle; this is a success indicator
     alert(`${section} settings updated successfully!`);
   };
 
@@ -360,13 +587,13 @@ const AccountSettings = () => {
             </div>
             <div className="text-center lg:text-left">
               <div className="flex flex-col lg:flex-row items-center lg:items-center space-y-2 lg:space-y-0 lg:space-x-3 mb-2">
-                <h2 className="text-2xl font-bold text-gray-900">Edward William</h2>
-                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
+                <h2 className="text-2xl font-bold text-gray-900">{editableInfo.publicName || 'Edward William'}</h2>
+                <button onClick={handleEditInfo} className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
                   <FiEdit size={14} className="mr-1" />
                   Edit
                 </button>
               </div>
-              <p className="text-gray-600">Notting Hill, London</p>
+              <p className="text-gray-600">{editableInfo.city && editableInfo.country ? `${editableInfo.city}, ${editableInfo.country}` : (profileData.location || 'Notting Hill, London')}</p>
             </div>
           </div>
 
@@ -395,6 +622,13 @@ const AccountSettings = () => {
           {/* Right: Action Buttons */}
           <div className="flex flex-col space-y-3 w-full lg:w-auto">
             <button 
+              onClick={handleConfirmAndSaveAll}
+              className="inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"
+            >
+              <FiCheck size={16} className="mr-2" />
+              Confirm & Save All Settings
+            </button>
+            <button 
               onClick={() => setShowAccountVerification(true)}
               className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
             >
@@ -410,7 +644,7 @@ const AccountSettings = () => {
         {/* Left Section - Main Content */}
         <div className="lg:col-span-2 space-y-8 pr-8 border-r border-gray-200">
           {/* Your Information */}
-          <section>
+          <section ref={infoSectionRef}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-800">
                 Your information
@@ -455,7 +689,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.publicName}
                     onChange={(e) => handleInfoChange('publicName', e.target.value)}
-                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.publicName ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   editableInfo.publicName
@@ -468,7 +702,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.legalName}
                     onChange={(e) => handleInfoChange('legalName', e.target.value)}
-                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.legalName ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   editableInfo.legalName
@@ -481,7 +715,7 @@ const AccountSettings = () => {
                     type="email"
                     value={editableInfo.email}
                     onChange={(e) => handleInfoChange('email', e.target.value)}
-                    className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.email ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   editableInfo.email
@@ -504,7 +738,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.streetAddress}
                     onChange={(e) => handleInfoChange('streetAddress', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.streetAddress ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.streetAddress}</p>
@@ -517,7 +751,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.zipCode}
                     onChange={(e) => handleInfoChange('zipCode', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.zipCode ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.zipCode}</p>
@@ -530,7 +764,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.city}
                     onChange={(e) => handleInfoChange('city', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.city ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.city}</p>
@@ -543,7 +777,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.state}
                     onChange={(e) => handleInfoChange('state', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.state ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.state}</p>
@@ -556,7 +790,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.country}
                     onChange={(e) => handleInfoChange('country', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.country ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.country}</p>
@@ -566,9 +800,9 @@ const AccountSettings = () => {
                 <p className="font-medium mb-1">Contact information:</p>
                 <div className="space-y-2">
                   {contactNumbers.map((contact, index) => (
-                    <div key={contact.id} className="flex items-center border rounded-lg overflow-hidden">
+                    <div key={contact.id} className="flex items-center justify-between border rounded-lg w-full">
                       <select 
-                        className="bg-gray-100 text-gray-700 text-sm px-2 py-2 border-r outline-none"
+                        className="bg-gray-100 text-gray-700 text-sm px-2 py-2 border-r outline-none max-w-[180px]"
                         value={contact.type}
                         onChange={(e) => updateContactNumber(contact.id, 'type', e.target.value)}
                       >
@@ -583,16 +817,17 @@ const AccountSettings = () => {
                         value={contact.value}
                         onChange={(e) => updateContactNumber(contact.id, 'value', e.target.value)}
                         placeholder="Enter contact number"
-                        className="flex-1 px-3 py-2 outline-none bg-gray-50 text-gray-600"
+                        className="flex-1 px-3 py-2 outline-none bg-gray-50 text-gray-600 min-w-0"
                       />
                       {contactNumbers.length > 1 && (
                         <button
                           onClick={() => removeContactNumber(contact.id)}
-                          className="px-2 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                          className="px-3 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors focus:outline-none flex-shrink-0"
                           title="Remove contact number"
+                          aria-label="Remove contact number"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
                       )}
@@ -611,20 +846,77 @@ const AccountSettings = () => {
 
           {/* Upload Sections */}
           <section className="space-y-6 text-sm">
-            {[
-              "Business operation license",
-              "Public liability insurance",
-              "Logo",
-            ].map((item) => (
-              <div key={item}>
-                <p className="font-medium mb-2">{item}:</p>
-                <button className="border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center">
-                  <FiUpload size={16} className="mr-2" />
-                  Upload new photo
-                </button>
-                <p className="text-red-400 text-xs mt-1">Not yet Provided by you</p>
-              </div>
-            ))}
+            {/* Business operation license */}
+            <div>
+              <p className="font-medium mb-2">Business operation license:</p>
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                className="hidden"
+                id="upload-business-license"
+                onChange={(e) => handleFileUpload('businessLicense', e)}
+              />
+              <label htmlFor="upload-business-license" className="inline-flex border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 items-center cursor-pointer">
+                <FiUpload size={16} className="mr-2" />
+                Upload new photo
+              </label>
+              {businessLicensePreview ? (
+                <div className="mt-2 flex items-center space-x-3">
+                  <img src={businessLicensePreview} alt="Business License" className="w-16 h-16 object-cover rounded border" />
+                  <span className="text-green-600 text-xs font-medium">Provided by you</span>
+                </div>
+              ) : (
+                <p className={`text-xs mt-1 ${docErrors.business ? 'text-red-600 font-semibold' : 'text-red-400'}`}>Not yet Provided by you</p>
+              )}
+            </div>
+
+            {/* Public liability insurance */}
+            <div>
+              <p className="font-medium mb-2">Public liability insurance:</p>
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                className="hidden"
+                id="upload-liability"
+                onChange={(e) => handleFileUpload('liabilityInsurance', e)}
+              />
+              <label htmlFor="upload-liability" className="inline-flex border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 items-center cursor-pointer">
+                <FiUpload size={16} className="mr-2" />
+                Upload new photo
+              </label>
+              {liabilityInsurancePreview ? (
+                <div className="mt-2 flex items-center space-x-3">
+                  <img src={liabilityInsurancePreview} alt="Liability" className="w-16 h-16 object-cover rounded border" />
+                  <span className="text-green-600 text-xs font-medium">Provided by you</span>
+                </div>
+              ) : (
+                <p className={`text-xs mt-1 ${docErrors.liability ? 'text-red-600 font-semibold' : 'text-red-400'}`}>Not yet Provided by you</p>
+              )}
+            </div>
+
+            {/* Logo */}
+            <div>
+              <p className="font-medium mb-2">Logo:</p>
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                className="hidden"
+                id="upload-logo"
+                onChange={(e) => handleFileUpload('logo', e)}
+              />
+              <label htmlFor="upload-logo" className="inline-flex border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 items-center cursor-pointer">
+                <FiUpload size={16} className="mr-2" />
+                Upload new photo
+              </label>
+              {logoPreview ? (
+                <div className="mt-2 flex items-center space-x-3">
+                  <img src={logoPreview} alt="Logo" className="w-16 h-16 object-cover rounded border" />
+                  <span className="text-green-600 text-xs font-medium">Provided by you</span>
+                </div>
+              ) : (
+                <p className={`text-xs mt-1 ${docErrors.logo ? 'text-red-600 font-semibold' : 'text-red-400'}`}>Not yet Provided by you</p>
+              )}
+            </div>
           </section>
         </div>
 
@@ -651,44 +943,36 @@ const AccountSettings = () => {
                 strokeWidth="8"
                 fill="none"
                 strokeDasharray="282.6"
-                strokeDashoffset="170"
+                strokeDashoffset={`${282.6 - (282.6 * profileCompletion.percentage) / 100}`}
                 strokeLinecap="round"
               />
             </svg>
             <span className="absolute inset-0 flex items-center justify-center text-lg font-semibold text-gray-800">
-              40%
+              {profileCompletion.percentage}%
             </span>
           </div>
 
           <h3 className="text-gray-800 font-medium mb-4">Complete your profile</h3>
 
           <ul className="space-y-2 text-sm text-left">
-            {[
-              { label: "Personal Info", value: "+10%", done: false },
-              { label: "Setup account", value: "+20%", done: true },
-              { label: "Upload your photo", value: "+10%", done: true },
-              { label: "Notifications", value: "+10%", done: false },
-              { label: "Location", value: "+10%", done: false },
-              { label: "Biography", value: "+30%", done: false },
-              { label: "Bank details", value: "+10%", done: true },
-            ].map((item) => (
+            {profileCompletion.items.map((item, idx) => (
               <li
-                key={item.label}
+                key={`${item.name}-${idx}`}
                 className="flex justify-between items-center"
               >
                 <span
                   className={`flex items-center gap-2 ${
-                    item.done ? "text-green-600" : "text-gray-700"
+                    item.completed ? "text-green-600" : "text-gray-700"
                   }`}
                 >
-                  {item.done ? "✔️" : "⚠️"} {item.label}
+                  {item.completed ? "✔️" : "⚠️"} {item.name}
                 </span>
                 <span
                   className={`${
-                    item.done ? "text-green-600" : "text-gray-700"
+                    item.completed ? "text-green-600" : "text-gray-700"
                   } font-medium`}
                 >
-                  {item.value}
+                  +{item.percentage}%
                 </span>
               </li>
             ))}
@@ -719,7 +1003,7 @@ const AccountSettings = () => {
                       getEnabledRoles().length > 0 ? (
                         getEnabledRoles().map((role, index) => (
                           <span
-                            key={index}
+                            key={`${role}-${index}`}
                             className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                           >
                             {role}
@@ -1210,6 +1494,36 @@ const AccountSettings = () => {
               >
                 Send invite to access
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Photo Crop Modal */}
+      {showCropModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-[700px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-black">Crop Profile Photo</h2>
+              <button onClick={() => setShowCropModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="p-6">
+              <div className="flex justify-center mb-4">
+                <ReactCrop
+                  crop={crop}
+                  onChange={(c) => setCrop(c)}
+                  onComplete={(c) => setCompletedCrop(c)}
+                  aspect={1}
+                  circularCrop
+                >
+                  <img ref={imgRef} src={imageToCrop} alt="Crop" style={{ maxWidth: '100%', maxHeight: '400px' }} />
+                </ReactCrop>
+              </div>
+              <p className="text-sm text-gray-600 text-center mb-4">Drag to adjust the circular crop area. The photo will be displayed in a circle.</p>
+            </div>
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button onClick={() => setShowCropModal(false)} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+              <button onClick={applyCrop} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Apply Crop</button>
             </div>
           </div>
         </div>

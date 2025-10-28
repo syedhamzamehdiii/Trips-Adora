@@ -27,6 +27,34 @@ const Dashboard = () => {
   const languageRef = useRef(null);
   const profileRef = useRef(null);
 
+  // Load profile data from localStorage in real-time
+  const [sidebarProfile, setSidebarProfile] = useState({ name: 'Edward William', photo: null, id: '00032123', location: 'Notting Hill, London' });
+  useEffect(() => {
+    const loadProfile = () => {
+      try {
+        let saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
+        if (saved) {
+          const data = JSON.parse(saved);
+          setSidebarProfile({
+            name: data.editableInfo?.publicName || 'Edward William',
+            photo: data.globalUserPhoto || null,
+            id: data.profileData?.contactValue || '00032123',
+            location: data.editableInfo?.city && data.editableInfo?.country ? `${data.editableInfo.city}, ${data.editableInfo.country}` : 'Notting Hill, London'
+          });
+        }
+      } catch (_) {}
+    };
+    loadProfile();
+    window.addEventListener('account_settings_updated', loadProfile);
+    window.addEventListener('accountSettingsUpdated', loadProfile);
+    window.addEventListener('storage', loadProfile);
+    return () => {
+      window.removeEventListener('account_settings_updated', loadProfile);
+      window.removeEventListener('accountSettingsUpdated', loadProfile);
+      window.removeEventListener('storage', loadProfile);
+    };
+  }, []);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -203,20 +231,19 @@ const Dashboard = () => {
                 className="hover:bg-white/10 rounded-lg p-1 transition-colors"
               >
                 <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden mx-auto mb-1">
+                  {sidebarProfile.photo ? (
                   <img 
-                    src="/assets/profile-placeholder.jpg" 
+                      src={sidebarProfile.photo} 
                     alt="Profile" 
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                  <div className="w-full h-full bg-gray-400 rounded-full flex items-center justify-center" style={{display: 'none'}}>
-                    <span className="text-xs font-semibold text-gray-600">EW</span>
-                  </div>
+                    />
+                  ) : (
+                    <span className="text-xs font-semibold text-gray-600">
+                      {sidebarProfile.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                    </span>
+                  )}
                 </div>
-                <div className="text-xs text-white">ID 00032123</div>
+                <div className="text-xs text-white">ID {sidebarProfile.id}</div>
               </button>
               
                 {/* Settings Dropdown */}
@@ -256,8 +283,8 @@ const Dashboard = () => {
         {/* User Profile */}
         <div className="mb-6 bg-white/10 rounded-lg p-4">
           <div className="mb-4">
-            <p className="font-semibold text-white text-sm">Edward William</p>
-            <p className="text-xs text-white/80">Notting Hill, London</p>
+            <p className="font-semibold text-white text-sm">{sidebarProfile.name}</p>
+            <p className="text-xs text-white/80">{sidebarProfile.location}</p>
           </div>
           <div className="flex items-center mb-4">
             <span className="text-xs text-white">Karwan Tours</span>
