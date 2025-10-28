@@ -1,10 +1,16 @@
 import React, { useState, useRef } from 'react'
 import { FiShoppingCart, FiChevronDown } from 'react-icons/fi'
 import AttractionsDropdown from './AttractionsDropdown'
+import DestinationsDropdown from './DestinationsDropdown'
+import ExploreTripsAdoraDropdown from './ExploreTripsAdoraDropdown'
 
 const BottomNavigationBar = () => {
   const [isAttractionsOpen, setIsAttractionsOpen] = useState(false)
+  const [isDestinationsOpen, setIsDestinationsOpen] = useState(false)
   const attractionsRef = useRef(null)
+  const destinationsRef = useRef(null)
+  const exploreRef = useRef(null)
+  const [isExploreOpen, setIsExploreOpen] = useState(false)
 
   return (
     <>
@@ -24,11 +30,19 @@ const BottomNavigationBar = () => {
                   <span className="text-sm font-medium group-hover:text-gray-600">Top Attractions</span>
                   <FiChevronDown className="ml-1 text-xs group-hover:text-gray-600" />
                 </div>
-                <div className="flex items-center text-gray-400 cursor-pointer group">
+                <div 
+                  ref={destinationsRef}
+                  className="flex items-center text-gray-400 cursor-pointer group"
+                  onClick={() => setIsDestinationsOpen(!isDestinationsOpen)}
+                >
                   <span className="text-sm font-medium group-hover:text-gray-600">Top Destinations</span>
                   <FiChevronDown className="ml-1 text-xs group-hover:text-gray-600" />
                 </div>
-                <div className="flex items-center text-gray-400 cursor-pointer group">
+                <div 
+                  ref={exploreRef}
+                  className="flex items-center text-gray-400 cursor-pointer group"
+                  onClick={() => setIsExploreOpen(!isExploreOpen)}
+                >
                   <span className="text-sm font-medium group-hover:text-gray-600">Explore TripsAdora</span>
                   <FiChevronDown className="ml-1 text-xs group-hover:text-gray-600" />
                 </div>
@@ -68,6 +82,20 @@ const BottomNavigationBar = () => {
         isOpen={isAttractionsOpen} 
         onClose={() => setIsAttractionsOpen(false)}
         triggerRef={attractionsRef}
+      />
+
+      {/* Destinations Dropdown */}
+      <DestinationsDropdown 
+        isOpen={isDestinationsOpen}
+        onClose={() => setIsDestinationsOpen(false)}
+        triggerRef={destinationsRef}
+      />
+
+      {/* Explore TripsAdora Dropdown */}
+      <ExploreTripsAdoraDropdown 
+        isOpen={isExploreOpen}
+        onClose={() => setIsExploreOpen(false)}
+        triggerRef={exploreRef}
       />
     </>
   )

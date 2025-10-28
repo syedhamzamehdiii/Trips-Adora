@@ -1,5 +1,6 @@
 import React from 'react'
-import { FiHeart, FiStar } from 'react-icons/fi'
+import { FiStar } from 'react-icons/fi'
+import TourCard from './TourCard'
 
 const TopPicksSection = () => {
   const destinations = [
@@ -42,7 +43,7 @@ const TopPicksSection = () => {
   ]
 
   return (
-    <section className="py-16 bg-gray-50">
+    <section className="py-16 bg-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="flex items-center justify-between mb-12">
@@ -55,68 +56,12 @@ const TopPicksSection = () => {
         {/* Destinations Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {destinations.map((destination) => (
-            <div key={destination.id} className="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-              {/* Image Container */}
-              <div className="relative h-48">
-                <img
-                  src={destination.image}
-                  alt={destination.name}
-                  className="w-full h-full object-cover"
-                />
-                
-                {/* New Badge */}
-                {destination.isNew && (
-                  <div className="absolute top-3 left-3">
-                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                      New
-                    </span>
-                  </div>
-                )}
-                
-                {/* Heart Icon */}
-                <button className="absolute top-3 right-3 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all duration-200">
-                  <FiHeart className="text-gray-600 hover:text-red-500" />
-                </button>
-              </div>
-              
-              {/* Content */}
-              <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {destination.name}
-                </h3>
-                
-                {/* Rating */}
-                <div className="flex items-center mb-2">
-                  <div className="flex items-center">
-                    {[...Array(5)].map((_, i) => (
-                      <FiStar
-                        key={i}
-                        className={`w-4 h-4 ${
-                          i < Math.floor(destination.rating)
-                            ? 'text-yellow-400 fill-current'
-                            : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sm text-gray-600 ml-2">
-                    {destination.rating} ({destination.reviews})
-                  </span>
-                </div>
-                
-                {/* Price */}
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xl font-bold text-custom-blue">
-                    {destination.price}
-                  </span>
-                </div>
-                
-                {/* Book Now Button */}
-                <button className="w-full bg-custom-blue text-white py-2 px-4 rounded-lg font-medium hover:bg-opacity-90 transition-all duration-200">
-                  Book Now
-                </button>
-              </div>
-            </div>
+            <TourCard key={destination.id} tour={{
+              name: destination.name,
+              image: destination.image,
+              duration: `${destination.reviews}`,
+              price: destination.price
+            }} />
           ))}
         </div>
       </div>

@@ -1,0 +1,70 @@
+import React, { useEffect, useState } from 'react'
+import { FiMapPin } from 'react-icons/fi'
+
+const DestinationsDropdown = ({ isOpen, onClose, triggerRef }) => {
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+
+  useEffect(() => {
+    if (isOpen && triggerRef?.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      const dropdownWidth = 400
+
+      let left = rect.left
+
+      if (left + dropdownWidth > window.innerWidth - 20) {
+        left = window.innerWidth - dropdownWidth - 20
+      }
+
+      setPosition({
+        top: rect.bottom + 5,
+        left: left
+      })
+    }
+  }, [isOpen, triggerRef])
+
+  if (!isOpen) return null
+
+  const destinations = [
+    { name: "Tokyo", description: "Capital city, tech hub, and entertainment center" },
+    { name: "Kyoto", description: "Ancient temples, shrines, and traditional culture" },
+    { name: "Osaka", description: "Known for street food, nightlife, and Osaka Castle" },
+    { name: "Fukuoka", description: "Coastal city famous for beaches and ramen" }
+  ]
+
+  return (
+    <>
+      <div 
+        className="fixed inset-0 z-40"
+        onClick={onClose}
+      />
+
+      <div 
+        className="fixed z-50 pointer-events-none"
+        style={{ top: `${position.top}px`, left: `${position.left}px` }}
+      >
+        <div className="bg-white rounded-[20px] shadow-2xl w-[400px] pointer-events-auto overflow-hidden">
+          <div className="px-6 pt-5 pb-3 flex items-center gap-2">
+            <FiMapPin className="text-red-600 text-xl" />
+            <h2 className="text-xl font-bold text-black">Top Destinations</h2>
+          </div>
+
+          <div className="px-6 pb-5">
+            {destinations.map((destination, index) => (
+              <div
+                key={index}
+                className="py-3 cursor-pointer hover:bg-gray-50 -mx-6 px-6 transition-colors"
+              >
+                <p className="text-base font-semibold text-black">{destination.name}</p>
+                <p className="text-sm text-gray-500 mt-0.5">{destination.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+export default DestinationsDropdown
+
+

@@ -27,11 +27,10 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
   if (!isOpen) return null
 
   const attractions = [
-    { name: "Tokyo Skytree", description: "Iconic tower offering panoramic city views" },
-    { name: "Shibuya Crossing", description: "World's busiest pedestrian crossing" },
-    { name: "Tokyo Tower", description: "Red and white communication tower landmark" },
-    { name: "Imperial Palace", description: "Historic residence of Japanese Emperor" },
-    { name: "Senso-ji Temple", description: "Tokyo's oldest temple in Asakusa" }
+    { name: "Tokyo", description: "Capital city, tech hub, and entertainment center" },
+    { name: "Kyoto", description: "Ancient temples, shrines, and traditional culture" },
+    { name: "Osaka", description: "Known for street food, nightlife, and Osaka Castle" },
+    { name: "Fukuoka", description: "Coastal city famous for beaches and ramen" }
   ]
 
   return (
@@ -51,7 +50,7 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
           {/* Header */}
           <div className="px-6 pt-5 pb-3 flex items-center gap-2">
             <FiMapPin className="text-red-600 text-xl" />
-            <h2 className="text-xl font-bold text-black">Top Attractions</h2>
+            <h2 className="text-xl font-bold text-black">Japan's Top Cities</h2>
           </div>
 
           {/* Attractions List */}
