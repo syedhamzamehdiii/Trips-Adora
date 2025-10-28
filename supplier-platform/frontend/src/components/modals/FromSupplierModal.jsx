@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiAlertCircle } from 'react-icons/fi';
 
 const FromSupplierModal = ({ isOpen, onClose }) => {
@@ -9,11 +9,30 @@ const FromSupplierModal = ({ isOpen, onClose }) => {
     instantBooking: true
   });
 
+  // Load saved values
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('supplier_keys');
+      if (raw) {
+        const data = JSON.parse(raw);
+        setToggleSettings(prev => ({ ...prev, ...data }));
+      }
+    } catch (_) {}
+  }, [isOpen]);
+
+  const persist = (next) => {
+    try {
+      localStorage.setItem('supplier_keys', JSON.stringify(next));
+      window.dispatchEvent(new Event('supplierKeysUpdated'));
+    } catch (_) {}
+  };
+
   const handleToggleSetting = (setting) => {
-    setToggleSettings(prev => ({
-      ...prev,
-      [setting]: !prev[setting]
-    }));
+    setToggleSettings(prev => {
+      const next = { ...prev, [setting]: !prev[setting] };
+      persist(next);
+      return next;
+    });
   };
 
   if (!isOpen) return null;

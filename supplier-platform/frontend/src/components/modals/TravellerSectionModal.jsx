@@ -11,6 +11,17 @@ const TravellerSectionModal = ({ isOpen, onClose, userProfile }) => {
     id: "00002123",
     profileImage: "/assets/profile-placeholder.jpg"
   };
+  // hydrate profile from account_settings for realtime header
+  try {
+    const saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
+    if (saved) {
+      const d = JSON.parse(saved);
+      profile.name = d.editableInfo?.publicName || profile.name;
+      profile.initials = profile.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+      profile.id = d.profileData?.contactValue || profile.id;
+      profile.profileImage = d.globalUserPhoto || profile.profileImage;
+    }
+  } catch (_) {}
   const [flightInfo, setFlightInfo] = useState({
     showDropdown: false,
     selectedOptions: []
@@ -27,6 +38,20 @@ const TravellerSectionModal = ({ isOpen, onClose, userProfile }) => {
   });
 
   const [specialText, setSpecialText] = useState('');
+
+  // load saved configuration
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('traveller_section');
+      if (saved) {
+        const data = JSON.parse(saved);
+        setFlightInfo(data.flightInfo || { showDropdown: false, selectedOptions: [] });
+        setShipInfo(data.shipInfo || { showDropdown: false, selectedOptions: [] });
+        setTrainInfo(data.trainInfo || { showDropdown: false, selectedOptions: [] });
+        setSpecialText(data.specialText || '');
+      }
+    } catch (_) {}
+  }, [isOpen]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -47,6 +72,13 @@ const TravellerSectionModal = ({ isOpen, onClose, userProfile }) => {
     };
   }, [isOpen]);
 
+  const persist = (next) => {
+    try {
+      localStorage.setItem('traveller_section', JSON.stringify(next));
+      window.dispatchEvent(new Event('travellerSectionUpdated'));
+    } catch (_) {}
+  };
+
   const handleToggle = (category, action, option = null) => {
     if (category === 'flight') {
       if (action === 'toggleDropdown') {
@@ -56,7 +88,9 @@ const TravellerSectionModal = ({ isOpen, onClose, userProfile }) => {
           const newSelected = prev.selectedOptions.includes(option)
             ? prev.selectedOptions.filter(opt => opt !== option)
             : [...prev.selectedOptions, option];
-          return { ...prev, selectedOptions: newSelected };
+          const next = { ...prev, selectedOptions: newSelected };
+          persist({ flightInfo: next, shipInfo, trainInfo, specialText });
+          return next;
         });
       }
     } else if (category === 'ship') {
@@ -67,7 +101,9 @@ const TravellerSectionModal = ({ isOpen, onClose, userProfile }) => {
           const newSelected = prev.selectedOptions.includes(option)
             ? prev.selectedOptions.filter(opt => opt !== option)
             : [...prev.selectedOptions, option];
-          return { ...prev, selectedOptions: newSelected };
+          const next = { ...prev, selectedOptions: newSelected };
+          persist({ flightInfo, shipInfo: next, trainInfo, specialText });
+          return next;
         });
       }
     } else if (category === 'train') {
@@ -78,13 +114,16 @@ const TravellerSectionModal = ({ isOpen, onClose, userProfile }) => {
           const newSelected = prev.selectedOptions.includes(option)
             ? prev.selectedOptions.filter(opt => opt !== option)
             : [...prev.selectedOptions, option];
-          return { ...prev, selectedOptions: newSelected };
+          const next = { ...prev, selectedOptions: newSelected };
+          persist({ flightInfo, shipInfo, trainInfo: next, specialText });
+          return next;
         });
       }
     }
   };
 
   const handleSaveConfiguration = () => {
+    persist({ flightInfo, shipInfo, trainInfo, specialText });
     alert('Configuration saved successfully!');
     onClose();
   };
@@ -132,20 +171,13 @@ const TravellerSectionModal = ({ isOpen, onClose, userProfile }) => {
                   Available Balance <span className="font-semibold text-gray-900">${profile.balance}</span>
                 </div>
                 <div className="relative">
-                  <button className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-300 hover:border-gray-400 transition-colors">
-                    <img 
-                      src={profile.profileImage} 
-                      alt={`${profile.name} Profile`} 
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold" style={{display: 'none'}}>
-                      {profile.initials}
-                    </div>
-                  </button>
+                  <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-300 flex items-center justify-center">
+                    {profile.profileImage ? (
+                      <img src={profile.profileImage} alt={`${profile.name} Profile`} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[10px] font-semibold text-gray-700">{profile.initials}</span>
+                    )}
+                  </div>
                 </div>
                 <div className="text-xs text-gray-600">ID {profile.id}</div>
               </div>

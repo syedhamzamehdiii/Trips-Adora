@@ -17,7 +17,7 @@ import DraftsPage from './pages/Products/DraftsPage'
 import AddItinerary from './pages/Products/AddItinerary'
 import CompanyProfile from './pages/Settings/CompanyProfile'
 import AccountSettings from './pages/Settings/AccountSettings'
-import InvitePartnerPage from './pages/InvitePartnerPage'
+import InvitePartnerComponent from './components/modals/InvitePartnerComponent'
 import ApplicationSubmitted from './pages/Products/ApplicationSubmitted'
 import BookingsPage from './pages/Bookings/BookingsPage'
 import InsightsPage from './pages/Insights/InsightsPage'
@@ -116,7 +116,7 @@ function AppRoutes() {
         />
         <Route 
           path="/settings/invite-partner" 
-          element={isAuthenticated ? <InvitePartnerPage /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? <InvitePartnerComponent isOpen={true} onClose={() => window.history.back()} /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/bookings" 
