@@ -84,7 +84,7 @@ function AppRoutes() {
         />
         <Route 
           path="/products/create" 
-          element={isAuthenticated ? <CreateProductComponent /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? <CreateProductComponent onClose={() => window.history.back()} /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/products/add-itinerary" 

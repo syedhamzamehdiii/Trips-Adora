@@ -4,11 +4,20 @@ import Footer from '@/components/common/Footer';
 import Calendar from '@/components/common/Calendar';
 
 const AvailabilityCalendar = () => {
-  const [totalSelectedProducts, setTotalSelectedProducts] = useState(20);
-  const [activeProducts, setActiveProducts] = useState(14);
-  const [inactiveProducts, setInactiveProducts] = useState(6);
-  const [totalVehicles, setTotalVehicles] = useState(119);
-  const [availableVehicles, setAvailableVehicles] = useState(74);
+  // Real-time data states
+  const [productOptions, setProductOptions] = useState([]);
+  const [vehicleOptions, setVehicleOptions] = useState([]);
+  const [tourOptions, setTourOptions] = useState([]);
+  const [groupSizeOptions, setGroupSizeOptions] = useState([]);
+  const [timeSlotOptions, setTimeSlotOptions] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [totalSelectedProducts, setTotalSelectedProducts] = useState(0);
+  const [activeProducts, setActiveProducts] = useState(0);
+  const [inactiveProducts, setInactiveProducts] = useState(0);
+  const [totalVehicles, setTotalVehicles] = useState(0);
+  const [availableVehicles, setAvailableVehicles] = useState(0);
 
   // Filter states
   const [showProductDropdown, setShowProductDropdown] = useState(false);
@@ -31,43 +40,203 @@ const AvailabilityCalendar = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 7;
 
-  // Filter data
-  const productOptions = [
-    { id: 1, name: "Dubai City Tour Deluxe" },
-    { id: 2, name: "Grand Mosque" },
-    { id: 3, name: "Sky View" },
-    { id: 4, name: "Marina Cruise" },
-    { id: 5, name: "Mountain Adventure" }
-  ];
+  // Helper: derive a user-friendly vehicle name (title > model > type)
+  const getVehicleDisplayName = (vehicle) => {
+    if (!vehicle) return 'Vehicle';
+    const title = typeof vehicle.title === 'string' ? vehicle.title.trim() : '';
+    const model = typeof vehicle.model === 'string' ? vehicle.model.replace('-', ' ').trim() : '';
+    const type = typeof vehicle.type === 'string' ? vehicle.type.trim() : '';
+    return title || model || type || 'Vehicle';
+  };
 
-  const vehicleOptions = [
-    { id: 1, name: "Prado" },
-    { id: 2, name: "Hiace" },
-    { id: 3, name: "Coaster" }
-  ];
+  // Load real-time data from localStorage on component mount
+  useEffect(() => {
+    loadRealTimeData();
+  }, []);
 
-  const tourOptions = [
-    { id: 1, name: "Desert Safari" },
-    { id: 2, name: "Mountain Adventure" },
-    { id: 3, name: "City Tour" },
-    { id: 4, name: "Marina Cruise" }
-  ];
+  const loadRealTimeData = () => {
+    try {
+      setIsRefreshing(true);
+      console.log('🔄 Loading real-time data for Availability page...');
+      
+      // Get all products from localStorage
+      const allProductsData = localStorage.getItem('all_products');
+      const allProducts = allProductsData ? JSON.parse(allProductsData) : [];
+      
+      // Filter only published products
+      const publishedProducts = allProducts.filter(product => product.status === 'Published');
+      console.log('📦 Found published products:', publishedProducts.length);
 
-  const groupSizeOptions = [
-    { id: 1, name: "1 Person" },
-    { id: 2, name: "4 Person" },
-    { id: 3, name: "8 Person" },
-    { id: 4, name: "9 Person" },
-    { id: 5, name: "12 Person" }
-  ];
+      // Extract unique data for filters
+      const uniqueVehicles = new Map();
+      const uniqueTours = new Map();
+      const uniqueGroupSizes = new Set();
+      const uniqueTimeSlots = new Set();
 
-  const timeSlotOptions = [
-    { id: 1, name: "09:30AM" },
-    { id: 2, name: "11:00AM" },
-    { id: 3, name: "01:50PM" },
-    { id: 4, name: "03:00PM" },
-    { id: 5, name: "05:00PM" }
-  ];
+      publishedProducts.forEach((product, index) => {
+        // Product names for product filter
+        // (handled separately below)
+
+        // Extract vehicles (use title/model/type for display)
+        const addVehiclesToSet = (vehiclesArr) => {
+          vehiclesArr.forEach(vehicle => {
+            const displayName = getVehicleDisplayName(vehicle);
+            if (displayName) {
+              const key = displayName.toLowerCase();
+              if (!uniqueVehicles.has(key)) {
+                uniqueVehicles.set(key, {
+                  id: `vehicle-${uniqueVehicles.size + 1}`,
+                  name: displayName,
+                });
+              }
+            }
+          });
+        };
+
+        if (product.vehicles && Array.isArray(product.vehicles) && product.vehicles.length > 0) {
+          addVehiclesToSet(product.vehicles);
+        } else {
+          // Fallback: check if there is a full draft payload for this product id
+          const draftKey = product.id ? `product_draft_${product.id}` : null;
+          if (draftKey && localStorage.getItem(draftKey)) {
+            try {
+              const draftPayload = JSON.parse(localStorage.getItem(draftKey));
+              if (draftPayload && Array.isArray(draftPayload.vehicles) && draftPayload.vehicles.length > 0) {
+                addVehiclesToSet(draftPayload.vehicles);
+              }
+            } catch (e) {
+              console.warn('Unable to parse draft payload for vehicles', e);
+            }
+          }
+        }
+
+        // Extract tours (product titles/categories)
+        if (product.name || product.title) {
+          const tourKey = product.name || product.title;
+          if (!uniqueTours.has(tourKey)) {
+            uniqueTours.set(tourKey, {
+              id: `tour-${uniqueTours.size + 1}`,
+              name: tourKey
+            });
+          }
+        }
+
+        // Extract group sizes (from vehicle capacity)
+        if (product.vehicles && Array.isArray(product.vehicles)) {
+          product.vehicles.forEach(vehicle => {
+            if (vehicle.capacity) {
+              uniqueGroupSizes.add(`${vehicle.capacity} Person`);
+            }
+          });
+        }
+
+        // Extract time slots (from vehicle-time allocations)
+        const addTimeSlots = (allocations) => {
+          allocations.forEach(allocation => {
+            if (allocation && allocation.time) {
+              uniqueTimeSlots.add(allocation.time);
+            }
+          });
+        };
+
+        if (Array.isArray(product.vehicleTimeAllocations) && product.vehicleTimeAllocations.length > 0) {
+          addTimeSlots(product.vehicleTimeAllocations);
+        } else {
+          // Fallback to full payloads stored for published/drafts
+          const fullKey = product.id ? `product_full_${product.id}` : null;
+          if (fullKey && localStorage.getItem(fullKey)) {
+            try {
+              const full = JSON.parse(localStorage.getItem(fullKey));
+              if (full && Array.isArray(full.vehicleTimeAllocations) && full.vehicleTimeAllocations.length > 0) {
+                addTimeSlots(full.vehicleTimeAllocations);
+              }
+            } catch (e) {
+              console.warn('Unable to parse full published payload for time slots', e);
+            }
+          }
+          const draftKeyTs = product.id ? `product_draft_${product.id}` : null;
+          if (draftKeyTs && localStorage.getItem(draftKeyTs)) {
+            try {
+              const draft = JSON.parse(localStorage.getItem(draftKeyTs));
+              if (draft && Array.isArray(draft.vehicleTimeAllocations) && draft.vehicleTimeAllocations.length > 0) {
+                addTimeSlots(draft.vehicleTimeAllocations);
+              }
+            } catch (e) {
+              console.warn('Unable to parse draft payload for time slots', e);
+            }
+          }
+        }
+      });
+
+      // Convert to arrays for display
+      const productOptionsArray = publishedProducts.map((product, index) => ({
+        id: product.id || `product-${index + 1}`,
+        name: product.name || product.title || `Product ${index + 1}`
+      }));
+
+      const vehicleOptionsArray = Array.from(uniqueVehicles.values());
+      const tourOptionsArray = Array.from(uniqueTours.values());
+      const groupSizeOptionsArray = Array.from(uniqueGroupSizes).map((size, index) => ({
+        id: `group-${index + 1}`,
+        name: size
+      }));
+      const timeSlotOptionsArray = Array.from(uniqueTimeSlots).sort().map((time, index) => ({
+        id: `time-${index + 1}`,
+        name: time
+      }));
+
+      // Set filter options
+      setProductOptions(productOptionsArray);
+      setVehicleOptions(vehicleOptionsArray);
+      setTourOptions(tourOptionsArray);
+      setGroupSizeOptions(groupSizeOptionsArray);
+      setTimeSlotOptions(timeSlotOptionsArray);
+
+      // Create product list for display
+      const productList = publishedProducts.map((product, index) => {
+        const vehicleCount = product.vehicles?.length || 0;
+        const vehicleType = product.vehicles?.[0] ? getVehicleDisplayName(product.vehicles[0]) : 'N/A';
+        const groupSize = product.vehicles?.[0]?.capacity ? `1-${product.vehicles[0].capacity} People` : 'N/A';
+        
+        return {
+          id: product.id || `product-${index + 1}`,
+          name: product.name || product.title || `Product ${index + 1}`,
+          status: "Active",
+          details: `${vehicleType} > ${product.category || 'Tour'} > ${groupSize}`,
+          vehicles: `${vehicleCount}/${vehicleCount} available`,
+          isActive: true,
+          vehiclesRaw: Array.isArray(product.vehicles) ? product.vehicles : []
+        };
+      });
+
+      setProducts(productList);
+
+      // Update stats
+      const totalCount = productList.length;
+      const activeCount = productList.filter(p => p.isActive).length;
+      const inactiveCount = productList.filter(p => !p.isActive).length;
+      const totalVehiclesCount = publishedProducts.reduce((sum, p) => sum + (p.vehicles?.length || 0), 0);
+
+      setTotalSelectedProducts(totalCount);
+      setActiveProducts(activeCount);
+      setInactiveProducts(inactiveCount);
+      setTotalVehicles(totalVehiclesCount);
+      setAvailableVehicles(totalVehiclesCount);
+
+      console.log('✅ Real-time data loaded successfully!');
+      console.log('📊 Stats:', {
+        products: totalCount,
+        vehicles: vehicleOptionsArray.length,
+        tours: tourOptionsArray.length,
+        groupSizes: groupSizeOptionsArray.length,
+        timeSlots: timeSlotOptionsArray.length
+      });
+    } catch (error) {
+      console.error('❌ Error loading real-time data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Helper functions for handling selections
   const handleSelectAll = (options, setter, currentSelection) => {
@@ -114,41 +283,11 @@ const AvailabilityCalendar = () => {
     };
   }, []);
 
-  // Mock data for products
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      name: "Dubai Desert Safari Premium",
-      status: "Active",
-      details: "Prado > Desert Safari > 1-4 People > Evening",
-      vehicles: "6/8 available",
-      isActive: true
-    },
-    {
-      id: 2,
-      name: "Dubai Desert Safari Premium",
-      status: "Active",
-      details: "Prado > Desert Safari > 1-4 People > Evening",
-      vehicles: "6/8 available",
-      isActive: true
-    },
-    {
-      id: 3,
-      name: "Dubai Desert Safari Premium",
-      status: "Active",
-      details: "Prado > Desert Safari > 1-4 People > Evening",
-      vehicles: "6/8 available",
-      isActive: true
-    },
-    {
-      id: 4,
-      name: "Dubai Desert Safari Premium",
-      status: "Active",
-      details: "Prado > Desert Safari > 1-4 People > Evening",
-      vehicles: "6/8 available",
-      isActive: true
-    }
-  ]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedProducts, selectedVehicles, selectedTours, selectedGroupSizes, selectedTimeSlots]);
 
   const handleToggleProduct = (productId) => {
     setProducts(prevProducts => 
@@ -177,11 +316,57 @@ const AvailabilityCalendar = () => {
     setInactiveProducts(newInactiveCount);
   };
 
+  // Apply filters to products
+  const filteredProducts = products.filter(product => {
+    // Product name filter
+    if (selectedProducts.length > 0) {
+      const productNameMatch = productOptions.find(opt => opt.id === product.id);
+      if (!selectedProducts.includes(product.id)) {
+        return false;
+      }
+    }
+
+    // Vehicle type filter
+    if (selectedVehicles.length > 0) {
+      const vehicleMatch = vehicleOptions.some(opt => 
+        selectedVehicles.includes(opt.id) && product.details?.includes(opt.name)
+      );
+      if (!vehicleMatch) {
+        return false;
+      }
+    }
+
+    // Tour options filter
+    if (selectedTours.length > 0) {
+      const tourMatch = tourOptions.some(opt => 
+        selectedTours.includes(opt.id) && product.details?.includes(opt.name)
+      );
+      if (!tourMatch) {
+        return false;
+      }
+    }
+
+    // Group size filter
+    if (selectedGroupSizes.length > 0) {
+      const groupMatch = groupSizeOptions.some(opt => 
+        selectedGroupSizes.includes(opt.id) && product.details?.includes(opt.name.replace(' Person', ''))
+      );
+      if (!groupMatch) {
+        return false;
+      }
+    }
+
+    // Time slots filter (would need to be added to product data)
+    // For now, we'll skip this as time slots aren't in the product details
+    
+    return true;
+  });
+
   // Pagination functions
-  const totalPages = Math.ceil(products.length / productsPerPage);
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
   const startIndex = (currentPage - 1) * productsPerPage;
   const endIndex = startIndex + productsPerPage;
-  const currentProducts = products.slice(startIndex, endIndex);
+  const currentProducts = filteredProducts.slice(startIndex, endIndex);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -252,21 +437,31 @@ const AvailabilityCalendar = () => {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg p-6 shadow-sm">
-            <div className="text-3xl font-bold text-gray-900 mb-2">52</div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">{String(totalSelectedProducts).padStart(2, '0')}</div>
             <div className="text-gray-600">Total Products</div>
           </div>
           <div className="bg-white rounded-lg p-6 shadow-sm">
-            <div className="text-3xl font-bold text-gray-900 mb-2">03</div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">{String(vehicleOptions.length).padStart(2, '0')}</div>
             <div className="text-gray-600">Total Vehicles</div>
           </div>
           <div className="bg-white rounded-lg p-6 shadow-sm">
-            <div className="text-3xl font-bold text-gray-900 mb-2">13</div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">{String(activeProducts).padStart(2, '0')}</div>
             <div className="text-gray-600">Confirmed</div>
           </div>
           <div className="bg-white rounded-lg p-6 shadow-sm flex items-center justify-center">
             <div className="text-center">
-              <FiRefreshCw className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <div className="text-gray-600">Availability</div>
+              <button 
+                onClick={loadRealTimeData} 
+                disabled={isRefreshing}
+                className="hover:scale-110 transition-transform disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FiRefreshCw 
+                  className={`w-8 h-8 text-blue-600 mx-auto mb-2 ${isRefreshing ? 'animate-spin' : ''}`} 
+                />
+              </button>
+              <div className="text-gray-600">
+                {isRefreshing ? 'Refreshing...' : 'Availability'}
+              </div>
             </div>
           </div>
         </div>
@@ -298,6 +493,8 @@ const AvailabilityCalendar = () => {
                 {showProductDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                     <div className="py-2">
+                      {productOptions.length > 0 ? (
+                        <>
                       <label 
                         className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
                         onClick={() => handleSelectAll(productOptions, setSelectedProducts, selectedProducts)}
@@ -321,6 +518,12 @@ const AvailabilityCalendar = () => {
                           <span className="text-sm text-gray-700">{option.name}</span>
                         </label>
                       ))}
+                        </>
+                      ) : (
+                        <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                          No published products yet
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -347,6 +550,8 @@ const AvailabilityCalendar = () => {
                 {showVehicleDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                     <div className="py-2">
+                      {vehicleOptions.length > 0 ? (
+                        <>
                       <label 
                         className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
                         onClick={() => handleSelectAll(vehicleOptions, setSelectedVehicles, selectedVehicles)}
@@ -370,60 +575,19 @@ const AvailabilityCalendar = () => {
                           <span className="text-sm text-gray-700">{option.name}</span>
                         </label>
                       ))}
+                        </>
+                      ) : (
+                        <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                          No vehicles available
+                  </div>
+                )}
                     </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Tour Options Filter */}
-            <div className="relative dropdown-container">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tour Options</label>
-              <div className="relative">
-                <button
-                  onClick={() => setShowTourDropdown(!showTourDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                >
-                  <div className="flex items-center space-x-2">
-                    <FiMapPin className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-700">
-                      {getDisplayText(tourOptions, selectedTours, "All Tour")}
-                    </span>
-                  </div>
-                  <FiChevronDown className="w-4 h-4 text-gray-400" />
-                </button>
-                
-                {showTourDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                    <div className="py-2">
-                      <label 
-                        className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
-                        onClick={() => handleSelectAll(tourOptions, setSelectedTours, selectedTours)}
-                      >
-                        <input 
-                          type="checkbox" 
-                          className="mr-3 text-blue-600 focus:ring-blue-500"
-                          checked={selectedTours.length === tourOptions.length}
-                          onChange={() => {}} // Handled by onClick
-                        />
-                        <span>Select All ({tourOptions.length})</span>
-                      </label>
-                      {tourOptions.map((option) => (
-                        <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="mr-3 text-blue-600 focus:ring-blue-500"
-                            checked={selectedTours.includes(option.id)}
-                            onChange={() => handleOptionToggle(option.id, selectedTours, setSelectedTours)}
-                          />
-                          <span className="text-sm text-gray-700">{option.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* Tour Options Filter - removed per requirements */}
 
             {/* Group Size Filter */}
             <div className="relative dropdown-container">
@@ -445,6 +609,8 @@ const AvailabilityCalendar = () => {
                 {showGroupDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                     <div className="py-2">
+                      {groupSizeOptions.length > 0 ? (
+                        <>
                       <label 
                         className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
                         onClick={() => handleSelectAll(groupSizeOptions, setSelectedGroupSizes, selectedGroupSizes)}
@@ -468,6 +634,12 @@ const AvailabilityCalendar = () => {
                           <span className="text-sm text-gray-700">{option.name}</span>
                         </label>
                       ))}
+                        </>
+                      ) : (
+                        <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                          No group sizes available
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -494,6 +666,8 @@ const AvailabilityCalendar = () => {
                 {showTimeDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                     <div className="py-2">
+                      {timeSlotOptions.length > 0 ? (
+                        <>
                       <label 
                         className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
                         onClick={() => handleSelectAll(timeSlotOptions, setSelectedTimeSlots, selectedTimeSlots)}
@@ -517,6 +691,12 @@ const AvailabilityCalendar = () => {
                           <span className="text-sm text-gray-700">{option.name}</span>
                         </label>
                       ))}
+                        </>
+                      ) : (
+                        <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                          No time slots available
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -575,11 +755,14 @@ const AvailabilityCalendar = () => {
           </div>
         </div>
 
-        {/* Individual Product Control */}
+        {/* Individual Product Control - Only show if filters are selected */}
+        {(selectedProducts.length > 0 || selectedVehicles.length > 0 || 
+          selectedTours.length > 0 || selectedGroupSizes.length > 0 || 
+          selectedTimeSlots.length > 0) && (
         <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Individual Product control</h3>
-            <span className="text-gray-600">{totalSelectedProducts} Products</span>
+            <span className="text-gray-600">{filteredProducts.length} Products</span>
           </div>
           <div className="space-y-4">
             {currentProducts.map((product) => (
@@ -623,7 +806,7 @@ const AvailabilityCalendar = () => {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
               <div className="text-sm text-gray-600">
-                Showing {startIndex + 1} to {Math.min(endIndex, products.length)} of {products.length} products
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length} products
               </div>
               <div className="flex items-center space-x-2">
                 {/* Previous Button */}
@@ -672,6 +855,7 @@ const AvailabilityCalendar = () => {
             </div>
           )}
         </div>
+        )}
 
         {/* Status Summary */}
         <div className="bg-blue-50 rounded-lg p-6">

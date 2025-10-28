@@ -70,7 +70,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         bookings: 0,
         revenue: parseInt(productData?.vehicles?.[0]?.amount || 0),
         creationDate: existingDraftIndex >= 0 ? allProducts[existingDraftIndex].creationDate : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
-        ratings: "0/5"
+        ratings: "0/5",
+        vehicles: Array.isArray(productData?.vehicles) ? productData.vehicles : []
       };
       
       // Update existing draft or add new one
@@ -167,7 +168,10 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         bookings: 0,
         revenue: parseInt(productData?.vehicles?.[0]?.amount || 0),
         creationDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
-        ratings: "0/5"
+        ratings: "0/5",
+        vehicles: Array.isArray(productData?.vehicles) ? productData.vehicles : [],
+        // Persist vehicle-time allocations for availability filters
+        vehicleTimeAllocations: Array.isArray(productData?.vehicleTimeAllocations) ? productData.vehicleTimeAllocations : []
       };
       
       // Add to products array
@@ -177,6 +181,37 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       localStorage.setItem('all_products', JSON.stringify(allProducts));
       console.log('✅ Product published successfully!', newProduct);
       console.log('📦 Total products after publish:', allProducts.length);
+
+      // Also persist full published data for cloning later (same shape as drafts)
+      const fullPublishedData = {
+        draftId: newProduct.id,
+        productTitle: productData?.title || 'Untitled Product',
+        productCategory: productData?.category || '',
+        sellingPoints: productData?.sellingPoints || '',
+        tagline: productData?.tagline || '',
+        description: productData?.description || '',
+        highlights: productData?.highlights || [],
+        // images excluded due to quota limits
+        selectedGuideType: productData?.guideType || '',
+        selectedActivityType: productData?.activityType || '',
+        selectedLanguages: productData?.languages || [],
+        selectedThingsToCarry: productData?.thingsToCarry || [],
+        includedItems: productData?.includedItems || '',
+        excludedItems: productData?.excludedItems || '',
+        accessibilityToggles: productData?.accessibility || {},
+        vehicles: Array.isArray(productData?.vehicles) ? productData.vehicles : [],
+        selectedVehicleForTour: Array.isArray(productData?.vehicles) ? productData.vehicles : [],
+        vehicleTimeAllocations: Array.isArray(productData?.vehicleTimeAllocations) ? productData.vehicleTimeAllocations : [],
+        selectedPickupLocations: productData?.pickupLocations || [],
+        selectedDropoffLocations: productData?.dropoffLocations || [],
+        pickupTime: productData?.pickupTime || '',
+        selectedWeekDay: productData?.weekDay || '',
+        selectedDate: productData?.selectedDate || '',
+        itineraries: productData?.itineraries || [],
+        lastModified: new Date().toISOString()
+      };
+      localStorage.setItem(`product_full_${newProduct.id}`, JSON.stringify(fullPublishedData));
+      console.log('💾 Full published data saved to', `product_full_${newProduct.id}`);
       
       // Verify save
       const verifyData = localStorage.getItem('all_products');

@@ -229,14 +229,22 @@ const Products = () => {
           localStorage.setItem('all_products', JSON.stringify(updatedProducts));
           setProducts(updatedProducts);
           
-          // Try to clone full draft data if it exists
+          // Try to clone full draft data if it exists, otherwise pull from full published payload
+          let parsedData = null;
           const originalDraftData = localStorage.getItem(`product_draft_${productId}`);
           if (originalDraftData) {
-            const parsedData = JSON.parse(originalDraftData);
+            parsedData = JSON.parse(originalDraftData);
+          } else {
+            const fullPub = localStorage.getItem(`product_full_${productId}`);
+            if (fullPub) {
+              parsedData = JSON.parse(fullPub);
+            }
+          }
+          if (parsedData) {
             const clonedDraftData = {
               ...parsedData,
               draftId: newDraftId,
-              productTitle: `${parsedData.productTitle} (Copy)`,
+              productTitle: `${parsedData.productTitle || product.name} (Copy)`,
               lastModified: new Date().toISOString()
             };
             localStorage.setItem(`product_draft_${newDraftId}`, JSON.stringify(clonedDraftData));

@@ -3,7 +3,7 @@ import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDow
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import AddItineraryComponent from './AddItineraryComponent';
 
-const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
+const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [step, setStep] = useState(1);
   const [showItineraryComponent, setShowItineraryComponent] = useState(false);
   const [showImageTipsModal, setShowImageTipsModal] = useState(false);
@@ -238,6 +238,13 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
   useEffect(() => {
     const loadDraftData = () => {
       try {
+        // Only load draft if draftId is provided (not null/undefined)
+        if (!draftId) {
+          console.log('💡 No draftId provided - Creating NEW product from scratch');
+          setIsLoadingDraft(false);
+          return;
+        }
+        
         console.log('🔍 Loading draft with ID:', draftId);
         console.log('🔍 Looking for key:', `product_draft_${draftId}`);
         
@@ -342,8 +349,8 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
 
   // Auto-save draft data whenever any field changes
   useEffect(() => {
-    // Don't auto-save if we're still loading the draft
-    if (isLoadingDraft) {
+    // Don't auto-save if we're still loading the draft OR if there's no draftId (new product)
+    if (isLoadingDraft || !draftId) {
       return;
     }
     
@@ -2074,7 +2081,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                </svg>
                                <span>{location}</span>
-                             </div>
+                         </div>
                              <span className="text-xs text-blue-600 opacity-0 group-hover:opacity-100">Click to add</span>
                            </div>
                          ))
@@ -2088,7 +2095,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                    </div>
                  )}
                </div>
-               
+
               {/* Selected Pickup Locations */}
               {selectedPickupLocations.length > 0 && (
                 <div className="mb-4">
@@ -2108,7 +2115,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          </svg>
+                         </svg>
                           <span>{location}</span>
                           <button
                             onClick={(e) => {
@@ -2121,7 +2128,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                           >
                             <FiX size={14} />
                           </button>
-                         </div>
+                       </div>
                       );
                     })}
                      </div>
@@ -2133,7 +2140,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                 <div className="mb-4 flex items-center gap-2 text-green-600 font-medium bg-green-50 px-4 py-2 rounded-lg">
                   <FiCheckCircle size={20} />
                   <span>Location added successfully!</span>
-              </div>
+                   </div>
               )}
 
               {/* Map Section Header */}
@@ -2209,7 +2216,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                         ) : null;
                       })}
                     </GoogleMap>
-                </div>
+                 </div>
 
                  {/* Action buttons on the right */}
                  <div className="flex flex-col space-y-3 w-64">
@@ -2697,7 +2704,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
               )}
 
                {/* Checkbox and Week Days */}
-              <div className="flex items-center space-x-4 mb-6">
+               <div className="flex items-center space-x-4 mb-6">
                 <label className="flex items-center cursor-pointer">
                   <input 
                     type="checkbox" 
@@ -2705,8 +2712,8 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                     onChange={(e) => setApplyToAllDays(e.target.checked)}
                     className="mr-2 w-4 h-4 text-blue-600 bg-blue-600 border-blue-600 rounded cursor-pointer" 
                   />
-                  <span className="text-sm text-gray-700">Apply the same for all days</span>
-                </label>
+                   <span className="text-sm text-gray-700">Apply the same for all days</span>
+                 </label>
                  
                  <div className="relative">
                    <select 
@@ -2748,7 +2755,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                      onChange={(e) => setEndTime(e.target.value)}
                      className="w-32 px-3 py-2 bg-white border border-gray-300 rounded text-center text-sm"
                     />
-                  </div>
+                         </div>
                 <p className="text-xs text-gray-600 mb-4 leading-relaxed text-center">You can add starting and ending time with the auto intervals of time.</p>
                 <div className="flex items-center justify-center gap-3">
                    <input
@@ -2762,8 +2769,8 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                    />
                    <p className="text-xs text-gray-600 leading-relaxed">Duration between the time in minutes.</p>
                  </div>
-                </div>
-              </div>
+                     </div>
+                   </div>
 
               {/* Time Slots Section - Dynamic for all weekdays */}
               <div className="space-y-6">
@@ -2771,10 +2778,10 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                   timeSlots[day] && timeSlots[day].length > 0 && (
                     <div key={day}>
                       <h4 className="text-sm font-bold text-gray-900 mb-3">{day}</h4>
-                      <div className="grid grid-cols-5 gap-2">
+                     <div className="grid grid-cols-5 gap-2">
                         {timeSlots[day].map((time, index) => (
-                          <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
-                            <span className="text-gray-700">{time}</span>
+                         <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
+                           <span className="text-gray-700">{time}</span>
                             <button 
                               onClick={() => {
                                 setTimeSlots(prev => ({
@@ -2784,14 +2791,14 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                               }}
                               className="text-gray-400 hover:text-red-500"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                             </svg>
+                           </button>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
                   )
                 ))}
                 
@@ -2801,9 +2808,9 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                     <p className="text-sm text-gray-500 italic">
                       Select a weekday, then set start time, end time, and duration to generate time slots
                     </p>
-                  </div>
+                     </div>
                 )}
-              </div>
+               </div>
              </div>
 
              {/* Select Vehicle Modal */}
@@ -2813,7 +2820,7 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                    {/* Modal Header */}
                    <div className="p-6 border-b border-gray-200 relative sticky top-0 bg-white z-10">
                      <h2 className="text-lg font-semibold text-gray-900">Select Vehicle</h2>
-                     <p className="text-sm text-gray-600 mt-1">Choose a vehicle for this tour from your saved options.</p>
+                     <p className="text-sm text-gray-600 mt-1">Choose a vehicle from your existing vehicles in published products and drafts.</p>
                      
                      {/* Close Button */}
                      <button
@@ -2826,107 +2833,239 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
 
                    {/* Modal Content - List of Saved Vehicles */}
                    <div className="p-6">
-                     {vehicles.length === 0 ? (
-                       <div className="text-center py-12">
-                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                           </svg>
-                           </div>
-                         <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
-                         <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
-                         <button
-                           onClick={() => setShowSelectVehicleModal(false)}
-                           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                         >
-                           Close
-                         </button>
-                           </div>
-                     ) : (
-                       <div className="space-y-3">
-                         {vehicles.map((vehicle, index) => {
-                           const isSelected = selectedVehicleForTour?.id === vehicle.id;
+                     {/* Load all existing vehicles from localStorage */}
+                     {(() => {
+                       // Get all existing vehicles from all products AND drafts in localStorage
+                       try {
+                         const allProductsData = localStorage.getItem('all_products');
+                         const allProducts = allProductsData ? JSON.parse(allProductsData) : [];
+                         
+                         // Also get vehicles from drafts
+                         const allDraftKeys = Object.keys(localStorage).filter(key => key.startsWith('product_draft_'));
+                         
+                         // Collect all vehicles from all products and drafts
+                         const allExistingVehicles = [];
+                         const seenVehicles = new Set();
+                         
+                         // First, get vehicles from published products
+                         allProducts.forEach(product => {
+                           if (product.vehicles && Array.isArray(product.vehicles)) {
+                             product.vehicles.forEach(vehicle => {
+                               const vehicleKey = `${vehicle.title}-${vehicle.type}-${vehicle.model}`;
+                               if (!seenVehicles.has(vehicleKey)) {
+                                 seenVehicles.add(vehicleKey);
+                                 allExistingVehicles.push(vehicle);
+                               }
+                             });
+                           }
+                         });
+                         
+                         // Then, get vehicles from drafts
+                         allDraftKeys.forEach(key => {
+                           try {
+                             const draftData = JSON.parse(localStorage.getItem(key));
+                             if (draftData && draftData.vehicles && Array.isArray(draftData.vehicles)) {
+                               draftData.vehicles.forEach(vehicle => {
+                                 const vehicleKey = `${vehicle.title}-${vehicle.type}-${vehicle.model}`;
+                                 if (!seenVehicles.has(vehicleKey)) {
+                                   seenVehicles.add(vehicleKey);
+                                   allExistingVehicles.push(vehicle);
+                                 }
+                               });
+                             }
+                           } catch (e) {
+                             console.error('Error parsing draft:', e);
+                           }
+                         });
+                         
+                         // Combine with current product's vehicles
+                         const currentVehicles = vehicles.map(v => v.id || v.title);
+                         const uniqueCurrentVehicles = vehicles.filter(v => 
+                           !allExistingVehicles.some(existing => 
+                             (existing.title === v.title && existing.type === v.type)
+                           )
+                         );
+                         
+                         const availableVehicles = [...allExistingVehicles, ...uniqueCurrentVehicles];
+                         
+                         if (availableVehicles.length === 0) {
                            return (
-                           <div 
-                             key={vehicle.id}
-                             className={`rounded-lg p-4 cursor-pointer transition-all ${
-                               isSelected 
-                                 ? 'bg-blue-50 border-2 border-blue-600' 
-                                 : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
-                             }`}
-                             onClick={() => {
-                               setSelectedVehicleForTour(vehicle);
-                             }}
-                           >
+                             <div className="text-center py-12">
+                               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                 </svg>
+                               </div>
+                               <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
+                               <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
+                               <button
+                                 onClick={() => setShowSelectVehicleModal(false)}
+                                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                               >
+                                 Close
+                               </button>
+                             </div>
+                           );
+                         }
+                         
+                         return (
+                           <div className="space-y-3">
+                             {availableVehicles.map((vehicle, index) => {
+                               const isSelected = selectedVehicleForTour?.id === vehicle.id || 
+                                                 (selectedVehicleForTour && selectedVehicleForTour.title === vehicle.title);
+                               return (
+                               <div 
+                                 key={vehicle.id || `${vehicle.title}-${index}`}
+                                 className={`rounded-lg p-4 cursor-pointer transition-all ${
+                                   isSelected 
+                                     ? 'bg-blue-50 border-2 border-blue-600' 
+                                     : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
+                                 }`}
+                                 onClick={() => {
+                                   setSelectedVehicleForTour(vehicle);
+                                 }}
+                               >
                        <div className="flex justify-between items-start">
                          <div className="flex-1">
                            <div className="flex items-baseline mb-1">
-                                   <h3 className="text-lg font-bold text-gray-900">{vehicle.title}</h3>
-                                   {isSelected && (
-                                     <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
-                                       <FiCheckCircle className="mr-1" size={14} />
-                                       Selected
-                                     </span>
-                                   )}
+                                     <h3 className="text-lg font-bold text-gray-900">{vehicle.title}</h3>
+                                     {isSelected && (
+                                       <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
+                                         <FiCheckCircle className="mr-1" size={14} />
+                                         Selected
+                                       </span>
+                                     )}
                            </div>
                            <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
-                                   <span className="italic">{vehicle.attributes}</span>
-                                   <span>{vehicle.year}</span>
-                                   <span>Best for upto <span className="text-blue-600 font-medium">{vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span></span>
-                                   <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
+                                     <span className="italic">{vehicle.attributes}</span>
+                                     <span>{vehicle.year}</span>
+                                     <span>Best for upto <span className="text-blue-600 font-medium">{vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span></span>
+                                     <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
                            </div>
-                                 <p className="text-xs text-gray-500 leading-relaxed mb-2">
-                                   {vehicle.description}
+                                   <p className="text-xs text-gray-500 leading-relaxed mb-2">
+                                     {vehicle.description}
                            </p>
-                                 <div className="flex items-center space-x-2 text-sm">
-                                   <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
-                                   <span className="text-gray-400">•</span>
-                                   <span className="text-gray-600">{vehicle.pricingType}</span>
-                                 </div>
+                                   <div className="flex items-center space-x-2 text-sm">
+                                     <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
+                                     <span className="text-gray-400">•</span>
+                                     <span className="text-gray-600">{vehicle.pricingType}</span>
+                                   </div>
                          </div>
                          <div className="text-right ml-4">
-                                 <div className="text-lg font-bold text-blue-600">{vehicle.currency} {vehicle.amount}</div>
-                                 <div className="text-xs text-gray-600">{vehicle.pricingType}</div>
-                           <div className="text-xs text-gray-400 mt-1">
-                                   20% Commission will be charged
+                                   <div className="text-lg font-bold text-blue-600">{vehicle.currency} {vehicle.amount}</div>
+                                   <div className="text-xs text-gray-500">{vehicle.pricingType}</div>
                            </div>
                          </div>
                        </div>
+                               );
+                             })}
                      </div>
+                         );
+                       } catch (error) {
+                         console.error('Error loading existing vehicles:', error);
+                         // Fallback to current product's vehicles only
+                         if (vehicles.length === 0) {
+                           return (
+                             <div className="text-center py-12">
+                               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                 </svg>
+                               </div>
+                               <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
+                               <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
+                               <button
+                                 onClick={() => setShowSelectVehicleModal(false)}
+                                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                               >
+                                 Close
+                               </button>
+                             </div>
                            );
-                         })}
+                         }
+                         
+                         return (
+                           <div className="space-y-3">
+                             {vehicles.map((vehicle, index) => {
+                               const isSelected = selectedVehicleForTour?.id === vehicle.id;
+                               return (
+                               <div 
+                                 key={vehicle.id}
+                                 className={`rounded-lg p-4 cursor-pointer transition-all ${
+                                   isSelected 
+                                     ? 'bg-blue-50 border-2 border-blue-600' 
+                                     : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
+                                 }`}
+                                 onClick={() => {
+                                   setSelectedVehicleForTour(vehicle);
+                                 }}
+                               >
+                       <div className="flex justify-between items-start">
+                         <div className="flex-1">
+                           <div className="flex items-baseline mb-1">
+                                     <h3 className="text-lg font-bold text-gray-900">{vehicle.title}</h3>
+                                     {isSelected && (
+                                       <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
+                                         <FiCheckCircle className="mr-1" size={14} />
+                                         Selected
+                                       </span>
+                                     )}
                            </div>
-                     )}
+                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
+                                     <span className="italic">{vehicle.attributes}</span>
+                                     <span>{vehicle.year}</span>
+                                     <span>Best for upto <span className="text-blue-600 font-medium">{vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span></span>
+                                     <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
+                           </div>
+                                   <p className="text-xs text-gray-500 leading-relaxed mb-2">
+                                     {vehicle.description}
+                           </p>
+                                   <div className="flex items-center space-x-2 text-sm">
+                                     <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
+                                     <span className="text-gray-400">•</span>
+                                     <span className="text-gray-600">{vehicle.pricingType}</span>
+                                   </div>
+                         </div>
+                         <div className="text-right ml-4">
+                                   <div className="text-lg font-bold text-blue-600">{vehicle.currency} {vehicle.amount}</div>
+                                   <div className="text-xs text-gray-500">{vehicle.pricingType}</div>
+                           </div>
+                         </div>
+                       </div>
+                               );
+                             })}
+                     </div>
+                         );
+                       }
+                     })()}
                            </div>
 
                    {/* Modal Footer */}
-                   {vehicles.length > 0 && (
-                     <div className="p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0">
-                       <div className="flex items-center gap-3">
+                   <div className="p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0">
+                     <div className="flex items-center gap-3">
+                       <button
+                         onClick={() => {
+                           setSelectedVehicleForTour(null);
+                           setShowSelectVehicleModal(false);
+                         }}
+                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors"
+                       >
+                         Cancel
+                       </button>
+                       {selectedVehicleForTour && (
                          <button
                            onClick={() => {
-                             setSelectedVehicleForTour(null);
+                             // Confirm the selection and close modal
+                             console.log('Confirmed vehicle:', selectedVehicleForTour);
                              setShowSelectVehicleModal(false);
                            }}
-                           className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors"
+                           className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                          >
-                           Cancel
+                           Confirm Selection
                          </button>
-                         {selectedVehicleForTour && (
-                           <button
-                             onClick={() => {
-                               // Confirm the selection and close modal
-                               console.log('Confirmed vehicle:', selectedVehicleForTour);
-                               setShowSelectVehicleModal(false);
-                             }}
-                             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                           >
-                             Confirm Selection
-                           </button>
-                         )}
-                         </div>
-                           </div>
-                   )}
+                       )}
+                       </div>
+                   </div>
                  </div>
                </div>
              )}
@@ -3317,22 +3456,26 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                           <h4 className="text-lg font-bold text-gray-900 mb-2">
-                            {vehicle.title || `${vehicle.type} - ${vehicle.model.replace('-', ' ')}`}
+                            {vehicle.title || (vehicle.type && vehicle.model ? `${vehicle.type} - ${vehicle.model.replace('-', ' ')}` : 'Vehicle')}
                           </h4>
                       <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
-                            <span>{vehicle.attributes}</span>
-                            <span>{vehicle.year}</span>
-                            <span>Best for upto {vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span>
-                            <span>Approximate time {vehicle.duration}</span>
+                            {vehicle.attributes && <span>{vehicle.attributes}</span>}
+                            {vehicle.year && <span>{vehicle.year}</span>}
+                            {vehicle.capacity && <span>Best for upto {vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span>}
+                            {vehicle.duration && <span>Approximate time {vehicle.duration}</span>}
                       </div>
-                          <p className="text-sm text-gray-700 mb-2">
-                            {vehicle.description}
-                      </p>
-                          <div className="flex items-center space-x-4 text-sm mt-3">
-                            <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
-                            <span className="text-gray-500">•</span>
-                            <span className="text-gray-600">{vehicle.pricingType}</span>
-                          </div>
+                          {vehicle.description && (
+                            <p className="text-sm text-gray-700 mb-2">
+                              {vehicle.description}
+                            </p>
+                          )}
+                          {(vehicle.currency || vehicle.amount) && (
+                            <div className="flex items-center space-x-4 text-sm mt-3">
+                              <span className="font-semibold text-blue-600">{vehicle.currency || '$'} {vehicle.amount || '0'}</span>
+                              <span className="text-gray-500">•</span>
+                              <span className="text-gray-600">{vehicle.pricingType}</span>
+                            </div>
+                          )}
                     </div>
                     <div className="flex space-x-2 ml-4">
                           <button 
@@ -3570,7 +3713,15 @@ const CreateProductComponent = ({ onClose, draftId = 'current_draft' }) => {
       {/* Included & Excluded Modal */}
       {showIncludedExcludedModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-[500px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-[500px] max-w-[90vw] max-h-[90vh] overflow-y-auto relative">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowIncludedExcludedModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <FiX size={24} />
+            </button>
+            
             {/* Modal Content */}
             <div className="space-y-6">
               {/* What's Included Section */}
