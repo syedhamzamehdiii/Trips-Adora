@@ -1,0 +1,938 @@
+import React, { useState } from 'react'
+import { Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle } from 'lucide-react'
+import     Itinerary from "../components/Itinerary"
+const ProductDetails = () => {
+  const [selectedTab, setSelectedTab] = useState('oneDay')
+  const [reviewText, setReviewText] = useState('')
+  // Ratings data for the Customer Reviews block
+  const averageRating = 4.9
+  const totalReviews = 347
+  const ratingData = [
+    { stars: 5, percentage: 75, count: 287 },
+    { stars: 4, percentage: 40, count: 142 },
+    { stars: 3, percentage: 33, count: 42 },
+    { stars: 2, percentage: 16, count: 8 },
+    { stars: 1, percentage: 0, count: 0 },
+  ]
+
+  return (
+    <div className="min-h-screen bg-white font-poppins">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+          {/* Left Column - Main Content */}
+          <div className="lg:col-span-2 space-y-6 sm:space-y-8">
+            {/* Product Header */}
+            <div className="mb-6">
+              <p className="text-gray-500 text-xs sm:text-sm mb-2">Product ID: 685928</p>
+              
+              {/* Tags */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                <span className="bg-[#77FF90AD] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
+                  Best Seller
+                </span>
+                <span className="bg-[#C42121] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
+                  Live
+                </span>
+              </div>
+              
+              {/* Main Title */}
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-3">
+                Mount Fuji Highlights & English guided Tour
+              </h1>
+              
+              {/* Category Tags */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                  Hiking
+                </span>
+                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                  Adventure
+                </span>
+                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                  Nature
+                </span>
+                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                  Food
+                </span>
+                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                  Photography
+                </span>
+              </div>
+              
+              {/* Description */}
+              <p className="text-black text-sm sm:text-base lg:text-lg mb-3">
+                Experience the best of Mount Fuji, Japan
+              </p>
+              
+              {/* Rating */}
+              <div className="flex items-center gap-2">
+                <div className="flex">
+                  {[...Array(5)].map((_, i) => (
+                    <svg key={i} className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <span className="text-black text-sm sm:text-base">4.8 (342 reviews)</span>
+              </div>
+            </div>
+            
+            {/* Image Gallery */}
+            <div className="mb-6 sm:mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-4">
+                <div className="sm:col-span-3">
+                  <img 
+                    src="/assests/place 1.jpg" 
+                    alt="Mount Fuji tour main image"
+                    className="w-full h-48 sm:h-64 lg:h-80 object-cover rounded-lg"
+                  />
+                </div>
+                <div className="sm:col-span-1 grid grid-cols-3 sm:grid-cols-1 gap-2">
+                  <img 
+                    src="/assests/place 2.jpg" 
+                    alt="Mount Fuji tour thumbnail 1"
+                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg"
+                  />
+                  <img 
+                    src="/assests/place 3.jpg" 
+                    alt="Mount Fuji tour thumbnail 2"
+                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg"
+                  />
+                  <img 
+                    src="/assests/place 1.jpg" 
+                    alt="Mount Fuji tour thumbnail 3"
+                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* About this Experience */}
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">About this Experience</h2>
+              <p className="text-black leading-relaxed text-sm sm:text-base">
+                Discover the magic of Tokyo, Japan with our comprehensive tour experience. 
+                This carefully curated journey takes you through the most iconic landmarks and hidden gems, 
+                offering a perfect blend of culture, history, and adventure. Our expert guides will ensure 
+                you have an unforgettable experience filled with memorable moments and fascinating insights.
+              </p>
+            </div>
+            
+            {/* Trip Highlights */}
+            <div className="mb-6 sm:mb-8">
+              <div className="border border-gray-200 rounded-lg p-4 sm:p-6">
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">Trip Highlights</h2>
+                <ul className="space-y-2 sm:space-y-3">
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Visit the most iconic landmarks and hidden gems</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Small group size for personalized experience</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Complimentary refreshments and snacks</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Expert local guide with insider knowledge</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">All entrance fees and transportation included</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Photo opportunities at scenic viewpoints</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* What's Included and Vehicles Available */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              {/* What's Included */}
+              <div>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">What's Included</h2>
+                <ul className="space-y-2 sm:space-y-3">
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Professional tour guide</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Transportation in air-conditioned vehicle</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">All entrance tickets and fees</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Lunch at local restaurant</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Bottled water and snacks</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Hotel pickup and drop-off</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-sm sm:text-base">Travel insurance</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Vehicles Available */}
+              <div>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">Vehicles available</h2>
+                <div className="space-y-3 sm:space-y-4">
+                  <div>
+                    <p className="text-black font-bold text-sm sm:text-base">Lexus LS 500h</p>
+                    <p className="text-gray-500 text-xs sm:text-sm">Up to 2 Passengers</p>
+                  </div>
+                  <div>
+                    <p className="text-black font-bold text-sm sm:text-base">Mercedes-Benz S-Class</p>
+                    <p className="text-gray-500 text-xs sm:text-sm">Up to 2 Passengers</p>
+                  </div>
+                  <div>
+                    <p className="text-black font-bold text-sm sm:text-base">BMW 7 Series</p>
+                    <p className="text-gray-500 text-xs sm:text-sm">Up to 3 Passengers</p>
+                  </div>
+                  <div>
+                    <p className="text-black font-bold text-sm sm:text-base">Toyota Alphard</p>
+                    <p className="text-gray-500 text-xs sm:text-sm">Up to 4 Passengers</p>
+                  </div>
+                  <div>
+                    <p className="text-black font-bold text-sm sm:text-base">Toyota Vellfire</p>
+                    <p className="text-gray-500 text-xs sm:text-sm">Up to 8 Passengers</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Right Column - Booking Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+              {/* Tour Provider */}
+              <div className="mb-4 sm:mb-6 bg-[##F0F4FE] p-3 sm:p-4 rounded-xl shadow-md">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base sm:text-lg font-bold text-black">Karwaan Tours</h3>
+                  <span className="bg-[#00A63E] text-white px-2 py-1 rounded-full text-xs flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Verified
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <span className="text-black font-bold text-sm sm:text-base">4.8</span>
+                </div>
+                
+                <p className="text-gray-600 text-xs sm:text-sm mb-1">2,840 followers</p>
+                <p className="text-gray-600 text-xs sm:text-sm mb-4">156 Tours completed</p>
+                
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button className="bg-[#C5FFD0] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                    Following
+                  </button>
+                  <button className="bg-white border border-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                    Chat
+                  </button>
+                  <button className="bg-white border border-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                    Climate
+                  </button>
+                </div>
+                
+                {/* Interaction Icons moved below as separate card */}
+              </div>
+
+            {/* Icons pill container */}
+            <div className="mb-6 ">
+              <div className="bg-[#F0F4FE] border border-gray-200  rounded-full px-4 py-2 flex items-center justify-between">
+                {/* Heart outline */}
+                <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-800 hover:text-red-500">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </button>
+                {/* Arrow up-right (active with black ring) */}
+                <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-800 ring-2 ring-black">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 17L17 7"/>
+                    <path d="M7 7h10v10"/>
+                  </svg>
+                </button>
+                {/* Git branch */}
+                <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-800">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="6" cy="6" r="3"/>
+                    <circle cx="18" cy="18" r="3"/>
+                    <path d="M9 6h6a3 3 0 0 1 3 3v3"/>
+                    <path d="M6 9v6a3 3 0 0 0 3 3h3"/>
+                  </svg>
+                </button>
+                {/* Map */}
+                <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-800">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 6l7-3 7 3 8-3v15l-7 3-7-3-8 3z"/>
+                    <path d="M8 3v15"/>
+                    <path d="M15 6v15"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+              
+              {/* Tour Details */}
+              <div className="mb-4 sm:mb-6">
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-black text-sm sm:text-base">English, Japanese</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-black text-sm sm:text-base">Tokyo city, Japan</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-black text-sm sm:text-base">8 hours</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-black text-sm sm:text-base">Customised/Private</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-[#34A853] text-sm sm:text-base">Free cancellation</span>
+                  </div>
+                  
+                  <div className="pt-2">
+                    <a href="#" className="text-gray-500 underline text-xs sm:text-sm">
+                      See all the visiting places in Tokyo
+                    </a>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Pricing */}
+              <div className="mb-4 sm:mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-black font-bold text-sm sm:text-base">Total</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl sm:text-2xl font-bold text-[#77FF90AD]">$258</span>
+                  <span className="text-gray-600 text-sm sm:text-base">Per Person</span>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                <button className="bg-[#00A63E] text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-sm sm:text-base whitespace-nowrap">
+                  Check Availability
+                </button>
+                <button className="border border-gray-300 text-black px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-sm sm:text-base whitespace-nowrap">
+                  Add to Cart
+                </button>
+              </div>
+              
+              {/* Quick Detail */}
+              <div>
+                <h4 className="text-base sm:text-lg font-bold text-black mb-2 sm:mb-3">Quick Detail</h4>
+                <ul className="space-y-2">
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-xs sm:text-sm">Free cancellation up to 24 hours</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-xs sm:text-sm">Instant confirmation</span>
+                  </li>
+                  <li className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-4 h-4 bg-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                      <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-black text-xs sm:text-sm">Mobile ticket accepted</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Meeting Points - Full width */}
+        <div className="mt-8 sm:mt-12">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-2">Meeting Points</h2>
+          <p className="text-gray-500 text-sm sm:text-base mb-4">Choose your convenient pickup location</p>
+          <div className=" rounded-lg p-3 sm:p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-[#284078] mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-black text-sm sm:text-base">Main Hotel Lobby</h3>
+                    <p className="text-gray-500 text-xs sm:text-sm">123 Main Street Tokyo, Japan</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">8:00 AM</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-[#284078] mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-black text-sm sm:text-base">Central Station</h3>
+                    <p className="text-gray-500 text-xs sm:text-sm">456 Station Plaza Tokyo, Japan</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">8:00 AM</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-[#284078] mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-black text-sm sm:text-base">City Hall Square</h3>
+                    <p className="text-gray-500 text-xs sm:text-sm">789 Square Ave Tokyo, Japan</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">8:00 AM</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-[#284078] mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-black text-sm sm:text-base">Tokyo Skytree</h3>
+                    <p className="text-gray-500 text-xs sm:text-sm">Sumida City, Tokyo, Japan</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">8:00 AM</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Hotel Pickup Banner */}
+          <div className="bg-gray-100 rounded-lg p-4 sm:p-6 mt-4 sm:mt-6">
+            <h3 className="font-bold text-black text-sm sm:text-base mb-2">Hotel Pickup Available:</h3>
+            <p className="text-black text-sm sm:text-base">
+              We offer complimentary pickup from most hotels in Fira, Oia, and Kamari areas. 
+              Please confirm your location when booking.
+            </p>
+          </div>
+        </div>
+
+            <Itinerary/>
+  
+
+<div className='max-w-4xl mt-12'>
+
+ <div className="max-w-4xl mx-auto p-6 bg-white">
+      {/* Header */}
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">Customer Reviews</h2>
+
+      {/* Reviews Overview Box */}
+      <div className="flex gap-6 mb-6">
+        {/* Left Side - Overall Rating with Background */}
+        <div className="bg-blue-50 rounded-lg p-6 flex flex-col items-center justify-center">
+          <div className="text-5xl font-bold text-[#3B69E2] mb-3">{averageRating}</div>
+          <div className="flex gap-1 mb-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                className={`w-5 h-5 ${
+                  star <= Math.floor(averageRating)
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : star === Math.ceil(averageRating)
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : 'fill-none text-gray-900 stroke-2'
+                }`}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-gray-600">{totalReviews} Reviews</p>
+        </div>
+
+        {/* Right Side - Rating Breakdown with White Background */}
+        <div className="flex-1 bg-white rounded-lg p-6 space-y-3">
+          {ratingData.map((rating) => (
+            <div key={rating.stars} className="flex items-center gap-3">
+              {/* Star number */}
+              <div className="flex items-center gap-1 w-8">
+                <span className="text-sm font-medium text-gray-700">{rating.stars}</span>
+                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+              </div>
+
+              {/* Progress Bar */}
+              <div className="flex-1 h-6 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#3B69E2] rounded-full transition-all"
+                  style={{ width: `${rating.percentage}%` }}
+                ></div>
+              </div>
+
+              {/* Count */}
+              <span className="text-sm font-medium text-gray-700 w-8 text-right">
+                {rating.count}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+
+      
+    </div>
+
+</div>
+
+    <div className="max-w-7xl mx-auto p-6 bg-white">
+      {/* Header */}
+    
+
+      {/* Reviews Overview Box */}
+   
+
+      {/* Reviews Section */}
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">438 Reviews</h3>
+
+        {/* Add Review Input */}
+        <div className="flex items-start gap-4">
+          {/* User Avatar */}
+          <div className="w-10 h-10 rounded-full bg-white border-[3px] border-[#284078] flex items-center justify-center flex-shrink-0">
+            <span className="text-base font-bold text-[#284078]">U</span>
+          </div>
+
+          {/* Input Section */}
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-3">
+              {/* <MessageCircle className="w-4 h-4 text-gray-400" />  */}
+              <span className="text-lg"> 🙂</span>
+
+              <input
+                type="text"
+                placeholder="Add your review"
+                className="flex-1 text-sm text-gray-500 outline-none border-b border-gray-300 pb-1 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2">
+              <button className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800">
+                Cancel
+              </button>
+              <button className="px-4 py-1.5 text-sm bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Individual Reviews */}
+      <div className="space-y-6 mt-8">
+        {/* Review 1 */}
+        <div className="flex gap-4 bg-white shadow-md rounded-lg p-4">
+          {/* Avatar */}
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-semibold text-blue-600">S</span>
+          </div>
+
+          {/* Review Content */}
+          <div className="flex-1">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900">Sarah Jhonson</h4>
+                <p className="text-xs text-gray-500">August 2025</p>
+              </div>
+              {/* Stars */}
+              <div className="flex gap-1">
+                 {[1, 2, 3, 4].map((s) => (
+                   <Star key={s} className="w-4 h-4 text-yellow-400" fill="currentColor" />
+                ))}
+                 <Star className="w-4 h-4 text-gray-900" fill="none" />
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              Absolutely incredible experience! Our guide Maria was knowledgeable and the sunset views were breathtaking. The small group size made it feel very personal and intimate.
+            </p>
+          </div>
+        </div>
+         <div className="flex gap-4 bg-white shadow-md rounded-lg p-4">
+          {/* Avatar */}
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-semibold text-blue-600">S</span>
+          </div>
+
+          {/* Review Content */}
+          <div className="flex-1">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900">Sarah Jhonson</h4>
+                <p className="text-xs text-gray-500">August 2025</p>
+              </div>
+              {/* Stars */}
+              <div className="flex gap-1">
+                 {[1, 2, 3, 4].map((s) => (
+                   <Star key={s} className="w-4 h-4 text-yellow-400" fill="currentColor" />
+                ))}
+                 <Star className="w-4 h-4 text-gray-900" fill="none" />
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              Absolutely incredible experience! Our guide Maria was knowledgeable and the sunset views were breathtaking. The small group size made it feel very personal and intimate.
+            </p>
+          </div>
+        </div>
+         <div className="flex gap-4 bg-white shadow-md rounded-lg p-4">
+          {/* Avatar */}
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-semibold text-blue-600">S</span>
+          </div>
+
+          {/* Review Content */}
+          <div className="flex-1">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900">Sarah Jhonson</h4>
+                <p className="text-xs text-gray-500">August 2025</p>
+              </div>
+              {/* Stars */}
+              <div className="flex gap-1">
+                 {[1, 2, 3, 4].map((s) => (
+                   <Star key={s} className="w-4 h-4 text-yellow-400" fill="currentColor" />
+                ))}
+                 <Star className="w-4 h-4 text-gray-900" fill="none" />
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              Absolutely incredible experience! Our guide Maria was knowledgeable and the sunset views were breathtaking. The small group size made it feel very personal and intimate.
+            </p>
+          </div>
+        </div>
+         <div className="flex gap-4 bg-white shadow-md rounded-lg p-4">
+          {/* Avatar */}
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-semibold text-blue-600">S</span>
+          </div>
+
+          {/* Review Content */}
+          <div className="flex-1">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900">Sarah Jhonson</h4>
+                <p className="text-xs text-gray-500">August 2025</p>
+              </div>
+              {/* Stars */}
+              <div className="flex gap-1">
+                 {[1, 2, 3, 4].map((s) => (
+                   <Star key={s} className="w-4 h-4 text-yellow-400" fill="currentColor" />
+                ))}
+                 <Star className="w-4 h-4 text-gray-900" fill="none" />
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              Absolutely incredible experience! Our guide Maria was knowledgeable and the sunset views were breathtaking. The small group size made it feel very personal and intimate.
+            </p>
+          </div>
+        </div>
+
+        {/* Review 2 */}
+        <div className="flex gap-4 bg-white shadow-md rounded-lg p-4">
+          {/* Avatar */}
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-semibold text-blue-600">S</span>
+          </div>
+
+          {/* Review Content */}
+          <div className="flex-1">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900">Sarah Jhonson</h4>
+                <p className="text-xs text-gray-500">August 2025</p>
+              </div>
+              {/* Stars */}
+              <div className="flex gap-1">
+                 {[1, 2, 3, 4].map((s) => (
+                   <Star key={s} className="w-4 h-4 text-yellow-400" fill="currentColor" />
+                ))}
+                 <Star className="w-4 h-4 text-gray-900" fill="none" />
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              Absolutely incredible experience! Our guide Maria was knowledgeable and the sunset views were breathtaking. The small group size made it feel very personal and intimate.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+        {/* Recommended Tours */}
+        <div className="mt-16">
+           <div className="flex items-center gap-4 mb-8">
+        <div className="flex-1 h-px bg-gray-300"></div>
+        <button className="text-blue-600 font-medium text-sm hover:text-blue-700">
+          See more
+        </button>
+        <div className="flex-1 h-px bg-gray-300"></div>
+      </div>
+          <div className="text-center mb-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-black">Recommended Tours</h2>
+            <p className="text-gray-500 text-sm mt-1">Discover more amazing experiences around the world</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[
+              {img:'/assests/place 1.jpg', title:'Mount Fuji Highlights & Hidden Gems Tour'},
+              {img:'/assests/place 2.jpg', title:'Hakoney Highlights & Hidden Gems Tour'},
+              {img:'/assests/place 3.jpg', title:'Tokyo Highlights & Hidden Gems Tour'},
+              {img:'/assests/place 1.jpg', title:'Burj Khalifa Highlights & Hidden Gems Tour'}
+            ].map((t,idx)=> (
+              <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow h-full flex flex-col">
+                 <div className="relative">
+                  <img src={t.img} alt={t.title} className="w-full h-52 object-cover" />
+                  <button className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow">
+                    <svg className="w-4 h-4 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                  </button>
+                </div>
+                <div className="p-3 flex-1 flex flex-col">
+                  <div className="text-[11px] text-gray-500 mb-1">Tokyo, Japan</div>
+                  <h3 className="text-sm font-semibold text-black leading-snug line-clamp-2 mb-2">{t.title}</h3>
+                  <div className="flex items-center text-[11px] text-gray-600 mb-2">
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                      <span>4.8</span>
+                    </div>
+                    <span className="mx-2">•</span>
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/></svg>
+                      <span>8h</span>
+                    </div>
+                    <span className="mx-2">•</span>
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg>
+                      <span>Up to 12</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-auto pt-2">
+                    <div className="text-sm"><span className="text-gray-500 line-through mr-1">$829</span><span className="font-bold text-black">$719</span><span className="text-[11px] text-gray-500 ml-1">/person</span></div>
+                    <button className="px-4 py-1.5 rounded-full bg-[#3B69E2] text-white text-sm">Book Now</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Divider above footer */}
+        <div className="mt-12 border-t border-gray-200"></div>
+
+        {/* Footer */}
+      
+      </div>
+        <footer className="bg-[#284078] text-white">
+          <div className="max-w-7xl mx-auto px-6 py-10">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8">
+              <div>
+                <h4 className="font-semibold mb-3">Company</h4>
+                <ul className="space-y-2 text-gray-200 text-sm">
+                  <li><a href="#">About us</a></li>
+                  <li><a href="#">Careers</a></li>
+                  <li><a href="#">Articles</a></li>
+                  <li><a href="#">Contact Us</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-3">Support</h4>
+                <ul className="space-y-2 text-gray-200 text-sm">
+                  <li><a href="#">Help Center</a></li>
+                  <li><a href="#">FAQs</a></li>
+                  <li><a href="#">Privacy Policy</a></li>
+                  <li><a href="#">Team & Conditions</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-3">Partner With Us</h4>
+                <ul className="space-y-2 text-gray-200 text-sm">
+                  <li><a href="#">Become a Partner</a></li>
+                  <li><a href="#">Join as an Affiliate</a></li>
+                  <li><a href="#">Partner Login</a></li>
+                  <li><a href="#">Collaboration Inquiries</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-3">Explore</h4>
+                <ul className="space-y-2 text-gray-200 text-sm">
+                  <li><a href="#">Product Features</a></li>
+                  <li><a href="#">Case Studies</a></li>
+                  <li><a href="#">Resources</a></li>
+                  <li><a href="#">Customer Reviews</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-3">Follow Us</h4>
+                <div className="flex gap-3">
+                  <div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center"><Instagram size={18} className="text-[#284078]"/></div>
+                  <div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center"><Linkedin size={18} className="text-[#284078]"/></div>
+                  <div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center"><Facebook size={18} className="text-[#284078]"/></div>
+                  <div className="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center"><Twitter size={18} className="text-[#284078]"/></div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2">Language</h4>
+                  <button className="w-full bg-white text-[#284078] rounded-lg px-3 py-2 text-sm flex items-center justify-between shadow-sm">
+                    <span className="flex items-center gap-2"><Globe size={16}/> US English</span>
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21L10 12l4.77-4.79"/></svg>
+                  </button>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Currency</h4>
+                  <button className="w-full bg-white text-[#284078] rounded-lg px-3 py-2 text-sm flex items-center justify-between shadow-sm">
+                    <span className="flex items-center gap-2"><DollarSign size={16}/> USD - US Dollar</span>
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21L10 12l4.77-4.79"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment methods */}
+            <div className="mt-8 flex flex-wrap gap-4 justify-center">
+              {['mc','gpay','visa','apple','paypal','discover'].map((k,i)=> (
+                <div key={i} className="w-14 h-9 bg-white rounded flex items-center justify-center">
+                  <span className="text-xs text-gray-700">{k.toUpperCase()}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 border-t border-white/30 pt-4 flex flex-wrap items-center justify-between text-gray-200 text-xs">
+              <div>© 2025 TripAdora. All rights reserved.</div>
+              <div className="flex flex-wrap gap-6 items-center">
+                <div className="flex items-center gap-2"><ShieldCheck size={16}/> Secure Booking</div>
+                <div className="flex items-center gap-2"><UsersRound size={16}/> 10M+ Travels</div>
+                <div className="flex items-center gap-2"><Phone size={16}/> +1-800-Travel</div>
+                <div className="flex items-center gap-2"><Headphones size={16}/> 24/7 Support</div>
+              </div>
+            </div>
+          </div>
+        </footer>
+    </div>
+  )
+}
+
+export default ProductDetails
