@@ -14,6 +14,14 @@ const StatBox = ({ icon, title, value }) => {
 }
 
 const SupplierPromo = () => {
+  const goToSupplier = () => {
+    try {
+      localStorage.setItem('tripsadora_mode', 'supplier')
+    } catch (_) {}
+    const supplierUrl = import.meta?.env?.VITE_SUPPLIER_APP_URL || 'http://localhost:5173'
+    window.location.assign(supplierUrl)
+  }
+
   return (
     <section className="py-10 bg-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -41,7 +49,7 @@ const SupplierPromo = () => {
                 <StatBox icon={<FiBriefcase className="w-4 h-4" />} title="Partners" value="5000+" />
                 <StatBox icon={<FiTrendingUp className="w-4 h-4" />} title="Avg. growth" value="30%" />
               </div>
-              <button className="w-full flex items-center justify-center gap-2 bg-[#2e3a67] text-white rounded-full py-2 font-medium shadow">
+              <button onClick={goToSupplier} className="w-full flex items-center justify-center gap-2 bg-[#2e3a67] text-white rounded-full py-2 font-medium shadow">
                 Get Started Now
                 <FiArrowRight className="w-4 h-4" />
               </button>

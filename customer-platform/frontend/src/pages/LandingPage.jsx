@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import Header from '../components/Header'
 import BottomNavigationBar from '../components/BottomNavigationBar'
 import HeroSection from '../components/HeroSection'
@@ -12,6 +12,10 @@ import TopCountriesSection from '../components/TopCountriesSection'
 import NewsletterSection from '../components/NewsletterSection'
 
 const LandingPage = () => {
+  useEffect(() => {
+    try { localStorage.setItem('tripsadora_mode', 'customer') } catch (_) {}
+  }, [])
+
   return (
     <div className="min-h-screen bg-gray-200">
       <Header />
