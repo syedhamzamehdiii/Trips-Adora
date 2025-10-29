@@ -2837,44 +2837,57 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                      {(() => {
                        // Get all existing vehicles from all products AND drafts in localStorage
                        try {
-                         // Only use vehicles from drafts and the current form (avoid published duplicates)
-                         const allDraftKeys = Object.keys(localStorage).filter(key => key.startsWith('product_draft_'));
-                         
-                         // Collect vehicles from drafts
-                         const allExistingVehicles = [];
-                         const seenVehicles = new Set();
-                         
-                         // Load vehicles from drafts only
-                         allDraftKeys.forEach(key => {
-                           try {
-                             const draftData = JSON.parse(localStorage.getItem(key));
-                             if (draftData && draftData.vehicles && Array.isArray(draftData.vehicles)) {
-                               draftData.vehicles.forEach(vehicle => {
-                                const normalizedTitle = (vehicle.title || '').toLowerCase().trim();
-                                const normalizedType = (vehicle.type || '').toLowerCase().trim();
-                                const normalizedModel = (vehicle.model || '').toLowerCase().trim();
-                                const vehicleKey = `${normalizedTitle}|${normalizedType}|${normalizedModel}`;
-                                 if (!seenVehicles.has(vehicleKey)) {
-                                   seenVehicles.add(vehicleKey);
-                                   allExistingVehicles.push(vehicle);
-                                 }
-                               });
-                             }
-                           } catch (e) {
-                             console.error('Error parsing draft:', e);
-                           }
-                         });
-                         
-                         // Combine with current product's vehicles (avoid duplicates by normalized fields)
-                         const uniqueCurrentVehicles = vehicles.filter(v => {
-                           const vt = (v.title || '').toLowerCase().trim();
-                           const ty = (v.type || '').toLowerCase().trim();
-                           const md = (v.model || '').toLowerCase().trim();
-                           const key = `${vt}|${ty}|${md}`;
-                           return !seenVehicles.has(key);
-                         });
-                         
-                         const availableVehicles = [...allExistingVehicles, ...uniqueCurrentVehicles];
+                        // Source vehicles ONLY from:
+                        // 1) Current product form
+                        // 2) Published products in all_products (what you've created and published)
+                        const seenVehicles = new Set();
+                        const collectedVehicles = [];
+
+                        // Helper: validate vehicle has required fields
+                        const isValidVehicle = (v) => {
+                          if (!v) return false;
+                          const hasBasics = (v.title || v.model || '').toString().trim() !== '' && (v.type || '').toString().trim() !== '';
+                          const hasNumbers = Number.isFinite(parseInt(v.capacity)) && (v.amount !== undefined);
+                          return hasBasics && hasNumbers;
+                        };
+
+                        // 1) Current product vehicles
+                        vehicles.forEach(v => {
+                          const vt = (v.title || '').toLowerCase().trim();
+                          const ty = (v.type || '').toLowerCase().trim();
+                          const md = (v.model || '').toLowerCase().trim();
+                          const key = `${vt}|${ty}|${md}`;
+                          if (!seenVehicles.has(key) && isValidVehicle(v)) {
+                            seenVehicles.add(key);
+                            collectedVehicles.push(v);
+                          }
+                        });
+
+                        // 2) Vehicles from published products
+                        try {
+                          const allProductsRaw = localStorage.getItem('all_products');
+                          if (allProductsRaw) {
+                            const allProducts = JSON.parse(allProductsRaw);
+                            allProducts
+                              .filter(p => p && p.status === 'Published' && Array.isArray(p.vehicles))
+                              .forEach(p => {
+                                p.vehicles.forEach(v => {
+                                  const vt = (v.title || '').toLowerCase().trim();
+                                  const ty = (v.type || '').toLowerCase().trim();
+                                  const md = (v.model || '').toLowerCase().trim();
+                                  const key = `${vt}|${ty}|${md}`;
+                                  if (!seenVehicles.has(key) && isValidVehicle(v)) {
+                                    seenVehicles.add(key);
+                                    collectedVehicles.push(v);
+                                  }
+                                });
+                              });
+                          }
+                        } catch (e) {
+                          console.warn('Error reading all_products for vehicles', e);
+                        }
+
+                        const availableVehicles = collectedVehicles;
                          
                          if (availableVehicles.length === 0) {
                            return (
@@ -2925,10 +2938,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                                      )}
                            </div>
                            <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
-                                     <span className="italic">{vehicle.attributes}</span>
-                                     <span>{vehicle.year}</span>
-                                     <span>Best for upto <span className="text-blue-600 font-medium">{vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span></span>
-                                     <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
+                                     {vehicle.attributes ? (<span className="italic">{vehicle.attributes}</span>) : null}
+                                     {vehicle.year ? (<span>{vehicle.year}</span>) : null}
+                                     {Number.isFinite(parseInt(vehicle.capacity)) ? (
+                                       <span>Best for upto <span className="text-blue-600 font-medium">{parseInt(vehicle.capacity) < 10 ? '0' : ''}{parseInt(vehicle.capacity)}</span></span>
+                                     ) : null}
+                                     {vehicle.duration ? (
+                                       <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
+                                     ) : null}
                            </div>
                                    <p className="text-xs text-gray-500 leading-relaxed mb-2">
                                      {vehicle.description}

@@ -28,10 +28,18 @@ export const AuthProvider = ({ children }) => {
       await googleAuthService.initGoogleAuth()
       
       // Check if user is already authenticated
-      if (authService.isAuthenticated()) {
+      const token = localStorage.getItem('access_token')
+      if (token && authService.isAuthenticated()) {
         try {
           const userData = await authService.getCurrentUser()
-          setUser(userData)
+          if (userData) {
+            setUser(userData)
+          } else {
+            // No user data returned, clear tokens
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('refresh_token')
+            setUser(null)
+          }
         } catch (error) {
           console.error('Failed to get current user:', error)
           // Token might be invalid, clear it
@@ -39,9 +47,13 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('refresh_token')
           setUser(null)
         }
+      } else {
+        // No token, set user to null
+        setUser(null)
       }
     } catch (error) {
       console.error('Auth initialization error:', error)
+      setUser(null)
     } finally {
       setLoading(false)
     }

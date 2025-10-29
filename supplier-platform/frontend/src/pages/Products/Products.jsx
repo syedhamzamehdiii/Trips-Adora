@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, FiMoreVertical, FiChevronDown, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
 
 const Products = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('active');
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -28,6 +29,15 @@ const Products = () => {
   const dropdownMenuRefs = useRef({});
   const filtersRef = useRef(null);
   const statusDropdownRef = useRef(null);
+
+  // Handle URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const tab = urlParams.get('tab');
+    if (tab === 'drafts') {
+      setActiveTab('drafts');
+    }
+  }, [location.search]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -83,10 +93,16 @@ const Products = () => {
           localStorage.setItem('all_products', JSON.stringify(loadedProducts));
         }
         
-        // Calculate stats
-        const published = loadedProducts.filter(p => p.status === 'Published').length;
-        const draft = loadedProducts.filter(p => p.status === 'Draft').length;
-        const totalRevenue = loadedProducts
+        // Calculate stats - only count relevant products (Published, Draft, Under Review)
+        const relevantProducts = loadedProducts.filter(p => 
+          p.status === 'Published' || 
+          p.status === 'Draft' || 
+          p.status === 'Under Review'
+        );
+        
+        const published = relevantProducts.filter(p => p.status === 'Published').length;
+        const draft = relevantProducts.filter(p => p.status === 'Draft').length;
+        const totalRevenue = relevantProducts
           .filter(p => p.status === 'Published')
           .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
         
@@ -97,7 +113,7 @@ const Products = () => {
         });
         
         setProductStats({
-          total: loadedProducts.length,
+          total: relevantProducts.length,
           active: published,
           draft: draft,
           revenue: totalRevenue
@@ -361,23 +377,29 @@ const Products = () => {
       if (allProductsData) {
         const loadedProducts = JSON.parse(allProductsData);
         
-        // Recalculate stats
-        const published = loadedProducts.filter(p => p.status === 'Published').length;
-        const draft = loadedProducts.filter(p => p.status === 'Draft').length;
-        const totalRevenue = loadedProducts
+        // Recalculate stats - only count relevant products (Published, Draft, Under Review)
+        const relevantProducts = loadedProducts.filter(p => 
+          p.status === 'Published' || 
+          p.status === 'Draft' || 
+          p.status === 'Under Review'
+        );
+        
+        const published = relevantProducts.filter(p => p.status === 'Published').length;
+        const draft = relevantProducts.filter(p => p.status === 'Draft').length;
+        const totalRevenue = relevantProducts
           .filter(p => p.status === 'Published')
           .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
         
         setProducts(loadedProducts);
         setProductStats({
-          total: loadedProducts.length,
+          total: relevantProducts.length,
           active: published,
           draft: draft,
           revenue: totalRevenue
         });
         
         console.log('✅ Refresh completed:', {
-          totalProducts: loadedProducts.length,
+          totalProducts: relevantProducts.length,
           published,
           draft,
           revenue: totalRevenue
