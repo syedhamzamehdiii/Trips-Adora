@@ -1,15 +1,45 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function ResponseInsightsChart() {
-  const data = [
-    { date: 'Jan 01', value: 42 },
-    { date: 'Jan 02', value: 45 },
-    { date: 'Jan 03', value: 43 },
-    { date: 'Jan 04', value: 47 },
-    { date: 'Jan 05', value: 45 },
-    { date: 'Jan 06', value: 47 }
-  ];
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    const build = () => {
+      try {
+        const bookingsRaw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
+        const bookings = bookingsRaw ? JSON.parse(bookingsRaw) : [];
+        const parseDate = (s) => { if (!s) return null; const d = new Date(s); return isNaN(d)? new Date(Date.parse(s)) : d; };
+        const byDay = new Map();
+        (bookings||[]).forEach(b => {
+          const bd = parseDate(b.bookedOn);
+          const td = parseDate(b.travelDate);
+          if (!bd || !td) return;
+          const key = bd.toLocaleString('en-US', { month: 'short', day: '2-digit' });
+          const diffDays = Math.max(1, Math.min(50, Math.round((td - bd) / (1000*60*60*24))));
+          const arr = byDay.get(key) || [];
+          arr.push(diffDays);
+          byDay.set(key, arr);
+        });
+        const out = Array.from(byDay.entries()).slice(-6).map(([k,arr]) => ({ date: k, value: Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) }));
+        if (out.length === 0) {
+          const today = new Date();
+          for (let i=5;i>=0;i--) {
+            const d = new Date(today); d.setDate(today.getDate()-i);
+            out.push({ date: d.toLocaleString('en-US', { month:'short', day:'2-digit'}), value: 42 });
+          }
+        }
+        setData(out);
+      } catch (_) {}
+    };
+    build();
+    window.addEventListener('storage', build);
+    window.addEventListener('bookings_updated', build);
+    return () => {
+      window.removeEventListener('storage', build);
+      window.removeEventListener('bookings_updated', build);
+    };
+  }, []);
 
   return (
     <div className="w-full mx-auto bg-white mt-8">

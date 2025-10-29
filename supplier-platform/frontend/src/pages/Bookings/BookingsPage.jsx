@@ -34,44 +34,10 @@ const BookingsPage = () => {
     status: 'All Status'
   });
 
-  const [bookings, setBookings] = useState([
-    {
-      id: 1,
-      referenceCode: 'TK-FD-240114-002',
-      productId: 'ID: PROD-001',
-      booking: 'Mount Fuji Tokyo Day Trip',
-      customerName: 'John Anders',
-      customerEmail: 'john.anderson@gmail.com',
-      bookedOn: 'Jan 13, 2024',
-      travelDate: 'Jan 20, 2024',
-      status: 'Confirmed',
-      amount: '$305'
-    },
-    {
-      id: 2,
-      referenceCode: 'TK-FD-240114-003',
-      productId: 'ID: PROD-002',
-      booking: 'Tokyo City Tour',
-      customerName: 'Sarah Johnson',
-      customerEmail: 'sarah.johnson@gmail.com',
-      bookedOn: 'Jan 14, 2024',
-      travelDate: 'Jan 22, 2024',
-      status: 'Confirmed',
-      amount: '$250'
-    },
-    {
-      id: 3,
-      referenceCode: 'TK-FD-240114-004',
-      productId: 'ID: PROD-003',
-      booking: 'Kyoto Cultural Experience',
-      customerName: 'Michael Brown',
-      customerEmail: 'michael.brown@gmail.com',
-      bookedOn: 'Jan 15, 2024',
-      travelDate: 'Jan 25, 2024',
-      status: 'Pending',
-      amount: '$180'
-    }
-  ]);
+  const [bookings, setBookings] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   // Load bookings from storage in real-time
   useEffect(() => {
@@ -80,9 +46,18 @@ const BookingsPage = () => {
         const raw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
         if (raw) {
           const list = JSON.parse(raw);
-          if (Array.isArray(list)) setBookings(list);
+          if (Array.isArray(list)) {
+            setBookings(list);
+          } else {
+            setBookings([]);
+          }
+        } else {
+          setBookings([]);
         }
-      } catch (_) {}
+      } catch (e) {
+        console.error('Error loading bookings:', e);
+        setBookings([]);
+      }
     };
     load();
     window.addEventListener('storage', load);
@@ -93,33 +68,196 @@ const BookingsPage = () => {
     };
   }, []);
 
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    try {
+      const raw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
+      if (raw) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          setBookings(list);
+        } else {
+          setBookings([]);
+        }
+      } else {
+        setBookings([]);
+      }
+      // Reset to first page when refreshing
+      setCurrentPage(1);
+    } catch (e) {
+      console.error('Error refreshing bookings:', e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
+  const handleDeleteBooking = (bookingId) => {
+    if (window.confirm('Are you sure you want to delete this booking?')) {
+      try {
+        const updated = bookings.filter(b => b.id !== bookingId);
+        localStorage.setItem('bookings', JSON.stringify(updated));
+        setBookings(updated);
+        window.dispatchEvent(new Event('bookings_updated'));
+      } catch (e) {
+        console.error('Error deleting booking:', e);
+      }
+    }
+  };
+
   const parsedAmount = (val) => {
     if (typeof val === 'number') return val;
     if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
     return 0;
   };
 
+  // Parse date string to Date object (handles various formats)
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    // Try to parse various date formats
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      // Try parsing formats like "Jan 13, 2024"
+      const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+      const parts = dateStr.toLowerCase().replace(',', '').split(' ');
+      if (parts.length === 3 && months[parts[0]]) {
+        return new Date(parseInt(parts[2]), months[parts[0]], parseInt(parts[1]));
+      }
+      return null;
+    }
+    return date;
+  };
+
+  const getDateRange = (type, start, end) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    let startDate = null;
+    let endDate = null;
+
+    if (start === 'today') startDate = new Date(today);
+    else if (start === 'tomorrow' || start === 'yesterday') {
+      const d = new Date(today);
+      d.setDate(d.getDate() + (start === 'tomorrow' ? 1 : -1));
+      startDate = d;
+    }
+    else if (start === 'this-week') startDate = new Date(weekStart);
+
+    if (end === 'today') endDate = new Date(today);
+    else if (end === 'tomorrow') {
+      const d = new Date(today);
+      d.setDate(d.getDate() + 1);
+      endDate = d;
+    }
+    else if (end === 'this-week') endDate = new Date(weekEnd);
+
+    return { startDate, endDate };
+  };
+
   const matchesFilters = (b) => {
     const term = searchTerm.trim().toLowerCase();
     if (term) {
-      const hay = `${b.referenceCode} ${b.booking} ${b.customerName} ${b.customerEmail}`.toLowerCase();
+      const hay = `${b.referenceCode || ''} ${b.booking || ''} ${b.customerName || ''} ${b.customerEmail || ''} ${b.productId || ''}`.toLowerCase();
       if (!hay.includes(term)) return false;
     }
-    if (filters.status !== 'All Status' && b.status !== filters.status) return false;
+    
+    if (filters.status !== 'All Status') {
+      const bookingStatus = (b.status || '').trim();
+      if (bookingStatus !== filters.status) return false;
+    }
+    
     if (filters.productName && !String(b.booking || '').toLowerCase().includes(filters.productName.toLowerCase())) return false;
     if (filters.referenceCode && !String(b.referenceCode || '').toLowerCase().includes(filters.referenceCode.toLowerCase())) return false;
+    
+    // Travel date filter
+    const travelDateRange = getDateRange('travel', filters.travelDateStart, filters.travelDateEnd);
+    if (travelDateRange.startDate || travelDateRange.endDate) {
+      const travelDate = parseDate(b.travelDate);
+      if (!travelDate) return false;
+      travelDate.setHours(0, 0, 0, 0);
+      if (travelDateRange.startDate && travelDate < travelDateRange.startDate) return false;
+      if (travelDateRange.endDate && travelDate > travelDateRange.endDate) return false;
+    }
+    
+    // Purchase/booked date filter
+    const purchaseDateRange = getDateRange('purchase', filters.purchaseDateStart, filters.purchaseDateEnd);
+    if (purchaseDateRange.startDate || purchaseDateRange.endDate) {
+      const bookedDate = parseDate(b.bookedOn);
+      if (!bookedDate) return false;
+      bookedDate.setHours(0, 0, 0, 0);
+      if (purchaseDateRange.startDate && bookedDate < purchaseDateRange.startDate) return false;
+      if (purchaseDateRange.endDate && bookedDate > purchaseDateRange.endDate) return false;
+    }
+    
     return true;
   };
 
   const filtered = bookings.filter(matchesFilters);
+  
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filters]);
 
-  // Stats derived from filtered list for real-time display
+  // Calculate pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBookings = filtered.slice(startIndex, endIndex);
+
+  // Stats derived from ALL bookings (not filtered) for summary cards
+  const allBookingStats = {
+    total: bookings.length,
+    upcoming: bookings.filter(b => {
+      const status = (b.status || '').trim();
+      return status === 'Upcoming' || status === 'Confirmed' || status === 'Pending';
+    }).length,
+    refundDispute: bookings.filter(b => {
+      const status = (b.status || '').trim();
+      return status === 'Refund/Dispute' || status === 'Refund' || status === 'Dispute';
+    }).length,
+    cancelled: bookings.filter(b => {
+      const status = (b.status || '').trim();
+      return status === 'Canceled' || status === 'Cancelled';
+    }).length
+  };
+
   const bookingStats = [
-    { number: String(filtered.length).padStart(2, '0'), label: 'Total Bookings' },
-    { number: String(filtered.filter(b => b.status === 'Upcoming' || b.status === 'Confirmed').length).padStart(2, '0'), label: 'Upcoming Trips' },
-    { number: String(filtered.filter(b => b.status === 'Refund/Dispute').length).padStart(2, '0'), label: 'Refund/Dispute' },
-    { number: String(filtered.filter(b => b.status === 'Canceled' || b.status === 'Cancelled').length).padStart(2, '0'), label: 'Cancelled' }
+    { number: String(allBookingStats.total).padStart(2, '0'), label: 'Total Bookings' },
+    { number: String(allBookingStats.upcoming).padStart(2, '0'), label: 'Upcoming Trips' },
+    { number: String(allBookingStats.refundDispute).padStart(2, '0'), label: 'Refund/Dispute' },
+    { number: String(allBookingStats.cancelled).padStart(2, '0'), label: 'Cancelled' }
   ];
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 7;
+    let startPage = Math.max(1, currentPage - 3);
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    
+    if (endPage - startPage < maxVisible - 1) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
+  };
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const handleExport = () => {
     try {
@@ -224,12 +362,18 @@ const BookingsPage = () => {
           />
         </div>
         <div className="flex items-center space-x-3">
-          <button className="p-2 text-gray-600 hover:text-gray-900 transition-colors">
-            <FiRefreshCw size={20} />
+          <button 
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className={`p-2 text-gray-600 hover:text-gray-900 transition-colors ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title="Refresh bookings"
+          >
+            <FiRefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
           <button 
             onClick={() => setShowFilterModal(true)}
             className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+            title="Filter bookings"
           >
             <FiFilter size={20} />
           </button>
@@ -272,7 +416,14 @@ const BookingsPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filtered.map((booking) => (
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-6 py-12 text-center">
+                    <p className="text-gray-500 text-sm">No bookings found</p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedBookings.map((booking) => (
                 <tr 
                   key={booking.id} 
                   className="hover:bg-gray-50 cursor-pointer"
@@ -300,64 +451,124 @@ const BookingsPage = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      booking.status === 'Confirmed' 
+                      (booking.status || '').trim() === 'Confirmed' || (booking.status || '').trim() === 'Completed'
                         ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
+                        : (booking.status || '').trim() === 'Pending' || (booking.status || '').trim() === 'Upcoming'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : (booking.status || '').trim() === 'Canceled' || (booking.status || '').trim() === 'Cancelled'
+                        ? 'bg-red-100 text-red-800'
+                        : (booking.status || '').trim() === 'Refund/Dispute' || (booking.status || '').trim() === 'Refund' || (booking.status || '').trim() === 'Dispute'
+                        ? 'bg-orange-100 text-orange-800'
+                        : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {booking.status}
+                      {booking.status || 'Unknown'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{booking.amount}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {booking.id === 1 ? (
+                    <div className="flex items-center space-x-2">
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           handleShareTrip(booking);
                         }}
                         className="text-gray-400 hover:text-gray-600 transition-colors"
+                        title="Share booking"
                       >
                         <FiShare2 size={16} />
                       </button>
-                    ) : (
                       <button 
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteBooking(booking.id);
+                        }}
+                        className="text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete booking"
                       >
                         <FiTrash2 size={16} />
                       </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between mt-6">
-        <div className="flex items-center space-x-2">
-          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-            <FiChevronLeft size={16} />
-          </button>
-          <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm">1</button>
-          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">2</button>
-          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">3</button>
-          <span className="px-2 text-gray-500">...</span>
-          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">12</button>
-          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">13</button>
-          <button className="px-3 py-1 text-gray-600 hover:text-gray-900 rounded text-sm">14</button>
-          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-            <FiChevronRight size={16} />
-          </button>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6">
+          <div className="flex items-center space-x-2">
+            <button 
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`p-2 transition-colors ${
+                currentPage === 1 
+                  ? 'text-gray-300 cursor-not-allowed' 
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <FiChevronLeft size={16} />
+            </button>
+            {(() => {
+              const pages = getPageNumbers();
+              return pages.map((page, idx) => {
+                // Show ellipsis if there's a gap
+                if (idx > 0 && pages[idx - 1] !== page - 1) {
+                  return (
+                    <React.Fragment key={`ellipsis-${page}`}>
+                      <span className="px-2 text-gray-500">...</span>
+                      <button
+                        onClick={() => handlePageChange(page)}
+                        className={`px-3 py-1 rounded text-sm transition-colors ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  );
+                }
+                return (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`px-3 py-1 rounded text-sm transition-colors ${
+                      currentPage === page
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              });
+            })()}
+            <button 
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`p-2 transition-colors ${
+                currentPage === totalPages 
+                  ? 'text-gray-300 cursor-not-allowed' 
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <FiChevronRight size={16} />
+            </button>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">
+              {currentPage}/{totalPages}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-600">1/10</span>
-        </div>
-      </div>
+      )}
 
       {/* Filter Modal */}
       {showFilterModal && (
@@ -489,8 +700,8 @@ const BookingsPage = () => {
               </button>
               <button
                 onClick={() => {
-                  // Apply filters logic here
                   setShowFilterModal(false);
+                  setCurrentPage(1); // Reset to first page when filters applied
                 }}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
