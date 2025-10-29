@@ -93,27 +93,49 @@ const Products = () => {
           localStorage.setItem('all_products', JSON.stringify(loadedProducts));
         }
         
-        // Calculate stats - only count relevant products (Published, Draft, Under Review)
-        const relevantProducts = loadedProducts.filter(p => 
+        // Deduplicate by id (primary key) - keep first occurrence only
+        const uniqMap = new Map();
+        loadedProducts.forEach(p => {
+          // Use id as primary key (should always exist), fallback to referenceCode then name
+          const key = p.id != null ? String(p.id) : (p.referenceCode ?? p.name);
+          // Only keep first occurrence if duplicate
+          if (!uniqMap.has(key)) {
+            uniqMap.set(key, p);
+          }
+        });
+        const deduped = Array.from(uniqMap.values());
+
+        // Calculate stats - only count Published and Draft products (excluding Under Review)
+        const relevantProducts = deduped.filter(p => 
           p.status === 'Published' || 
-          p.status === 'Draft' || 
-          p.status === 'Under Review'
+          p.status === 'Draft'
         );
         
         const published = relevantProducts.filter(p => p.status === 'Published').length;
         const draft = relevantProducts.filter(p => p.status === 'Draft').length;
+        
+        // Debug logging
+        console.log('📊 Product Stats Calculation:', {
+          totalLoaded: loadedProducts.length,
+          totalDeduped: deduped.length,
+          totalRelevant: relevantProducts.length,
+          published,
+          draft,
+          breakdown: relevantProducts.map(p => ({ id: p.id, name: p.name, status: p.status }))
+        });
         const totalRevenue = relevantProducts
           .filter(p => p.status === 'Published')
           .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
         
+        // Store deduplicated products to avoid issues elsewhere
         // Only update state if data has changed (prevent unnecessary re-renders)
         setProducts(prevProducts => {
-          const hasChanged = JSON.stringify(prevProducts) !== JSON.stringify(loadedProducts);
-          return hasChanged ? loadedProducts : prevProducts;
+          const hasChanged = JSON.stringify(prevProducts) !== JSON.stringify(deduped);
+          return hasChanged ? deduped : prevProducts;
         });
         
         setProductStats({
-          total: relevantProducts.length,
+          total: relevantProducts.length, // This should now be published + draft only
           active: published,
           draft: draft,
           revenue: totalRevenue
@@ -377,22 +399,41 @@ const Products = () => {
       if (allProductsData) {
         const loadedProducts = JSON.parse(allProductsData);
         
-        // Recalculate stats - only count relevant products (Published, Draft, Under Review)
-        const relevantProducts = loadedProducts.filter(p => 
+        // Recalculate stats - only count Published and Draft products (excluding Under Review)
+        const uniqMap = new Map();
+        loadedProducts.forEach(p => {
+          // Use id as primary key (should always exist), fallback to referenceCode then name
+          const key = p.id != null ? String(p.id) : (p.referenceCode ?? p.name);
+          // Only keep first occurrence if duplicate
+          if (!uniqMap.has(key)) {
+            uniqMap.set(key, p);
+          }
+        });
+        const deduped = Array.from(uniqMap.values());
+
+        const relevantProducts = deduped.filter(p => 
           p.status === 'Published' || 
-          p.status === 'Draft' || 
-          p.status === 'Under Review'
+          p.status === 'Draft'
         );
         
         const published = relevantProducts.filter(p => p.status === 'Published').length;
         const draft = relevantProducts.filter(p => p.status === 'Draft').length;
+        
+        // Debug logging
+        console.log('🔄 Refresh Product Stats:', {
+          totalLoaded: loadedProducts.length,
+          totalDeduped: deduped.length,
+          totalRelevant: relevantProducts.length,
+          published,
+          draft
+        });
         const totalRevenue = relevantProducts
           .filter(p => p.status === 'Published')
           .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
         
-        setProducts(loadedProducts);
+        setProducts(deduped);
         setProductStats({
-          total: relevantProducts.length,
+          total: relevantProducts.length, // This should now be published + draft only
           active: published,
           draft: draft,
           revenue: totalRevenue

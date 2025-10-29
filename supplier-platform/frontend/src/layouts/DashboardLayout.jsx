@@ -12,6 +12,8 @@ const DashboardLayout = ({ children }) => {
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
   const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
@@ -36,6 +38,7 @@ const DashboardLayout = ({ children }) => {
       }
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setShowNotifications(false);
+        setShowAllNotifications(false);
       }
       if (languageRef.current && !languageRef.current.contains(event.target)) {
         setShowLanguageDropdown(false);
@@ -50,6 +53,46 @@ const DashboardLayout = ({ children }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showListingsDropdown, showNotifications, showLanguageDropdown]);
+
+  // Realtime notifications
+  useEffect(() => {
+    const loadNotifications = () => {
+      try {
+        const raw = localStorage.getItem('notifications') || sessionStorage.getItem('notifications');
+        const list = raw ? JSON.parse(raw) : [];
+        const sorted = list.map(n => ({ ...n })).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setNotifications(sorted);
+      } catch (_) {
+        setNotifications([]);
+      }
+    };
+    if (!localStorage.getItem('notifications') && !sessionStorage.getItem('notifications')) {
+      localStorage.setItem('notifications', JSON.stringify([]));
+    }
+    loadNotifications();
+    window.addEventListener('notifications_updated', loadNotifications);
+    window.addEventListener('storage', loadNotifications);
+    const handleNew = (e) => {
+      try { window.addNotification && window.addNotification(e.detail || {}); } catch(_) {}
+    };
+    window.addEventListener('new_notification', handleNew);
+    return () => {
+      window.removeEventListener('notifications_updated', loadNotifications);
+      window.removeEventListener('storage', loadNotifications);
+      window.removeEventListener('new_notification', handleNew);
+    };
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const persistNotifications = (list) => {
+    localStorage.setItem('notifications', JSON.stringify(list));
+    sessionStorage.setItem('notifications', JSON.stringify(list));
+    window.dispatchEvent(new Event('notifications_updated'));
+  };
+  const markAsRead = (id) => {
+    const updated = notifications.map(n => (n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n));
+    persistNotifications(updated);
+  };
 
   // Listen for profile updates from Account Settings
   useEffect(() => {
@@ -105,13 +148,13 @@ const DashboardLayout = ({ children }) => {
               {/* Notification Bell */}
               <div className="relative" ref={notificationRef}>
                 <button 
-                  onClick={() => setShowNotifications(!showNotifications)}
+                  onClick={() => { setShowNotifications(!showNotifications); setShowAllNotifications(false);} }
                   className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                  {unreadCount > 0 && (<div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>)}
                 </button>
                 
                 {/* Notifications Dropdown */}
@@ -119,35 +162,33 @@ const DashboardLayout = ({ children }) => {
                   <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                     <div className="p-4">
                       <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
-                      <div className="space-y-3">
-                        <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">New booking received</p>
-                            <p className="text-xs text-gray-600">Mount Fuji tour - 2 guests</p>
-                            <p className="text-xs text-gray-500">2 minutes ago</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Payment received</p>
-                            <p className="text-xs text-gray-600">$240 for Tokyo City Tour</p>
-                            <p className="text-xs text-gray-500">1 hour ago</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
-                          <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Review received</p>
-                            <p className="text-xs text-gray-600">5 stars for Kyoto Temple Tour</p>
-                            <p className="text-xs text-gray-500">3 hours ago</p>
-                          </div>
-                        </div>
+                      <div className="space-y-3 max-h-80 overflow-y-auto">
+                        {((showAllNotifications ? notifications : notifications.filter(n => !n.read).slice(0, 5))).length === 0 ? (
+                          <div className="text-center text-sm text-gray-500 py-6">No notifications</div>
+                        ) : (
+                        (showAllNotifications ? notifications : notifications.filter(n => !n.read).slice(0, 5)).map((n) => {
+                          const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
+                          const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
+                          return (
+                            <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''}`} onClick={() => markAsRead(n.id)}>
+                              <div className={`w-2 h-2 ${typeColor} rounded-full mt-2`}></div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{n.title}</p>
+                                {n.message && (<p className="text-xs text-gray-600">{n.message}</p>)}
+                                <p className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()}</p>
+                              </div>
+                            </div>
+                          );
+                        }))}
                       </div>
-                      <button className="w-full mt-3 text-center text-sm text-blue-600 hover:text-blue-800 font-medium">
-                        View all notifications
-                      </button>
+                      <div className="flex items-center justify-between mt-3">
+                        <button onClick={() => setShowAllNotifications(!showAllNotifications)} className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400" disabled={notifications.length === 0}>
+                          {showAllNotifications ? 'Show recent' : 'View all notifications'}
+                        </button>
+                        {unreadCount > 0 && (
+                          <span className="text-xs text-gray-500">Unread: {unreadCount}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

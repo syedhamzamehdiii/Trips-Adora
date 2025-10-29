@@ -11,6 +11,7 @@ import {
 const SupportPage = () => {
   const navigate = useNavigate();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
 
   // Auto-hide success message after 5 seconds
   useEffect(() => {
@@ -24,9 +25,29 @@ const SupportPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const { name, email, subject, message } = form;
+    const emailSubject = subject || 'Support Request';
+    const emailBody = `From: ${name} <${email}>\n\n${message}`;
+    const mailtoLink = `mailto:support@tripadora.com?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    // Open default email client
+    window.location.href = mailtoLink;
+
+    // Persist a copy locally and raise a notification
+    try {
+      const saved = JSON.parse(localStorage.getItem('support_messages') || '[]');
+      saved.push({ id: Date.now(), name, email, subject, message, createdAt: new Date().toISOString() });
+      localStorage.setItem('support_messages', JSON.stringify(saved));
+      if (window.addNotification) {
+        window.addNotification({
+          type: 'system',
+          title: 'Support message prepared',
+          message: 'Your email draft to support@tripadora.com has been opened.'
+        });
+      }
+    } catch (_) {}
+
     setShowSuccessMessage(true);
-    // Reset form
-    e.target.reset();
+    setForm({ name: '', email: '', subject: '', message: '' });
   };
 
   return (
@@ -821,6 +842,8 @@ const SupportPage = () => {
                 <input 
                   type="text" 
                   required
+                  value={form.name}
+                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-transparent transition-all"
                   placeholder="Your name"
                 />
@@ -830,6 +853,8 @@ const SupportPage = () => {
                 <input 
                   type="email" 
                   required
+                  value={form.email}
+                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-transparent transition-all"
                   placeholder="your.email@example.com"
                 />
@@ -841,6 +866,8 @@ const SupportPage = () => {
               <input 
                 type="text" 
                 required
+                value={form.subject}
+                onChange={(e) => setForm(prev => ({ ...prev, subject: e.target.value }))}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-transparent transition-all"
                 placeholder="What's this about?"
               />
@@ -851,6 +878,8 @@ const SupportPage = () => {
               <textarea 
                 rows={5}
                 required
+                value={form.message}
+                onChange={(e) => setForm(prev => ({ ...prev, message: e.target.value }))}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-transparent transition-all resize-none"
                 placeholder="Describe your question or feedback in detail..."
               ></textarea>

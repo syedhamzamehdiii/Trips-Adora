@@ -28,6 +28,10 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
   const [completedCrop, setCompletedCrop] = useState(null);
   const photoInputRef = useRef(null);
   const imgRef = useRef(null);
+  // Final Look timeline measurements
+  const finalTimelineRef = useRef(null);
+  const [finalLineTop, setFinalLineTop] = useState(16);
+  const [finalLineHeight, setFinalLineHeight] = useState(0);
 
   // Load existing itineraries from draft when available
   useEffect(() => {
@@ -228,6 +232,56 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
     }
   }, [itineraryEntries, productData?.draftId]);
 
+  // Measure timeline line to end exactly at drop-off icon center
+  useEffect(() => {
+    if (!showFinalLook || !finalTimelineRef.current) return;
+    
+    const measureLine = () => {
+      const container = finalTimelineRef.current;
+      if (!container) return;
+      
+      const markers = container.querySelectorAll('[data-timeline-marker]');
+      if (markers.length === 0) {
+        // Fallback: estimate based on item count
+        const itemCount = (productData?.pickupLocations?.length > 0 ? 1 : 0) + 
+                         itineraryEntries.length + 
+                         (productData?.dropoffLocations?.length > 0 ? 1 : 0);
+        setFinalLineTop(16);
+        setFinalLineHeight(itemCount > 0 ? (itemCount * 88) : 200);
+        return;
+      }
+      
+      const firstMarker = markers[0];
+      const lastMarker = markers[markers.length - 1];
+      
+      // Get positions relative to container
+      const containerRect = container.getBoundingClientRect();
+      const firstRect = firstMarker.getBoundingClientRect();
+      const lastRect = lastMarker.getBoundingClientRect();
+      
+      // Calculate centers relative to container top
+      const firstCenter = (firstRect.top + firstRect.height / 2) - containerRect.top;
+      const lastCenter = (lastRect.top + lastRect.height / 2) - containerRect.top;
+      
+      // Set line to start at first marker center and end at last marker center
+      setFinalLineTop(firstCenter);
+      setFinalLineHeight(Math.max(0, lastCenter - firstCenter));
+    };
+    
+    // Measure after a short delay to ensure DOM is ready
+    const timeout1 = setTimeout(measureLine, 100);
+    const timeout2 = setTimeout(measureLine, 300);
+    
+    // Also measure on resize
+    window.addEventListener('resize', measureLine);
+    
+    return () => {
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+      window.removeEventListener('resize', measureLine);
+    };
+  }, [showFinalLook, itineraryEntries, productData?.pickupLocations?.length, productData?.dropoffLocations?.length]);
+
   const handleSubmit = () => {
     if (hasSavedItinerary && !showSubmitView) {
       setShowSubmitView(true);
@@ -397,84 +451,48 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                         </div>
                       </div>
 
-                      {/* Pickup Locations */}
-                      {productData?.pickupLocations && productData.pickupLocations.length > 0 && (
-                        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                          <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-                            <FiMapPin className="mr-2 text-green-600" size={18} />
-                            Pick-up Locations:
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {productData.pickupLocations.map((location, index) => (
-                              <span key={index} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                                {location}
-                              </span>
-                            ))}
-                          </div>
-                          {productData.pickupTime && (
-                            <p className="text-sm text-gray-600 mt-2">
-                              Pick-up Time: {productData.pickupTime}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Drop-off Locations */}
-                      {productData?.dropoffLocations && productData.dropoffLocations.length > 0 && (
-                        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-                            <FiMapPin className="mr-2 text-blue-600" size={18} />
-                            Drop-off Locations:
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {productData.dropoffLocations.map((location, index) => (
-                              <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                                {location}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {/* Removed Pick-up & Drop-off summary panels in Final Look */}
 
                       {/* Complete Timeline */}
-                      <div className="relative">
-                        {/* Timeline Line - extends to very bottom */}
-                        <div className="absolute left-4 top-4 w-1 bg-gray-800" style={{height: `${(itineraryEntries.length + 2) * 96 + 160}px`}}></div>
+                      <div ref={finalTimelineRef} className="relative">
+                        {/* Timeline Line - starts at first marker center, ends exactly at drop-off marker center */}
+                        {finalLineHeight > 0 && (
+                          <div 
+                            className="absolute w-1 bg-gray-800"
+                            style={{ 
+                              left: '1rem', 
+                              top: `${finalLineTop}px`, 
+                              height: `${finalLineHeight}px` 
+                            }}
+                          ></div>
+                        )}
 
-                        {/* Start Point - Mount Fuji */}
-                        <div className="flex items-start mb-8 relative">
-                          <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
-                            {/* Mountain with person icon */}
-                            <div className="w-4 h-4 flex flex-col items-center justify-end">
-                              <div className="w-2 h-1.5 bg-black rounded-t-sm"></div>
-                              <div className="w-0.5 h-1 bg-black rounded-full mt-0.5"></div>
+                        {/* Optional Pick-up as first timeline item */}
+                        {productData?.pickupLocations && productData.pickupLocations.length > 0 && (
+                          <div className="flex items-start mb-8 relative">
+                            <div data-timeline-marker className="w-8 h-8 border-2 border-green-700 bg-green-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                              <FiMapPin className="w-4 h-4 text-green-700" />
                             </div>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-2xl font-bold text-black mb-2">Mount Fuji</h3>
-                            <p className="text-gray-600 mb-3">Iconic mountain views and traditional temples</p>
-                            
-                            {/* Activities Section */}
-                            <div className="mb-3">
-                              <p className="text-gray-600 font-bold mb-2">Activities:</p>
-                              <div className="flex flex-wrap gap-2">
-                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Sightseeing & Photography</span>
-                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Food & Drink</span>
-                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Cultural visit</span>
+                            <div className="flex-1">
+                              <h3 className="text-2xl font-bold text-black mb-2">Pick-up</h3>
+                              <div className="flex flex-wrap gap-2 mb-1">
+                                {productData.pickupLocations.map((loc, idx) => (
+                                  <span key={idx} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">{loc}</span>
+                                ))}
                               </div>
-                            </div>
-                            
-                            <div className="flex items-center space-x-2">
-                              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">Free</span>
-                              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">3h 30min</span>
+                              {productData.pickupTime && (
+                                <p className="text-sm text-gray-600">Time: {productData.pickupTime}</p>
+                              )}
                             </div>
                           </div>
-                        </div>
+                        )}
+
+                        {/* Removed fixed Mount Fuji start; pickup is shown above when available */}
 
                         {/* Itinerary Entries */}
                         {itineraryEntries.map((entry, index) => (
                           <div key={entry.id} className="flex items-start mb-8 relative">
-                            <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10 overflow-hidden">
+                            <div data-timeline-marker className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10 overflow-hidden">
                               {entry.photo ? (
                                 /* Show uploaded photo */
                                 <img 
@@ -516,27 +534,24 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                           </div>
                         ))}
 
-                        {/* End Point - Finished Return */}
-                        <div className="flex items-start relative">
-                          <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
-                            {/* Return arrow icon */}
-                            <FiRotateCcw className="w-4 h-4 text-black" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-2xl font-bold text-black mb-2">Finished - Return</h3>
-                            <p className="text-gray-600 mb-3">Fujinomiya – thrill at the foot of Mount Fuji with stunning views, waterfalls, and adventure all around!</p>
-                            
-                            {/* Activities Section */}
-                            <div className="mb-3">
-                              <p className="text-gray-600 font-bold mb-2">Activities:</p>
+                        {/* Optional Drop-off just before End */}
+                        {productData?.dropoffLocations && productData.dropoffLocations.length > 0 && (
+                          <div className="flex items-start mb-8 relative">
+                            <div data-timeline-marker className="w-8 h-8 border-2 border-blue-700 bg-blue-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                              <FiMapPin className="w-4 h-4 text-blue-700" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-2xl font-bold text-black mb-2">Drop-off</h3>
                               <div className="flex flex-wrap gap-2">
-                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Sightseeing & Photography</span>
-                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Food & Drink</span>
-                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Cultural visit</span>
+                                {productData.dropoffLocations.map((loc, idx) => (
+                                  <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{loc}</span>
+                                ))}
                               </div>
                             </div>
                           </div>
-                        </div>
+                        )}
+
+                        {/* Removed fixed Finished - Return; drop-off is shown above when available */}
                       </div>
                     </div>
                   ) : !showSubmitView ? (
@@ -561,21 +576,27 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                       {/* Itinerary Timeline */}
                       <div className="relative">
                         {/* Timeline Line */}
-                        <div className="absolute left-4 top-4 bottom-4 w-1 bg-black"></div>
+                        <div className="absolute left-3.5 top-7 bottom-16 w-1 bg-black"></div>
 
-                        {/* Start Point - Mount Fuji */}
-                        <div className="flex items-start mb-12 relative">
-                          <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
-                            {/* Mountain with person icon */}
-                            <div className="w-4 h-4 flex flex-col items-center justify-end">
-                              <div className="w-2 h-1.5 bg-black rounded-t-sm"></div>
-                              <div className="w-0.5 h-1 bg-black rounded-full mt-0.5"></div>
+                        {/* Optional Pick-up as first item */}
+                        {productData?.pickupLocations && productData.pickupLocations.length > 0 && (
+                          <div className="flex items-start mb-12 relative">
+                            <div className="w-8 h-8 border-2 border-green-700 bg-green-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                              <FiMapPin className="w-4 h-4 text-green-700" />
+                            </div>
+                            <div>
+                              <h3 className="text-2xl font-bold text-black">Pick-up</h3>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {productData.pickupLocations.map((loc, idx) => (
+                                  <span key={idx} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">{loc}</span>
+                                ))}
+                              </div>
+                              {productData.pickupTime && (
+                                <p className="text-sm text-gray-600 mt-2">Time: {productData.pickupTime}</p>
+                              )}
                             </div>
                           </div>
-                          <div>
-                            <h3 className="text-2xl font-bold text-black">Mount Fuji</h3>
-                          </div>
-                        </div>
+                        )}
 
                         {/* Mid Point - Add Itinerary */}
                         <div className="flex items-start mb-12 relative">
@@ -600,16 +621,22 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                           </div>
                         </div>
 
-                        {/* End Point - Finished Return */}
-                        <div className="flex items-start relative">
-                          <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
-                            {/* Return arrow icon */}
-                            <FiRotateCcw className="w-4 h-4 text-black" />
+                        {/* Optional Drop-off as last item */}
+                        {productData?.dropoffLocations && productData.dropoffLocations.length > 0 && (
+                          <div className="flex items-start relative">
+                            <div className="w-8 h-8 border-2 border-blue-700 bg-blue-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                              <FiMapPin className="w-4 h-4 text-blue-700" />
+                            </div>
+                            <div>
+                              <h3 className="text-2xl font-bold text-black">Drop-off</h3>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {productData.dropoffLocations.map((loc, idx) => (
+                                  <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{loc}</span>
+                                ))}
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="text-2xl font-bold text-black">Finished - Return</h3>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </>
                   ) : (

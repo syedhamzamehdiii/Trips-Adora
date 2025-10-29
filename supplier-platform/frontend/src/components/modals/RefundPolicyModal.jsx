@@ -12,10 +12,7 @@ const RefundPolicyModal = ({ isOpen, onClose }) => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Cancellation & Refund Policy</h1>
             <p className="text-gray-600">Manage your cancellation and refund settings</p>
           </div>
-          <div className="flex items-center space-x-3">
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-              Edit
-            </button>
+          <div className="flex items-center">
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"

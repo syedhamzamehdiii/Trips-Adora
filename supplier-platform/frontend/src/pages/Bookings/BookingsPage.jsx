@@ -34,14 +34,7 @@ const BookingsPage = () => {
     status: 'All Status'
   });
 
-  const bookingStats = [
-    { number: '52', label: 'Total Bookings' },
-    { number: '03', label: 'Upcoming Trips' },
-    { number: '13', label: 'Refund/Dispute' },
-    { number: '04', label: 'Cancelled' }
-  ];
-
-  const bookings = [
+  const [bookings, setBookings] = useState([
     {
       id: 1,
       referenceCode: 'TK-FD-240114-002',
@@ -78,7 +71,88 @@ const BookingsPage = () => {
       status: 'Pending',
       amount: '$180'
     }
+  ]);
+
+  // Load bookings from storage in real-time
+  useEffect(() => {
+    const load = () => {
+      try {
+        const raw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) setBookings(list);
+        }
+      } catch (_) {}
+    };
+    load();
+    window.addEventListener('storage', load);
+    window.addEventListener('bookings_updated', load);
+    return () => {
+      window.removeEventListener('storage', load);
+      window.removeEventListener('bookings_updated', load);
+    };
+  }, []);
+
+  const parsedAmount = (val) => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+    return 0;
+  };
+
+  const matchesFilters = (b) => {
+    const term = searchTerm.trim().toLowerCase();
+    if (term) {
+      const hay = `${b.referenceCode} ${b.booking} ${b.customerName} ${b.customerEmail}`.toLowerCase();
+      if (!hay.includes(term)) return false;
+    }
+    if (filters.status !== 'All Status' && b.status !== filters.status) return false;
+    if (filters.productName && !String(b.booking || '').toLowerCase().includes(filters.productName.toLowerCase())) return false;
+    if (filters.referenceCode && !String(b.referenceCode || '').toLowerCase().includes(filters.referenceCode.toLowerCase())) return false;
+    return true;
+  };
+
+  const filtered = bookings.filter(matchesFilters);
+
+  // Stats derived from filtered list for real-time display
+  const bookingStats = [
+    { number: String(filtered.length).padStart(2, '0'), label: 'Total Bookings' },
+    { number: String(filtered.filter(b => b.status === 'Upcoming' || b.status === 'Confirmed').length).padStart(2, '0'), label: 'Upcoming Trips' },
+    { number: String(filtered.filter(b => b.status === 'Refund/Dispute').length).padStart(2, '0'), label: 'Refund/Dispute' },
+    { number: String(filtered.filter(b => b.status === 'Canceled' || b.status === 'Cancelled').length).padStart(2, '0'), label: 'Cancelled' }
   ];
+
+  const handleExport = () => {
+    try {
+      const rows = [];
+      rows.push(['Reference Code','Product ID','Booking','Customer Name','Customer Email','Booked On','Travel Date','Status','Amount'].join(','));
+      filtered.forEach(b => {
+        const safe = (v) => `"${String(v ?? '').replace(/"/g,'""')}"`;
+        rows.push([
+          safe(b.referenceCode),
+          safe(b.productId),
+          safe(b.booking),
+          safe(b.customerName),
+          safe(b.customerEmail),
+          safe(b.bookedOn),
+          safe(b.travelDate),
+          safe(b.status),
+          safe(parsedAmount(b.amount))
+        ].join(','));
+      });
+      const csv = rows.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bookings_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Failed to export bookings:', e);
+    }
+  };
 
   const handleShareTrip = (trip) => {
     setSelectedTrip(trip);
@@ -113,7 +187,7 @@ const BookingsPage = () => {
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-gray-900">YOUR BOOKINGS</h1>
         <div className="flex space-x-3">
-          <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+          <button onClick={handleExport} className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
             <FiDownload size={16} />
             <span>Export Bookings</span>
           </button>
@@ -198,7 +272,7 @@ const BookingsPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {bookings.map((booking) => (
+              {filtered.map((booking) => (
                 <tr 
                   key={booking.id} 
                   className="hover:bg-gray-50 cursor-pointer"
