@@ -33,6 +33,8 @@ export const AuthProvider = ({ children }) => {
         try {
           const userData = await authService.getCurrentUser()
           if (userData) {
+            // Ensure a persistent supplier_id exists
+            ensureSupplierId()
             setUser(userData)
           } else {
             // No user data returned, clear tokens
@@ -57,6 +59,44 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Ensure a single, persistent supplier_id is stored and propagated
+  const ensureSupplierId = () => {
+    try {
+      let supplierId = localStorage.getItem('supplier_id') || sessionStorage.getItem('supplier_id')
+      if (!supplierId) {
+        // Try from account_settings
+        const saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings')
+        if (saved) {
+          const data = JSON.parse(saved)
+          supplierId = data?.profileData?.contactValue || null
+        }
+      }
+      if (!supplierId) {
+        // Generate an 8-digit ID
+        supplierId = String(Math.floor(10000000 + Math.random() * 90000000))
+      }
+      // Persist in both stores for resilience
+      localStorage.setItem('supplier_id', supplierId)
+      sessionStorage.setItem('supplier_id', supplierId)
+
+      // Also mirror into account_settings if present
+      const saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings')
+      if (saved) {
+        const data = JSON.parse(saved)
+        const updated = {
+          ...data,
+            profileData: {
+              ...(data?.profileData || {}),
+              contactValue: supplierId
+            }
+        }
+        localStorage.setItem('account_settings', JSON.stringify(updated))
+        sessionStorage.setItem('account_settings', JSON.stringify(updated))
+        window.dispatchEvent(new Event('account_settings_updated'))
+      }
+    } catch (_) {}
   }
 
   const login = async (credentials) => {

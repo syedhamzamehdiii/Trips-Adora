@@ -536,7 +536,7 @@ const InsightsPage = () => {
             We're constantly analyzing market trends and best practices to bring you new recommendations. Check back regularly for fresh insights that can help take your business to the next level.
           </p>
           <div className="flex justify-center space-x-4 mb-6">
-            <button className="flex items-center space-x-2 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
+            <button onClick={() => navigate('/support')} className="flex items-center space-x-2 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
               <FiMessageSquare size={16} />
               <span>Contact Support</span>
             </button>

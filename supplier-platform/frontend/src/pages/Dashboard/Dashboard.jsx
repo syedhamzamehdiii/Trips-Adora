@@ -77,12 +77,13 @@ const Dashboard = () => {
     const loadProfile = () => {
       try {
         let saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
+        const supplierId = localStorage.getItem('supplier_id') || sessionStorage.getItem('supplier_id') || '00032123';
         if (saved) {
           const data = JSON.parse(saved);
           setSidebarProfile({
             name: data.editableInfo?.publicName || 'Edward William',
             photo: data.globalUserPhoto || null,
-            id: data.profileData?.contactValue || '00032123',
+            id: supplierId,
             location: data.editableInfo?.city && data.editableInfo?.country ? `${data.editableInfo.city}, ${data.editableInfo.country}` : 'Notting Hill, London'
           });
         }
@@ -435,8 +436,8 @@ const Dashboard = () => {
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                </svg>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
                 </button>
                 
                 {/* Notifications Dropdown */}
@@ -486,7 +487,7 @@ const Dashboard = () => {
                 >
                   <span className="text-sm">EN</span>
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
                 </button>
                 
