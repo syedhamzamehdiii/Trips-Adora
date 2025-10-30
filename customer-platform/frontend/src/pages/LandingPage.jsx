@@ -10,7 +10,7 @@ import PlacesSection from '../components/PlacesSection'
 import SupplierPromo from '../components/SupplierPromo'
 import TopCountriesSection from '../components/TopCountriesSection'
 import NewsletterSection from '../components/NewsletterSection'
-import ProductDetails from '../components/ProductDetails'
+
 
 
 const LandingPage = () => {
@@ -31,7 +31,7 @@ const LandingPage = () => {
       <SupplierPromo />
       <TopCountriesSection />
       <NewsletterSection />
-      <ProductDetails/>
+      
 
     </div>
   )

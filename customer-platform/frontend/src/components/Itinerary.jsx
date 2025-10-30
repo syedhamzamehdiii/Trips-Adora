@@ -15,6 +15,8 @@ import vector from "../../assests/vector.png";
 import line71 from "../../assests/line71.png";
 import arrowimg from "../../assests/arrowimg.png";
 import { MapPin, Map, ArrowLeft } from 'lucide-react';
+import { Clock } from "lucide-react";
+
 export default function Itinerary() {
   return (
 
@@ -37,7 +39,8 @@ export default function Itinerary() {
         {/* Left - Tour Badge */}
         <div className="flex items-center gap-3  rounded-lg px-4 py-2.5 bg-[#DBEAFE] ">
           <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center ">
-            <ArrowLeft className="w-4 h-4 text-gray-700" />
+        <Clock className="w-4 h-4 text-gray-700" />
+
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-900">One day Tour</span>
@@ -144,27 +147,8 @@ export default function Itinerary() {
 
 </div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
           {/* Center Section - Vertical Line */}
-          <div className="lg:col-span-1  rounded-lg  p-0 flex flex-col justify-between items-center h-full py-2">
+          <div className="lg:col-span-1    rounded-lg  p-0 flex md:flex hidden xs:hidden sm:hidden md:flex flex-col justify-between items-center h-full py-2">
             <img src={imageline} alt="" className="h-44" />
             <img src={imageline} alt="" className="h-44" />
             <img src={imageline} alt="" className="h-44" />
@@ -172,50 +156,8 @@ export default function Itinerary() {
           </div>
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
           {/* Right Section - Text Content Hardcoded */}
           <div className="lg:col-span-6  rounded-lg p-6 min-h-[600px] space-y-6">
-
-
-
-
-
-
 
 
             {/* Stop 1 */}
