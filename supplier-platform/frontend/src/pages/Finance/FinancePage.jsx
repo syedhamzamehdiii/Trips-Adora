@@ -4,18 +4,113 @@ import { FiDownload, FiSearch } from 'react-icons/fi'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const FinancePage = () => {
-  const rows = useMemo(() => (
-    Array.from({ length: 10 }).map((_, i) => ({
-      bookingRef: `MT-FJ-2401${(i+1).toString().padStart(2,'0')}-001`,
-      leadTraveller: 'John Anderson',
-      productCode: 'PROD-001',
-      activityDate: 'Jan 24, 2024',
-      retailPrice: '$149',
-      netPrice: '$119',
-      netPayable: '$119',
-      status: i % 3 === 0 ? 'Paid' : 'Ready for Payout',
-    }))
-  ), [])
+  // Real-time finance data derived from bookings in storage
+  const [bookings, setBookings] = useState([])
+  const [rows, setRows] = useState([])
+  const [summary, setSummary] = useState({ totalEarning: 0, pendingPayout: 0, lossFromCancellation: 0, paidThisMonth: 0 })
+  const [chartData, setChartData] = useState([])
+
+  const parseAmount = (v) => {
+    if (typeof v === 'number') return v
+    if (typeof v === 'string') return parseFloat(v.replace(/[^0-9.]/g, '')) || 0
+    return 0
+  }
+
+  const formatCurrency = (n) => {
+    return `$ ${Math.round(n).toLocaleString()}`
+  }
+
+  const toMonthKey = (dateStr) => {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return 'Unknown'
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+  }
+
+  const monthLabel = (key) => {
+    const [y, m] = key.split('-').map(Number)
+    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]
+  }
+
+  useEffect(() => {
+    const load = () => {
+      try {
+        const raw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings')
+        const list = raw ? JSON.parse(raw) : []
+        setBookings(Array.isArray(list) ? list : [])
+      } catch (_) {
+        setBookings([])
+      }
+    }
+    load()
+    window.addEventListener('storage', load)
+    window.addEventListener('bookings_updated', load)
+    return () => {
+      window.removeEventListener('storage', load)
+      window.removeEventListener('bookings_updated', load)
+    }
+  }, [])
+
+  // Derive finance rows, summary, and chart from bookings
+  useEffect(() => {
+    // Table rows (bookings for payout)
+    const derivedRows = (bookings || []).map((b, idx) => {
+      const retail = parseAmount(b.amount)
+      const net = Math.max(0, retail * 0.8)
+      const payable = net
+      const payoutStatus = b.payoutStatus || ((b.status === 'Confirmed' || b.status === 'Completed' || b.status === 'Pending') ? 'Ready for Payout' : (b.status === 'Refund/Dispute' || b.status === 'Refund' ? 'Refund' : 'Paid'))
+      return {
+        bookingRef: b.referenceCode || `BK-${idx+1}`,
+        leadTraveller: b.customerName || 'N/A',
+        productCode: String(b.productId || b.productCode || '').replace('ID: ','') || 'N/A',
+        activityDate: b.travelDate || b.bookedOn || '—',
+        retailPrice: `$${retail.toFixed(0)}`,
+        netPrice: `$${net.toFixed(0)}`,
+        netPayable: `$${payable.toFixed(0)}`,
+        status: payoutStatus === 'Paid' ? 'Paid' : 'Ready for Payout',
+      }
+    })
+    setRows(derivedRows)
+
+    // Summary cards
+    const totals = (bookings || []).reduce((acc, b) => {
+      const amt = parseAmount(b.amount)
+      const monthKey = toMonthKey(b.bookedOn || b.travelDate)
+      if (b.status === 'Canceled' || b.status === 'Cancelled' || b.status === 'Refund/Dispute' || b.status === 'Refund') {
+        acc.lossFromCancellation += amt
+      }
+      const paid = (b.payoutStatus === 'Paid')
+      const ready = !paid && (b.status === 'Confirmed' || b.status === 'Completed' || b.status === 'Pending')
+      if (ready) acc.pendingPayout += amt * 0.8
+      if (paid) acc.totalPaid += amt * 0.8
+      acc.totalEarning += amt
+      acc.byMonth[monthKey] = acc.byMonth[monthKey] || { paid: 0, ready: 0 }
+      if (paid) acc.byMonth[monthKey].paid += amt * 0.8
+      else if (ready) acc.byMonth[monthKey].ready += amt * 0.8
+      return acc
+    }, { totalEarning: 0, pendingPayout: 0, totalPaid: 0, lossFromCancellation: 0, byMonth: {} })
+
+    // Paid this month
+    const now = new Date()
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    const currentMonth = totals.byMonth[currentKey] || { paid: 0 }
+
+    setSummary({
+      totalEarning: totals.totalEarning,
+      pendingPayout: totals.pendingPayout,
+      lossFromCancellation: totals.lossFromCancellation,
+      paidThisMonth: currentMonth.paid,
+    })
+
+    // Chart for last 4 months
+    const keys = Object.keys(totals.byMonth).sort().slice(-4)
+    const data = keys.map(k => ({ month: monthLabel(k), series1: Math.round(totals.byMonth[k].ready), series2: Math.round(totals.byMonth[k].paid) }))
+    setChartData(data.length ? data : [
+      { month: 'Oct', series1: 0, series2: 0 },
+      { month: 'Nov', series1: 0, series2: 0 },
+      { month: 'Dec', series1: 0, series2: 0 },
+      { month: 'Jan', series1: 0, series2: 0 },
+    ])
+  }, [bookings])
 
   const [searchTerm, setSearchTerm] = useState('')
   const filteredRows = useMemo(() => {
@@ -69,27 +164,94 @@ const FinancePage = () => {
   ]
   const [activeTab, setActiveTab] = useState('bookings')
 
-  // Mock invoices
-  const invoices = useMemo(() => (
-    Array.from({ length: 4 }).map((_, i) => ({
-      date: 'Jan 14, 2024',
-      invoiceNo: `INV-2024-00${i+1}`,
-      amount: '$2,450.5',
-      dueDate: 'Jan 29, 2024',
-      status: 'Paid',
-    }))
-  ), [])
+  // Invoices from storage (fallback derived from bookings)
+  const [invoices, setInvoices] = useState([])
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('invoices') || sessionStorage.getItem('invoices')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) setInvoices(parsed)
+      } else {
+        const derived = (bookings || []).slice(0, 4).map((b, i) => ({
+          date: b.bookedOn || b.travelDate || new Date().toDateString(),
+          invoiceNo: `INV-${new Date().getFullYear()}-${String(i+1).padStart(3,'0')}`,
+          amount: `$${parseAmount(b.amount).toFixed(1)}`,
+          dueDate: b.travelDate || b.bookedOn || new Date().toDateString(),
+          status: (b.payoutStatus === 'Paid') ? 'Paid' : 'Pending'
+        }))
+        setInvoices(derived)
+      }
+    } catch (_) {}
+  }, [bookings])
 
-  // Mock payment confirmations
-  const confirmations = useMemo(() => (
-    [
-      { date: 'Jan 14, 2024', paymentId: 'PAY-2024-001', amount: '$2,450.5', method: 'Bank Transfer', status: 'Completed' },
-      { date: 'Jan 14, 2024', paymentId: 'PAY-2024-001', amount: '$2,450.5', method: 'Paypal', status: 'Processing' },
-      { date: 'Jan 14, 2024', paymentId: 'PAY-2024-001', amount: '$2,450.5', method: 'PayPal', status: 'Completed' },
-      { date: 'Jan 14, 2024', paymentId: 'PAY-2024-001', amount: '$2,450.5', method: 'Bank Transfer', status: 'Completed' },
-      { date: 'Jan 14, 2024', paymentId: 'PAY-2024-001', amount: '$2,450.5', method: 'Bank Transfer', status: 'Completed' },
-    ]
-  ), [])
+  // Payment confirmations from storage (fallbacks)
+  const [confirmations, setConfirmations] = useState([])
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('payment_confirmations') || sessionStorage.getItem('payment_confirmations')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) setConfirmations(parsed)
+      } else {
+        // derive basic confirmations from paid bookings
+        const derived = (bookings || [])
+          .filter(b => b.payoutStatus === 'Paid')
+          .slice(0, 5)
+          .map((b, i) => ({
+            date: b.bookedOn || new Date().toDateString(),
+            paymentId: `PAY-${new Date().getFullYear()}-${String(i+1).padStart(3,'0')}`,
+            amount: `$${parseAmount(b.amount).toFixed(1)}`,
+            method: 'Bank Transfer',
+            status: 'Completed'
+          }))
+        setConfirmations(derived)
+      }
+    } catch (_) {}
+  }, [bookings])
+
+  // PDF helpers (open printable window; user can save as PDF)
+  const openPdfWindow = (title, headers, rows) => {
+    const html = `<!doctype html><html><head><meta charset="utf-8" />
+      <title>${title}</title>
+      <style>
+        body{font-family: Arial, sans-serif; padding:24px;}
+        h1{font-size:18px;margin:0 0 12px}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th,td{border:1px solid #ccc;padding:6px;text-align:left}
+        th{background:#f5f5f5}
+      </style>
+    </head><body>
+      <h1>${title}</h1>
+      <table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${rows.map(r=>`<tr>${r.map(c=>`<td>${String(c ?? '')}</td>`).join('')}</tr>`).join('')}
+      </tbody></table>
+      <script>window.onload=()=>window.print()</script>
+    </body></html>`
+    const w = window.open('', '_blank')
+    if (w) {
+      w.document.open()
+      w.document.write(html)
+      w.document.close()
+    }
+  }
+
+  const handleDownloadInvoicesPdf = () => {
+    openPdfWindow(
+      'Invoices',
+      ['Date','Invoice #','Amount','Due Date','Status'],
+      (invoices || []).map(i => [i.date, i.invoiceNo, i.amount, i.dueDate, i.status])
+    )
+  }
+
+  const handleDownloadConfirmationsPdf = () => {
+    openPdfWindow(
+      'Payment Confirmations',
+      ['Date','Payment ID','Amount','Method','Status'],
+      (confirmations || []).map(c => [c.date, c.paymentId, c.amount, c.method, c.status])
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -105,19 +267,19 @@ const FinancePage = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-xs text-gray-500 mb-1">Total Earning</div>
-            <div className="text-xl font-semibold text-gray-900">$328,000</div>
+            <div className="text-xl font-semibold text-gray-900">{formatCurrency(summary.totalEarning)}</div>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-xs text-gray-500 mb-1">Pending Payout</div>
-            <div className="text-xl font-semibold text-gray-900">$ 1,692</div>
+            <div className="text-xl font-semibold text-gray-900">{formatCurrency(summary.pendingPayout)}</div>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-xs text-gray-500 mb-1">Loss from cancellation</div>
-            <div className="text-xl font-semibold text-gray-900">$ 2.3K</div>
+            <div className="text-xl font-semibold text-gray-900">{formatCurrency(summary.lossFromCancellation)}</div>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-xs text-gray-500 mb-1">Paid This Month</div>
-            <div className="text-xl font-semibold text-gray-900">$ 4.6K</div>
+            <div className="text-xl font-semibold text-gray-900">{formatCurrency(summary.paidThisMonth)}</div>
           </div>
         </div>
 
@@ -126,12 +288,7 @@ const FinancePage = () => {
           <div className="w-full h-96">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={[
-                  { month: 'Oct', series1: 4200, series2: 1000 },
-                  { month: 'Nov', series1: 3800, series2: 900 },
-                  { month: 'Dec', series1: 5000, series2: 1200 },
-                  { month: 'Jan', series1: 4500, series2: 1100 },
-                ]}
+                data={chartData}
                 margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
@@ -238,7 +395,7 @@ const FinancePage = () => {
           <div className="bg-white">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Invoices</h2>
-              <button className="inline-flex items-center px-4 py-2 rounded-lg text-white bg-[#1d236b] hover:bg-[#1a1f5a] text-sm">
+              <button onClick={handleDownloadInvoicesPdf} className="inline-flex items-center px-4 py-2 rounded-lg text-white bg-[#1d236b] hover:bg-[#1a1f5a] text-sm">
                 <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3a2 2 0 012-2h6l4 4v12a2 2 0 01-2 2H5a2 2 0 01-2-2V3z"/></svg>
                 Download PDF
               </button>
@@ -272,7 +429,7 @@ const FinancePage = () => {
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             View
                           </button>
-                          <button className="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs">
+                          <button onClick={handleDownloadInvoicesPdf} className="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs">
                             <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3a2 2 0 012-2h6l4 4v12a2 2 0 01-2 2H5a2 2 0 01-2-2V3z"/></svg>
                             PDF
                           </button>
@@ -302,7 +459,7 @@ const FinancePage = () => {
           <div className="bg-white">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Payment Confirmations</h2>
-              <button className="inline-flex items-center px-4 py-2 rounded-lg text-white bg-[#1d236b] hover:bg-[#1a1f5a] text-sm">
+              <button onClick={handleDownloadConfirmationsPdf} className="inline-flex items-center px-4 py-2 rounded-lg text-white bg-[#1d236b] hover:bg-[#1a1f5a] text-sm">
                 <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3a2 2 0 012-2h6l4 4v12a2 2 0 01-2 2H5a2 2 0 01-2-2V3z"/></svg>
                 Download PDF
               </button>
@@ -336,7 +493,7 @@ const FinancePage = () => {
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             View
                           </button>
-                          <button className="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs">
+                          <button onClick={handleDownloadConfirmationsPdf} className="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs">
                             <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3a2 2 0 012-2h6l4 4v12a2 2 0 01-2 2H5a2 2 0 01-2-2V3z"/></svg>
                             PDF
                           </button>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, FiMoreVertical, FiChevronDown, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
 
 const Products = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('active');
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -28,6 +29,15 @@ const Products = () => {
   const dropdownMenuRefs = useRef({});
   const filtersRef = useRef(null);
   const statusDropdownRef = useRef(null);
+
+  // Handle URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const tab = urlParams.get('tab');
+    if (tab === 'drafts') {
+      setActiveTab('drafts');
+    }
+  }, [location.search]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -83,21 +93,49 @@ const Products = () => {
           localStorage.setItem('all_products', JSON.stringify(loadedProducts));
         }
         
-        // Calculate stats
-        const published = loadedProducts.filter(p => p.status === 'Published').length;
-        const draft = loadedProducts.filter(p => p.status === 'Draft').length;
-        const totalRevenue = loadedProducts
+        // Deduplicate by id (primary key) - keep first occurrence only
+        const uniqMap = new Map();
+        loadedProducts.forEach(p => {
+          // Use id as primary key (should always exist), fallback to referenceCode then name
+          const key = p.id != null ? String(p.id) : (p.referenceCode ?? p.name);
+          // Only keep first occurrence if duplicate
+          if (!uniqMap.has(key)) {
+            uniqMap.set(key, p);
+          }
+        });
+        const deduped = Array.from(uniqMap.values());
+
+        // Calculate stats - only count Published and Draft products (excluding Under Review)
+        const relevantProducts = deduped.filter(p => 
+          p.status === 'Published' || 
+          p.status === 'Draft'
+        );
+        
+        const published = relevantProducts.filter(p => p.status === 'Published').length;
+        const draft = relevantProducts.filter(p => p.status === 'Draft').length;
+        
+        // Debug logging
+        console.log('📊 Product Stats Calculation:', {
+          totalLoaded: loadedProducts.length,
+          totalDeduped: deduped.length,
+          totalRelevant: relevantProducts.length,
+          published,
+          draft,
+          breakdown: relevantProducts.map(p => ({ id: p.id, name: p.name, status: p.status }))
+        });
+        const totalRevenue = relevantProducts
           .filter(p => p.status === 'Published')
           .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
         
+        // Store deduplicated products to avoid issues elsewhere
         // Only update state if data has changed (prevent unnecessary re-renders)
         setProducts(prevProducts => {
-          const hasChanged = JSON.stringify(prevProducts) !== JSON.stringify(loadedProducts);
-          return hasChanged ? loadedProducts : prevProducts;
+          const hasChanged = JSON.stringify(prevProducts) !== JSON.stringify(deduped);
+          return hasChanged ? deduped : prevProducts;
         });
         
         setProductStats({
-          total: loadedProducts.length,
+          total: relevantProducts.length, // This should now be published + draft only
           active: published,
           draft: draft,
           revenue: totalRevenue
@@ -361,23 +399,48 @@ const Products = () => {
       if (allProductsData) {
         const loadedProducts = JSON.parse(allProductsData);
         
-        // Recalculate stats
-        const published = loadedProducts.filter(p => p.status === 'Published').length;
-        const draft = loadedProducts.filter(p => p.status === 'Draft').length;
-        const totalRevenue = loadedProducts
+        // Recalculate stats - only count Published and Draft products (excluding Under Review)
+        const uniqMap = new Map();
+        loadedProducts.forEach(p => {
+          // Use id as primary key (should always exist), fallback to referenceCode then name
+          const key = p.id != null ? String(p.id) : (p.referenceCode ?? p.name);
+          // Only keep first occurrence if duplicate
+          if (!uniqMap.has(key)) {
+            uniqMap.set(key, p);
+          }
+        });
+        const deduped = Array.from(uniqMap.values());
+
+        const relevantProducts = deduped.filter(p => 
+          p.status === 'Published' || 
+          p.status === 'Draft'
+        );
+        
+        const published = relevantProducts.filter(p => p.status === 'Published').length;
+        const draft = relevantProducts.filter(p => p.status === 'Draft').length;
+        
+        // Debug logging
+        console.log('🔄 Refresh Product Stats:', {
+          totalLoaded: loadedProducts.length,
+          totalDeduped: deduped.length,
+          totalRelevant: relevantProducts.length,
+          published,
+          draft
+        });
+        const totalRevenue = relevantProducts
           .filter(p => p.status === 'Published')
           .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
         
-        setProducts(loadedProducts);
+        setProducts(deduped);
         setProductStats({
-          total: loadedProducts.length,
+          total: relevantProducts.length, // This should now be published + draft only
           active: published,
           draft: draft,
           revenue: totalRevenue
         });
         
         console.log('✅ Refresh completed:', {
-          totalProducts: loadedProducts.length,
+          totalProducts: relevantProducts.length,
           published,
           draft,
           revenue: totalRevenue

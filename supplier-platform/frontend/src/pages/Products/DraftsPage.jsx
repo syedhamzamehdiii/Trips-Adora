@@ -53,15 +53,34 @@ const DraftsPage = () => {
         const allProductsData = localStorage.getItem('all_products');
         if (allProductsData) {
           const allProducts = JSON.parse(allProductsData);
-          const published = allProducts.filter(p => p.status === 'Published').length;
-          const drafts = allProducts.filter(p => p.status === 'Draft');
-          const totalRevenue = allProducts
+          
+          // Deduplicate by id (primary key) - keep first occurrence only
+          const uniqMap = new Map();
+          allProducts.forEach(p => {
+            // Use id as primary key (should always exist), fallback to referenceCode then name
+            const key = p.id != null ? String(p.id) : (p.referenceCode ?? p.name);
+            // Only keep first occurrence if duplicate
+            if (!uniqMap.has(key)) {
+              uniqMap.set(key, p);
+            }
+          });
+          const deduped = Array.from(uniqMap.values());
+
+          // Calculate stats - only count Published and Draft products (excluding Under Review)
+          const relevantProducts = deduped.filter(p => 
+            p.status === 'Published' || 
+            p.status === 'Draft'
+          );
+          
+          const published = relevantProducts.filter(p => p.status === 'Published').length;
+          const drafts = relevantProducts.filter(p => p.status === 'Draft');
+          const totalRevenue = relevantProducts
             .filter(p => p.status === 'Published')
             .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
           
           setDraftProducts(drafts);
           setProductStats({
-            total: allProducts.length,
+            total: relevantProducts.length, // Published + Draft only
             active: published,
             draft: drafts.length,
             revenue: totalRevenue

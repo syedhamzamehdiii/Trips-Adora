@@ -1,17 +1,45 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from 'recharts';
 
 const FeedbackReviewChart = () => {
   const [showCountries, setShowCountries] = useState(true);
   
-  const data = [
-    { month: 'Jan', feedbacks: 25, reviews: 3.3, score: 32 },
-    { month: 'Feb', feedbacks: 37, reviews: 4.5, score: 32 },
-    { month: 'Mar', feedbacks: 28, reviews: 3.9, score: 32 },
-    { month: 'Apr', feedbacks: 34, reviews: 4.2, score: 32 },
-    { month: 'Jul', feedbacks: 40, reviews: 4.8, score: 32 },
-    { month: 'Jun', feedbacks: 31, reviews: 3.6, score: 32 },
-  ];
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    const build = () => {
+      try {
+        const bookingsRaw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
+        const productsRaw = localStorage.getItem('all_products');
+        const bookings = bookingsRaw ? JSON.parse(bookingsRaw) : [];
+        const products = productsRaw ? JSON.parse(productsRaw) : [];
+
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const now = new Date();
+        const labels = Array.from({ length: 6 }).map((_,i) => months[(now.getMonth()-5+i+12)%12]);
+        const counters = new Map(labels.map(m => [m, { feedbacks: 0 }]));
+        const parseDate = (s) => { if (!s) return null; const d = new Date(s); return isNaN(d)? new Date(Date.parse(s)) : d; };
+        (bookings||[]).forEach(b => {
+          const d = parseDate(b.travelDate || b.bookedOn);
+          if (!d) return; const key = months[d.getMonth()];
+          if (!counters.has(key)) return; counters.get(key).feedbacks += (b.status === 'Completed' ? 1 : 0);
+        });
+        const ratings = (products||[]).map(p => parseFloat(p.ratings)).filter(n => !isNaN(n) && n>0);
+        const avgRating = ratings.length>0 ? (ratings.reduce((a,b)=>a+b,0)/ratings.length) : 4.2;
+        const out = labels.map(m => ({ month: m, feedbacks: counters.get(m)?.feedbacks || 0, reviews: Math.max(3.0, Math.min(5.0, avgRating)) }));
+        setData(out);
+      } catch (_) {}
+    };
+    build();
+    window.addEventListener('storage', build);
+    window.addEventListener('bookings_updated', build);
+    window.addEventListener('products_updated', build);
+    return () => {
+      window.removeEventListener('storage', build);
+      window.removeEventListener('bookings_updated', build);
+      window.removeEventListener('products_updated', build);
+    };
+  }, []);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && showCountries) {

@@ -222,6 +222,19 @@ class AuthService {
       return response.data
     } catch (error) {
       console.error('Get current user error:', error)
+      
+      // Handle network errors gracefully
+      if (error.code === 'ERR_NETWORK' || error.message.includes('CORS')) {
+        console.warn('Network error - backend may not be running')
+        return null
+      }
+      
+      // Handle 401 errors (unauthorized)
+      if (error.response?.status === 401) {
+        console.warn('User not authenticated')
+        return null
+      }
+      
       throw error
     }
   }

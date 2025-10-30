@@ -16,7 +16,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li><a href="#" className="text-white hover:text-gray-300 transition-colors">About us</a></li>
               <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Careers</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Contact</a></li>
+              <li><button onClick={() => navigate('/support')} className="text-white hover:text-gray-300 transition-colors">Contact</button></li>
             </ul>
           </div>
           

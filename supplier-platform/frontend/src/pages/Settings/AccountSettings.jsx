@@ -599,7 +599,7 @@ const AccountSettings = () => {
 
           {/* Middle: Supplier ID and Upload */}
           <div className="text-center">
-            <div className="text-lg font-semibold text-gray-900 mb-2">Supplier ID 00032123</div>
+            <div className="text-lg font-semibold text-gray-900 mb-2">Supplier ID {localStorage.getItem('supplier_id') || sessionStorage.getItem('supplier_id') || '00032123'}</div>
             <input
               type="file"
               onChange={(e) => handleFileUpload('profile', e)}

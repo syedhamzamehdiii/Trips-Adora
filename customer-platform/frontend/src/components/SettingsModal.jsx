@@ -5,6 +5,36 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
   const [supplierMode, setSupplierMode] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
 
+  // Initialize supplier mode from localStorage
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('tripsadora_mode')
+      if (savedMode === 'supplier') {
+        setSupplierMode(true)
+      } else if (savedMode === 'customer') {
+        setSupplierMode(false)
+      }
+    } catch (_) {}
+  }, [])
+
+  // Re-sync when modal opens and on cross-tab storage changes
+  useEffect(() => {
+    const syncFromStorage = () => {
+      try {
+        const savedMode = localStorage.getItem('tripsadora_mode')
+        setSupplierMode(savedMode === 'supplier')
+      } catch (_) {}
+    }
+
+    if (isOpen) {
+      syncFromStorage()
+    }
+
+    window.addEventListener('storage', syncFromStorage)
+    return () => window.removeEventListener('storage', syncFromStorage)
+  }, [isOpen])
+
+  // Position modal relative to profile button
   useEffect(() => {
     if (isOpen && profileRef?.current) {
       const rect = profileRef.current.getBoundingClientRect()
@@ -35,6 +65,26 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
     { label: 'Support' }
   ]
 
+  function handleSupplierToggle() {
+    const next = !supplierMode
+    setSupplierMode(next)
+
+    try {
+      if (next) {
+        localStorage.setItem('tripsadora_mode', 'supplier')
+        const supplierUrl = import.meta?.env?.VITE_SUPPLIER_APP_URL || 'http://localhost:5173'
+        if (supplierUrl) {
+          if (onClose) onClose()
+          setTimeout(() => {
+            window.location.assign(supplierUrl)
+          }, 0)
+        }
+      } else {
+        localStorage.setItem('tripsadora_mode', 'customer')
+      }
+    } catch (_) {}
+  }
+
   return (
     <>
       {/* Backdrop */}
@@ -60,7 +110,7 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
             <div className="flex items-center justify-between px-5 py-[14px] border-b border-gray-200/60">
               <span className="text-[15px] font-medium text-black">Supplier mode</span>
               <button
-                onClick={() => setSupplierMode(!supplierMode)}
+                onClick={handleSupplierToggle}
                 className={`relative inline-flex h-[21px] w-[42px] items-center rounded-full transition-colors ${
                   supplierMode ? 'bg-blue-600' : 'bg-gray-300'
                 }`}

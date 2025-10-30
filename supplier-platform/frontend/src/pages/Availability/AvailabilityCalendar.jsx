@@ -40,6 +40,94 @@ const AvailabilityCalendar = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 7;
 
+  // Build and download CSV for current schedules (real-time)
+  const handleExportSchedule = () => {
+    try {
+      // Load full product data to include time slots and allocations
+      const allProductsData = localStorage.getItem('all_products');
+      const allProducts = allProductsData ? JSON.parse(allProductsData) : [];
+
+      // Helper to collect time slots from multiple sources
+      const collectTimeSlots = (p) => {
+        const slots = new Set();
+        if (Array.isArray(p?.vehicleTimeAllocations)) {
+          p.vehicleTimeAllocations.forEach(a => a?.time && slots.add(a.time));
+        }
+        if (p?.timeSlots && typeof p.timeSlots === 'object') {
+          Object.values(p.timeSlots).forEach(dayArr => {
+            if (Array.isArray(dayArr)) dayArr.forEach(t => typeof t === 'string' && slots.add(t));
+          });
+        }
+        // Optional fallbacks (full/draft payloads)
+        const fullKey = p.id ? `product_full_${p.id}` : null;
+        if (fullKey && localStorage.getItem(fullKey)) {
+          try {
+            const full = JSON.parse(localStorage.getItem(fullKey));
+            if (Array.isArray(full?.vehicleTimeAllocations)) full.vehicleTimeAllocations.forEach(a => a?.time && slots.add(a.time));
+            if (full?.timeSlots && typeof full.timeSlots === 'object') {
+              Object.values(full.timeSlots).forEach(dayArr => Array.isArray(dayArr) && dayArr.forEach(t => typeof t === 'string' && slots.add(t)));
+            }
+          } catch (_) {}
+        }
+        const draftKey = p.id ? `product_draft_${p.id}` : null;
+        if (draftKey && localStorage.getItem(draftKey)) {
+          try {
+            const draft = JSON.parse(localStorage.getItem(draftKey));
+            if (Array.isArray(draft?.vehicleTimeAllocations)) draft.vehicleTimeAllocations.forEach(a => a?.time && slots.add(a.time));
+            if (draft?.timeSlots && typeof draft.timeSlots === 'object') {
+              Object.values(draft.timeSlots).forEach(dayArr => Array.isArray(dayArr) && dayArr.forEach(t => typeof t === 'string' && slots.add(t)));
+            }
+          } catch (_) {}
+        }
+        return Array.from(slots).sort();
+      };
+
+      // Use filteredProducts to respect the current filters in UI
+      const idsToExport = new Set(filteredProducts.map(fp => fp.id));
+
+      const rows = [];
+      // Header row
+      rows.push(['Product Name','Status','Vehicle(s)','Time Slots','Inactive Dates'].join(','));
+
+      allProducts
+        .filter(p => idsToExport.size === 0 || idsToExport.has(p.id || p.referenceCode))
+        .forEach(p => {
+          const name = p.name || p.title || 'Product';
+          const status = (p.status === 'Published') ? 'Active' : 'Inactive';
+          const vehicles = Array.isArray(p.vehicles) && p.vehicles.length > 0
+            ? p.vehicles.map(v => getVehicleDisplayName(v)).join(' | ')
+            : 'N/A';
+          const timeSlots = collectTimeSlots(p).join(' | ');
+          const inactiveKey = `product_inactive_dates_${p.id || p.referenceCode}`;
+          let inactiveDates = [];
+          try {
+            const saved = localStorage.getItem(inactiveKey);
+            if (saved) inactiveDates = JSON.parse(saved);
+          } catch (_) {}
+          const inactiveStr = Array.isArray(inactiveDates) && inactiveDates.length > 0
+            ? inactiveDates.join(' | ')
+            : '';
+
+          // Escape commas in fields by wrapping with quotes
+          const safe = (val) => `"${String(val || '').replace(/"/g,'""')}"`;
+          rows.push([safe(name), safe(status), safe(vehicles), safe(timeSlots), safe(inactiveStr)].join(','));
+        });
+
+      const csv = rows.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `availability_schedule_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Failed to export schedule:', e);
+    }
+  };
+
   // Helper: derive a user-friendly vehicle name (title > model > type)
   const getVehicleDisplayName = (vehicle) => {
     if (!vehicle) return 'Vehicle';
@@ -466,7 +554,7 @@ const AvailabilityCalendar = () => {
             <p className="text-gray-600">Manage product availability and booking capacity</p>
           </div>
           <div className="flex space-x-3">
-            <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+            <button onClick={handleExportSchedule} className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
               <FiUpload className="w-4 h-4" />
               <span>Export Schedule</span>
             </button>
