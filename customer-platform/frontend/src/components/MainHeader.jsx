@@ -29,6 +29,3 @@ const MainHeader = () => {
 }
 
 export default MainHeader
-
-
-go

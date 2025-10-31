@@ -5,7 +5,6 @@ import maine from "../../assests/main.png";
 import heroimage  from "../../assests/hero-image-side.png";
 import heroimage2 from "../../assests/hero-image-side2.png";
 import heroimage3 from "../../assests/hero-image-side3.png";
-import Footer from './Footer'
 import MainHeader from './MainHeader'
 const ProductDetails = () => {
   const [selectedTab, setSelectedTab] = useState('oneDay')
@@ -955,7 +954,6 @@ const ProductDetails = () => {
             </div>
           </div>
         </footer>
-        <Footer/>
     </div>
   )
 }

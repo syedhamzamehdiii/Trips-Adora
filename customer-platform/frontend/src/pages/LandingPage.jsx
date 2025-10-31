@@ -12,6 +12,7 @@ import SupplierPromo from '../components/SupplierPromo'
 import TopCountriesSection from '../components/TopCountriesSection'
 import NewsletterSection from '../components/NewsletterSection'
 import OurPlans from '../components/OurPlans'
+import Footer from '../components/Footer'
 
 
 
@@ -49,7 +50,7 @@ const LandingPage = () => {
           <OurPlans/>
         </div>
       )}
-
+      <Footer />
     </div>
   )
 }
