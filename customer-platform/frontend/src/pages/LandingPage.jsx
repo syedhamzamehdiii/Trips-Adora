@@ -11,6 +11,7 @@ import SupplierPromo from '../components/SupplierPromo'
 import TopCountriesSection from '../components/TopCountriesSection'
 import NewsletterSection from '../components/NewsletterSection'
 import OurPlans from '../components/OurPlans'
+import ProductDetails from '../components/ProductDetails'
 
 
 
@@ -21,8 +22,8 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-200">
-      {/* <Header /> */}
-{/*     
+      <Header />
+    
       <BottomNavigationBar />
       
       <HeroSection />
@@ -36,7 +37,7 @@ const LandingPage = () => {
       <SupplierPromo />
       <TopCountriesSection />
       <NewsletterSection />
-       */}
+      <ProductDetails/>
        <OurPlans/>
 
     </div>

@@ -7,6 +7,7 @@ import mountfuj from "../../assests/mount-fuj.jpg";
 import { Bus } from "lucide-react";
 
 import { Mountain, Eye, MapPin, Search, Play, Star as StarIcon, Calendar, List, Check, X, Camera, Image as ImageIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 
 const OurPlans = () => {
@@ -133,6 +134,7 @@ const OurPlans = () => {
           ],
           price: "$2,800",
           rating: 4.9,
+          url: "/tours/mount-fuji-day-trip",
         },
         {
           img: sunshine,
@@ -144,6 +146,7 @@ const OurPlans = () => {
           ],
           price: "$3,500",
           rating: 4.8,
+          url: "/tours/overnight-mount-fuji-climb",
         },
         {
           img: house,
@@ -155,6 +158,7 @@ const OurPlans = () => {
           ],
           price: "$4,200",
           rating: 4.7,
+          url: "/stays/ryokan-retreat",
         },
         {
           img: helicopter,
@@ -166,12 +170,11 @@ const OurPlans = () => {
           ],
           price: "$5,600",
           rating: 5.0,
+          url: "/tours/mount-fuji-helicopter",
         },
       ].map((item, i) => (
-        <div
-          key={i}
-          className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm flex flex-col"
-        >
+        <Link to={item.url} key={i} className="block group focus:outline-none">
+        <div className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm flex flex-col group-hover:shadow-md transition-shadow">
           <div className="h-40 bg-[#E1E3FF] relative rounded-xl overflow-hidden">
             <img
               src={item.img}
@@ -232,14 +235,15 @@ const OurPlans = () => {
               </span>
             </div>
 
-            <button
+            <div
               style={{ fontFamily: "Poppins" }}
-              className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px]"
+              className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px] text-center"
             >
               Book Now
-            </button>
+            </div>
           </div>
         </div>
+        </Link>
       ))}
     </div>
   </div>
@@ -368,116 +372,117 @@ const OurPlans = () => {
 
 		{/* Plan Your Visit */}
 		<section className='py-10 bg-white'>
-            <div className='max-w-7xl mx-auto px-4  sm:px-6 lg:px-8'>
-				<h3 style={{fontFamily:'Poppins'}} className='text-center text-[#302E2E] text-xl sm:text-2xl font-bold'>Plan Your Visit</h3>
-				<p style={{fontFamily:'Poppins'}} className='text-center text-[#B0B3B9] font-medium text-sm'>Everything you need to know for a seamless Mount Fuji experience</p>
-			
-				<div className="mt-7 flex flex-wrap justify-center gap-10">
-  {[
-    {
-      title: 'Getting There',
-      img: mountfuj,
-      steps: [
-        { name: 'Bullet Train (Shinkansen)', info: 'Tokyo to Shin-Fuji – 1 hour' },
-        { name: 'Express Bus', info: 'Tokyo to Kawaguchiko – 2 hours' },
-        { name: 'Rental Car', info: 'Drive from Tokyo – 2.5 hours' },
-        { name: 'Private Transfer', info: 'Direct from your hotel – 2 hours' },
-      ],
-    },
-    {
-      title: 'Where to Stay',
-      img: sunshine,
-      steps: [
-        { name: 'Ryokan Inn', info: 'Traditional stay with onsen baths' },
-        { name: 'Mountain Lodge', info: 'Scenic views near Fuji Five Lakes' },
-        { name: 'Luxury Resort', info: 'Spa, fine dining, and lakefront' },
-        { name: 'Budget Hotel', info: 'Comfortable rooms near train station' },
-      ],
-    },
-    {
-      title: 'Local Cuisine',
-      img: house,
-      steps: [
-        { name: 'Hōtō Noodles', info: 'Fuji’s signature comfort dish' },
-        { name: 'Fresh Trout', info: 'Grilled over charcoal' },
-        { name: 'Matcha Desserts', info: 'Local tea-infused sweets' },
-        { name: 'Sake Tasting', info: 'Brewed in the foothills of Fuji' },
-      ],
-    },
-    {
-      title: 'Tickets & Permits',
-      img: helicopter,
-      steps: [
-        { name: 'Climbing Pass', info: 'Available during July–September' },
-        { name: 'Bus Pass', info: 'Unlimited local routes around Fuji' },
-        { name: 'Museum Entry', info: 'Mount Fuji World Heritage Center' },
-        { name: 'Tour Booking', info: 'Online or at visitor center' },
-      ],
-    },
-  ].map((card, idx) => (
-    <div
-      key={idx}
-      className="w-full sm:w-[45%] lg:w-[40%] xl:w-[35%] rounded-xl border border-[#E9ECF1] overflow-hidden"
-    >
-      {/* IMAGE HEADER */}
-      <div className="h-36 relative ">
-        <img
-          src={card.img}
-          alt={card.title}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 ring-1 ring-inset ring-[#3B69E2] pointer-events-none"></div>
-        <div
-          className="absolute flex items-center  left-4 bottom-3 /80 text-white px-3 py-1 rounded-md text-sm font-semibold"
-          style={{ fontFamily: 'Poppins' }}
-        >
-			 <div className="w-7 h-7 bg-[#284078] rounded-full flex items-center justify-center">
-      <Bus size={20} color="#FFFFFF" strokeWidth={2} />
-    </div>
-          {card.title}
-		  
-        </div>
-
-
-
-      </div>
-
-      {/* CONTENT */}
-      <div className="p-4 space-y-3 bg-[#F7F9FF]">
-        {card.steps.map((step, n) => (
-          <div
-            key={n}
-            className="flex items-start gap-3 rounded-lg bg-white border border-[#E9ECF1] px-4 py-3"
-          >
-            <span
-              className="grid place-items-center w-6 h-6 rounded-full bg-[#284078] text-white font-bold text-xs"
-              style={{ fontFamily: 'Poppins' }}
-            >
-              {n + 1}
-            </span>
-            <div>
-              <p
-                style={{ fontFamily: 'Poppins' }}
-                className="text-[#302E2E] font-bold text-sm"
-              >
-                {step.name}
-              </p>
-              <p
-                style={{ fontFamily: 'Poppins' }}
-                className="text-[#6b7280] font-medium text-xs"
-              >
-                {step.info}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  ))}
-</div>
-
-			</div>
-		</section>
+				<div className='max-w-7xl mx-auto px-4  sm:px-6 lg:px-8'>
+					<h3 style={{fontFamily:'Poppins'}} className='text-center text-[#302E2E] text-xl sm:text-2xl font-bold'>Plan Your Visit</h3>
+					<p style={{fontFamily:'Poppins'}} className='text-center text-[#B0B3B9] font-medium text-sm'>Everything you need to know for a seamless Mount Fuji experience</p>
+				
+					<div className="mt-7 flex flex-wrap justify-center gap-10">
+		  {[
+		    {
+		      title: 'Getting There',
+		      img: mountfuj,
+		      url: '/plan/getting-there',
+		      steps: [
+		        { name: 'Bullet Train (Shinkansen)', info: 'Tokyo to Shin-Fuji – 1 hour' },
+		        { name: 'Express Bus', info: 'Tokyo to Kawaguchiko – 2 hours' },
+		        { name: 'Rental Car', info: 'Drive from Tokyo – 2.5 hours' },
+		        { name: 'Private Transfer', info: 'Direct from your hotel – 2 hours' },
+		      ],
+		    },
+		    {
+		      title: 'Where to Stay',
+		      img: sunshine,
+		      url: '/plan/where-to-stay',
+		      steps: [
+		        { name: 'Ryokan Inn', info: 'Traditional stay with onsen baths' },
+		        { name: 'Mountain Lodge', info: 'Scenic views near Fuji Five Lakes' },
+		        { name: 'Luxury Resort', info: 'Spa, fine dining, and lakefront' },
+		        { name: 'Budget Hotel', info: 'Comfortable rooms near train station' },
+		      ],
+		    },
+		    {
+		      title: 'Local Cuisine',
+		      img: house,
+		      url: '/plan/local-cuisine',
+		      steps: [
+		        { name: 'Hōtō Noodles', info: 'Fuji’s signature comfort dish' },
+		        { name: 'Fresh Trout', info: 'Grilled over charcoal' },
+		        { name: 'Matcha Desserts', info: 'Local tea-infused sweets' },
+		        { name: 'Sake Tasting', info: 'Brewed in the foothills of Fuji' },
+		      ],
+		    },
+		    {
+		      title: 'Tickets & Permits',
+		      img: helicopter,
+		      url: '/plan/tickets-and-permits',
+		      steps: [
+		        { name: 'Climbing Pass', info: 'Available during July–September' },
+		        { name: 'Bus Pass', info: 'Unlimited local routes around Fuji' },
+		        { name: 'Museum Entry', info: 'Mount Fuji World Heritage Center' },
+		        { name: 'Tour Booking', info: 'Online or at visitor center' },
+		      ],
+		    },
+		  ].map((card, idx) => (
+		    <Link to={card.url} key={idx} className="w-full sm:w-[45%] lg:w-[40%] xl:w-[35%] rounded-xl border border-[#E9ECF1] overflow-hidden block group">
+		      {/* IMAGE HEADER */}
+		      <div className="h-36 relative ">
+		        <img
+		          src={card.img}
+		          alt={card.title}
+		          className="absolute inset-0 w-full h-full object-cover"
+		        />
+		        <div className="absolute inset-0 ring-1 ring-inset ring-[#3B69E2] pointer-events-none"></div>
+		        <div
+		          className="absolute flex items-center  left-4 bottom-3 /80 text-white px-3 py-1 rounded-md text-sm font-semibold"
+		          style={{ fontFamily: 'Poppins' }}
+		        >
+				 <div className="w-7 h-7 bg-[#284078] rounded-full flex items-center justify-center">
+		    <Bus size={20} color="#FFFFFF" strokeWidth={2} />
+		  </div>
+		          {card.title}
+			  
+		        </div>
+		
+		
+		
+		      </div>
+		
+		      {/* CONTENT */}
+		      <div className="p-4 space-y-3 bg-[#F7F9FF]">
+		        {card.steps.map((step, n) => (
+		          <div
+		            key={n}
+		            className="flex items-start gap-3 rounded-lg bg-white border border-[#E9ECF1] px-4 py-3"
+		          >
+		            <span
+		              className="grid place-items-center w-6 h-6 rounded-full bg-[#284078] text-white font-bold text-xs"
+		              style={{ fontFamily: 'Poppins' }}
+		            >
+		              {n + 1}
+		            </span>
+		            <div>
+		              <p
+		                style={{ fontFamily: 'Poppins' }}
+		                className="text-[#302E2E] font-bold text-sm"
+		              >
+		                {step.name}
+		              </p>
+		              <p
+		                style={{ fontFamily: 'Poppins' }}
+		                className="text-[#6b7280] font-medium text-xs"
+		              >
+		                {step.info}
+		              </p>
+		            </div>
+		          </div>
+		        ))}
+		      </div>
+		    </Link>
+		  ))}
+		</div>
+		
+				</div>
+			</section>
 
 		{/* Pro tips + CTA */}
 		<section className='py-8'>

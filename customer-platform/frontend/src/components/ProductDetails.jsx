@@ -1,14 +1,24 @@
 import React, { useState } from 'react'
-import {Check , Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map } from 'lucide-react'
+import {Check , Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight } from 'lucide-react'
 import     Itinerary from "../components/Itinerary"
 import maine from "../../assests/main.png";
 import heroimage  from "../../assests/hero-image-side.png";
 import heroimage2 from "../../assests/hero-image-side2.png";
 import heroimage3 from "../../assests/hero-image-side3.png";
+import share from "../../assests/share.png";
+import branch from "../../assests/middle.png";
 import Footer from './Footer'
+import { Link } from 'react-router-dom'
 const ProductDetails = () => {
   const [selectedTab, setSelectedTab] = useState('oneDay')
   const [reviewText, setReviewText] = useState('')
+  const images = [maine, heroimage, heroimage2, heroimage3]
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const openGalleryAt = (index) => { setCurrentIndex(index); setIsGalleryOpen(true) }
+  const closeGallery = () => setIsGalleryOpen(false)
+  const prevImage = () => setCurrentIndex((i) => (i - 1 + images.length) % images.length)
+  const nextImage = () => setCurrentIndex((i) => (i + 1) % images.length)
   // Ratings data for the Customer Reviews block
   const averageRating = 4.9
   const totalReviews = 347
@@ -89,28 +99,56 @@ const ProductDetails = () => {
                   <img 
                     src={maine} 
                     alt="Mount Fuji tour main image"
-                    className="w-full h-48 sm:h-64 lg:h-80 object-cover rounded-lg"
+                    className="w-full h-48 sm:h-64 lg:h-80 object-cover rounded-lg cursor-pointer"
+                    onClick={() => openGalleryAt(0)}
                   />
                 </div>
                 <div className="sm:col-span-1 grid grid-cols-3 sm:grid-cols-1 gap-2">
                   <img 
                     src={heroimage}
                     alt="Mount Fuji tour thumbnail 1"
-                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg"
+                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg cursor-pointer"
+                    onClick={() => openGalleryAt(1)}
                   />
                   <img 
                     src={heroimage2}
                     alt="Mount Fuji tour thumbnail 2"
-                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg"
+                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg cursor-pointer"
+                    onClick={() => openGalleryAt(2)}
                   />
                   <img 
                     src={heroimage3}
                     alt="Mount Fuji tour thumbnail 3"
-                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg"
+                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg cursor-pointer"
+                    onClick={() => openGalleryAt(3)}
                   />
                 </div>
               </div>
             </div>
+
+            {/* Gallery Modal */}
+            {isGalleryOpen && (
+              <div className="fixed inset-0 z-50 bg-transparent flex items-center justify-center p-4" onClick={closeGallery}>
+                <div className="relative w-full max-w-5xl" onClick={(e)=>e.stopPropagation()}>
+                   {/* Image container */}
+                   <div className="relative rounded-lg overflow-hidden">
+                     <img src={images[currentIndex]} alt="gallery" className="w-full max-h-[70vh] object-contain" />
+                     {/* Thumbnails inside image */}
+                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 px-2 py-2">
+                       {images.map((src, idx)=> (
+                         <img
+                           key={idx}
+                           src={src}
+                           alt={`thumb-${idx}`}
+                           onClick={()=> setCurrentIndex(idx)}
+                           className={`h-12 w-16 object-cover rounded-md cursor-pointer border ${currentIndex===idx? 'border-[#284078] ring-2 ring-[#E1E3FF]':'border-white'} `}
+                         />
+                       ))}
+                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* About this Experience */}
             <div className="mb-6 sm:mb-8">
@@ -123,62 +161,7 @@ const ProductDetails = () => {
               </p>
             </div>
             
-            {/* Trip Highlights */}
-            {/* <div className="mb-6 sm:mb-8">
-              <div className="border border-gray-200 rounded-lg p-4 sm:p-6">
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">Trip Highlights</h2>
-                <ul className="space-y-2 sm:space-y-3">
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#34A853] flex items-center justify-center mt-0.5">
-                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-[#34A853]" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Visit the most iconic landmarks and hidden gems</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#34A853] flex items-center justify-center mt-0.5">
-                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-[#34A853]" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Small group size for personalized experience</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#34A853] flex items-center justify-center mt-0.5">
-                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-[#34A853]" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Complimentary refreshments and snacks</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#34A853] flex items-center justify-center mt-0.5">
-                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-[#34A853]" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Expert local guide with insider knowledge</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#34A853] flex items-center justify-center mt-0.5">
-                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-[#34A853]" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span className="text-black text-sm sm:text-base">All entrance fees and transportation included</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#34A853] flex items-center justify-center mt-0.5">
-                      <svg className="w-2 h-2 sm:w-3 sm:h-3 text-[#34A853]" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Photo opportunities at scenic viewpoints</span>
-                  </li>
-                </ul>
-              </div>
-            </div> */}
+          
             <div className="mb-6 sm:mb-8">
   <div className="border border-[#302E2E] rounded-lg p-4 sm:p-6">
     <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#302E2E] mb-3 sm:mb-4">Trip Highlights</h2>
@@ -374,12 +357,14 @@ const ProductDetails = () => {
                   <Heart className="w-5 h-5" />
                 </button>
                 {/* Arrow up-right (active with black ring) */}
-                <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900 ring-2 ring-black">
-                  <ArrowUpRight className="w-5 h-5" />
+                <button className="w-9 h-9 sm:w-10 sm:h-10  flex items-center justify-center text-gray-900 ">
+                  {/* <ArrowUpRight className="w-5 h-5" /> */}
+                  <img src={share} alt="" />
                 </button>
                 {/* Git branch */}
                 <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900">
-                  <GitBranch className="w-5 h-5" />
+                  {/* <GitBranch className="w-5 h-5" /> */}
+                  <img src={branch} alt="" />
                 </button>
                 {/* Map */}
                 <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900">
@@ -825,7 +810,8 @@ const ProductDetails = () => {
               {img:'/assests/place 3.jpg', title:'Tokyo Highlights & Hidden Gems Tour'},
               {img:'/assests/place 1.jpg', title:'Burj Khalifa Highlights & Hidden Gems Tour'}
             ].map((t,idx)=> (
-              <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow h-full flex flex-col">
+              <Link key={idx} to={`/tour/${idx + 1}`}>
+                <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow h-full flex flex-col">
                  <div className="relative">
                   <img src={t.img} alt={t.title} className="w-full h-52 object-cover" />
                   <button className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow">
@@ -854,10 +840,11 @@ const ProductDetails = () => {
                   </div>
                   <div className="flex items-center justify-between mt-auto pt-2">
                     <div className="text-sm"><span className="text-[#808080] line-through mr-1">$829</span><span className="font-bold text-[#808080]">$719</span><span className="text-[11px] text-gray-500 ml-1">/person</span></div>
-                    <button className="px-4 py-1.5 rounded-full bg-[#808080] text-white text-sm">Book Now</button>
+                    <div className="px-4 py-1.5 rounded-full bg-[#808080] text-white text-sm">Book Now</div>
                   </div>
                 </div>
               </div>
+            </Link>
             ))}
           </div>
         </div>
