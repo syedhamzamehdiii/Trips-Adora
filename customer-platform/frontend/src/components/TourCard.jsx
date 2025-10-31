@@ -1,7 +1,7 @@
 import React from 'react'
 import { FiHeart, FiMapPin, FiClock, FiUsers, FiShare2 } from 'react-icons/fi'
 
-const TourCard = ({ tour }) => {
+const TourCard = ({ tour, onClick }) => {
   const {
     image,
     name,
@@ -18,7 +18,7 @@ const TourCard = ({ tour }) => {
   } = tour
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-custom-blue">
+    <div onClick={onClick} className="bg-white rounded-2xl overflow-hidden shadow hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-custom-blue cursor-pointer">
       <div className="relative h-56">
         <img src={image} alt={name} className="w-full h-full object-cover" />
         {typeof slotsRemaining === 'number' && slotsRemaining > 0 && (

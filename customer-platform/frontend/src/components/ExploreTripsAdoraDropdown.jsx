@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FiInfo, FiMail } from 'react-icons/fi'
 
 const ExploreTripsAdoraDropdown = ({ isOpen, onClose, triggerRef }) => {
   const [position, setPosition] = useState({ top: 0, left: 0 })
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (isOpen && triggerRef?.current) {
@@ -21,9 +23,9 @@ const ExploreTripsAdoraDropdown = ({ isOpen, onClose, triggerRef }) => {
   if (!isOpen) return null
 
   const leftColumn = [
-    { title: 'Our Story', desc: 'How we started' },
-    { title: 'Our Team', desc: 'Meet the experts' },
-    { title: 'Careers', desc: 'Join our team' }
+    { title: 'Our Story', desc: 'How we started', to: '/about-us' },
+    { title: 'Our Team', desc: 'Meet the experts', to: '/about-us' },
+    { title: 'Careers', desc: 'Join our team', to: '/about-us#careers' }
   ]
 
   const rightColumn = [
@@ -48,7 +50,7 @@ const ExploreTripsAdoraDropdown = ({ isOpen, onClose, triggerRef }) => {
                 <h3 className="text-lg font-semibold text-black">About Us</h3>
               </div>
               {leftColumn.map((item, idx) => (
-                <div key={idx} className="py-3 -mx-3 px-3 rounded hover:bg-gray-50 cursor-pointer">
+                <div key={idx} onClick={() => { if (item.to) { navigate(item.to); onClose?.() } }} className="py-3 -mx-3 px-3 rounded hover:bg-gray-50 cursor-pointer">
                   <p className="text-base font-semibold text-black">{item.title}</p>
                   <p className="text-sm text-gray-500 mt-0.5">{item.desc}</p>
                 </div>
