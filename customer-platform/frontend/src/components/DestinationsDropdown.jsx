@@ -27,7 +27,7 @@ const DestinationsDropdown = ({ isOpen, onClose, triggerRef }) => {
   if (!isOpen) return null
 
   const destinations = [
-    { name: 'Mount Fuji', description: "Japan's Sacred mountain and UNESCO site", to: '/product-details' },
+    { name: 'Mount Fuji', description: "Japan's Sacred mountain and UNESCO site", to: '/our-plans' },
     { name: 'Tokyo Sky-tree', description: 'Tallest structure in Japan with an observation deck' },
     { name: 'Tokyo Tower', description: "Japan's Eiffel Tower-style landmark" },
     { name: 'Arashiyama Bamboo Grove', description: 'Magical bamboo forest walk' }

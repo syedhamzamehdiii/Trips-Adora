@@ -5,6 +5,8 @@ import AboutUsPage from './pages/AboutUsPage'
 import ProductDetails from './components/ProductDetails'
 import OurPlans from './components/OurPlans'
 import TokyoPage from './pages/attractions/TokyoPage'
+import KyotoPage from './pages/attractions/KyotoPage'
+import OsakaPage from './pages/attractions/OsakaPage'
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
         <Route path="/product-details" element={<ProductDetails />} />
         <Route path="/our-plans" element={<OurPlans />} />
         <Route path="/top-attractions/tokyo" element={<TokyoPage />} />
+        <Route path="/top-attractions/kyoto" element={<KyotoPage />} />
+        <Route path="/top-attractions/osaka" element={<OsakaPage />} />
       </Routes>
     </div>
   )
