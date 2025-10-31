@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import Header from '../components/Header'
 import BottomNavigationBar from '../components/BottomNavigationBar'
 import HeroSection from '../components/HeroSection'
@@ -15,9 +16,20 @@ import OurPlans from '../components/OurPlans'
 
 
 const LandingPage = () => {
+  const location = useLocation()
+  const ourPlansRef = useRef(null)
+
   useEffect(() => {
     try { localStorage.setItem('tripsadora_mode', 'customer') } catch (_) {}
   }, [])
+
+  useEffect(() => {
+    if (location.hash === '#our-plans' && ourPlansRef.current) {
+      try {
+        ourPlansRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } catch (_) {}
+    }
+  }, [location])
 
   return (
     <div className="min-h-screen bg-gray-200">
@@ -32,9 +44,11 @@ const LandingPage = () => {
       <SupplierPromo />
       <TopCountriesSection />
       <NewsletterSection />
-      <div id="our-plans">
-        <OurPlans/>
-      </div>
+      {location.hash === '#our-plans' && (
+        <div id="our-plans" ref={ourPlansRef}>
+          <OurPlans/>
+        </div>
+      )}
 
     </div>
   )
