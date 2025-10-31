@@ -507,19 +507,19 @@ const Dashboard = () => {
                           return (
                             <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''}`} onClick={() => markAsRead(n.id)}>
                               <div className={`w-2 h-2 ${typeColor} rounded-full mt-2`}></div>
-                              <div>
+                          <div>
                                 <p className="text-sm font-medium text-gray-900">{n.title}</p>
                                 {n.message && (<p className="text-xs text-gray-600">{n.message}</p>)}
                                 <p className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()}</p>
-                              </div>
-                            </div>
+                          </div>
+                        </div>
                           );
                         }))}
-                      </div>
+                          </div>
                       <div className="flex items-center justify-between mt-3">
                         <button onClick={() => setShowAllNotifications(!showAllNotifications)} className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400" disabled={notifications.length === 0}>
                           {showAllNotifications ? 'Show recent' : 'View all notifications'}
-                        </button>
+                      </button>
                         {unreadCount > 0 && (
                           <span className="text-xs text-gray-500">Unread: {unreadCount}</span>
                         )}

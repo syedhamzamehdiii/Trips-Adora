@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FiMapPin } from 'react-icons/fi'
 
 const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
@@ -24,13 +25,14 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
     }
   }, [isOpen, triggerRef])
 
+  const navigate = useNavigate()
   if (!isOpen) return null
 
   const attractions = [
-    { name: "Tokyo", description: "Capital city, tech hub, and entertainment center" },
-    { name: "Kyoto", description: "Ancient temples, shrines, and traditional culture" },
-    { name: "Osaka", description: "Known for street food, nightlife, and Osaka Castle" },
-    { name: "Fukuoka", description: "Coastal city famous for beaches and ramen" }
+    { name: 'Mount Fuji', description: "Japan's Sacred mountain and UNESCO site" },
+    { name: 'Tokyo Sky-tree', description: 'Tallest structure in Japan with an observation deck' },
+    { name: 'Tokyo Tower', description: "Japan's Eiffel Tower-style landmark" },
+    { name: 'Arashiyama Bamboo Grove', description: 'Magical bamboo forest walk' }
   ]
 
   return (
@@ -50,7 +52,7 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
           {/* Header */}
           <div className="px-6 pt-5 pb-3 flex items-center gap-2">
             <FiMapPin className="text-red-600 text-xl" />
-            <h2 className="text-xl font-bold text-black">Japan's Top Cities</h2>
+            <h2 className="text-xl font-bold text-black">Japan's Iconic Attractions</h2>
           </div>
 
           {/* Attractions List */}
@@ -59,6 +61,14 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
               <div
                 key={index}
                 className="py-3 cursor-pointer hover:bg-gray-50 -mx-6 px-6 transition-colors"
+                onClick={() => {
+                  try { onClose && onClose() } catch (_) {}
+                  if (attraction.name === 'Mount Fuji') {
+                    navigate('/our-plans')
+                  } else if (attraction.name === 'Tokyo Sky-tree') {
+                    navigate('/top-attractions/tokyo')
+                  }
+                }}
               >
                 <p className="text-base font-semibold text-black">{attraction.name}</p>
                 <p className="text-sm text-gray-500 mt-0.5">{attraction.description}</p>
