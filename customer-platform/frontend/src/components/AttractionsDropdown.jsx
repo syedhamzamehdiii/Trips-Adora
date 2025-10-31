@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FiMapPin } from 'react-icons/fi'
 
 const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
@@ -24,13 +25,14 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
     }
   }, [isOpen, triggerRef])
 
+  const navigate = useNavigate()
   if (!isOpen) return null
 
   const attractions = [
-    { name: "Tokyo", description: "Capital city, tech hub, and entertainment center" },
-    { name: "Kyoto", description: "Ancient temples, shrines, and traditional culture" },
-    { name: "Osaka", description: "Known for street food, nightlife, and Osaka Castle" },
-    { name: "Fukuoka", description: "Coastal city famous for beaches and ramen" }
+    { name: 'Mount Fuji', description: "Japan's Sacred mountain and UNESCO site", to: '/our-plans' },
+    { name: 'Tokyo', description: 'Capital city, tech hub, and entertainment center', to: '/top-attractions/tokyo' },
+    { name: 'Kyoto', description: 'Ancient temples, shrines, and traditional culture', to: '/top-attractions/kyoto' },
+    { name: 'Osaka', description: 'Known for street food, nightlife, and Osaka Castle', to: '/top-attractions/osaka' }
   ]
 
   return (
@@ -59,6 +61,12 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
               <div
                 key={index}
                 className="py-3 cursor-pointer hover:bg-gray-50 -mx-6 px-6 transition-colors"
+                onClick={() => {
+                  try { onClose && onClose() } catch (_) {}
+                  if (attraction.to) {
+                    navigate(attraction.to)
+                  }
+                }}
               >
                 <p className="text-base font-semibold text-black">{attraction.name}</p>
                 <p className="text-sm text-gray-500 mt-0.5">{attraction.description}</p>

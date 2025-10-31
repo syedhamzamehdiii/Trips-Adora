@@ -1,15 +1,28 @@
 import React, { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import HeaderLandingPage from '../components/HeaderLandingPage'
 import BottomNavigationBar from '../components/BottomNavigationBar'
 import AUImage from '../../assests/AU.jpg'
 import OurStoryImage from '../../assests/image.png'
 import CoreValuesImage from '../../assests/core values.jpg'
 import { FiHeadphones, FiPhone, FiClock, FiMessageCircle } from 'react-icons/fi'
+import Footer from '../components/Footer'
 
 const AboutUsPage = () => {
+  const location = useLocation()
+
   useEffect(() => {
     try { localStorage.setItem('tripsadora_mode', 'customer') } catch (_) {}
   }, [])
+
+  useEffect(() => {
+    if (location.hash) {
+      const target = document.querySelector(location.hash)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
+  }, [location.hash])
 
   return (
     <div className="min-h-screen bg-gray-200">
@@ -70,7 +83,7 @@ const AboutUsPage = () => {
       </section>
       
       {/* Our Story Card */}
-      <section className="relative z-10 -mt-8 pb-20">
+      <section id="our-story" className="relative z-10 -mt-8 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-[#EDEADE] rounded-3xl shadow-xl border border-black/5 overflow-hidden">
             <div className="p-6 sm:p-8">
@@ -141,7 +154,7 @@ const AboutUsPage = () => {
             </div>
 
             {/* Right Column: Our Team */}
-            <div className="bg-blue-900 rounded-tl-3xl rounded-tr-none rounded-br-none rounded-bl-none lg:rounded-tr-3xl p-8 lg:p-12 flex flex-col items-center justify-center text-center">
+            <div id="our-team" className="bg-blue-900 rounded-tl-3xl rounded-tr-none rounded-br-none rounded-bl-none lg:rounded-tr-3xl p-8 lg:p-12 flex flex-col items-center justify-center text-center">
               <h4 className="text-5xl lg:text-6xl font-bold text-white uppercase leading-tight mb-8">
                 <div>OUR</div>
                 <div>TEAM</div>
@@ -422,6 +435,7 @@ const AboutUsPage = () => {
       </section>
 
       {/* Additional content sections can be added here */}
+      <Footer />
     </div>
   )
 }

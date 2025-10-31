@@ -37,18 +37,18 @@ export default function ThreeColumnLayout() {
  
          <div className="flex items-center justify- mb-4 ">
         {/* Left - Tour Badge */}
-        <Link to="/"> 
+       
         <div className="flex items-center gap-3  rounded-lg px-4 py-2.5 bg-[#DBEAFE] ">
           <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center ">
             {/* <ArrowLeft className="w-4 h-4 text-gray-700" /> */}
-          </div>
-          <div className="flex items-center gap-2">
+          </div> <Link to="/"> 
+          <div className="flex items-center gap-2 cursor-pointer">
             <span className="text-sm font-semibold text-gray-900">One day Tour</span>
             <span className="text-xs text-gray-500">(06: 00 - 23: 15)</span>
             
           </div>
-          
-        </div>  </Link>
+          </Link>
+        </div>  
         
          <Map className="w-7 h-8 mx-2 text-blue-600" />
 

@@ -11,6 +11,10 @@ import branch from "../../assests/middle.png";
 import Footer from './Footer'
 import { Link } from 'react-router-dom'
 import MainHeader from './MainHeader'
+import helicopter from "../../assests/helicopter.jpg";
+import sunshine from "../../assests/sun-shine.jpg";
+import house from "../../assests/house.jpg";
+import mountfuj from "../../assests/mount-fuj.jpg";
 
 const ProductDetails = () => {
   const [selectedTab, setSelectedTab] = useState('oneDay')
@@ -513,7 +517,7 @@ const ProductDetails = () => {
 
         {/* Customer Reviews */}
         <div className="max-w-6xl mx-auto mt-12">
-          <div className="max-w-4xl mx-auto p-6 bg-white">
+          <div className="max-w-6xl mx-auto p-6 bg-white">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Customer Reviews</h2>
 
             {/* Reviews Overview Box */}
@@ -640,10 +644,10 @@ const ProductDetails = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
-              {img:'/assests/place1.jpg', title:'Mount Fuji Highlights & Hidden Gems Tour'},
-              {img:'/assests/place2.jpg', title:'Hakoney Highlights & Hidden Gems Tour'},
-              {img:'/assests/place3.jpg', title:'Tokyo Highlights & Hidden Gems Tour'},
-              {img:'/assests/place1.jpg', title:'Burj Khalifa Highlights & Hidden Gems Tour'}
+              {img:mountfuj, title:'Mount Fuji Highlights & Hidden Gems Tour'},
+              {img:sunshine, title:'Hakoney Highlights & Hidden Gems Tour'},
+              {img:house, title:'Tokyo Highlights & Hidden Gems Tour'},
+              {img: helicopter, title:'Burj Khalifa Highlights & Hidden Gems Tour'}
             ].map((t,idx)=> (
               <Link key={idx} to={`/tour/${idx + 1}`}>
                 <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow h-full flex flex-col">
@@ -681,7 +685,7 @@ const ProductDetails = () => {
                         <span className="font-bold text-[#808080]">$719</span>
                         <span className="text-[11px] text-gray-500 ml-1">/person</span>
                       </div>
-                      <div className="px-4 py-1.5 rounded-full bg-[#808080] text-white text-sm">Book Now</div>
+                      <div className="px-4 py-1.5 rounded-full bg-[#3B69E2] text-white text-sm">Book Now</div>
                     </div>
                   </div>
                 </div>
@@ -790,6 +794,7 @@ const ProductDetails = () => {
         </div>
       </footer>
       <Footer />
+        {/* </footer> */}
     </div>
   )
 }

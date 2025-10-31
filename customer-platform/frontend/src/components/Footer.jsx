@@ -1,51 +1,51 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-// import RefundPolicyModal from '../modals/RefundPolicyModal';
+import React from 'react';
+import { Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones } from 'lucide-react';
 
 const Footer = () => {
-  const navigate = useNavigate();
-  const [isRefundPolicyOpen, setIsRefundPolicyOpen] = useState(false);
-  
   return (
-    <footer className="bg-[#1d236b] text-white py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
-          {/* Know About us */}
+    <footer className="bg-[#1d236b] text-white">
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8">
           <div>
-            <h3 className="text-lg font-semibold mb-4">Know About us</h3>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">About us</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Careers</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Contact</a></li>
+            <h4 className="font-semibold mb-3">Company</h4>
+            <ul className="space-y-2 text-gray-200 text-sm">
+              <li><a href="#">About us</a></li>
+              <li><a href="#">Careers</a></li>
+              <li><a href="#">Articles</a></li>
+              <li><a href="#">Contact Us</a></li>
             </ul>
           </div>
-          
-          {/* Explore */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Explore</h3>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Destinations</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Experiences</a></li>
-              <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Tours</a></li>
+            <h4 className="font-semibold mb-3">Support</h4>
+            <ul className="space-y-2 text-gray-200 text-sm">
+              <li><a href="#">Help Center</a></li>
+              <li><a href="#">FAQs</a></li>
+              <li><a href="#">Privacy Policy</a></li>
+              <li><a href="#">Team & Conditions</a></li>
             </ul>
           </div>
-          
-          {/* Help & Support */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Help & Support</h3>
-            <ul className="space-y-2">
-              <li><button onClick={() => navigate('/faq')} className="text-white hover:text-gray-300 transition-colors">FAQ</button></li>
-              <li><button onClick={() => navigate('/support')} className="text-white hover:text-gray-300 transition-colors">Contact Support</button></li>
-              <li><button onClick={() => navigate('/privacy')} className="text-white hover:text-gray-300 transition-colors">Privacy Policy</button></li>
-              <li><button onClick={() => setIsRefundPolicyOpen(true)} className="text-white hover:text-gray-300 transition-colors">Refund Policy</button></li>
-              <li><button onClick={() => navigate('/safety-guidelines')} className="text-white hover:text-gray-300 transition-colors">Safety Guidelines</button></li>
+            <h4 className="font-semibold mb-3">Partner With Us</h4>
+            <ul className="space-y-2 text-gray-200 text-sm">
+              <li><a href="#">Become a Partner</a></li>
+              <li><a href="#">Join as an Affiliate</a></li>
+              <li><a href="#">Partner Login</a></li>
+              <li><a href="#">Collaboration Inquiries</a></li>
             </ul>
           </div>
-
+          <div>
+            <h4 className="font-semibold mb-3">Explore</h4>
+            <ul className="space-y-2 text-gray-200 text-sm">
+              <li><a href="#">Product Features</a></li>
+              <li><a href="#">Case Studies</a></li>
+              <li><a href="#">Resources</a></li>
+              <li><a href="#">Customer Reviews</a></li>
+            </ul>
+          </div>
           {/* Payments & Settings */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Payments & Settings</h3>
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-3 gap-4 sm:gap-4 md:gap-5 mb-4">
               <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
                 <span className="text-[#1d236b] font-bold text-xs">AMEX</span>
               </div>
@@ -141,44 +141,17 @@ const Footer = () => {
             </div>
           </div>
         </div>
-        
-        {/* Bottom Footer Bar */}
-        <div className="border-t border-white/20 mt-12 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="text-sm text-white mb-4 md:mb-0">
-              ©2025 TripAdora. All rights reserved.
-            </div>
-            <div className="flex items-center space-x-6 text-sm text-white">
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span>Secure Booking</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
-                </svg>
-                <span>10M+ Travels</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                </svg>
-                <span>+1-800-Travel</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-                </svg>
-                <span>24/7 Support</span>
-              </div>
-            </div>
+
+        <div className="mt-6 border-t border-white/30 pt-4 flex flex-wrap items-center justify-between text-gray-200 text-xs">
+          <div>© 2025 TripAdora. All rights reserved.</div>
+          <div className="flex flex-wrap gap-6 items-center">
+            <div className="flex items-center gap-2"><ShieldCheck size={16}/> Secure Booking</div>
+            <div className="flex items-center gap-2"><UsersRound size={16}/> 10M+ Travels</div>
+            <div className="flex items-center gap-2"><Phone size={16}/> +1-800-Travel</div>
+            <div className="flex items-center gap-2"><Headphones size={16}/> 24/7 Support</div>
           </div>
         </div>
       </div>
-      
-    
     </footer>
   );
 };

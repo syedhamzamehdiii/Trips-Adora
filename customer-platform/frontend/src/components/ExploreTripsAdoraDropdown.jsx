@@ -23,8 +23,8 @@ const ExploreTripsAdoraDropdown = ({ isOpen, onClose, triggerRef }) => {
   if (!isOpen) return null
 
   const leftColumn = [
-    { title: 'Our Story', desc: 'How we started', to: '/about-us' },
-    { title: 'Our Team', desc: 'Meet the experts', to: '/about-us' },
+    { title: 'Our Story', desc: 'How we started', to: '/about-us#our-story' },
+    { title: 'Our Team', desc: 'Meet the experts', to: '/about-us#our-team' },
     { title: 'Careers', desc: 'Join our team', to: '/about-us#careers' }
   ]
 
