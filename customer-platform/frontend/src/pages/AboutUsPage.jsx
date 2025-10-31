@@ -272,7 +272,7 @@ const AboutUsPage = () => {
       </section>
 
       {/* Careers Section */}
-      <section className="relative z-10 pb-20 bg-gray-200">
+      <section id="careers" className="relative z-10 pb-20 bg-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div
             className="rounded-3xl p-8 md:p-12 lg:p-14 shadow-lg"

@@ -1,8 +1,10 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FiStar } from 'react-icons/fi'
 import TourCard from './TourCard'
 
 const TopPicksSection = () => {
+  const navigate = useNavigate()
   const destinations = [
     {
       id: 1,
@@ -56,7 +58,11 @@ const TopPicksSection = () => {
         {/* Destinations Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {destinations.map((destination) => (
-            <TourCard key={destination.id} tour={{
+            <TourCard key={destination.id} onClick={() => {
+              if (destination.name.includes('Mount Fuji')) {
+                navigate('/dashboard#our-plans')
+              }
+            }} tour={{
               name: destination.name,
               image: destination.image,
               duration: `${destination.reviews}`,

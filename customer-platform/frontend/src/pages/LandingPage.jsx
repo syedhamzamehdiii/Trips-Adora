@@ -21,23 +21,20 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-200">
-      {/* <Header /> */}
-{/*     
+      <Header />
       <BottomNavigationBar />
-      
       <HeroSection />
-      
       <SearchSection />
       <TopPicksSection />
-    
       <ToursSection />
       <ConsultationBanner />
       <PlacesSection />
       <SupplierPromo />
       <TopCountriesSection />
       <NewsletterSection />
-       */}
-       <OurPlans/>
+      <div id="our-plans">
+        <OurPlans/>
+      </div>
 
     </div>
   )
