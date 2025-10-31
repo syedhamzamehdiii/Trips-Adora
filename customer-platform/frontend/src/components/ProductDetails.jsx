@@ -6,6 +6,7 @@ import heroimage  from "../../assests/hero-image-side.png";
 import heroimage2 from "../../assests/hero-image-side2.png";
 import heroimage3 from "../../assests/hero-image-side3.png";
 import Footer from './Footer'
+import MainHeader from './MainHeader'
 const ProductDetails = () => {
   const [selectedTab, setSelectedTab] = useState('oneDay')
   const [reviewText, setReviewText] = useState('')
@@ -22,6 +23,7 @@ const ProductDetails = () => {
 
   return (
     <div className="min-h-screen bg-white font-poppins">
+      <MainHeader />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Left Column - Main Content */}

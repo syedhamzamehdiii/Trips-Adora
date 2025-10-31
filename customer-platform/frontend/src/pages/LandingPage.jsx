@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
-import Header from '../components/Header'
+import HeaderLandingPage from '../components/HeaderLandingPage'
 import BottomNavigationBar from '../components/BottomNavigationBar'
 import HeroSection from '../components/HeroSection'
 import SearchSection from '../components/SearchSection'
@@ -33,7 +33,7 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-200">
-      <Header />
+      <HeaderLandingPage />
       <BottomNavigationBar />
       <HeroSection />
       <SearchSection />

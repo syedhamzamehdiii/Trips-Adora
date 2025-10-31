@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import Header from '../components/Header'
+import HeaderLandingPage from '../components/HeaderLandingPage'
 import BottomNavigationBar from '../components/BottomNavigationBar'
 import AUImage from '../../assests/AU.jpg'
 import OurStoryImage from '../../assests/image.png'
@@ -13,7 +13,7 @@ const AboutUsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-200">
-      <Header />
+      <HeaderLandingPage />
       <BottomNavigationBar />
       
       {/* Hero Section with About Us Content */}
