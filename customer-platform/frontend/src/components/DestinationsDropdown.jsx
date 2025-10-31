@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { FiMapPin } from 'react-icons/fi'
+import { useNavigate } from 'react-router-dom'
 
 const DestinationsDropdown = ({ isOpen, onClose, triggerRef }) => {
   const [position, setPosition] = useState({ top: 0, left: 0 })
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (isOpen && triggerRef?.current) {
@@ -25,10 +27,10 @@ const DestinationsDropdown = ({ isOpen, onClose, triggerRef }) => {
   if (!isOpen) return null
 
   const destinations = [
-    { name: "Tokyo", description: "Capital city, tech hub, and entertainment center" },
-    { name: "Kyoto", description: "Ancient temples, shrines, and traditional culture" },
-    { name: "Osaka", description: "Known for street food, nightlife, and Osaka Castle" },
-    { name: "Fukuoka", description: "Coastal city famous for beaches and ramen" }
+    { name: 'Mount Fuji', description: "Japan's Sacred mountain and UNESCO site", to: '/dashboard#our-plans' },
+    { name: 'Tokyo Sky-tree', description: 'Tallest structure in Japan with an observation deck' },
+    { name: 'Tokyo Tower', description: "Japan's Eiffel Tower-style landmark" },
+    { name: 'Arashiyama Bamboo Grove', description: 'Magical bamboo forest walk' }
   ]
 
   return (
@@ -45,13 +47,14 @@ const DestinationsDropdown = ({ isOpen, onClose, triggerRef }) => {
         <div className="bg-white rounded-[20px] shadow-2xl w-[400px] pointer-events-auto overflow-hidden">
           <div className="px-6 pt-5 pb-3 flex items-center gap-2">
             <FiMapPin className="text-red-600 text-xl" />
-            <h2 className="text-xl font-bold text-black">Top Destinations</h2>
+            <h2 className="text-xl font-bold text-black">Japan's Iconic Attractions</h2>
           </div>
 
           <div className="px-6 pb-5">
             {destinations.map((destination, index) => (
               <div
                 key={index}
+                onClick={() => { if (destination.to) { navigate(destination.to); onClose?.() } }}
                 className="py-3 cursor-pointer hover:bg-gray-50 -mx-6 px-6 transition-colors"
               >
                 <p className="text-base font-semibold text-black">{destination.name}</p>
