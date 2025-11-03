@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Link, useLocation } from 'react-router-dom'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
@@ -34,9 +35,20 @@ const Badge = ({ children, color }) => (
 )
 
 const ProfileWallet = () => {
+  const navigate = useNavigate()
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [method, setMethod] = useState('paypal')
   const [paypalEmail, setPaypalEmail] = useState('')
+  const [payoneerEmail, setPayoneerEmail] = useState('')
+  const [bank, setBank] = useState({
+    holder: '',
+    bankName: '',
+    accountNumber: '',
+    swift: '',
+    routing: '',
+    country: '',
+    currency: ''
+  })
   return (
     <div className="min-h-screen bg-white font-poppins">
       <MainHeader />
@@ -83,7 +95,7 @@ const ProfileWallet = () => {
 
         <div className="flex items-center justify-between mb-4">
           <div className="text-xs text-gray-700 bg-gray-100 border rounded-lg px-4 py-2">Simulated Payment Amount: $750.00</div>
-          <button className="px-4 py-2 rounded-lg bg-[#1f3661] text-white text-sm">Add Payment method</button>
+          <button onClick={() => navigate('/profile/wallet/settings')} className="px-4 py-2 rounded-lg bg-[#1f3661] text-white text-sm">Add Payment method</button>
         </div>
 
         {/* Bank accounts */}
@@ -213,6 +225,103 @@ const ProfileWallet = () => {
                 <ul className="text-xs text-gray-600 list-disc ml-4 space-y-1">
                   <li>Upto 1 Business day</li>
                   <li>Fees may apply</li>
+                </ul>
+              </div>
+            )}
+
+            {method === 'bank' && (
+              <div className="border rounded-xl p-4 mb-4 bg-gray-50">
+                <div className="text-sm font-semibold text-gray-900 mb-2">Bank Account Details</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Account holder name</label>
+                    <input
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="John Doe"
+                      value={bank.holder}
+                      onChange={(e)=>setBank({...bank, holder:e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Bank name</label>
+                    <input
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Chase Bank"
+                      value={bank.bankName}
+                      onChange={(e)=>setBank({...bank, bankName:e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Account Number / IBAN</label>
+                    <input
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="DE89 3704 0044 0532 0130 00"
+                      value={bank.accountNumber}
+                      onChange={(e)=>setBank({...bank, accountNumber:e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">SWIFT / BIC</label>
+                    <input
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="CHASUS33XXX"
+                      value={bank.swift}
+                      onChange={(e)=>setBank({...bank, swift:e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Routing Number (US)</label>
+                    <input
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="021000021"
+                      value={bank.routing}
+                      onChange={(e)=>setBank({...bank, routing:e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Country</label>
+                    <input
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="United States"
+                      value={bank.country}
+                      onChange={(e)=>setBank({...bank, country:e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Currency</label>
+                    <input
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="USD"
+                      value={bank.currency}
+                      onChange={(e)=>setBank({...bank, currency:e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="text-xs text-gray-600 mb-2">Instructions:</div>
+                <ul className="text-xs text-gray-600 list-disc ml-4 space-y-1">
+                  <li>Ensure the account holder name exactly matches your legal name or business name.</li>
+                  <li>IBAN required for EU/UK transfers; SWIFT/BIC required for international transfers.</li>
+                  <li>Routing number is required for US domestic transfers only.</li>
+                  <li>Transfers typically arrive in 1–3 business days. Bank fees may apply.</li>
+                </ul>
+              </div>
+            )}
+
+            {method === 'payoneer' && (
+              <div className="border rounded-xl p-4 mb-4 bg-gray-50">
+                <div className="text-sm font-semibold text-gray-900 mb-2">Payoneer Account Details</div>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Payoneer Email Address"
+                    value={payoneerEmail}
+                    onChange={(e)=>setPayoneerEmail(e.target.value)}
+                  />
+                  <button className="px-3 py-2 rounded-lg border text-xs">Verify Email</button>
+                </div>
+                <ul className="text-xs text-gray-600 list-disc ml-4 space-y-1">
+                  <li>Transfers to Payoneer are typically instant</li>
+                  <li>Fees may apply depending on your plan</li>
                 </ul>
               </div>
             )}

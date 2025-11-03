@@ -15,6 +15,8 @@ import SearchResultsPage from './pages/SearchResultsPage'
 import ProfilePage from './pages/ProfilePage'
 import ProfileSettings from './pages/ProfileSettings'
 import ProfileWallet from './pages/ProfileWallet'
+
+import WalletSettingsPage from './pages/WalletSettingsPage'
 import ComparisonPage from './pages/ComparisonPage'
 import ProductComparisonDetail from './components/ProductComparisonDetail'
 import WishlistPage from './pages/WishlistPage'
@@ -43,6 +45,8 @@ function App() {
         <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/booking-details" element={<BookingDetailsPage />} />
         <Route path="/share-review" element={<ShareReviewPage />} />
+
+        <Route path="/profile/wallet/settings" element={<WalletSettingsPage />} />
         <Route path="/customer-reviews" element={<CustomerReviews />} />
         <Route path="/check-availability" element={<CheckAvailabilityPage />} />
         <Route path="/choose-vehicle" element={<ChooseVehiclePage />} />
