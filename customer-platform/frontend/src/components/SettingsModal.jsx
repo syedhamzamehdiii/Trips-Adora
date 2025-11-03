@@ -134,6 +134,12 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
                   if (item.label === 'My Account') {
                     if (onClose) onClose()
                     navigate('/profile')
+                  } else if (item.label === 'My Wallet') {
+                    if (onClose) onClose()
+                    navigate('/profile/wallet')
+                  } else if (item.label === 'Settings') {
+                    if (onClose) onClose()
+                    navigate('/profile/settings')
                   }
                 }}
               >

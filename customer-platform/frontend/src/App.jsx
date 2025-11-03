@@ -13,7 +13,10 @@ import TokyoTowerPage from './pages/attractions/TokyoTowerPage'
 import ArashiyamaBambooGrovePage from './pages/attractions/ArashiyamaBambooGrovePage'
 import SearchResultsPage from './pages/SearchResultsPage'
 import ProfilePage from './pages/ProfilePage'
+import ProfileSettings from './pages/ProfileSettings'
+import ProfileWallet from './pages/ProfileWallet'
 import ComparisonPage from './pages/ComparisonPage'
+import ProductComparisonDetail from './components/ProductComparisonDetail'
 import WishlistPage from './pages/WishlistPage'
 import CartPage from './pages/CartPage'
 import BookingsPage from './pages/BookingsPage'
@@ -32,6 +35,10 @@ function App() {
         <Route path="/dashboard" element={<LandingPage />} />
         <Route path="/wishlist" element={<WishlistPage />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/search" element={<SearchResultsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile/wallet" element={<ProfileWallet />} />
+        <Route path="/profile/settings" element={<ProfileSettings />} />
         <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/booking-details" element={<BookingDetailsPage />} />
         <Route path="/share-review" element={<ShareReviewPage />} />

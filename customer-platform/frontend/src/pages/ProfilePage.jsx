@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Mail, Phone, MapPin, CalendarDays, ArrowLeft, Heart, Gift } from 'lucide-react'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
@@ -63,21 +63,31 @@ const ProfilePage = () => {
         <h1 className="text-2xl font-bold text-gray-900 mb-1">My Account</h1>
         <p className="text-gray-600 mb-6">Your Profile and Travel Journey</p>
 
-        {/* Tabs (visual only) */}
+        {/* Tabs */}
         <div className="mb-6">
           <div className="w-full bg-gray-100 rounded-[14px] p-1 flex items-center justify-between">
-            {['Dashboard', 'Profile', 'Wallet', 'Setting'].map((t, idx) => (
-              <div
-                key={t}
-                className={`px-5 py-2 rounded-[10px] text-[13px] text-center flex-1 mx-1 ${
-                  idx === 0
-                    ? 'bg-[#1f3661] text-white shadow-sm'
-                    : 'text-gray-800'
-                }`}
-              >
-                {t}
-              </div>
-            ))}
+            {(() => {
+              const location = useLocation()
+              const tabs = [
+                { label: 'Profile', to: '/profile' },
+                { label: 'Wallet', to: '/profile/wallet' },
+                { label: 'Setting', to: '/profile/settings' }
+              ]
+              return tabs.map((t) => {
+                const isActive = location.pathname === t.to
+                return (
+                <Link
+                  key={t.label}
+                  to={t.to}
+                  className={`px-5 py-2 rounded-[10px] text-[13px] text-center flex-1 mx-1 ${
+                    isActive ? 'bg-[#1f3661] text-white shadow-sm' : 'text-gray-800'
+                  }`}
+                >
+                  {t.label}
+                </Link>
+                )
+              });
+            })()}
           </div>
         </div>
 
