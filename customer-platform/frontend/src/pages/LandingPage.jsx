@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import HeaderLandingPage from '../components/HeaderLandingPage'
 import BottomNavigationBar from '../components/BottomNavigationBar'
 import HeroSection from '../components/HeroSection'
@@ -15,9 +16,21 @@ import Footer from '../components/Footer'
 
 
 const LandingPage = () => {
+  const location = useLocation()
+
   useEffect(() => {
     try { localStorage.setItem('tripsadora_mode', 'customer') } catch (_) {}
   }, [])
+
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.replace('#', '')
+      const el = document.getElementById(id)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
+  }, [location.hash])
 
   return (
     <div className="min-h-screen bg-gray-200">
@@ -30,9 +43,15 @@ const LandingPage = () => {
       <ToursSection />
       <ConsultationBanner />
       <PlacesSection />
-      <SupplierPromo />
-      <TopCountriesSection />
-      <NewsletterSection />
+      <div id="about-us">
+        <SupplierPromo />
+      </div>
+      <div id="careers">
+        <TopCountriesSection />
+      </div>
+      <div id="contact-us">
+        <NewsletterSection />
+      </div>
       <Footer />
     </div>
   )

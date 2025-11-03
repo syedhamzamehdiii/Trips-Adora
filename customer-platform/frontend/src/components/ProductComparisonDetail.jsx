@@ -221,7 +221,10 @@ const ProductComparisonDetail = () => {
                   </button>
                 </div>
                 
-                <button className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors">
+                <button
+                  onClick={() => navigate('/cart')}
+                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+                >
                   Book this experience
                 </button>
                 {selectedProducts.length === 3 && (

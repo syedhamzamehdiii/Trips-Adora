@@ -26,6 +26,7 @@ import PaymentDetailsPage from './pages/PaymentDetailsPage'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
 import BookingDetailsPage from './pages/BookingDetailsPage'
 import ShareReviewPage from './pages/ShareReviewPage'
+import CustomerReviews from './components/CustomerReviews'
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
         <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/booking-details" element={<BookingDetailsPage />} />
         <Route path="/share-review" element={<ShareReviewPage />} />
+        <Route path="/customer-reviews" element={<CustomerReviews />} />
         <Route path="/check-availability" element={<CheckAvailabilityPage />} />
         <Route path="/choose-vehicle" element={<ChooseVehiclePage />} />
         <Route path="/payment-details" element={<PaymentDetailsPage />} />
@@ -52,6 +54,8 @@ function App() {
         <Route path="/about-us" element={<AboutUsPage />} />
         <Route path="/product-details" element={<ProductDetails />} />
         <Route path="/product-details/:id" element={<ProductDetails />} />
+        <Route path="/stays/:slug" element={<ProductDetails />} />
+        <Route path="/tours/:slug" element={<ProductDetails />} />
         <Route path="/our-plans" element={<OurPlansPage />} />
         <Route path="/top-attractions/tokyo" element={<TokyoPage />} />
         <Route path="/top-attractions/kyoto" element={<KyotoPage />} />

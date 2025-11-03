@@ -6,11 +6,40 @@ import mountfuj from "../../assests/mount-fuj.jpg";
 import { Bus } from "lucide-react";
 
 import { Mountain, Eye, MapPin, Search, Play, Star as StarIcon, Calendar, List, Check, X, Camera, Image as ImageIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 
 const OurPlans = () => {
+    const navigate = useNavigate()
     const hero = '/assests/mount fuji.jpg'
+
+    const handleBookNow = (e, item) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        const savedCart = localStorage.getItem('cart')
+        const cart = savedCart ? JSON.parse(savedCart) : []
+
+        const cartItem = {
+            id: item.url,
+            name: item.title,
+            image: item.img,
+            price: item.price,
+            rating: item.rating,
+            reviews: '428',
+            tags: ['Sightseeing','Local Food','Private Transport','HiddenGems','Photo Spots'],
+            host: 'TripsAdora',
+            duration: '8 hours',
+            groupSize: 'Up to 12',
+            location: 'Mount Fuji, Japan'
+        }
+
+        if (!cart.some(p => p.id === cartItem.id)) {
+            localStorage.setItem('cart', JSON.stringify([...cart, cartItem]))
+        }
+
+        navigate('/cart')
+    }
 
     return(
         <>
@@ -235,12 +264,13 @@ const OurPlans = () => {
               </span>
             </div>
 
-            <div
+            <button
+              onClick={(e) => handleBookNow(e, item)}
               style={{ fontFamily: "Poppins" }}
-              className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px] text-center"
+              className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px] text-center hover:bg-[#1e2d56] transition"
             >
               Book Now
-            </div>
+            </button>
           </div>
         </div>
         </Link>

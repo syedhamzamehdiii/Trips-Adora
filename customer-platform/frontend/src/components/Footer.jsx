@@ -10,10 +10,10 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-3">Company</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
-              <li><Link to="/about-us">About us</Link></li>
-              <li><a href="#">Careers</a></li>
-              <li><a href="#">Articles</a></li>
-              <li><a href="#">Contact Us</a></li>
+              <li><Link to="/dashboard#about-us">About us</Link></li>
+              <li><Link to="/dashboard#careers">Careers</Link></li>
+              <li><a href="#">Blogs</a></li>
+              <li><Link to="/dashboard#contact-us">Contact Us</Link></li>
             </ul>
           </div>
           <div>
@@ -22,7 +22,6 @@ const Footer = () => {
               <li><a href="#">Help Center</a></li>
               <li><a href="#">FAQs</a></li>
               <li><a href="#">Privacy Policy</a></li>
-              <li><a href="#">Team & Conditions</a></li>
             </ul>
           </div>
           <div>
@@ -30,17 +29,15 @@ const Footer = () => {
             <ul className="space-y-2 text-gray-200 text-sm">
               <li><a href="#">Become a Partner</a></li>
               <li><a href="#">Join as an Affiliate</a></li>
-              <li><a href="#">Partner Login</a></li>
               <li><a href="#">Collaboration Inquiries</a></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold mb-3">Explore</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
-              <li><a href="#">Product Features</a></li>
               <li><a href="#">Case Studies</a></li>
               <li><a href="#">Resources</a></li>
-              <li><a href="#">Customer Reviews</a></li>
+              <li><Link to="/customer-reviews">Customer Reviews</Link></li>
             </ul>
           </div>
           {/* Payments & Settings */}
