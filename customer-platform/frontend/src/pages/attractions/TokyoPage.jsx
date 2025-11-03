@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiClock, FiMapPin, FiMap, FiCoffee, FiBookOpen, FiStar, FiActivity } from 'react-icons/fi'
 import { BsHeart, BsHeartFill } from 'react-icons/bs'
+import MainHeader from '../../components/MainHeader'
+import Footer from '../../components/Footer'
 
 const cardBase = 'bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-200'
 
@@ -36,6 +38,7 @@ const TokyoPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
+      <MainHeader />
       {/* Hero */}
       <div
         className="relative h-[520px] w-full"
@@ -236,6 +239,7 @@ const TokyoPage = () => {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   )
 }

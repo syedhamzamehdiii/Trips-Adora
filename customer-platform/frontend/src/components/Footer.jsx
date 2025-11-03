@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones } from 'lucide-react';
 
 const Footer = () => {
@@ -9,7 +10,7 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-3">Company</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
-              <li><a href="#">About us</a></li>
+              <li><Link to="/about-us">About us</Link></li>
               <li><a href="#">Careers</a></li>
               <li><a href="#">Articles</a></li>
               <li><a href="#">Contact Us</a></li>

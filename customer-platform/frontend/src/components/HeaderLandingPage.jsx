@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { FiUser, FiChevronDown } from 'react-icons/fi'
 import SettingsModal from './SettingsModal'
 
@@ -12,18 +13,18 @@ const HeaderLandingPage = () => {
         <div className="max-w-7xl mx-auto px-6">
           <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl shadow-xl">
             <div className="flex items-center justify-between h-16 px-6">
-              <div className="flex items-center">
+              <Link to="/dashboard" className="flex items-center cursor-pointer">
                 <img 
                   src="/assests/logo1.png" 
                   alt="TripsAdora Logo" 
                   className="h-14 w-auto object-contain"
                 />
-              </div>
+              </Link>
 
               <nav className="hidden md:flex items-center space-x-8">
-                <a href="#" className="text-white font-semibold text-base hover:text-gray-200 transition">Home</a>
+                <Link to="/dashboard" className="text-white font-semibold text-base hover:text-gray-200 transition">Home</Link>
                 <a href="#" className="text-white font-normal text-base hover:text-gray-200 transition">Blogs</a>
-                <a href="#" className="text-white font-normal text-base hover:text-gray-200 transition">About</a>
+                <Link to="/about-us" className="text-white font-normal text-base hover:text-gray-200 transition">About</Link>
                 <a href="#" className="text-white font-normal text-base hover:text-gray-200 transition">Contact</a>
               </nav>
 
