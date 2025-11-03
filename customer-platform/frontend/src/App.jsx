@@ -8,6 +8,9 @@ import TokyoPage from './pages/attractions/TokyoPage'
 import KyotoPage from './pages/attractions/KyotoPage'
 import OsakaPage from './pages/attractions/OsakaPage'
 import FukuokaPage from './pages/attractions/FukuokaPage'
+import TokyoSkytreePage from './pages/attractions/TokyoSkytreePage'
+import TokyoTowerPage from './pages/attractions/TokyoTowerPage'
+import ArashiyamaBambooGrovePage from './pages/attractions/ArashiyamaBambooGrovePage'
 import SearchResultsPage from './pages/SearchResultsPage'
 
 function App() {
@@ -26,6 +29,9 @@ function App() {
         <Route path="/top-attractions/kyoto" element={<KyotoPage />} />
         <Route path="/top-attractions/osaka" element={<OsakaPage />} />
         <Route path="/top-attractions/fukuoka" element={<FukuokaPage />} />
+        <Route path="/attractions/tokyo-skytree" element={<TokyoSkytreePage />} />
+        <Route path="/attractions/tokyo-tower" element={<TokyoTowerPage />} />
+        <Route path="/attractions/arashiyama-bamboo-grove" element={<ArashiyamaBambooGrovePage />} />
       </Routes>
     </div>
   )
