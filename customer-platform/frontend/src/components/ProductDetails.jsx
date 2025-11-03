@@ -399,10 +399,56 @@ const ProductDetails = () => {
               
               {/* Action Buttons */}
               <div className="flex items-center gap-3 mb-4 sm:mb-6">
-                <button className="bg-[#34A853] text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-sm sm:text-base whitespace-nowrap shadow-md">
+                <button 
+                  onClick={() => navigate('/check-availability', { 
+                    state: { 
+                      name: 'Mount Fuji Highlights & English guided Tour',
+                      price: '$258',
+                      image: maine,
+                      location: 'Tokyo city, Japan',
+                      rating: 4.9,
+                      duration: '8 hours'
+                    } 
+                  })}
+                  className="bg-[#34A853] text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-sm sm:text-base whitespace-nowrap shadow-md hover:bg-[#2d8f47] transition"
+                >
                   Check Availability
                 </button>
-                <button className="bg-white border border-gray-300 text-black px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-sm sm:text-base whitespace-nowrap shadow">
+                <button 
+                  onClick={() => {
+                    // Get or initialize cart from localStorage
+                    const savedCart = localStorage.getItem('cart')
+                    const cart = savedCart ? JSON.parse(savedCart) : []
+                    
+                    // Create cart item object
+                    const cartItem = {
+                      id: 'mount-fuji-highlights',
+                      name: 'Mount Fuji Highlights & English guided Tour',
+                      image: maine,
+                      price: '$258',
+                      rating: 4.9,
+                      reviews: '347',
+                      tags: ['Hiking', 'Adventure', 'Nature', 'Food', 'Photography'],
+                      host: 'Karwaan Tours',
+                      duration: '8 hours',
+                      groupSize: 'Up to 12',
+                      location: 'Tokyo city, Japan'
+                    }
+                    
+                    // Check if item is already in cart
+                    const isInCart = cart.some(item => item.id === cartItem.id)
+                    
+                    if (!isInCart) {
+                      // Add to cart
+                      const updatedCart = [...cart, cartItem]
+                      localStorage.setItem('cart', JSON.stringify(updatedCart))
+                    }
+                    
+                    // Navigate to cart page
+                    navigate('/cart')
+                  }}
+                  className="bg-white border border-gray-300 text-black px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-sm sm:text-base whitespace-nowrap shadow hover:bg-gray-50 transition"
+                >
                   Add to Cart
                 </button>
               </div>

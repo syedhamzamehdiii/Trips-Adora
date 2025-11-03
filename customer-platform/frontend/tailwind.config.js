@@ -20,7 +20,7 @@ export default {
           900: '#1e3a8a',
         },
         custom: {
-          blue: '#364F6B',
+          blue: '#1d236b',
           'blue-light': '#4A6B8A',
           yellow: '#FFD700',
           gray: '#F5F5F5',

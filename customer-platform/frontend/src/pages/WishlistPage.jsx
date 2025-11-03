@@ -191,6 +191,8 @@ const WishlistPage = () => {
           ))}
         </div>
       </section>
+      
+      <Footer />
     </div>
   )
 }

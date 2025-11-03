@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react'
 import MainHeader from '../components/MainHeader'
-import { Link } from 'react-router-dom'
+import Footer from '../components/Footer'
+import { Link, useNavigate } from 'react-router-dom'
 import { FiShoppingCart, FiMapPin, FiClock, FiUsers, FiArrowLeft, FiTrash2 } from 'react-icons/fi'
 
 const CartPage = () => {
+  const navigate = useNavigate()
   const [cartItems, setCartItems] = useState([])
 
   useEffect(() => {
     // Load cart from localStorage
     const savedCart = localStorage.getItem('cart')
     if (savedCart) {
-      setCartItems(JSON.parse(savedCart))
+      // Ensure each item has a quantity (default 1)
+      const parsed = JSON.parse(savedCart)
+      const withQty = parsed.map(i => ({ ...i, quantity: typeof i.quantity === 'number' && i.quantity > 0 ? i.quantity : 1 }))
+      setCartItems(withQty)
+      localStorage.setItem('cart', JSON.stringify(withQty))
     }
   }, [])
 
@@ -20,15 +26,30 @@ const CartPage = () => {
     localStorage.setItem('cart', JSON.stringify(updatedCart))
   }
 
+  const updateQuantity = (itemId, delta) => {
+    setCartItems(prev => {
+      const next = prev.map(item => {
+        if (item.id !== itemId) return item
+        const nextQty = Math.max(1, (item.quantity || 1) + delta)
+        return { ...item, quantity: nextQty }
+      })
+      localStorage.setItem('cart', JSON.stringify(next))
+      return next
+    })
+  }
+
+  const totalItems = () => cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)
+
   const calculateTotal = () => {
     return cartItems.reduce((sum, item) => {
       const price = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
-      return sum + price
+      const qty = item.quantity || 1
+      return sum + price * qty
     }, 0)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="bg-gray-50">
       <MainHeader />
       
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -39,7 +60,7 @@ const CartPage = () => {
             <span className="text-sm font-medium">Back</span>
           </Link>
           <div className="flex items-center gap-3">
-            <FiShoppingCart className="w-6 h-6 text-blue-600" />
+            <FiShoppingCart className="w-6 h-6" style={{ color: '#1d236b' }} />
             <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
           </div>
           <div className="w-16"></div> {/* Spacer */}
@@ -104,14 +125,31 @@ const CartPage = () => {
                         </div>
                       </div>
 
-                      {/* Price */}
-                      <div className="flex items-center justify-between">
+                      {/* Price + Quantity */}
+                      <div className="flex items-center justify-between mb-4">
                         <div>
                           {item.oldPrice && (
                             <span className="text-sm text-gray-400 line-through mr-2">{item.oldPrice}</span>
                           )}
-                          <span className="text-2xl font-bold text-blue-600">{item.price}</span>
+                          <span className="text-2xl font-bold" style={{ color: '#1d236b' }}>{item.price}</span>
                         </div>
+                        {/* Quantity control */}
+                        <div className="flex items-center text-white rounded-full px-4 py-1.5 gap-4" style={{ backgroundColor: '#1d236b' }}>
+                          <button onClick={() => updateQuantity(item.id, +1)} className="w-7 h-7 rounded-full border border-white/50 grid place-items-center text-lg leading-none">+</button>
+                          <span className="min-w-[18px] text-center text-base font-semibold">{item.quantity || 1}</span>
+                          <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 rounded-full border border-white/50 grid place-items-center text-lg leading-none">−</button>
+                        </div>
+                      </div>
+
+                      {/* Check Availability Button */}
+                      <div className="flex justify-center">
+                        <button 
+                          onClick={() => navigate('/check-availability', { state: item })}
+                          className="text-white px-8 py-2 rounded-lg font-semibold transition" 
+                          style={{ backgroundColor: '#1d236b' }}
+                        >
+                          Check Availability
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -126,7 +164,7 @@ const CartPage = () => {
                 
                 <div className="space-y-4 mb-6">
                   <div className="flex justify-between text-gray-700">
-                    <span>Subtotal ({cartItems.length} {cartItems.length === 1 ? 'item' : 'items'})</span>
+                    <span>Subtotal ({totalItems()} {totalItems() === 1 ? 'item' : 'items'})</span>
                     <span className="font-semibold">${calculateTotal().toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
@@ -140,33 +178,8 @@ const CartPage = () => {
                     </div>
                   </div>
                 </div>
-
-                <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition mb-6">
-                  Check Availability
-                </button>
                 
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm">Free cancellation up to 24 hours</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm">Secure payment processing</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm">Instant confirmation</span>
-                  </div>
-                </div>
-                
-                <Link to="/dashboard" className="block w-full text-center text-blue-600 hover:text-blue-700 font-medium">
+                <Link to="/search" className="block w-full text-center font-medium" style={{ color: '#1d236b' }}>
                   Continue Shopping
                 </Link>
               </div>
@@ -174,6 +187,8 @@ const CartPage = () => {
           </div>
         )}
       </section>
+      
+      <Footer />
     </div>
   )
 }

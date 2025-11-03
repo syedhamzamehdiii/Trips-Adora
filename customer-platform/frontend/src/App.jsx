@@ -16,6 +16,13 @@ import ComparisonPage from './pages/ComparisonPage'
 import ProductComparisonDetail from './components/ProductComparisonDetail'
 import WishlistPage from './pages/WishlistPage'
 import CartPage from './pages/CartPage'
+import BookingsPage from './pages/BookingsPage'
+import CheckAvailabilityPage from './pages/CheckAvailabilityPage'
+import ChooseVehiclePage from './pages/ChooseVehiclePage'
+import PaymentDetailsPage from './pages/PaymentDetailsPage'
+import PaymentSuccessPage from './pages/PaymentSuccessPage'
+import BookingDetailsPage from './pages/BookingDetailsPage'
+import ShareReviewPage from './pages/ShareReviewPage'
 
 function App() {
   return (
@@ -26,6 +33,13 @@ function App() {
         <Route path="/search" element={<SearchResultsPage />} />
         <Route path="/wishlist" element={<WishlistPage />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/bookings" element={<BookingsPage />} />
+        <Route path="/booking-details" element={<BookingDetailsPage />} />
+        <Route path="/share-review" element={<ShareReviewPage />} />
+        <Route path="/check-availability" element={<CheckAvailabilityPage />} />
+        <Route path="/choose-vehicle" element={<ChooseVehiclePage />} />
+        <Route path="/payment-details" element={<PaymentDetailsPage />} />
+        <Route path="/payment-success" element={<PaymentSuccessPage />} />
         <Route path="/comparison" element={<ComparisonPage />} />
         <Route path="/comparison/detail/:ids" element={<ProductComparisonDetail />} />
         <Route path="/supplier-registration" element={<SupplierRegistrationPage />} />

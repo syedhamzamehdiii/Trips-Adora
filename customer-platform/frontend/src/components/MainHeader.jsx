@@ -64,7 +64,8 @@ const MainHeader = () => {
 
                 <div 
                   ref={profileRef}
-                  className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-700 transition"
+                  className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition"
+                  style={{ backgroundColor: '#1d236b' }}
                   onClick={() => setIsSettingsOpen(true)}
                 >
                   <FiUser className="text-white text-sm" />
@@ -118,11 +119,11 @@ const MainHeader = () => {
                 <button onClick={() => navigate('/cart')} className="text-gray-900 hover:opacity-80 transition">
                   <FiShoppingCart className="w-5 h-5" />
                 </button>
-                <button className="text-gray-900 hover:opacity-80 transition relative">
+                <button onClick={() => navigate('/bookings')} className="text-gray-900 hover:opacity-80 transition relative">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <svg className="w-3 h-3 absolute bottom-0 right-0 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-3 h-3 absolute bottom-0 right-0" fill="currentColor" viewBox="0 0 20 20" style={{ color: '#1d236b' }}>
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 </button>
