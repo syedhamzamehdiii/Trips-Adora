@@ -26,10 +26,49 @@ const TokyoPage = () => {
     } catch (_) {}
   }, [])
 
-  const toggleFavorite = (id) => {
+  const toggleFavorite = (e, id, item) => {
+    e.stopPropagation()
+    
+    // Get or initialize wishlist from localStorage
+    const savedWishlist = localStorage.getItem('wishlist')
+    const wishlist = savedWishlist ? JSON.parse(savedWishlist) : []
+    
+    // Check if tour is already in wishlist
+    const isInWishlist = wishlist.some(item => item.id === id)
+    
     setFavorites(prev => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+        // Also remove from wishlist
+        const updatedWishlist = wishlist.filter(item => item.id !== id)
+        localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+      } else {
+        next.add(id)
+        
+        // Add to wishlist if not already there
+        if (!isInWishlist && item) {
+          const tourForWishlist = {
+            id: item.id,
+            name: item.title || item.name,
+            image: item.img || item.image,
+            price: item.price || '$245/person',
+            rating: 4.8,
+            reviews: '384',
+            tags: ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
+            host: 'TripsAdora',
+            oldPrice: null,
+            isPrivate: true,
+            isTripadurasChoice: false,
+            duration: '8 hours',
+            groupSize: 'Up to 12',
+            location: 'Tokyo Japan'
+          }
+          
+          const updatedWishlist = [...wishlist, tourForWishlist]
+          localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+        }
+      }
       try { localStorage.setItem('tokyo_favorites', JSON.stringify(Array.from(next))) } catch (_) {}
       return next
     })
@@ -138,7 +177,7 @@ const TokyoPage = () => {
               <div className="relative">
                 <img src={c.img} alt="" className="h-44 w-full object-cover" />
                 <button
-                  onClick={() => toggleFavorite(c.id)}
+                  onClick={(e) => toggleFavorite(e, c.id, c)}
                   className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow"
                   aria-label="Toggle favourite"
                 >

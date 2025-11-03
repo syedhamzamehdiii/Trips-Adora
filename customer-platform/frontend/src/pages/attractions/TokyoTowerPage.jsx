@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import MainHeader from '../../components/MainHeader'
 import Footer from '../../components/Footer'
 import helicopter from '../../../assests/helicopter.jpg'
@@ -10,6 +11,44 @@ import { Star as StarIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const TokyoTowerPage = () => {
+  const navigate = useNavigate()
+
+  const handleBookNow = (e, item) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Get or initialize cart from localStorage
+    const savedCart = localStorage.getItem('cart')
+    const cart = savedCart ? JSON.parse(savedCart) : []
+    
+    // Create cart item object
+    const cartItem = {
+      id: item.url,
+      name: item.title,
+      image: item.img,
+      price: item.price,
+      rating: item.rating,
+      reviews: '384',
+      tags: ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
+      host: 'TripsAdora',
+      duration: '8 hours',
+      groupSize: 'Up to 12',
+      location: 'Tokyo Tower, Japan'
+    }
+    
+    // Check if item is already in cart
+    const isInCart = cart.some(item => item.id === cartItem.id)
+    
+    if (!isInCart) {
+      // Add to cart
+      const updatedCart = [...cart, cartItem]
+      localStorage.setItem('cart', JSON.stringify(updatedCart))
+    }
+    
+    // Navigate to cart page
+    navigate('/cart')
+  }
+
   const heroImg = '/assests/Screenshot 2025-11-03 at 12.12.27 PM.png'
   const towerImg1 = '/assests/tokyo tower.jpg'
   const towerImg2 = '/assests/Tokyo-Tower.jpg'
@@ -194,9 +233,13 @@ const TokyoTowerPage = () => {
                         </span>
                       </div>
 
-                      <div style={{ fontFamily: "Poppins" }} className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px] text-center">
+                      <button 
+                        onClick={(e) => handleBookNow(e, item)}
+                        style={{ fontFamily: "Poppins" }} 
+                        className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px] text-center hover:bg-[#1e2d56] transition"
+                      >
                         Book Now
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </Link>

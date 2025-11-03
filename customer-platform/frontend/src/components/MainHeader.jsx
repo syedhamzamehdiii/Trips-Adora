@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FiUser, FiChevronDown, FiSearch, FiShoppingCart } from 'react-icons/fi'
 import SettingsModal from './SettingsModal'
 import AttractionsDropdown from './AttractionsDropdown'
@@ -7,6 +7,7 @@ import DestinationsDropdown from './DestinationsDropdown'
 import ExploreTripsAdoraDropdown from './ExploreTripsAdoraDropdown'
 
 const MainHeader = () => {
+  const navigate = useNavigate()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const profileRef = useRef(null)
   
@@ -109,12 +110,12 @@ const MainHeader = () => {
 
               {/* Right Side Icons - Only 3 icons: Heart, Cart, Calendar */}
               <div className="flex items-center space-x-6">
-                <button className="text-gray-900 hover:opacity-80 transition">
+                <button onClick={() => navigate('/wishlist')} className="text-gray-900 hover:opacity-80 transition">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                 </button>
-                <button className="text-gray-900 hover:opacity-80 transition">
+                <button onClick={() => navigate('/cart')} className="text-gray-900 hover:opacity-80 transition">
                   <FiShoppingCart className="w-5 h-5" />
                 </button>
                 <button className="text-gray-900 hover:opacity-80 transition relative">
