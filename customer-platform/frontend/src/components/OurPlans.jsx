@@ -499,7 +499,7 @@ const OurPlans = () => {
 					<p style={{fontFamily:'Poppins'}} className='text-[#302E2E] font-medium text-[18px] mt-2 text-center'> Let Fuji's spirit awaken your wanderlust. Plan your journey today and discover the timeless beauty <br />  that has inspired pilgrims and artists for millennia. </p>
 					<div className='mt-6 flex items-center justify-center gap-3'>
 						<button style={{fontFamily:'Poppins'}} className='bg-[#284078] text-white px-6 py-2.5 rounded-md text-sm font-semibold'>Start Your Adventure</button>
-						<button style={{fontFamily:'Poppins'}} className='bg-white text-[#302E2E] border border-[#E9ECF1] px-6 py-2.5 rounded-md text-sm font-semibold'>View All Experience</button>
+						<Link to="/search" style={{fontFamily:'Poppins'}} className='bg-white text-[#302E2E] border border-[#E9ECF1] px-6 py-2.5 rounded-md text-sm font-semibold inline-block'>View All Experience</Link>
 					</div>
 				</div>
         </>

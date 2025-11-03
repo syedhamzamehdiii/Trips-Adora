@@ -8,6 +8,7 @@ import TokyoPage from './pages/attractions/TokyoPage'
 import KyotoPage from './pages/attractions/KyotoPage'
 import OsakaPage from './pages/attractions/OsakaPage'
 import FukuokaPage from './pages/attractions/FukuokaPage'
+import SearchResultsPage from './pages/SearchResultsPage'
 
 function App() {
   return (
@@ -15,9 +16,11 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<LandingPage />} />
+        <Route path="/search" element={<SearchResultsPage />} />
         <Route path="/supplier-registration" element={<SupplierRegistrationPage />} />
         <Route path="/about-us" element={<AboutUsPage />} />
         <Route path="/product-details" element={<ProductDetails />} />
+        <Route path="/product-details/:id" element={<ProductDetails />} />
         <Route path="/our-plans" element={<OurPlansPage />} />
         <Route path="/top-attractions/tokyo" element={<TokyoPage />} />
         <Route path="/top-attractions/kyoto" element={<KyotoPage />} />

@@ -633,9 +633,9 @@ const ProductDetails = () => {
         <div className="mt-16">
           <div className="flex items-center gap-4 mb-8">
             <div className="flex-1 h-px bg-gray-300"></div>
-            <button className="text-[#284078] font-bold text-sm hover:text-[#284078]">
+            <Link to="/search" className="text-[#284078] font-bold text-sm hover:text-[#284078]">
               See more
-            </button>
+            </Link>
             <div className="flex-1 h-px bg-gray-300"></div>
           </div>
           <div className="text-center mb-8">

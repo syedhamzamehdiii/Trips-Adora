@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import TourCard from './TourCard'
 import ExperienceCard from './ExperienceCard'
 import StatsBanner from './StatsBanner'
@@ -95,7 +96,7 @@ const ToursSection = () => {
 
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-semibold text-gray-900">Recently Viewed</h3>
-          <a href="#" className="text-sm text-gray-600 hover:text-gray-800">See more</a>
+          <Link to="/search" className="text-sm text-gray-600 hover:text-gray-800">See more</Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {tours.map((t) => (
@@ -104,7 +105,7 @@ const ToursSection = () => {
         </div>
         <div className="flex items-center gap-6 my-6">
           <div className="flex-1 h-px bg-gray-300" />
-          <a href="#" className="text-sm font-medium text-custom-blue hover:underline">View all</a>
+          <Link to="/search" className="text-sm font-medium text-custom-blue hover:underline">View all</Link>
           <div className="flex-1 h-px bg-gray-300" />
         </div>
         <StatsBanner />

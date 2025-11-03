@@ -49,7 +49,7 @@ const MainHeader = () => {
               {/* Navigation Links */}
               <nav className="hidden lg:flex items-center space-x-6 flex-shrink-0">
                 <Link to="/dashboard" className="text-gray-900 font-medium text-sm hover:opacity-80 transition">Home</Link>
-                <a href="#" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Explore</a>
+                <Link to="/search" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Explore</Link>
                 <a href="#" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Blogs</a>
                 <Link to="/about-us" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">About</Link>
                 <a href="#" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Contact</a>

@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { FiStar } from 'react-icons/fi'
 import TourCard from './TourCard'
 
@@ -48,9 +49,9 @@ const TopPicksSection = () => {
         {/* Section Header */}
         <div className="flex items-center justify-between mb-12">
           <h2 className="text-3xl font-bold text-gray-900">Top picks for you...</h2>
-          <a href="#" className="text-custom-blue hover:text-blue-600 font-medium">
+          <Link to="/search" className="text-custom-blue hover:text-blue-600 font-medium">
             View All
-          </a>
+          </Link>
         </div>
         
         {/* Destinations Grid */}
