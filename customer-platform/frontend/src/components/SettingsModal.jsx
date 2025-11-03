@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FiChevronRight } from 'react-icons/fi'
 
 const SettingsModal = ({ isOpen, onClose, profileRef }) => {
+  const navigate = useNavigate()
   const [supplierMode, setSupplierMode] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
 
@@ -58,7 +60,7 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
   if (!isOpen) return null
 
   const menuItems = [
-    { label: 'My Profile' },
+    { label: 'My Account' },
     { label: 'My Wallet' },
     { label: 'Your opinion' },
     { label: 'Settings' },
@@ -128,6 +130,12 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
               <div
                 key={item.label}
                 className="flex items-center justify-between px-5 py-[14px] border-b border-gray-200/60 cursor-pointer active:bg-gray-50 transition-colors"
+                onClick={() => {
+                  if (item.label === 'My Account') {
+                    if (onClose) onClose()
+                    navigate('/profile')
+                  }
+                }}
               >
                 <span className="text-[15px] font-medium text-black">{item.label}</span>
                 <FiChevronRight className="text-gray-500 text-[18px]" />

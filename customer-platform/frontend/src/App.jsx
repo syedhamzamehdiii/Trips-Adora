@@ -12,8 +12,8 @@ import TokyoSkytreePage from './pages/attractions/TokyoSkytreePage'
 import TokyoTowerPage from './pages/attractions/TokyoTowerPage'
 import ArashiyamaBambooGrovePage from './pages/attractions/ArashiyamaBambooGrovePage'
 import SearchResultsPage from './pages/SearchResultsPage'
+import ProfilePage from './pages/ProfilePage'
 import ComparisonPage from './pages/ComparisonPage'
-import ProductComparisonDetail from './components/ProductComparisonDetail'
 import WishlistPage from './pages/WishlistPage'
 import CartPage from './pages/CartPage'
 import BookingsPage from './pages/BookingsPage'
@@ -30,7 +30,6 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<LandingPage />} />
-        <Route path="/search" element={<SearchResultsPage />} />
         <Route path="/wishlist" element={<WishlistPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/bookings" element={<BookingsPage />} />
