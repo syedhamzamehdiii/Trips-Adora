@@ -12,6 +12,7 @@ import TokyoSkytreePage from './pages/attractions/TokyoSkytreePage'
 import TokyoTowerPage from './pages/attractions/TokyoTowerPage'
 import ArashiyamaBambooGrovePage from './pages/attractions/ArashiyamaBambooGrovePage'
 import SearchResultsPage from './pages/SearchResultsPage'
+import ProfilePage from './pages/ProfilePage'
 import ComparisonPage from './pages/ComparisonPage'
 import ProductComparisonDetail from './components/ProductComparisonDetail'
 
@@ -22,6 +23,7 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<LandingPage />} />
         <Route path="/search" element={<SearchResultsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/comparison" element={<ComparisonPage />} />
         <Route path="/comparison/detail/:ids" element={<ProductComparisonDetail />} />
         <Route path="/supplier-registration" element={<SupplierRegistrationPage />} />
