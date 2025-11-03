@@ -29,10 +29,10 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
   if (!isOpen) return null
 
   const attractions = [
-    { name: 'Mount Fuji', description: "Japan's Sacred mountain and UNESCO site", to: '/our-plans' },
     { name: 'Tokyo', description: 'Capital city, tech hub, and entertainment center', to: '/top-attractions/tokyo' },
     { name: 'Kyoto', description: 'Ancient temples, shrines, and traditional culture', to: '/top-attractions/kyoto' },
-    { name: 'Osaka', description: 'Known for street food, nightlife, and Osaka Castle', to: '/top-attractions/osaka' }
+    { name: 'Osaka', description: 'Known for street food, nightlife, and Osaka Castle', to: '/top-attractions/osaka' },
+    { name: 'Fukuoka', description: 'Coastal city famous for beaches and ramen', to: '/top-attractions/fukuoka' }
   ]
 
   return (

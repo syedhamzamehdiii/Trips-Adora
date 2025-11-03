@@ -7,6 +7,7 @@ import OurPlans from './components/OurPlans'
 import TokyoPage from './pages/attractions/TokyoPage'
 import KyotoPage from './pages/attractions/KyotoPage'
 import OsakaPage from './pages/attractions/OsakaPage'
+import FukuokaPage from './pages/attractions/FukuokaPage'
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/top-attractions/tokyo" element={<TokyoPage />} />
         <Route path="/top-attractions/kyoto" element={<KyotoPage />} />
         <Route path="/top-attractions/osaka" element={<OsakaPage />} />
+        <Route path="/top-attractions/fukuoka" element={<FukuokaPage />} />
       </Routes>
     </div>
   )
