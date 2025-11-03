@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiClock, FiMapPin, FiMap, FiCoffee, FiBookOpen, FiStar, FiActivity } from 'react-icons/fi'
 import { BsHeart, BsHeartFill } from 'react-icons/bs'
@@ -16,9 +16,8 @@ const SectionTitle = ({ title, subtitle }) => (
 
 const TokyoPage = () => {
   const [favorites, setFavorites] = useState(new Set())
-  const bowlRef = useRef(null)
-  const [bowlTransform, setBowlTransform] = useState('')
   const navigate = useNavigate()
+  const [currentTip, setCurrentTip] = useState(0)
 
   useEffect(() => {
     try {
@@ -34,6 +33,47 @@ const TokyoPage = () => {
       try { localStorage.setItem('tokyo_favorites', JSON.stringify(Array.from(next))) } catch (_) {}
       return next
     })
+  }
+
+  const tokyoTips = [
+    {
+      title: "Best ramen shops open past midnight",
+      description: "Ichiran in Shibuya serves amazing tonkotsu ramen 24/7. Perfect after a night out!",
+      icon: "🍜"
+    },
+    {
+      title: "Secret cherry blossom viewing spots",
+      description: "Ueno Park and Shinjuku Gyoen offer stunning hanami without the overwhelming crowds of main attractions.",
+      icon: "🌸"
+    },
+    {
+      title: "Best time to visit Tokyo Skytree",
+      description: "Go at sunset (around 6 PM) for breathtaking 360-degree views as the city lights up below.",
+      icon: "🗼"
+    },
+    {
+      title: "Hidden izakaya alleys",
+      description: "Golden Gai in Shinjuku has tiny bars in retro buildings. Hoppy Street in Asakusa for local vibe!",
+      icon: "🍻"
+    },
+    {
+      title: "Quiet temple escapes",
+      description: "Senso-ji early morning (6 AM) or Nezu Shrine for beautiful azalea gardens without crowds.",
+      icon: "⛩️"
+    },
+    {
+      title: "Local sushi secrets",
+      description: "Tsukiji Outer Market still has amazing sushi! Try the tuna bowls and tamago-yaki vendors.",
+      icon: "🍣"
+    }
+  ]
+
+  const nextTip = () => {
+    setCurrentTip((prev) => (prev + 1) % tokyoTips.length)
+  }
+
+  const prevTip = () => {
+    setCurrentTip((prev) => (prev - 1 + tokyoTips.length) % tokyoTips.length)
   }
 
   return (
@@ -166,41 +206,33 @@ const TokyoPage = () => {
           <SectionTitle title="Insider Knowledge" subtitle="Tokyo Secrets from Locals" />
           <p className="text-center text-gray-600 mb-6 max-w-3xl mx-auto">Pro tips you won't find in guidebooks — straight from people who call Tokyo home.</p>
           <div className={`${cardBase} p-8 relative overflow-hidden mx-auto max-w-4xl`}> 
-            {/* Left/Right controls (static for now) */}
-            <button className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-700 grid place-items-center shadow-sm">‹</button>
-            <button className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-700 grid place-items-center shadow-sm">›</button>
+            <button 
+              onClick={prevTip}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-700 grid place-items-center shadow-sm hover:bg-gray-50 transition">‹</button>
+            <button 
+              onClick={nextTip}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full border border-gray-300 bg-white text-gray-700 grid place-items-center shadow-sm hover:bg-gray-50 transition">›</button>
 
-            <div className="max-w-3xl mx-auto text-center">
-              {/* 3D-style bowl image (interactive hover tilt + smooth spin on hover) */}
-              <div
-                ref={bowlRef}
-                className="mx-auto mb-6 w-40 h-40 md:w-48 md:h-48 will-change-transform group"
-                style={{
-                  transition: 'transform 220ms ease-out',
-                  transform: bowlTransform || 'translateZ(0)'
-                }}
-                onMouseMove={(e) => {
-                  const el = bowlRef.current
-                  if (!el) return
-                  const rect = el.getBoundingClientRect()
-                  const x = e.clientX - rect.left
-                  const y = e.clientY - rect.top
-                  const rx = ((y / rect.height) - 0.5) * -8 // tilt X
-                  const ry = ((x / rect.width) - 0.5) * 8 // tilt Y
-                  setBowlTransform(`perspective(700px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`)
-                }}
-                onMouseLeave={() => setBowlTransform('')}
-              >
-                <img
-                  src="/assests/desktop.png"
-                  alt="Ramen bowl"
-                  className="w-full h-full object-contain drop-shadow-xl select-none pointer-events-none group-hover:animate-[spin_2.5s_linear_infinite]"
-                  draggable={false}
-                />
+            <div className="max-w-3xl mx-auto text-center transition-all duration-300">
+              <div className="mx-auto mb-6 w-40 h-40 md:w-48 md:h-48 flex items-center justify-center">
+                <div className="text-8xl md:text-9xl">{tokyoTips[currentTip].icon}</div>
               </div>
-              <h4 className="text-2xl font-bold text-gray-900 mb-3">Best ramen shops open past midnight</h4>
-              <p className="text-gray-700 mb-5">Ichiran in Shibuya serves amazing tonkotsu ramen 24/7. Perfect after a night out!</p>
+              <h4 className="text-2xl font-bold text-gray-900 mb-3">{tokyoTips[currentTip].title}</h4>
+              <p className="text-gray-700 mb-5">{tokyoTips[currentTip].description}</p>
               <button className="px-5 py-2 bg-[#1d236b] text-white rounded-lg text-sm shadow">Get Complete Tokyo Guide</button>
+              
+              {/* Dots indicator */}
+              <div className="flex justify-center gap-2 mt-6">
+                {tokyoTips.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentTip(idx)}
+                    className={`w-2 h-2 rounded-full transition ${
+                      idx === currentTip ? 'bg-[#1d236b] w-8' : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
