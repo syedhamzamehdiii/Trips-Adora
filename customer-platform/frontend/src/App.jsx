@@ -14,6 +14,8 @@ import ArashiyamaBambooGrovePage from './pages/attractions/ArashiyamaBambooGrove
 import SearchResultsPage from './pages/SearchResultsPage'
 import ProfilePage from './pages/ProfilePage'
 import ComparisonPage from './pages/ComparisonPage'
+import WishlistPage from './pages/WishlistPage'
+import CartPage from './pages/CartPage'
 import ProductComparisonDetail from './components/ProductComparisonDetail'
 
 function App() {
@@ -22,6 +24,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<LandingPage />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
+        <Route path="/cart" element={<CartPage />} />
         <Route path="/search" element={<SearchResultsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/comparison" element={<ComparisonPage />} />

@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react'
 import { FiShoppingCart, FiChevronDown } from 'react-icons/fi'
+import { useNavigate } from 'react-router-dom'
 import AttractionsDropdown from './AttractionsDropdown'
 import DestinationsDropdown from './DestinationsDropdown'
 import ExploreTripsAdoraDropdown from './ExploreTripsAdoraDropdown'
 
 const BottomNavigationBar = () => {
+  const navigate = useNavigate()
   const [isAttractionsOpen, setIsAttractionsOpen] = useState(false)
   const [isDestinationsOpen, setIsDestinationsOpen] = useState(false)
   const attractionsRef = useRef(null)
@@ -53,12 +55,12 @@ const BottomNavigationBar = () => {
 
               {/* Right Side Icons */}
               <div className="flex items-center space-x-6">
-                <button className="text-gray-400 hover:text-gray-600 transition">
+                <button onClick={() => navigate('/wishlist')} className="text-gray-400 hover:text-gray-600 transition">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                 </button>
-                <button className="text-gray-400 hover:text-gray-600 transition">
+                <button onClick={() => navigate('/cart')} className="text-gray-400 hover:text-gray-600 transition">
                   <FiShoppingCart className="w-5 h-5" />
                 </button>
                 <button className="text-gray-400 hover:text-gray-600 transition">

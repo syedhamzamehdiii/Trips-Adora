@@ -1,7 +1,53 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { FiHeart, FiMapPin, FiClock, FiUsers, FiShare2 } from 'react-icons/fi'
+import { BsHeartFill } from 'react-icons/bs'
 
 const TourCard = ({ tour, onClick }) => {
+  const [isInWishlist, setIsInWishlist] = useState(false)
+
+  useEffect(() => {
+    // Check if tour is in wishlist
+    const savedWishlist = localStorage.getItem('wishlist')
+    if (savedWishlist) {
+      const wishlist = JSON.parse(savedWishlist)
+      setIsInWishlist(wishlist.some(item => item.id === tour.id))
+    }
+  }, [tour.id])
+
+  const handleWishlistClick = (e) => {
+    e.stopPropagation()
+    
+    // Get or initialize wishlist from localStorage
+    const savedWishlist = localStorage.getItem('wishlist')
+    const wishlist = savedWishlist ? JSON.parse(savedWishlist) : []
+    
+    // Check if tour is already in wishlist
+    const alreadyInWishlist = wishlist.some(item => item.id === tour.id)
+    
+    if (alreadyInWishlist) {
+      // Remove from wishlist
+      const updatedWishlist = wishlist.filter(item => item.id !== tour.id)
+      localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+      setIsInWishlist(false)
+    } else {
+      // Add tour to wishlist
+      const updatedWishlist = [...wishlist, {
+        ...tour,
+        oldPrice: tour.oldPrice || '$250',
+        rating: tour.rating || 4.8,
+        reviews: tour.reviews || '384',
+        tags: tour.tags || ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
+        host: tour.host || 'Karvaan Tours',
+        isPrivate: true,
+        isTripadurasChoice: false,
+        groupSize: tour.groupSize || 'Up to 12',
+        location: tour.location || 'Tokyo Japan'
+      }]
+      localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+      setIsInWishlist(true)
+    }
+  }
+  
   const {
     image,
     name,
@@ -26,8 +72,12 @@ const TourCard = ({ tour, onClick }) => {
             Only {slotsRemaining} slots left
           </div>
         )}
-        <button className="absolute top-3 right-3 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all duration-200">
-          <FiHeart className="text-gray-600 hover:text-red-500" />
+        <button onClick={handleWishlistClick} className="absolute top-3 right-3 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-all duration-200">
+          {isInWishlist ? (
+            <BsHeartFill className="text-red-500 w-5 h-5" />
+          ) : (
+            <FiHeart className="text-gray-600 hover:text-red-500 w-5 h-5" />
+          )}
         </button>
       </div>
       <div className="p-4">
