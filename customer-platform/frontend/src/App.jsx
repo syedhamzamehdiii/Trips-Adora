@@ -33,6 +33,9 @@ function App() {
         <Route path="/top-attractions/kyoto" element={<KyotoPage />} />
         <Route path="/top-attractions/osaka" element={<OsakaPage />} />
         <Route path="/top-attractions/fukuoka" element={<FukuokaPage />} />
+        <Route path="/attractions/tokyo-skytree" element={<TokyoSkytreePage />} />
+        <Route path="/attractions/tokyo-tower" element={<TokyoTowerPage />} />
+        <Route path="/attractions/arashiyama-bamboo-grove" element={<ArashiyamaBambooGrovePage />} />
       </Routes>
     </div>
   )

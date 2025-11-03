@@ -1,5 +1,4 @@
 import React from 'react'
-import hero from "../../assests/mount-fuji.jpg";
 import helicopter from "../../assests/helicopter.jpg";
 import sunshine from "../../assests/sun-shine.jpg";
 import house from "../../assests/house.jpg";
@@ -11,6 +10,7 @@ import { Link } from 'react-router-dom';
 
 
 const OurPlans = () => {
+    const hero = '/assests/mount fuji.jpg'
 
     return(
         <>
@@ -173,8 +173,8 @@ const OurPlans = () => {
           url: "/tours/mount-fuji-helicopter",
         },
       ].map((item, i) => (
-        <Link to={item.url} key={i} className="block group focus:outline-none">
-        <div className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm flex flex-col group-hover:shadow-md transition-shadow">
+        <Link to={item.url} key={i} className="block group focus:outline-none h-full">
+        <div className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm flex flex-col h-full group-hover:shadow-md transition-shadow">
           <div className="h-40 bg-[#E1E3FF] relative rounded-xl overflow-hidden">
             <img
               src={item.img}
@@ -208,7 +208,7 @@ const OurPlans = () => {
             </h4>
             <p
               style={{ fontFamily: "Poppins" }}
-              className="text-[#6b7280] font-medium text-base mt-1"
+              className="text-[#6b7280] font-medium text-base mt-1 flex-1"
             >
               {item.desc}
             </p>
