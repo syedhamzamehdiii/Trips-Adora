@@ -9,7 +9,7 @@ import heroimage3 from "../../assests/hero-image-side3.png";
 import share from "../../assests/share.png";
 import branch from "../../assests/middle.png";
 import Footer from './Footer'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import MainHeader from './MainHeader'
 import helicopter from "../../assests/helicopter.jpg";
 import sunshine from "../../assests/sun-shine.jpg";
@@ -17,6 +17,7 @@ import house from "../../assests/house.jpg";
 import mountfuj from "../../assests/mount-fuj.jpg";
 
 const ProductDetails = () => {
+  const navigate = useNavigate()
   const [selectedTab, setSelectedTab] = useState('oneDay')
   const [reviewText, setReviewText] = useState('')
   const images = [maine, heroimage, heroimage2, heroimage3]
@@ -337,8 +338,11 @@ const ProductDetails = () => {
                   <button className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-gray-900">
                     <img src={share} alt="Share" className="w-5 h-5" />
                   </button>
-                  <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900">
-                    <img src={branch} alt="Branch" className="w-5 h-5" />
+                  <button 
+                    onClick={() => navigate('/comparison')}
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900 hover:text-blue-600 transition-colors cursor-pointer"
+                  >
+                    <img src={branch} alt="Compare" className="w-5 h-5" />
                   </button>
                   <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900">
                     <Map className="w-5 h-5" />

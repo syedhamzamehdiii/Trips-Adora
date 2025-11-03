@@ -8,7 +8,12 @@ import TokyoPage from './pages/attractions/TokyoPage'
 import KyotoPage from './pages/attractions/KyotoPage'
 import OsakaPage from './pages/attractions/OsakaPage'
 import FukuokaPage from './pages/attractions/FukuokaPage'
+import TokyoSkytreePage from './pages/attractions/TokyoSkytreePage'
+import TokyoTowerPage from './pages/attractions/TokyoTowerPage'
+import ArashiyamaBambooGrovePage from './pages/attractions/ArashiyamaBambooGrovePage'
 import SearchResultsPage from './pages/SearchResultsPage'
+import ComparisonPage from './pages/ComparisonPage'
+import ProductComparisonDetail from './components/ProductComparisonDetail'
 
 function App() {
   return (
@@ -17,6 +22,8 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<LandingPage />} />
         <Route path="/search" element={<SearchResultsPage />} />
+        <Route path="/comparison" element={<ComparisonPage />} />
+        <Route path="/comparison/detail/:ids" element={<ProductComparisonDetail />} />
         <Route path="/supplier-registration" element={<SupplierRegistrationPage />} />
         <Route path="/about-us" element={<AboutUsPage />} />
         <Route path="/product-details" element={<ProductDetails />} />
