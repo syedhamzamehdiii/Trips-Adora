@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FiSearch, FiCalendar, FiChevronDown } from 'react-icons/fi'
+import { FiSearch, FiChevronDown } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
 
 const SearchSection = () => {
@@ -52,8 +52,9 @@ const SearchSection = () => {
                   onChange={(e) => setDate(e.target.value)}
                   placeholder="Check dates"
                   className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-blue focus:border-custom-blue outline-none text-lg"
+                  onFocus={(e) => { if (e.target.showPicker) e.target.showPicker() }}
+                  onClick={(e) => { if (e.target.showPicker) e.target.showPicker() }}
                 />
-                <FiCalendar className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl" />
               </div>
             </div>
             

@@ -109,8 +109,51 @@ const SearchResultsPage = () => {
       )
     }
 
+    // Apply tour type filter
+    if (tourTypes.length > 0) {
+      filtered = filtered.filter(product => {
+        const isPrivate = product.isPrivate === true || String(product.activity_type || '').toLowerCase().includes('private')
+        const matchesPrivate = tourTypes.includes('Private Tours') ? isPrivate : true
+        const matchesShared = tourTypes.includes('Shared Tours') ? !isPrivate : true
+        // Customize Tours currently passes through (no dedicated flag yet)
+        return matchesPrivate && matchesShared
+      })
+    }
+
     return filtered
-  }, [allProducts, priceRange, minimumRating, locations, durations])
+  }, [allProducts, priceRange, minimumRating, locations, durations, tourTypes])
+
+  // Sorting
+  const visibleProducts = useMemo(() => {
+    const list = [...filteredProducts]
+    switch (sortBy) {
+      case 'Price: Low to High':
+        return list.sort((a, b) => {
+          const pa = parseInt(String(a.price).match(/\$(\d+)/)?.[1] || '0')
+          const pb = parseInt(String(b.price).match(/\$(\d+)/)?.[1] || '0')
+          return pa - pb
+        })
+      case 'Price: High to Low':
+        return list.sort((a, b) => {
+          const pa = parseInt(String(a.price).match(/\$(\d+)/)?.[1] || '0')
+          const pb = parseInt(String(b.price).match(/\$(\d+)/)?.[1] || '0')
+          return pb - pa
+        })
+      case 'Rating':
+        return list.sort((a, b) => (b.rating || 0) - (a.rating || 0))
+      case 'Most Reviews':
+        const toCount = (p) => {
+          const m = String(p.reviews || '').match(/(\d+(?:\.\d+)?)(k)?/i)
+          if (!m) return 0
+          const n = parseFloat(m[1])
+          return m[2] ? n * 1000 : n
+        }
+        return list.sort((a, b) => toCount(b) - toCount(a))
+      case 'Recommended':
+      default:
+        return list.sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    }
+  }, [filteredProducts, sortBy])
 
   // Handle price range slider
   const handlePriceChange = (e) => {
@@ -286,9 +329,9 @@ const SearchResultsPage = () => {
                   </div>
                 ))}
               </div>
-            ) : filteredProducts.length > 0 ? (
+            ) : visibleProducts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredProducts.map((product) => (
+                {visibleProducts.map((product) => (
                   <TourCard 
                     key={product.id} 
                     tour={product}

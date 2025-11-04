@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight } from 'lucide-react'
 import Itinerary from "../components/Itinerary"
 import maine from "../../assests/main.png";
@@ -9,22 +9,83 @@ import heroimage3 from "../../assests/hero-image-side3.png";
 import share from "../../assests/share.png";
 import branch from "../../assests/middle.png";
 import Footer from './Footer'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import MainHeader from './MainHeader'
 import helicopter from "../../assests/helicopter.jpg";
 import sunshine from "../../assests/sun-shine.jpg";
 import house from "../../assests/house.jpg";
 import mountfuj from "../../assests/mount-fuj.jpg";
+import TourCard from './TourCard'
+import { getPublishedProducts, transformProductForFrontend, addRecentlyViewed, recordProductClick, getProductClicks, getProductById, getCachedPublishedProductsSync } from '../services/productService'
 
 const ProductDetails = () => {
   const navigate = useNavigate()
-  const [selectedTab, setSelectedTab] = useState('oneDay')
-  const [reviewText, setReviewText] = useState('')
-  const images = [maine, heroimage, heroimage2, heroimage3]
+  const { slug } = useParams()
+  // Instant render from cached list (no spinner)
+  const initialFromCache = (() => {
+    try {
+      const cache = getCachedPublishedProductsSync().map(transformProductForFrontend)
+      const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-')
+      return cache.find(p => normalize(p.name) === String((slug || '')).toLowerCase() || String(p.id) === String(slug)) || null
+    } catch {
+      return null
+    }
+  })()
+  const [product, setProduct] = useState(initialFromCache)
+  const [loading, setLoading] = useState(true)
+  const [recommended, setRecommended] = useState([])
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
+
+  const images = useMemo(() => {
+    if (!product) return []
+    const imgs = Array.isArray(product.images) ? product.images : []
+    const main = product.image ? [product.image] : []
+    // de-dup main
+    const others = imgs.filter(src => src !== product.image)
+    return [...main, ...others]
+  }, [product])
+
   const openGalleryAt = (index) => { setCurrentIndex(index); setIsGalleryOpen(true) }
   const closeGallery = () => setIsGalleryOpen(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        setLoading(true)
+        // Try to find by slug in published list
+        const data = await getPublishedProducts({ page: 1, page_size: 50 })
+        const list = (data.products || []).map(transformProductForFrontend)
+        const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-')
+        let found = list.find(p => normalize(p.name) === String(slug || '').toLowerCase())
+        if (!found) {
+          // fallback: maybe slug is id
+          const byId = await getProductById(String(slug))
+          if (byId) found = transformProductForFrontend(byId)
+        }
+        if (!cancelled) {
+          setProduct(found || null)
+          if (found) addRecentlyViewed(found)
+        }
+        // Recommended from explore (most clicked)
+        const clicks = getProductClicks()
+        const sorted = list
+          .map(p => ({ ...p, clicks: clicks[p.id] || 0 }))
+          .filter(p => !found || p.id !== found.id)
+          .sort((a,b) => b.clicks - a.clicks)
+          .slice(0,4)
+        if (!cancelled) setRecommended(sorted)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    const iv = setInterval(load, 5000)
+    const handler = () => load()
+    window.addEventListener('realtime-products-update', handler)
+    return () => { cancelled = true; clearInterval(iv); window.removeEventListener('realtime-products-update', handler) }
+  }, [slug])
 
   
   // Ratings data for the Customer Reviews block
@@ -38,6 +99,26 @@ const ProductDetails = () => {
     { stars: 1, percentage: 0, count: 0 },
   ]
 
+  if (loading && !product) {
+    return (
+      <div className="min-h-screen bg-white font-poppins">
+        <MainHeader />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center text-gray-600">Loading...</div>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-white font-poppins">
+        <MainHeader />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center text-gray-600">Product not found</div>
+        <Footer />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white font-poppins">
       <MainHeader />
@@ -48,7 +129,7 @@ const ProductDetails = () => {
           <div className="lg:col-span-2 space-y-6 sm:space-y-8">
             {/* Product Header */}
             <div className="mb-6">
-              <p className="text-gray-500 text-xs sm:text-sm mb-2">Product ID: 685928</p>
+              <p className="text-gray-500 text-xs sm:text-sm mb-2">Product ID: {product.id}</p>
               
               {/* Tags */}
               <div className="flex flex-wrap gap-2 mb-3">
@@ -61,9 +142,7 @@ const ProductDetails = () => {
               </div>
               
               {/* Main Title */}
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-3">
-                Mount Fuji Highlights & English guided Tour
-              </h1>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-3">{product.name}</h1>
               
               {/* Category Tags */}
               <div className="flex flex-wrap gap-2 mb-3">
@@ -85,9 +164,7 @@ const ProductDetails = () => {
               </div>
               
               {/* Description */}
-              <p className="text-black text-sm sm:text-base lg:text-lg mb-3">
-                Experience the best of Mount Fuji, Japan
-              </p>
+              <p className="text-black text-sm sm:text-base lg:text-lg mb-3">{product.tagline || product.description}</p>
               
               {/* Rating */}
               <div className="flex items-center gap-2">
@@ -107,7 +184,7 @@ const ProductDetails = () => {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-4">
                 <div className="sm:col-span-3">
                   <img 
-                    src={maine} 
+                    src={images[0] || maine} 
                     alt="Mount Fuji tour main image"
                     className="w-full h-48 sm:h-64 lg:h-80 object-cover rounded-lg cursor-pointer"
                     onClick={() => openGalleryAt(0)}
@@ -115,19 +192,19 @@ const ProductDetails = () => {
                 </div>
                 <div className="sm:col-span-1 grid grid-cols-3 sm:grid-cols-1 gap-2">
                   <img 
-                    src={heroimage}
+                    src={images[1] || heroimage}
                     alt="Mount Fuji tour thumbnail 1"
                     className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg cursor-pointer"
                     onClick={() => openGalleryAt(1)}
                   />
                   <img 
-                    src={heroimage2}
+                    src={images[2] || heroimage2}
                     alt="Mount Fuji tour thumbnail 2"
                     className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg cursor-pointer"
                     onClick={() => openGalleryAt(2)}
                   />
                   <img 
-                    src={heroimage3}
+                    src={images[3] || heroimage3}
                     alt="Mount Fuji tour thumbnail 3"
                     className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg cursor-pointer"
                     onClick={() => openGalleryAt(3)}
@@ -161,12 +238,7 @@ const ProductDetails = () => {
             {/* About this Experience */}
             <div className="mb-6 sm:mb-8">
               <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">About this Experience</h2>
-              <p className="text-black leading-relaxed text-sm sm:text-base">
-                Discover the magic of Tokyo, Japan with our comprehensive tour experience. 
-                This carefully curated journey takes you through the most iconic landmarks and hidden gems, 
-                offering a perfect blend of culture, history, and adventure. Our expert guides will ensure 
-                you have an unforgettable experience filled with memorable moments and fascinating insights.
-              </p>
+              <p className="text-black leading-relaxed text-sm sm:text-base">{product.description || 'Experience an unforgettable tour.'}</p>
             </div>
             
             {/* Trip Highlights */}
@@ -174,42 +246,21 @@ const ProductDetails = () => {
               <div className="border border-[#302E2E] rounded-lg p-4 sm:p-6">
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#302E2E] mb-3 sm:mb-4">Trip Highlights</h2>
                 <ul className="space-y-2 sm:space-y-3">
-                  <li className="flex items-start gap-2 sm:gap-3">
+                  {(product.highlights && product.highlights.length ? product.highlights : [
+                    { text: 'Visit the most iconic landmarks and hidden gems' },
+                    { text: 'Small group size for personalized experience' },
+                    { text: 'Complimentary refreshments and snacks' },
+                    { text: 'Expert local guide with insider knowledge' },
+                    { text: 'All entrance fees and transportation included' },
+                    { text: 'Photo opportunities at scenic viewpoints' }
+                  ]).slice(0,6).map((h, idx) => (
+                    <li key={idx} className="flex items-start gap-2 sm:gap-3">
                     <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#302E2E] flex items-center justify-center mt-0.5">
                       <span className="text-[#302E2E] text-sm">✓</span>
                     </div>
-                    <span className="text-[#302E2E] text-sm sm:text-base">Visit the most iconic landmarks and hidden gems</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#302E2E] flex items-center justify-center mt-0.5">
-                      <span className="text-[#302E2E] text-sm">✓</span>
-                    </div>
-                    <span className="text-[#302E2E] text-sm sm:text-base">Small group size for personalized experience</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#302E2E] flex items-center justify-center mt-0.5">
-                      <span className="text-[#302E2E] text-sm">✓</span>
-                    </div>
-                    <span className="text-[#302E2E] text-sm sm:text-base">Complimentary refreshments and snacks</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#302E2E] flex items-center justify-center mt-0.5">
-                      <span className="text-[#302E2E] text-sm">✓</span>
-                    </div>
-                    <span className="text-[#302E2E] text-sm sm:text-base">Expert local guide with insider knowledge</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#302E2E] flex items-center justify-center mt-0.5">
-                      <span className="text-[#302E2E] text-sm">✓</span>
-                    </div>
-                    <span className="text-[#302E2E] text-sm sm:text-base">All entrance fees and transportation included</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#302E2E] flex items-center justify-center mt-0.5">
-                      <span className="text-[#302E2E] text-sm">✓</span>
-                    </div>
-                    <span className="text-[#302E2E] text-sm sm:text-base">Photo opportunities at scenic viewpoints</span>
-                  </li>
+                      <span className="text-[#302E2E] text-sm sm:text-base">{h.text || h}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -269,26 +320,16 @@ const ProductDetails = () => {
               <div>
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">Vehicles available</h2>
                 <div className="space-y-3 sm:space-y-4">
-                  <div>
-                    <p className="text-black font-bold text-sm sm:text-base">Lexus LS 500h</p>
-                    <p className="text-gray-500 text-xs sm:text-sm">Up to 2 Passengers</p>
-                  </div>
-                  <div>
-                    <p className="text-black font-bold text-sm sm:text-base">Mercedes-Benz S-Class</p>
-                    <p className="text-gray-500 text-xs sm:text-sm">Up to 2 Passengers</p>
-                  </div>
-                  <div>
-                    <p className="text-black font-bold text-sm sm:text-base">BMW 7 Series</p>
-                    <p className="text-gray-500 text-xs sm:text-sm">Up to 3 Passengers</p>
-                  </div>
-                  <div>
-                    <p className="text-black font-bold text-sm sm:text-base">Toyota Alphard</p>
-                    <p className="text-gray-500 text-xs sm:text-sm">Up to 4 Passengers</p>
-                  </div>
-                  <div>
-                    <p className="text-black font-bold text-sm sm:text-base">Toyota Vellfire</p>
-                    <p className="text-gray-500 text-xs sm:text-sm">Up to 8 Passengers</p>
-                  </div>
+                  {(product.vehicles || []).length > 0 ? (
+                    product.vehicles.map((v, idx) => (
+                      <div key={idx}>
+                        <p className="text-black font-bold text-sm sm:text-base">{v.model || v.type || 'Vehicle'}</p>
+                        <p className="text-gray-500 text-xs sm:text-sm">{v.capacity ? `Up to ${v.capacity} Passengers` : ''}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 text-sm">No vehicles listed</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -300,7 +341,7 @@ const ProductDetails = () => {
               {/* Tour Provider */}
               <div className="mb-4 sm:mb-6 bg-[#F0F4FE] p-3 sm:p-4 rounded-xl shadow-md">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base sm:text-lg font-bold text-black">Karwaan Tours</h3>
+                  <h3 className="text-base sm:text-lg font-bold text-black">{product.host || 'TripsAdora'}</h3>
                   <span className="bg-[#00A63E] text-white px-2 py-1 rounded-full text-xs flex items-center gap-1">
                     <Check className="w-3 h-3" />
                     Verified
@@ -355,17 +396,17 @@ const ProductDetails = () => {
                 <div className="space-y-2 sm:space-y-3">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <MessageSquareText className="w-4 h-4 text-gray-600" />
-                    <span className="text-black text-sm sm:text-base">English, Japanese</span>
+                  <span className="text-black text-sm sm:text-base">English, Japanese</span>
                   </div>
                   
                   <div className="flex items-center gap-2 sm:gap-3">
                     <MapPin className="w-4 h-4 text-gray-600" />
-                    <span className="text-black text-sm sm:text-base">Tokyo city, Japan</span>
+                  <span className="text-black text-sm sm:text-base">{product.location}</span>
                   </div>
                   
                   <div className="flex items-center gap-2 sm:gap-3">
                     <Clock className="w-4 h-4 text-gray-600" />
-                    <span className="text-black text-sm sm:text-base">8 hours</span>
+                  <span className="text-black text-sm sm:text-base">{product.duration}</span>
                   </div>
                   
                   <div className="flex items-center gap-2 sm:gap-3">
@@ -402,12 +443,12 @@ const ProductDetails = () => {
                 <button 
                   onClick={() => navigate('/check-availability', { 
                     state: { 
-                      name: 'Mount Fuji Highlights & English guided Tour',
-                      price: '$258',
-                      image: maine,
-                      location: 'Tokyo city, Japan',
-                      rating: 4.9,
-                      duration: '8 hours'
+                      name: product.name,
+                      price: product.price,
+                      image: product.image,
+                      location: product.location,
+                      rating: product.rating,
+                      duration: product.duration
                     } 
                   })}
                   className="bg-[#34A853] text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-sm sm:text-base whitespace-nowrap shadow-md hover:bg-[#2d8f47] transition"
@@ -422,17 +463,17 @@ const ProductDetails = () => {
                     
                     // Create cart item object
                     const cartItem = {
-                      id: 'mount-fuji-highlights',
-                      name: 'Mount Fuji Highlights & English guided Tour',
-                      image: maine,
-                      price: '$258',
-                      rating: 4.9,
-                      reviews: '347',
-                      tags: ['Hiking', 'Adventure', 'Nature', 'Food', 'Photography'],
-                      host: 'Karwaan Tours',
-                      duration: '8 hours',
-                      groupSize: 'Up to 12',
-                      location: 'Tokyo city, Japan'
+                      id: product.id,
+                      name: product.name,
+                      image: product.image,
+                      price: product.price,
+                      rating: product.rating,
+                      reviews: String(product.reviewsCount || '0'),
+                      tags: product.tags || [],
+                      host: product.host || 'TripsAdora',
+                      duration: product.duration,
+                      groupSize: product.groupSize || 'Up to 12',
+                      location: product.location
                     }
                     
                     // Check if item is already in cart
@@ -490,80 +531,52 @@ const ProductDetails = () => {
         </div>
 
         {/* Meeting Points - Full width */}
-        <div className="mt-8 sm:mt-12">
-          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-2">Meeting Points</h2>
-          <p className="text-gray-500 text-sm sm:text-base mb-4">Choose your convenient pickup location</p>
-          <div className="rounded-lg p-3 sm:p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[#0E1DC4] mt-1" />
-                  <div className="flex-1">
-                    <h3 className="font-bold text-black text-sm sm:text-base">Main Hotel Lobby</h3>
-                    <p className="text-gray-500 text-xs sm:text-sm">123 Main Street Tokyo, Japan</p>
+        {Array.isArray(product.meetingPoints) && product.meetingPoints.length > 0 && (
+          <div className="mt-8 sm:mt-12">
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-2">Meeting Points</h2>
+            <p className="text-gray-500 text-sm sm:text-base mb-4">Choose your convenient pickup location</p>
+            <div className="rounded-lg p-3 sm:p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {product.meetingPoints.map((loc, idx) => (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <MapPin className="w-5 h-5 text-[#0E1DC4] mt-1" />
+                      <div className="flex-1">
+                        <h3 className="font-bold text-black text-sm sm:text-base">{typeof loc === 'string' ? loc : (loc.name || 'Pickup Location')}</h3>
+                        {typeof loc === 'object' && loc.address && (
+                          <p className="text-gray-500 text-xs sm:text-sm">{loc.address}</p>
+                        )}
+                      </div>
+                      {(product.pickupTime || (typeof loc === 'object' && loc.time)) && (
+                        <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
+                          <Clock className="w-4 h-4" />
+                          <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">{(typeof loc === 'object' && loc.time) || product.pickupTime}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
-                    <Clock className="w-4 h-4" />
-                    <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">8:00 AM</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[#0E1DC4] mt-1" />
-                  <div className="flex-1">
-                    <h3 className="font-bold text-black text-sm sm:text-base">Central Station</h3>
-                    <p className="text-gray-500 text-xs sm:text-sm">456 Station Plaza Tokyo, Japan</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
-                    <Clock className="w-4 h-4" />
-                    <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">8:00 AM</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[#284078] mt-1" />
-                  <div className="flex-1">
-                    <h3 className="font-bold text-black text-sm sm:text-base">City Hall Square</h3>
-                    <p className="text-gray-500 text-xs sm:text-sm">789 Square Ave Tokyo, Japan</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
-                    <Clock className="w-4 h-4" />
-                    <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">8:00 AM</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[#284078] mt-1" />
-                  <div className="flex-1">
-                    <h3 className="font-bold text-black text-sm sm:text-base">Tokyo Skytree</h3>
-                    <p className="text-gray-500 text-xs sm:text-sm">Sumida City, Tokyo, Japan</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
-                    <Clock className="w-4 h-4" />
-                    <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">8:00 AM</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           </div>
+        )}
 
-          {/* Hotel Pickup Banner */}
-          <div className="bg-[#E5EDFF75] rounded-lg p-4 sm:p-6 mt-4 sm:mt-6">
-            <h3 className="font-bold text-black text-sm sm:text-base mb-2">Hotel Pickup Available:</h3>
-            <p className="text-black text-sm sm:text-base">
-              We offer complimentary pickup from most hotels in Fira, Oia, and Kamari areas. 
-              Please confirm your location when booking.
-            </p>
-          </div>
+        {/* Hotel Pickup Banner */}
+        <div className="bg-[#E5EDFF75] rounded-lg p-4 sm:p-6 mt-4 sm:mt-6">
+          <h3 className="font-bold text-black text-sm sm:text-base mb-2">Hotel Pickup Available:</h3>
+          <p className="text-black text-sm sm:text-base">
+            We offer complimentary pickup from most hotels in Fira, Oia, and Kamari areas. 
+            Please confirm your location when booking.
+          </p>
         </div>
 
-        <Itinerary />
+        <Itinerary items={Array.isArray(product.itineraries) ? product.itineraries.map(it => ({
+          title: it.title || it.name,
+          time: it.time,
+          description: it.description,
+          ticket: it.ticket,
+          activities: it.activities || []
+        })) : []} />
 
         {/* Customer Reviews */}
         <div className="max-w-6xl mx-auto mt-12">
@@ -618,34 +631,7 @@ const ProductDetails = () => {
 
             {/* Reviews Section */}
             <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">438 Reviews</h3>
-
-              {/* Add Review Input */}
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-white border-[3px] border-[#284078] flex items-center justify-center flex-shrink-0">
-                  <span className="text-base font-bold text-[#284078]">U</span>
-                </div>
-
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-lg"> 🙂</span>
-                    <input
-                      type="text"
-                      placeholder="Add your review"
-                      className="flex-1 text-sm text-gray-500 outline-none border-b border-gray-300 pb-1 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <button className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800">
-                      Cancel
-                    </button>
-                    <button className="px-4 py-1.5 text-sm bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
-                      Submit
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Reviews</h3>
             </div>
 
             {/* Individual Reviews */}
@@ -681,65 +667,13 @@ const ProductDetails = () => {
 
         {/* Recommended Tours */}
         <div className="mt-16">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="flex-1 h-px bg-gray-300"></div>
-            <Link to="/search" className="text-[#284078] font-bold text-sm hover:text-[#284078]">
-              See more
-            </Link>
-            <div className="flex-1 h-px bg-gray-300"></div>
-          </div>
           <div className="text-center mb-8">
             <h2 className="text-xl sm:text-2xl font-bold text-black">Recommended Tours</h2>
             <p className="text-gray-500 text-sm mt-1">Discover more amazing experiences around the world</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {[
-              {img:mountfuj, title:'Mount Fuji Highlights & Hidden Gems Tour'},
-              {img:sunshine, title:'Hakoney Highlights & Hidden Gems Tour'},
-              {img:house, title:'Tokyo Highlights & Hidden Gems Tour'},
-              {img: helicopter, title:'Burj Khalifa Highlights & Hidden Gems Tour'}
-            ].map((t,idx)=> (
-              <Link key={idx} to={`/tour/${idx + 1}`}>
-                <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow h-full flex flex-col">
-                  <div className="relative">
-                    <img src={t.img} alt={t.title} className="w-full h-52 object-cover" />
-                    <button className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow">
-                      <Heart className="w-4 h-4 text-gray-700" />
-                    </button>
-                  </div>
-                  <div className="p-3 flex-1 flex flex-col">
-                    <div className="text-[11px] text-gray-500 mb-1 flex">
-                      <MapPin className="w-4 h-4 text-gray-700" />
-                      Tokyo, Japan
-                    </div>
-                    <h3 className="text-sm font-semibold text-black leading-snug line-clamp-2 mb-2">{t.title}</h3>
-                    <div className="flex items-center text-[11px] text-gray-600 mb-2">
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                        <span className='font-semibold'>(4.8)</span>
-                      </div>
-                      <span className="mx-2">•</span>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>8h</span>
-                      </div>
-                      <span className="mx-2">•</span>
-                      <div className="flex items-center gap-1">
-                        <UsersRound className="w-3 h-3" />
-                        <span>Up to 12</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-auto pt-2">
-                      <div className="text-sm">
-                        <span className="text-[#808080] line-through mr-1">$829</span>
-                        <span className="font-bold text-[#808080]">$719</span>
-                        <span className="text-[11px] text-gray-500 ml-1">/person</span>
-                      </div>
-                      <div className="px-4 py-1.5 rounded-full bg-[#3B69E2] text-white text-sm">Book Now</div>
-                    </div>
-                  </div>
-                </div>
-              </Link>
+            {recommended.map((t) => (
+              <TourCard key={t.id} tour={t} onClick={() => { recordProductClick(t.id); navigate(`/tours/${encodeURIComponent(t.name?.toLowerCase().replace(/\s+/g,'-'))}`) }} />
             ))}
           </div>
         </div>

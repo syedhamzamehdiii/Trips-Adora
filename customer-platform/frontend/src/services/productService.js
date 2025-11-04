@@ -63,7 +63,6 @@ const getSupplierLocalStorageProducts = async () => {
           extractedCoverImage: (typeof coverImage === 'string') ? (coverImage.substring(0, 50) + '...') : (coverImage ? 'object' : 'null'),
           uploadedPhotosCount: uploadedPhotos.length
         });
-
         
         const allImages = coverImage ? [coverImage, ...uploadedPhotos] : uploadedPhotos;
         
@@ -85,7 +84,14 @@ const getSupplierLocalStorageProducts = async () => {
           itineraries: fullData.itineraries || [],
           sellingPoints: fullData.sellingPoints || [],
           includedItems: fullData.includedItems || '',
-          excludedItems: fullData.excludedItems || ''
+          excludedItems: fullData.excludedItems || '',
+          vehicles: Array.isArray(fullData.vehicles) ? fullData.vehicles : (Array.isArray(fullData.selectedVehicleForTour) ? fullData.selectedVehicleForTour : []),
+          // meeting points / pickup info
+          pickupLocations: Array.isArray(fullData.selectedPickupLocations) ? fullData.selectedPickupLocations : [],
+          dropoffLocations: Array.isArray(fullData.selectedDropoffLocations) ? fullData.selectedDropoffLocations : [],
+          pickupTime: fullData.pickupTime || '',
+          availableDays: fullData.selectedWeekDay ? [fullData.selectedWeekDay] : [],
+          availableTimeSlots: fullData.timeSlots ? Object.keys(fullData.timeSlots) : []
         };
       });
       
@@ -128,6 +134,7 @@ export const getPublishedProducts = async (params = {}, retries = 3) => {
         // Only use API data if it has products, otherwise fallback to localStorage
         if (data.products && Array.isArray(data.products) && data.products.length > 0) {
           console.log('✅ Using API data:', data.products.length, 'products');
+          try { localStorage.setItem('published_products_cache', JSON.stringify(data.products)); } catch {}
           return data;
         } else {
           console.log('⚠️ API returned empty products, using localStorage fallback...');
@@ -176,6 +183,7 @@ export const getPublishedProducts = async (params = {}, retries = 3) => {
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
   const paginated = filtered.slice(start, end);
+  try { localStorage.setItem('published_products_cache', JSON.stringify(filtered)); } catch {}
   
   return {
     products: paginated,
@@ -184,6 +192,17 @@ export const getPublishedProducts = async (params = {}, retries = 3) => {
     page_size: pageSize,
     total_pages: Math.ceil(filtered.length / pageSize)
   };
+};
+
+// Return last seen published products synchronously from localStorage (for instant rendering)
+export const getCachedPublishedProductsSync = () => {
+  try {
+    const raw = localStorage.getItem('published_products_cache');
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
 };
 
 /**
@@ -396,6 +415,12 @@ export const transformProductForFrontend = (product) => {
     description: product.description,
     tagline: product.tagline,
     highlights: product.highlights || [],
-    itineraries: product.itineraries || []
+    itineraries: product.itineraries || [],
+    vehicles: product.vehicles || [],
+    // meeting points
+    meetingPoints: Array.isArray(product.pickupLocations) ? product.pickupLocations : [],
+    pickupTime: product.pickupTime || '',
+    availableDays: product.availableDays || [],
+    availableTimeSlots: product.availableTimeSlots || []
   };
 };
