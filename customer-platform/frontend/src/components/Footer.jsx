@@ -19,9 +19,9 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-3">Support</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
-              <li><a href="#">Help Center</a></li>
-              <li><a href="#">FAQs</a></li>
-              <li><a href="#">Privacy Policy</a></li>
+              <li><Link to="/support">Help Center</Link></li>
+              <li><Link to="/faq">FAQs</Link></li>
+              <li><Link to="/privacy">Privacy Policy</Link></li>
             </ul>
           </div>
           <div>

@@ -29,6 +29,9 @@ import ShareReviewPage from './pages/ShareReviewPage'
 import CustomerReviews from './components/CustomerReviews'
 import BlogsPage from './pages/BlogsPage'
 import BlogDetailPage from './pages/BlogDetailPage'
+import CustomerFAQPage from './pages/CustomerFAQPage'
+import CustomerSupportPage from './pages/CustomerSupportPage'
+import CustomerPrivacyPolicy from './pages/CustomerPrivacyPolicy'
 import ContactUsPage from './pages/ContactUsPage'
 
 function App() {
@@ -72,6 +75,9 @@ function App() {
         <Route path="/blogs" element={<BlogsPage />} />
         <Route path="/blogs/:id" element={<BlogDetailPage />} />
         <Route path="/contact" element={<ContactUsPage />} />
+        <Route path="/faq" element={<CustomerFAQPage />} />
+        <Route path="/support" element={<CustomerSupportPage />} />
+        <Route path="/privacy" element={<CustomerPrivacyPolicy />} />
       </Routes>
     </div>
   )
