@@ -27,6 +27,9 @@ import PaymentSuccessPage from './pages/PaymentSuccessPage'
 import BookingDetailsPage from './pages/BookingDetailsPage'
 import ShareReviewPage from './pages/ShareReviewPage'
 import CustomerReviews from './components/CustomerReviews'
+import BlogsPage from './pages/BlogsPage'
+import BlogDetailPage from './pages/BlogDetailPage'
+import ContactUsPage from './pages/ContactUsPage'
 
 function App() {
   return (
@@ -66,6 +69,9 @@ function App() {
         <Route path="/attractions/tokyo-skytree" element={<TokyoSkytreePage />} />
         <Route path="/attractions/tokyo-tower" element={<TokyoTowerPage />} />
         <Route path="/attractions/arashiyama-bamboo-grove" element={<ArashiyamaBambooGrovePage />} />
+        <Route path="/blogs" element={<BlogsPage />} />
+        <Route path="/blogs/:id" element={<BlogDetailPage />} />
+        <Route path="/contact" element={<ContactUsPage />} />
       </Routes>
     </div>
   )

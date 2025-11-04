@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FiUser, FiChevronDown, FiSearch, FiShoppingCart } from 'react-icons/fi'
+import { FiUser, FiChevronDown, FiShoppingCart } from 'react-icons/fi'
 import SettingsModal from './SettingsModal'
 import AttractionsDropdown from './AttractionsDropdown'
 import DestinationsDropdown from './DestinationsDropdown'
@@ -33,27 +33,12 @@ const MainHeader = () => {
                 />
               </Link>
 
-              {/* Search Bar */}
-              <div className="flex-1 max-w-md hidden md:flex items-center mx-4">
-                <div className="relative w-full">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiSearch className="h-5 w-5 text-gray-500" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search Destinations"
-                    className="block w-full pl-10 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
               {/* Navigation Links */}
               <nav className="hidden lg:flex items-center space-x-6 flex-shrink-0">
                 <Link to="/dashboard" className="text-gray-900 font-medium text-sm hover:opacity-80 transition">Home</Link>
-                <Link to="/search" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Explore</Link>
-                <a href="#" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Blogs</a>
+                <Link to="/blogs" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Blogs</Link>
                 <Link to="/about-us" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">About</Link>
-                <a href="#" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Contact</a>
+                <Link to="/contact" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Contact</Link>
               </nav>
 
               {/* Language Selector and Profile */}

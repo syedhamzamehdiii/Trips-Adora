@@ -10,10 +10,10 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-3">Company</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
-              <li><Link to="/dashboard#about-us">About us</Link></li>
-              <li><Link to="/dashboard#careers">Careers</Link></li>
-              <li><a href="#">Blogs</a></li>
-              <li><Link to="/dashboard#contact-us">Contact Us</Link></li>
+              <li><Link to="/about-us">About us</Link></li>
+              <li><Link to="/about-us#careers">Careers</Link></li>
+              <li><Link to="/blogs">Blogs</Link></li>
+              <li><Link to="/contact">Contact Us</Link></li>
             </ul>
           </div>
           <div>

@@ -23,9 +23,9 @@ const HeaderLandingPage = () => {
 
               <nav className="hidden md:flex items-center space-x-8">
                 <Link to="/dashboard" className="text-white font-semibold text-base hover:text-gray-200 transition">Home</Link>
-                <a href="#" className="text-white font-normal text-base hover:text-gray-200 transition">Blogs</a>
-                <Link to="/dashboard#about-us" className="text-white font-normal text-base hover:text-gray-200 transition">About</Link>
-                <Link to="/dashboard#contact-us" className="text-white font-normal text-base hover:text-gray-200 transition">Contact</Link>
+                <Link to="/blogs" className="text-white font-normal text-base hover:text-gray-200 transition">Blogs</Link>
+                <Link to="/about-us" className="text-white font-normal text-base hover:text-gray-200 transition">About</Link>
+                <Link to="/contact" className="text-white font-normal text-base hover:text-gray-200 transition">Contact</Link>
               </nav>
 
               <div className="flex items-center space-x-6 relative">
