@@ -35,6 +35,7 @@ import {
 import PublishProductModal from './PublishProductModal';
 import ApplicationSubmittedPage from './ApplicationSubmittedPage';
 import Footer from '@/components/common/Footer';
+import productService from '@/services/productService';
 
 const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) => {
   const [selectedDay, setSelectedDay] = useState('Tuesday');
@@ -139,7 +140,19 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     }
   };
 
-  const handlePublishProduct = () => {
+  const handlePublishProduct = async () => {
+    // Debug: Log what we have at the start
+    console.log('🚀 Publishing product - Initial state:', {
+      hasCoverImageProp: !!coverImage,
+      coverImageType: coverImage ? typeof coverImage : 'null',
+      coverImageUrl: coverImage?.url ? 'exists' : 'none',
+      hasUploadedPhotosProp: !!uploadedPhotos,
+      uploadedPhotosCount: uploadedPhotos?.length || 0,
+      hasProductDataCoverImage: !!productData?.coverImage,
+      hasProductDataUploadedPhotos: !!productData?.uploadedPhotos,
+      productDataUploadedPhotosCount: productData?.uploadedPhotos?.length || 0
+    });
+    
     try {
       // Get current products from localStorage
       const allProductsData = localStorage.getItem('all_products');
@@ -159,9 +172,85 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       });
       console.log('🗑️ Removed drafts:', beforeFilter - allProducts.length);
       
-      // Create new product entry
+      // Prepare product data for API (matching ProductCreate schema)
+      const apiProductData = {
+        title: productData?.title || 'Untitled Product',
+        category: productData?.category || 'tour',
+        tagline: productData?.tagline || '',
+        description: productData?.description || 'No description provided',
+        highlights: Array.isArray(productData?.highlights) ? productData.highlights.map(h => ({
+          icon: h.icon || 'mountain',
+          text: h.text || ''
+        })) : [],
+        images: Array.isArray(productData?.uploadedPhotos) ? productData.uploadedPhotos : [],
+        hero_image: productData?.coverImage || (productData?.uploadedPhotos?.[0] || null),
+        gallery_images: Array.isArray(productData?.uploadedPhotos) && productData.uploadedPhotos.length > 1 
+          ? productData.uploadedPhotos.slice(1) : [],
+        itinerary: Array.isArray(productData?.itineraries) ? productData.itineraries.map(item => ({
+          time: item.time || '',
+          title: item.title || '',
+          description: item.description || '',
+          icon: item.icon || 'sightseeing'
+        })) : [],
+        duration: productData?.duration || '',
+        guide_type: productData?.guideType || '',
+        activity_type: productData?.activityType || '',
+        languages: Array.isArray(productData?.languages) ? productData.languages : [],
+        things_to_carry: Array.isArray(productData?.thingsToCarry) ? productData.thingsToCarry : [],
+        included_excluded: {
+          included: Array.isArray(productData?.includedItems) ? productData.includedItems : 
+                   (productData?.includedItems ? [productData.includedItems] : []),
+          excluded: Array.isArray(productData?.excludedItems) ? productData.excludedItems : 
+                   (productData?.excludedItems ? [productData.excludedItems] : [])
+        },
+        accessibility: productData?.accessibility || {},
+        vehicle_details: productData?.vehicles?.[0] ? {
+          vehicle_type: productData.vehicles[0].type || 'car',
+          vehicle_model: productData.vehicles[0].model || '',
+          capacity: productData.vehicles[0].capacity || null
+        } : null,
+        pickup_dropoff: {
+          pickup_location: productData?.pickupLocations?.[0] || '',
+          dropoff_location: productData?.dropoffLocations?.[0] || '',
+          pickup_time: productData?.pickupTime || '',
+          available_days: productData?.weekDay ? [productData.weekDay] : [],
+          available_time_slots: productData?.timeSlots ? Object.keys(productData.timeSlots) : []
+        },
+        price: parseFloat(productData?.vehicles?.[0]?.amount || 0),
+        currency: 'USD',
+        price_unit: 'Per Group',
+        destination: productData?.destination || '',
+        breadcrumb: productData?.breadcrumb || [],
+        selling_points: Array.isArray(productData?.sellingPoints) ? productData.sellingPoints : 
+                       (productData?.sellingPoints ? [productData.sellingPoints] : []),
+        style_theme: productData?.styleTheme || '',
+        faqs: []
+      };
+
+      // Try to save to database via API (optional - if fails, just use localStorage)
+      let dbProductId = null;
+      try {
+        // Validate title length before sending (backend requires min 30 chars)
+        if (!apiProductData.title || apiProductData.title.length < 30) {
+          throw new Error('Title must be at least 30 characters for database save');
+        }
+        
+        const createdProduct = await productService.createProduct(apiProductData);
+        dbProductId = createdProduct.id;
+        console.log('✅ Product saved to database with ID:', dbProductId);
+        
+        // Publish the product (set status to published)
+        await productService.publishProduct(dbProductId);
+        console.log('✅ Product published in database');
+      } catch (apiError) {
+        // Silently continue with localStorage save - this is fine
+        // Common reasons: title too short, not authenticated, validation errors
+        console.log('ℹ️ Database save skipped (using localStorage only):', apiError.message);
+      }
+      
+      // Create new product entry for localStorage
       const newProduct = {
-        id: Date.now(), // Use timestamp as unique ID
+        id: dbProductId || Date.now(), // Use database ID if available
         name: productData?.title || 'Untitled Product',
         referenceCode: `T-${Math.floor(1000 + Math.random() * 9000)}`,
         status: 'Published',
@@ -170,9 +259,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         creationDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
         ratings: "0/5",
         vehicles: Array.isArray(productData?.vehicles) ? productData.vehicles : [],
-        // Persist vehicle-time allocations for availability filters
         vehicleTimeAllocations: Array.isArray(productData?.vehicleTimeAllocations) ? productData.vehicleTimeAllocations : [],
-        // Persist generated time slots for availability filters
         timeSlots: productData?.timeSlots || {}
       };
       
@@ -184,16 +271,76 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       console.log('✅ Product published successfully!', newProduct);
       console.log('📦 Total products after publish:', allProducts.length);
 
-      // Also persist full published data for cloning later (same shape as drafts)
+      // Also persist full published data for cloning later - INCLUDING IMAGES
+      // Save images to localStorage (will sync to backend cache which can handle large data)
+      // For localStorage, save image references to avoid quota issues
+      let savedCoverImage = null;
+      
+      // PRIORITY 1: Use coverImage prop (from component state)
+      if (coverImage) {
+        // coverImage is an object with {id, url, file, name} structure
+        // Save only the URL (base64 string) to avoid localStorage quota issues
+        if (typeof coverImage === 'object' && coverImage.url) {
+          savedCoverImage = coverImage.url; // Save only the URL string (base64)
+          console.log('📸 Using coverImage prop (object with url)');
+        } else if (typeof coverImage === 'string') {
+          savedCoverImage = coverImage; // Already a string (base64)
+          console.log('📸 Using coverImage prop (string)');
+        }
+      } 
+      // PRIORITY 2: Use productData.coverImage (from draft data)
+      else if (productData?.coverImage) {
+        if (typeof productData.coverImage === 'object' && productData.coverImage.url) {
+          savedCoverImage = productData.coverImage.url;
+          console.log('📸 Using productData.coverImage (object with url)');
+        } else if (typeof productData.coverImage === 'string') {
+          savedCoverImage = productData.coverImage;
+          console.log('📸 Using productData.coverImage (string)');
+        }
+      }
+      
+      // Save uploadedPhotos URLs only (extract base64 strings)
+      let savedUploadedPhotos = [];
+      const photosToProcess = uploadedPhotos || productData?.uploadedPhotos || [];
+      if (photosToProcess.length > 0) {
+        savedUploadedPhotos = photosToProcess.map(photo => {
+          if (typeof photo === 'string') {
+            return photo; // Already a string
+          } else if (photo && typeof photo === 'object' && photo.url) {
+            return photo.url; // Extract URL from object
+          }
+          return photo;
+        }).filter(Boolean); // Remove any null/undefined values
+      }
+
+      // Fallback: if no explicit cover set, use first uploaded photo as cover
+      if (!savedCoverImage && savedUploadedPhotos.length > 0) {
+        savedCoverImage = savedUploadedPhotos[0];
+        console.log('📸 Fallback coverImage from first uploaded photo');
+      }
+      
+      console.log('📸 Saving coverImage:', {
+        hasCoverImageProp: !!coverImage,
+        hasProductDataCoverImage: !!productData?.coverImage,
+        savedCoverImage: !!savedCoverImage,
+        savedCoverImageType: savedCoverImage ? typeof savedCoverImage : 'null',
+        savedCoverImagePreview: savedCoverImage ? savedCoverImage.substring(0, 50) + '...' : 'none',
+        photosCount: savedUploadedPhotos.length,
+        photosSource: uploadedPhotos ? 'uploadedPhotos prop' : (productData?.uploadedPhotos ? 'productData' : 'none')
+      });
+      
       const fullPublishedData = {
         draftId: newProduct.id,
+        dbProductId: dbProductId, // Store database ID
         productTitle: productData?.title || 'Untitled Product',
         productCategory: productData?.category || '',
         sellingPoints: productData?.sellingPoints || '',
         tagline: productData?.tagline || '',
         description: productData?.description || '',
         highlights: productData?.highlights || [],
-        // images excluded due to quota limits
+        // INCLUDE IMAGES - Save as strings (base64 URLs) to reduce localStorage size
+        coverImage: savedCoverImage, // String (base64 URL)
+        uploadedPhotos: savedUploadedPhotos, // Array of strings (base64 URLs)
         selectedGuideType: productData?.guideType || '',
         selectedActivityType: productData?.activityType || '',
         selectedLanguages: productData?.languages || [],
@@ -211,10 +358,62 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         selectedWeekDay: productData?.weekDay || '',
         selectedDate: productData?.selectedDate || '',
         itineraries: productData?.itineraries || [],
+        destination: productData?.destination || '',
+        duration: productData?.duration || '',
         lastModified: new Date().toISOString()
       };
+      // Try to save to localStorage, but if it fails due to quota, save to backend cache only
+      try {
       localStorage.setItem(`product_full_${newProduct.id}`, JSON.stringify(fullPublishedData));
-      console.log('💾 Full published data saved to', `product_full_${newProduct.id}`);
+        console.log('💾 Full published data saved to localStorage:', `product_full_${newProduct.id}`);
+        console.log('📸 CoverImage in localStorage:', {
+          hasCoverImage: !!fullPublishedData.coverImage,
+          coverImageType: fullPublishedData.coverImage ? typeof fullPublishedData.coverImage : 'null',
+          coverImagePreview: fullPublishedData.coverImage ? fullPublishedData.coverImage.substring(0, 50) + '...' : 'none'
+        });
+      } catch (storageError) {
+        if (storageError.name === 'QuotaExceededError') {
+          console.warn('⚠️ localStorage quota exceeded, saving to backend cache only');
+          // Don't throw - we'll sync to backend cache which can handle large data
+          // But make sure we still have the data for backend sync
+          fullPublishedData.coverImage = savedCoverImage; // Ensure coverImage is in the data
+          fullPublishedData.uploadedPhotos = savedUploadedPhotos; // Ensure uploadedPhotos are in the data
+        } else {
+          throw storageError; // Re-throw other errors
+        }
+      }
+      
+      // Sync to backend cache for customer platform access (this is the primary storage for images)
+      try {
+        // Sync product list
+        const publishedProducts = allProducts.filter(p => p.status === 'Published');
+        await productService.syncToBackendCache(publishedProducts);
+        
+        // Sync full product data WITH IMAGE URLS to backend cache
+        // Use the same savedCoverImage and savedUploadedPhotos that we saved to localStorage
+        // This ensures consistency and that we're using the actual images that were available
+        const fullDataForBackend = {
+          ...fullPublishedData,
+          // Use the saved images (already extracted as strings/base64 URLs)
+          coverImage: savedCoverImage, // String (base64 URL) - already extracted above
+          uploadedPhotos: savedUploadedPhotos // Array of strings (base64 URLs) - already extracted above
+        };
+        
+        console.log('📸 Backend cache sync - coverImage:', {
+          hasSavedCoverImage: !!savedCoverImage,
+          savedCoverImageType: savedCoverImage ? typeof savedCoverImage : 'null',
+          savedCoverImagePreview: savedCoverImage ? (savedCoverImage.substring(0, 50) + '...') : 'no url',
+          savedPhotosCount: savedUploadedPhotos.length,
+          finalCoverImageInData: !!fullDataForBackend.coverImage,
+          finalPhotosInData: fullDataForBackend.uploadedPhotos.length
+        });
+        
+        await productService.syncFullProductData(newProduct.id, fullDataForBackend);
+        console.log('✅ Product synced to backend cache with full image data');
+      } catch (cacheError) {
+        console.log('ℹ️ Backend cache sync skipped:', cacheError.message);
+        // Continue - at least localStorage (if saved) has basic data
+      }
       
       // Verify save
       const verifyData = localStorage.getItem('all_products');

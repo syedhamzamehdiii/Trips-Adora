@@ -139,6 +139,32 @@ const productService = {
       console.error('Error searching products:', error);
       throw error;
     }
+  },
+
+  /**
+   * Sync products to backend cache for customer platform access
+   */
+  syncToBackendCache: async (products) => {
+    try {
+      const response = await api.post('/products/localstorage/sync', products);
+      return response.data;
+    } catch (error) {
+      console.error('Error syncing to backend cache:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Sync full product data (including images) to backend cache
+   */
+  syncFullProductData: async (productId, fullData) => {
+    try {
+      const response = await api.post(`/products/localstorage/sync-full/${productId}`, fullData);
+      return response.data;
+    } catch (error) {
+      console.error('Error syncing full product data:', error);
+      throw error;
+    }
   }
 };
 

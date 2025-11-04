@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, FiMoreVertical, FiChevronDown, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
+import productService from '@/services/productService';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -140,8 +141,84 @@ const Products = () => {
           draft: draft,
           revenue: totalRevenue
         });
+        
+        // Sync published products to backend cache for customer platform
+        // This will also automatically remove unpublished products (deleted, moved to draft, etc.)
+        const publishedProducts = deduped.filter(p => p.status === 'Published');
+        syncProductsToBackendCache(publishedProducts).catch(err => {
+          console.log('Cache sync skipped:', err.message);
+        });
       } catch (error) {
         console.error('Error loading products:', error);
+      }
+    };
+    
+    // Sync products to backend cache
+    const syncProductsToBackendCache = async (publishedProducts) => {
+      try {
+        // Get full data for each published product
+        const productsWithFullData = publishedProducts.map(p => {
+          const fullDataKey = `product_full_${p.id}`;
+          const fullData = localStorage.getItem(fullDataKey);
+          let parsedFullData = null;
+          
+          if (fullData) {
+            try {
+              parsedFullData = JSON.parse(fullData);
+            } catch (e) {
+              console.warn('Failed to parse full data for product', p.id, e);
+            }
+          }
+          
+          // Debug: Check if coverImage exists in parsed data
+          if (parsedFullData) {
+            const hasCoverImage = !!parsedFullData.coverImage;
+            const coverImageType = parsedFullData.coverImage ? typeof parsedFullData.coverImage : 'null';
+            console.log(`📸 Product ${p.name}: coverImage=${hasCoverImage}, type=${coverImageType}`);
+          }
+          
+          return {
+            ...p,
+            _full_data: parsedFullData
+          };
+        });
+        
+        // Sync to backend cache
+        await productService.syncToBackendCache(productsWithFullData);
+        
+        // Sync full data for each product (including cover images)
+        let syncedCount = 0;
+        let imagesSynced = 0;
+        for (const product of productsWithFullData) {
+          if (product._full_data) {
+            try {
+              // Check if coverImage exists before syncing
+              const hasCoverImage = !!product._full_data.coverImage;
+              const coverImageType = product._full_data.coverImage ? typeof product._full_data.coverImage : 'null';
+              const coverImageValue = product._full_data.coverImage ? (typeof product._full_data.coverImage === 'string' ? product._full_data.coverImage.substring(0, 50) + '...' : 'object') : 'none';
+              
+              console.log(`📸 Syncing product ${product.name}:`, {
+                hasCoverImage,
+                coverImageType,
+                coverImagePreview: coverImageValue,
+                uploadedPhotosCount: product._full_data.uploadedPhotos?.length || 0
+              });
+              
+              await productService.syncFullProductData(product.id, product._full_data);
+              syncedCount++;
+              if (hasCoverImage) imagesSynced++;
+            } catch (err) {
+              console.warn('Failed to sync full data for product', product.id, err.message);
+            }
+          } else {
+            console.warn(`⚠️ Product ${product.name} has no _full_data to sync`);
+          }
+        }
+        
+        console.log('✅ Synced', syncedCount, 'of', publishedProducts.length, 'products with full data to backend cache');
+        console.log('📸 Products with cover images:', imagesSynced);
+      } catch (error) {
+        console.warn('Backend cache sync error:', error.message);
       }
     };
     
@@ -365,6 +442,18 @@ const Products = () => {
           }
         }
         
+        // Remove full published data if it was published
+        if (product && product.status === 'Published') {
+          localStorage.removeItem(`product_full_${product.id}`);
+          console.log(`🗑️ Deleted full published data: product_full_${product.id}`);
+          
+          // Also remove from backend cache by syncing updated list
+          const publishedProducts = updatedProducts.filter(p => p.status === 'Published');
+          syncProductsToBackendCache(publishedProducts).catch(err => {
+            console.log('Cache cleanup skipped:', err.message);
+          });
+        }
+        
         console.log('✅ Product deleted successfully');
         alert('✅ Product deleted successfully!');
       }
@@ -477,6 +566,7 @@ const Products = () => {
     setProducts(updatedProducts);
     setSelectedProducts([]);
   };
+
 
   return (
     <div className="min-h-screen bg-gray-50">

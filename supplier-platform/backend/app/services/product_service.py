@@ -97,13 +97,14 @@ class ProductService:
     
     @staticmethod
     async def publish_product(product_id: str, supplier_id: str) -> Optional[Product]:
-        """Publish a product (change status to pending_review)"""
+        """Publish a product (change status to published - directly visible to customers)"""
         product = await ProductService.get_product_by_id(product_id)
         
         if not product or product.supplier_id != supplier_id:
             return None
         
-        product.status = ProductStatus.PENDING_REVIEW
+        product.status = ProductStatus.PUBLISHED
+        product.published_at = datetime.utcnow()
         product.updated_at = datetime.utcnow()
         await product.save()
         

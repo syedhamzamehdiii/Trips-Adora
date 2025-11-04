@@ -99,6 +99,66 @@ async def get_published_products(
     )
 
 
+# IMPORTANT: LocalStorage routes must come BEFORE /{product_id} route to avoid route conflicts
+@router.post("/localstorage/sync")
+async def sync_localstorage_products(products: List[dict]):
+    """
+    Sync products from supplier platform localStorage to backend cache.
+    Called by supplier platform frontend when products are published.
+    """
+    from app.services.localstorage_cache import LocalStorageCache
+    
+    count = LocalStorageCache.sync_products(products)
+    return {"synced": count, "message": f"Synced {count} products to cache"}
+
+
+@router.post("/localstorage/sync-full/{product_id}")
+async def sync_full_product_data(product_id: str, full_data: dict):
+    """
+    Sync full product data (including images) for a specific product.
+    """
+    from app.services.localstorage_cache import LocalStorageCache
+    
+    success = LocalStorageCache.sync_full_product_data(product_id, full_data)
+    return {"success": success, "message": "Full data synced" if success else "Product not found"}
+
+
+@router.get("/localstorage")
+async def get_localstorage_products():
+    """
+    Get published products from localStorage cache (PUBLIC endpoint for customer platform).
+    This endpoint serves products stored in cache when database is not available.
+    """
+    try:
+        from app.services.localstorage_cache import LocalStorageCache
+        
+        products = LocalStorageCache.get_published_products()
+        return {"products": products, "total": len(products)}
+    except Exception as e:
+        # Log error but return empty list instead of crashing
+        print(f"Error in get_localstorage_products: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"products": [], "total": 0}
+
+
+@router.get("/localstorage/stats")
+async def get_cache_stats():
+    """
+    Get cache statistics.
+    """
+    try:
+        from app.services.localstorage_cache import LocalStorageCache
+        
+        return LocalStorageCache.get_cache_stats()
+    except Exception as e:
+        # Log error but return empty stats instead of crashing
+        print(f"Error in get_cache_stats: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"total_products": 0, "published_count": 0, "last_sync": None}
+
+
 @router.get("/{product_id}", response_model=ProductResponse)
 async def get_product(product_id: str):
     """
@@ -170,8 +230,8 @@ async def publish_product(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Publish a product (submit for review).
-    Changes status to PENDING_REVIEW.
+    Publish a product (directly visible to customers).
+    Changes status to PUBLISHED.
     """
     product = await ProductService.publish_product(
         product_id=product_id,

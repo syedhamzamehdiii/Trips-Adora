@@ -1,15 +1,14 @@
-import React, { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useMemo, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import TourCard from '../components/TourCard'
 import { FiFilter } from 'react-icons/fi'
-import tc2 from '../../assests/tc2.jpg'
-import tc4 from '../../assests/tc4.jpg'
-import place1 from '../../assests/place 1.jpg'
+import { getPublishedProducts, transformProductForFrontend } from '../services/productService'
 
 const SearchResultsPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   
   // Filter states
   const [tourTypes, setTourTypes] = useState([])
@@ -19,110 +18,46 @@ const SearchResultsPage = () => {
   const [minimumRating, setMinimumRating] = useState('Any Rating')
   const [itemsPerPage, setItemsPerPage] = useState('9')
   const [sortBy, setSortBy] = useState('Recommended')
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [totalProducts, setTotalProducts] = useState(0)
 
-  // All products data
-  const allProducts = useMemo(() => [
-    {
-      id: 1,
-      name: 'Hokonos Highlights & Hidden Gems Tour',
-      image: tc2,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$245/person',
-      location: 'Tokyo, Japan'
-    },
-    {
-      id: 2,
-      name: 'Burj Khalifa Highlights & Hidden Gems Tour',
-      image: tc4,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$167/person',
-      location: 'Dubai, UAE'
-    },
-    {
-      id: 3,
-      name: 'Tokyo Highlights & Hidden Gems Tour',
-      image: place1,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$345/person',
-      location: 'Tokyo, Japan'
-    },
-    // Repeat the pattern to create 9 products
-    {
-      id: 4,
-      name: 'Hokonos Highlights & Hidden Gems Tour',
-      image: tc2,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$245/person',
-      location: 'Tokyo, Japan'
-    },
-    {
-      id: 5,
-      name: 'Burj Khalifa Highlights & Hidden Gems Tour',
-      image: tc4,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$167/person',
-      location: 'Dubai, UAE'
-    },
-    {
-      id: 6,
-      name: 'Tokyo Highlights & Hidden Gems Tour',
-      image: place1,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$345/person',
-      location: 'Tokyo, Japan'
-    },
-    {
-      id: 7,
-      name: 'Hokonos Highlights & Hidden Gems Tour',
-      image: tc2,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$245/person',
-      location: 'Tokyo, Japan'
-    },
-    {
-      id: 8,
-      name: 'Burj Khalifa Highlights & Hidden Gems Tour',
-      image: tc4,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$167/person',
-      location: 'Dubai, UAE'
-    },
-    {
-      id: 9,
-      name: 'Tokyo Highlights & Hidden Gems Tour',
-      image: place1,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$345/person',
-      location: 'Tokyo, Japan'
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true)
+        const searchParams = new URLSearchParams(location.search)
+        const searchTerm = searchParams.get('q') || ''
+        
+        const params = {
+          page: 1,
+          page_size: parseInt(itemsPerPage) || 9,
+          search: searchTerm
+        }
+        
+        const data = await getPublishedProducts(params)
+        if (data && data.products && Array.isArray(data.products)) {
+          const transformed = data.products.map(transformProductForFrontend)
+          setProducts(transformed)
+          setTotalProducts(data.total || 0)
+        } else {
+          setProducts([])
+          setTotalProducts(0)
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error)
+        setProducts([])
+      } finally {
+        setLoading(false)
+      }
     }
-  ], [])
+
+    fetchProducts()
+  }, [location.search, itemsPerPage])
+
+  // All products data - now from API
+  const allProducts = useMemo(() => products, [products])
 
   // Filter toggle functions
   const toggleFilter = (filterType, value) => {
@@ -339,15 +274,33 @@ const SearchResultsPage = () => {
             </div>
 
             {/* Products Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => (
-                <TourCard 
-                  key={product.id} 
-                  tour={product}
-                  onClick={() => navigate(`/product-details/${product.id}`)}
-                />
-              ))}
-            </div>
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="bg-white rounded-2xl overflow-hidden shadow animate-pulse">
+                    <div className="h-56 bg-gray-300"></div>
+                    <div className="p-4 space-y-2">
+                      <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                      <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredProducts.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredProducts.map((product) => (
+                  <TourCard 
+                    key={product.id} 
+                    tour={product}
+                    onClick={() => navigate(`/product-details/${product.id}`)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                No products found matching your filters
+              </div>
+            )}
           </div>
         </div>
       </div>

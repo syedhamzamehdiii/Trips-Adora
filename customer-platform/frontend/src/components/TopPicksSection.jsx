@@ -1,47 +1,35 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { FiStar } from 'react-icons/fi'
 import TourCard from './TourCard'
+import { getTopPicks, transformProductForFrontend, recordProductClick, addRecentlyViewed } from '../services/productService'
 
 const TopPicksSection = () => {
-  const destinations = [
-    {
-      id: 1,
-      name: "Mount Fuji, Japan",
-      image: "/assests/bg.jpg", // Using bg.jpg as placeholder
-      rating: 4.5,
-      reviews: "1.2k reviews",
-      price: "$120/person",
-      isNew: true
-    },
-    {
-      id: 2,
-      name: "Arashiyama Bamboo Forest, Japan",
-      image: "/assests/bg.jpg",
-      rating: 4.8,
-      reviews: "856 reviews",
-      price: "$95/person",
-      isNew: false
-    },
-    {
-      id: 3,
-      name: "Santorini, Greece",
-      image: "/assests/bg.jpg",
-      rating: 4.7,
-      reviews: "2.1k reviews",
-      price: "$180/person",
-      isNew: true
-    },
-    {
-      id: 4,
-      name: "Bali, Indonesia",
-      image: "/assests/bg.jpg",
-      rating: 4.6,
-      reviews: "1.8k reviews",
-      price: "$150/person",
-      isNew: false
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const fetchTopPicks = async () => {
+      try {
+        setLoading(true)
+        const data = await getTopPicks(4)
+        if (data && Array.isArray(data)) {
+          const transformed = data.map(transformProductForFrontend)
+          setProducts(transformed)
+        } else {
+          setProducts([])
+        }
+      } catch (error) {
+        console.error('Error fetching top picks:', error)
+        setProducts([])
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+
+    fetchTopPicks()
+  }, [])
 
   return (
     <section className="py-16 bg-gray-200">
@@ -55,16 +43,33 @@ const TopPicksSection = () => {
         </div>
         
         {/* Destinations Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {destinations.map((destination) => (
-            <TourCard key={destination.id} tour={{
-              name: destination.name,
-              image: destination.image,
-              duration: `${destination.reviews}`,
-              price: destination.price
-            }} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white rounded-2xl overflow-hidden shadow animate-pulse">
+                <div className="h-56 bg-gray-300"></div>
+                <div className="p-4 space-y-2">
+                  <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : products.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {products.map((product) => (
+              <TourCard key={product.id} tour={product} onClick={() => {
+                recordProductClick(product.id)
+                addRecentlyViewed(product)
+                navigate(`/tours/${encodeURIComponent(product.name?.toLowerCase().replace(/\s+/g,'-'))}`)
+              }} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            No products available at the moment
+          </div>
+        )}
       </div>
     </section>
   )
