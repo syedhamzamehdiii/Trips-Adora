@@ -28,6 +28,7 @@ import FAQPage from './pages/FAQPage'
 import TermsOfService from './pages/TermsOfService'
 import SafetyGuidelinesPage from './pages/SafetyGuidelinesPage'
 import DashboardLayout from './layouts/DashboardLayout'
+import GlobalCacheSync from './components/GlobalCacheSync'
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth()
@@ -191,6 +192,7 @@ function App() {
       loadingElement={<div>Loading Maps...</div>}
     >
       <AuthProvider>
+        <GlobalCacheSync />
         <AppRoutes />
       </AuthProvider>
     </LoadScript>

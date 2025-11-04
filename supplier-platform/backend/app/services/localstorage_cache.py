@@ -1,113 +1,143 @@
 """
 In-memory cache to store products from supplier platform localStorage.
-This allows customer platform to access products when database is not available.
+This allows customer platform (public) to access products when the supplier DB isn't populated.
+Adds best‑effort persistence to disk so cache survives supplier backend restarts.
 """
-from typing import Dict, List, Optional
-from datetime import datetime
+from __future__ import annotations
 
-# In-memory storage for products
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
+import json
+
+# ---- In-memory state ----
 _products_cache: Dict[str, dict] = {}
 _last_sync: Optional[datetime] = None
 
+# ---- Persistence target (backend/uploads/products/cache.json) ----
+_BASE_DIR = Path(__file__).resolve().parents[1]  # .../app
+_CACHE_FILE = _BASE_DIR.parent / "uploads" / "products" / "cache.json"
+
 
 class LocalStorageCache:
-    """Cache for localStorage products"""
-    
+    """Cache for supplier-side localStorage products with simple persistence."""
+
+    # ---------- Public API ----------
     @staticmethod
     def sync_products(products: List[dict]) -> int:
-        """
-        Sync products from localStorage to cache.
-        Called by supplier platform frontend.
-        This will REMOVE products that are no longer published (deleted, moved to draft, etc.)
+        """Replace cache with currently published products from the supplier UI.
+        Any product not present in the new list will be removed from cache.
         """
         global _products_cache, _last_sync
-        
-        # Get all published product IDs from the incoming list
-        published_product_ids = set()
-        count = 0
-        
-        for product in products:
-            # Check status in multiple formats (Published, published, etc.)
-            status = product.get('status', '').lower() if product.get('status') else ''
-            if status == 'published':
-                product_id = str(product.get('id', ''))
-                if product_id:
-                    # Ensure status is set correctly
-                    product['status'] = 'Published'
-                    _products_cache[product_id] = product
-                    published_product_ids.add(product_id)
-                    count += 1
-        
-        # Remove products from cache that are no longer published
-        # (they were deleted, moved to draft, etc.)
-        products_to_remove = []
-        for cached_id in _products_cache.keys():
-            if cached_id not in published_product_ids:
-                products_to_remove.append(cached_id)
-        
-        for product_id in products_to_remove:
-            del _products_cache[product_id]
-        
-        if products_to_remove:
-            print(f"🗑️ Removed {len(products_to_remove)} unpublished products from cache")
-        
+
+        published_ids: set[str] = set()
+        new_cache: Dict[str, dict] = {}
+        for p in products or []:
+            status = (p.get("status") or "").lower()
+            if status == "published":
+                pid = str(p.get("id", ""))
+                if not pid:
+                    continue
+                # Normalise status to a consistent value
+                p["status"] = "Published"
+                new_cache[pid] = p
+                published_ids.add(pid)
+
+        _products_cache = new_cache
         _last_sync = datetime.utcnow()
-        return count
-    
+        LocalStorageCache._save_to_disk()
+        return len(_products_cache)
+
     @staticmethod
     def sync_full_product_data(product_id: str, full_data: dict) -> bool:
-        """
-        Sync full product data (including images) for a specific product.
-        """
-        global _products_cache
-        
-        product_id_str = str(product_id)
-        # If product doesn't exist in cache, create it from full_data
-        if product_id_str not in _products_cache:
-            _products_cache[product_id_str] = {
-                'id': product_id_str,
-                'status': 'Published',
-                'name': full_data.get('productTitle', 'Untitled Product'),
-                'revenue': 0
+        """Attach full product payload (including images) for a specific product."""
+        global _products_cache, _last_sync
+        pid = str(product_id)
+        if not pid:
+            return False
+
+        if pid not in _products_cache:
+            _products_cache[pid] = {
+                "id": pid,
+                "status": "Published",
+                "name": full_data.get("productTitle", "Untitled Product"),
+                "revenue": 0,
             }
-        
-        _products_cache[product_id_str]['_full_data'] = full_data
+
+        _products_cache[pid]["_full_data"] = full_data or {}
+        _last_sync = datetime.utcnow()
+        LocalStorageCache._save_to_disk()
         return True
-    
+
     @staticmethod
     def get_published_products() -> List[dict]:
-        """
-        Get all published products from cache.
-        """
+        """Return currently cached published products."""
         return [
-            product for product in _products_cache.values()
-            if product.get('status', '').lower() == 'published' or product.get('status') == 'Published'
+            p for p in _products_cache.values()
+            if (p.get("status") or "").lower() == "published"
+            or p.get("status") == "Published"
         ]
-    
+
     @staticmethod
     def get_product_by_id(product_id: str) -> Optional[dict]:
-        """
-        Get a specific product by ID.
-        """
         return _products_cache.get(str(product_id))
-    
+
     @staticmethod
-    def clear_cache():
-        """
-        Clear the cache.
-        """
+    def clear_cache() -> None:
         global _products_cache, _last_sync
         _products_cache = {}
         _last_sync = None
-    
+        LocalStorageCache._save_to_disk()
+
     @staticmethod
     def get_cache_stats() -> dict:
-        """
-        Get cache statistics.
-        """
         return {
-            'total_products': len(_products_cache),
-            'published_count': len([p for p in _products_cache.values() if p.get('status', '').lower() == 'published' or p.get('status') == 'Published']),
-            'last_sync': _last_sync.isoformat() if _last_sync else None
+            "total_products": len(_products_cache),
+            "published_count": sum(1 for p in _products_cache.values() if (p.get("status") or "").lower() == "published" or p.get("status") == "Published"),
+            "last_sync": _last_sync.isoformat() if _last_sync else None,
         }
+
+    @staticmethod
+    def load_from_disk() -> int:
+        """Load cache from disk if a previous snapshot exists. Returns count loaded."""
+        global _products_cache, _last_sync
+        try:
+            if not _CACHE_FILE.exists():
+                return 0
+            with _CACHE_FILE.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            items = data.get("products") or []
+            _products_cache = {str(item.get("id")): item for item in items}
+            last = data.get("last_sync")
+            try:
+                _last_sync = datetime.fromisoformat(last) if last else None
+            except Exception:
+                _last_sync = None
+            print(f"🔁 Loaded {len(_products_cache)} products from cache file")
+            return len(_products_cache)
+        except Exception as exc:
+            print(f"⚠️ Failed to load localstorage cache from disk: {exc}")
+            return 0
+
+    # ---------- Internal helpers ----------
+    @staticmethod
+    def _ensure_dir() -> None:
+        try:
+            _CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _save_to_disk() -> None:
+        try:
+            LocalStorageCache._ensure_dir()
+            data = {
+                "last_sync": _last_sync.isoformat() if _last_sync else None,
+                "products": list(_products_cache.values()),
+            }
+            with _CACHE_FILE.open("w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+        except Exception as exc:
+            # Non-fatal; just log
+            print(f"⚠️ Failed to persist localstorage cache: {exc}")
 

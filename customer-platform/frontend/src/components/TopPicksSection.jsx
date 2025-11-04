@@ -10,25 +10,32 @@ const TopPicksSection = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
+    let cancelled = false
     const fetchTopPicks = async () => {
       try {
         setLoading(true)
         const data = await getTopPicks(4)
-        if (data && Array.isArray(data)) {
-          const transformed = data.map(transformProductForFrontend)
-          setProducts(transformed)
-        } else {
-          setProducts([])
+        if (!cancelled) {
+          if (data && Array.isArray(data)) {
+            const transformed = data.map(transformProductForFrontend)
+            setProducts(transformed)
+          } else {
+            setProducts([])
+          }
         }
       } catch (error) {
-        console.error('Error fetching top picks:', error)
-        setProducts([])
+        if (!cancelled) {
+          console.error('Error fetching top picks:', error)
+          setProducts([])
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     fetchTopPicks()
+    const iv = setInterval(fetchTopPicks, 5000)
+    return () => { cancelled = true; clearInterval(iv) }
   }, [])
 
   return (

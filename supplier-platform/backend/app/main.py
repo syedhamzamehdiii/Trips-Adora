@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import initiate_database
+from app.services.localstorage_cache import LocalStorageCache
 from app.api.v1 import auth, upload, products
 
 app = FastAPI(
@@ -24,6 +25,10 @@ async def startup_event():
     try:
         await initiate_database()
         print("✅ Database initialized successfully!")
+        # Warm up public cache from disk so customer site has products even if DB is empty
+        loaded = LocalStorageCache.load_from_disk()
+        if loaded:
+            print(f"📦 Prefetched {loaded} products into local cache from disk snapshot")
     except Exception as e:
         print(f"❌ Database initialization failed: {e}")
 

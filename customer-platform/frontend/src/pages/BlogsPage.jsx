@@ -82,9 +82,12 @@ const BlogsPage = () => {
       <div
         className="relative h-[520px] w-full bg-gray-200"
         style={{
-          backgroundImage: "url('/assests/blogtitle.jpg')",
-          backgroundSize: 'contain',
-          backgroundPosition: 'center',
+          backgroundImage: "url('/assests/woman-wearing-vietnam-culture-traditional-cherry-blossom-park.jpg')",
+          // Fill the area and crop slightly on top/bottom
+          backgroundSize: 'cover',
+          // Focus around the subject in the middle, bias a bit upward
+          // (50% 35% = centered horizontally, slight upward shift)
+          backgroundPosition: '50% 35%',
           backgroundRepeat: 'no-repeat',
           willChange: 'transform'
         }}

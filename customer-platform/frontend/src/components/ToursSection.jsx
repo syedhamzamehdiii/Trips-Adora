@@ -5,6 +5,7 @@ import ExperienceCard from './ExperienceCard'
 import StatsBanner from './StatsBanner'
 import ConsultationBanner from './ConsultationBanner'
 import { getPublishedProducts, transformProductForFrontend, getProductClicks, recordProductClick, addRecentlyViewed, getRecentlyViewed } from '../services/productService'
+import { blogPosts } from '../data/blogData'
 
 const ToursSection = () => {
   const navigate = useNavigate()
@@ -12,6 +13,9 @@ const ToursSection = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [recent, setRecent] = useState([])
+  const blogTickerRef = useRef(null)
+  const blogTickerRef2 = useRef(null)
+  const [shuffledBlogs, setShuffledBlogs] = useState([])
 
   const [isSortOpen, setIsSortOpen] = useState(false)
   const [sortKey, setSortKey] = useState('most_clicked')
@@ -34,13 +38,46 @@ const ToursSection = () => {
       }
     }
     load()
+    // periodic refresh to reflect supplier updates without manual reload
+    const refreshIv = setInterval(load, 5000)
     // Realtime updates within the same tab
     const handler = () => {
       setProducts(prev => [...prev]) // trigger re-sort with latest clicks
       setRecent(getRecentlyViewed())
     }
     window.addEventListener('realtime-products-update', handler)
-    return () => window.removeEventListener('realtime-products-update', handler)
+    // Prepare shuffled blogs once for ticker
+    const latest = [...blogPosts].slice(0, 20)
+    // simple shuffle
+    for (let i = latest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[latest[i], latest[j]] = [latest[j], latest[i]]
+    }
+    setShuffledBlogs(latest)
+
+    // Auto-scrolling ticker
+    let rafId
+    const speed = 0.5 // pixels per frame
+    const step = () => {
+      const el = blogTickerRef.current
+      if (el) {
+        el.scrollLeft += speed
+        if (el.scrollLeft >= el.scrollWidth / 2) el.scrollLeft = 0
+      }
+      const el2 = blogTickerRef2.current
+      if (el2) {
+        el2.scrollLeft += speed
+        if (el2.scrollLeft >= el2.scrollWidth / 2) el2.scrollLeft = 0
+      }
+      rafId = requestAnimationFrame(step)
+    }
+    rafId = requestAnimationFrame(step)
+
+    return () => {
+      window.removeEventListener('realtime-products-update', handler)
+      cancelAnimationFrame(rafId)
+      clearInterval(refreshIv)
+    }
   }, [])
 
   const tours = useMemo(() => {
@@ -131,6 +168,7 @@ const ToursSection = () => {
             )}
           </div>
         </div>
+        {/* Removed slideshow ticker */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {loading ? (
             <div className="col-span-4 text-center text-gray-600">Loading tours...</div>
@@ -161,11 +199,15 @@ const ToursSection = () => {
         </div>
         <StatsBanner />
         <h3 className="text-2xl font-semibold text-gray-900 mt-10 mb-6">You Might Like These</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {tours.map((t, idx) => (
-            <ExperienceCard key={`exp-${t.id}`} image={t.image} title={t.name} price={t.price} liked={idx % 2 === 0} />
-          ))}
-        </div>
+        {shuffledBlogs.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {shuffledBlogs.slice(0,4).map((b) => (
+              <Link key={`like-${b.id}`} to={`/blogs/${b.id}`}>
+                <ExperienceCard image={b.image} title={b.title} price={b.readTime ? `${b.readTime} min read` : b.date || ''} liked={false} id={`blog-${b.id}`} />
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )
