@@ -7,7 +7,7 @@ This backend connects to the same MongoDB database as the supplier platform and 
 ## Structure
 
 ```
-backend/
+backend
 ├── app/
 │   ├── api/
 │   │   └── v1/

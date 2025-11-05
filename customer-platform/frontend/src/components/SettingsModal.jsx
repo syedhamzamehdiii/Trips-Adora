@@ -140,6 +140,9 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
                   } else if (item.label === 'Settings') {
                     if (onClose) onClose()
                     navigate('/profile/settings')
+                  } else if (item.label === 'Support') {
+                    if (onClose) onClose()
+                    navigate('/support')
                   }
                 }}
               >
