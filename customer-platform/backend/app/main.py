@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import initiate_database
-from app.api.v1 import products
+from app.api.v1 import products, profile, bookings, wallet, reviews
 
 app = FastAPI(
     title="TripsAdora Customer Platform API",
@@ -29,6 +29,10 @@ async def startup_event():
 
 # Include routers
 app.include_router(products.router, prefix="/api/v1", tags=["Products"])
+app.include_router(profile.router, prefix="/api/v1")
+app.include_router(bookings.router, prefix="/api/v1")
+app.include_router(wallet.router, prefix="/api/v1")
+app.include_router(reviews.router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

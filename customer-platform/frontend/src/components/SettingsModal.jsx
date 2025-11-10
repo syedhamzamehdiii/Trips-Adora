@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiChevronRight } from 'react-icons/fi'
 
-const SettingsModal = ({ isOpen, onClose, profileRef }) => {
+const SettingsModal = ({ isOpen, onClose, profileRef, profile }) => {
   const navigate = useNavigate()
   const [supplierMode, setSupplierMode] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
@@ -57,8 +57,6 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
     }
   }, [isOpen, profileRef])
 
-  if (!isOpen) return null
-
   const menuItems = [
     { label: 'My Account' },
     { label: 'My Wallet' },
@@ -87,6 +85,31 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
     } catch (_) {}
   }
 
+  const user = profile?.user
+  const displayName = useMemo(() => {
+    if (!user) return ''
+    if (user.first_name || user.last_name) {
+      return [user.first_name, user.last_name].filter(Boolean).join(' ').trim()
+    }
+    return user.name || ''
+  }, [user])
+
+  const initials = useMemo(() => {
+    if (displayName) {
+      const parts = displayName.split(/\s+/).filter(Boolean)
+      if (parts.length === 1) return parts[0][0]?.toUpperCase() || 'TA'
+      return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase()
+    }
+    const fallback = user?.email || 'TA'
+    return fallback.slice(0, 2).toUpperCase()
+  }, [displayName, user?.email])
+
+  const avatarUrl = user?.avatar_url
+  const email = user?.email
+  const membership = user?.membership_tier
+
+  if (!isOpen) return null
+
   return (
     <>
       {/* Backdrop */}
@@ -103,7 +126,27 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
         <div className="bg-white rounded-[24px] shadow-xl w-[330px] pointer-events-auto">
           {/* Header */}
           <div className="px-5 pt-6 pb-4">
-            <h2 className="text-[26px] font-bold text-black">Settings</h2>
+            <h2 className="text-[26px] font-bold text-black mb-3">Settings</h2>
+            {user && (
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-[#1d236b] text-white flex items-center justify-center overflow-hidden text-sm font-semibold">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName || 'Account avatar'} className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <div>
+                  <div className="text-[16px] font-semibold text-gray-900 leading-snug">
+                    {displayName || 'TripsAdora traveller'}
+                  </div>
+                  {email && <div className="text-xs text-gray-500">{email}</div>}
+                  {membership && (
+                    <div className="text-xs text-blue-600 font-medium mt-1">{membership}</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Menu Items */}
@@ -137,6 +180,9 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
                   } else if (item.label === 'My Wallet') {
                     if (onClose) onClose()
                     navigate('/profile/wallet')
+                  } else if (item.label === 'Your opinion') {
+                    if (onClose) onClose()
+                    navigate('/profile/reviews')
                   } else if (item.label === 'Settings') {
                     if (onClose) onClose()
                     navigate('/profile/settings')

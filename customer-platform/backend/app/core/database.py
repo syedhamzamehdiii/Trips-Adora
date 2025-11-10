@@ -16,16 +16,21 @@ db = Database()
 async def initiate_database():
     """Initialize database connection."""
     try:
-        db.client = AsyncIOMotorClient(settings.MONGODB_URL)
+        db.client = AsyncIOMotorClient(
+            settings.MONGODB_URL,
+            serverSelectionTimeoutMS=5000,
+            tls=True,
+            tlsAllowInvalidCertificates=True,
+        )
         db.database = db.client[settings.DATABASE_NAME]
-        
-        # Test the connection
-        await db.client.admin.command('ping')
+
+        await db.client.admin.command("ping")
         logger.info("Successfully connected to MongoDB!")
-        
+
     except Exception as e:
         logger.error(f"Error connecting to MongoDB: {e}")
-        raise
+        db.client = None
+        db.database = None
 
 
 async def connect_to_mongo():
@@ -42,6 +47,8 @@ async def close_mongo_connection():
 
 def get_database():
     """Get database instance."""
+    if db.database is None:
+        raise ConnectionError("MongoDB connection is not available.")
     return db.database
 
 

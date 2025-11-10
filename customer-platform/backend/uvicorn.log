@@ -1,0 +1,558 @@
+INFO:     Will watch for changes in these directories: ['/Users/jazimsaeed/Desktop/Trips-Adora/customer-platform/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [80183] using WatchFiles
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [80213]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/schemas/profile.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [80213]
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [81194]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Database initialized successfully!
+INFO:     127.0.0.1:53219 - "POST /api/v1/bookings/john-doe HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53336 - "OPTIONS /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53337 - "OPTIONS /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53340 - "OPTIONS /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53341 - "OPTIONS /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53336 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53356 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53369 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53383 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53472 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53468 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53498 - "GET /api/v1/products/published?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53520 - "GET /api/v1/products/published?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53582 - "POST /api/v1/bookings/john-doe HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53611 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53618 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53676 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53682 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53736 - "OPTIONS /api/v1/bookings/john-doe/691198a0f26ef74497af7536 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53736 - "DELETE /api/v1/bookings/john-doe/691198a0f26ef74497af7536 HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:53736 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53738 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53785 - "OPTIONS /api/v1/bookings/john-doe/691196aaa6e772f5d529fc3c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53785 - "DELETE /api/v1/bookings/john-doe/691196aaa6e772f5d529fc3c HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:53785 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53785 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53852 - "OPTIONS /api/v1/bookings/john-doe/6911985ff26ef74497af7535 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53852 - "DELETE /api/v1/bookings/john-doe/6911985ff26ef74497af7535 HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:53852 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53854 - "GET /api/v1/bookings/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53880 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53881 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53908 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53880 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53927 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53926 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53926 - "GET /api/v1/profile/john-doe HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/applications.py", line 1106, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/jazimsaeed/Desktop/Trips-Adora/customer-platform/backend/app/api/v1/profile.py", line 29, in get_profile
+    return ProfileResponse(**profile)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/main.py", line 164, in __init__
+    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)
+pydantic_core._pydantic_core.ValidationError: 4 validation errors for ProfileResponse
+user.member_since
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2023, 1, 11, 0, 0), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+last_synced_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+created_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+updated_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 50, 21, 160000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+INFO:     127.0.0.1:53933 - "GET /api/v1/profile/john-doe HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/applications.py", line 1106, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/jazimsaeed/Desktop/Trips-Adora/customer-platform/backend/app/api/v1/profile.py", line 29, in get_profile
+    return ProfileResponse(**profile)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/main.py", line 164, in __init__
+    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)
+pydantic_core._pydantic_core.ValidationError: 4 validation errors for ProfileResponse
+user.member_since
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2023, 1, 11, 0, 0), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+last_synced_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+created_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+updated_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 50, 21, 160000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+INFO:     127.0.0.1:53937 - "GET /api/v1/profile/john-doe HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/applications.py", line 1106, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/jazimsaeed/Desktop/Trips-Adora/customer-platform/backend/app/api/v1/profile.py", line 29, in get_profile
+    return ProfileResponse(**profile)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/main.py", line 164, in __init__
+    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)
+pydantic_core._pydantic_core.ValidationError: 4 validation errors for ProfileResponse
+user.member_since
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2023, 1, 11, 0, 0), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+last_synced_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+created_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+updated_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 50, 21, 160000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+INFO:     127.0.0.1:53944 - "GET /api/v1/profile/john-doe HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/applications.py", line 1106, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/jazimsaeed/Desktop/Trips-Adora/customer-platform/backend/app/api/v1/profile.py", line 29, in get_profile
+    return ProfileResponse(**profile)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/main.py", line 164, in __init__
+    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)
+pydantic_core._pydantic_core.ValidationError: 4 validation errors for ProfileResponse
+user.member_since
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2023, 1, 11, 0, 0), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+last_synced_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+created_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+updated_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 50, 21, 160000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+INFO:     127.0.0.1:54337 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54338 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54552 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54337 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55082 - "GET /api/v1/profile/john-doe HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/applications.py", line 1106, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/jazimsaeed/Desktop/Trips-Adora/customer-platform/backend/app/api/v1/profile.py", line 29, in get_profile
+    return ProfileResponse(**profile)
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/main.py", line 164, in __init__
+    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)
+pydantic_core._pydantic_core.ValidationError: 4 validation errors for ProfileResponse
+user.member_since
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2023, 1, 11, 0, 0), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+last_synced_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+created_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 23, 46, 30000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+updated_at
+  Input should be a valid string [type=string_type, input_value=datetime.datetime(2025, 11, 10, 5, 50, 21, 160000), input_type=datetime]
+    For further information visit https://errors.pydantic.dev/2.5/v/string_type
+INFO:     127.0.0.1:55149 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55151 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'app/services/profile_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [81194]
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [86515]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Database initialized successfully!
+INFO:     127.0.0.1:55887 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55889 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'app/services/profile_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [86515]
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [86848]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Database initialized successfully!
+INFO:     127.0.0.1:56035 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56036 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56036 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56169 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56300 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56301 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56307 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56315 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56307 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56315 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56307 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56301 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56619 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56620 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56678 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56703 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57581 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57822 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57824 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57843 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57822 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57822 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57875 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57919 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57920 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57963 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57919 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58033 - "OPTIONS /api/v1/products/published?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58035 - "OPTIONS /api/v1/products/published?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58033 - "GET /api/v1/products/published?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58035 - "GET /api/v1/products/published?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58033 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58035 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58043 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58035 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58120 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58133 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58203 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58204 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58262 - "GET /api/v1/products/top-picks?limit=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58271 - "GET /api/v1/products/published?page=1&page_size=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58271 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58303 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58605 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59512 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59564 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59856 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61062 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61244 - "GET /api/v1/profile/john-doe HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'app/services/activity_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [86848]
+WARNING:  WatchFiles detected changes in 'app/services/activity_service.py'. Reloading...
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [98321]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/services/activity_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [98321]
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [98621]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/services/booking_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [98621]
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [98760]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/services/referral_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [98760]
+✅ Database initialized successfully!
+WARNING:  WatchFiles detected changes in 'app/services/referral_service.py'. Reloading...
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [99041]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/services/profile_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [99041]
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [99148]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/services/referral_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [99148]
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [99440]
+INFO:     Waiting for application startup.
+WARNING:  WatchFiles detected changes in 'app/api/v1/profile.py'. Reloading...
+INFO:     Application startup complete.
+ERROR:    Traceback (most recent call last):
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 686, in lifespan
+    await receive()
+  File "/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/uvicorn/lifespan/on.py", line 137, in receive
+    return await self.receive_queue.get()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/asyncio/queues.py", line 166, in get
+    await getter
+asyncio.exceptions.CancelledError
+
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [99492]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/services/activity_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [99492]
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [316]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/services/activity_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [316]
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [974]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/api/v1/profile.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [974]
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [1091]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app/services/activity_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1091]
+✅ Database initialized successfully!
+/Users/jazimsaeed/Library/Python/3.9/lib/python/site-packages/pydantic/_internal/_config.py:318: UserWarning: Valid config keys have changed in V2:
+* 'allow_population_by_field_name' has been renamed to 'populate_by_name'
+  warnings.warn(message, UserWarning)
+INFO:     Started server process [1245]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1245]
+✅ Database initialized successfully!
+INFO:     Stopping reloader process [80183]

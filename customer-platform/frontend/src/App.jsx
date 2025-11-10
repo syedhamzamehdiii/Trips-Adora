@@ -17,6 +17,7 @@ import ProfilePage from './pages/ProfilePage'
 import ProfileSettings from './pages/ProfileSettings'
 import ProfileWallet from './pages/ProfileWallet'
 import ProfileWalletSettings from './pages/ProfileWalletSettings'
+import ProfileReviews from './pages/ProfileReviews'
 import ComparisonPage from './pages/ComparisonPage'
 import ProductComparisonDetail from './components/ProductComparisonDetail'
 import WishlistPage from './pages/WishlistPage'
@@ -48,6 +49,7 @@ function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/wallet" element={<ProfileWallet />} />
         <Route path="/profile/settings" element={<ProfileSettings />} />
+        <Route path="/profile/reviews" element={<ProfileReviews />} />
         <Route path="/profile/wallet/settings" element={<ProfileWalletSettings />} />
         <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/booking-details" element={<BookingDetailsPage />} />

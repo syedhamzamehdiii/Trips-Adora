@@ -1,7 +1,22 @@
-import React from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
+import { getProfile, updateProfile } from '../services/profileService'
+
+const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
+
+const initialForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  dateOfBirth: '',
+  street: '',
+  zip: '',
+  country: '',
+  language: 'en'
+}
 
 const TabBar = () => {
   const location = useLocation()
@@ -33,6 +48,139 @@ const TabBar = () => {
 }
 
 const ProfileSettings = () => {
+  const [profile, setProfile] = useState(null)
+  const [form, setForm] = useState(initialForm)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+  const [saveMessage, setSaveMessage] = useState(null)
+
+  const userId = useMemo(
+    () => localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID,
+    []
+  )
+
+  const hydrateForm = useCallback((incomingProfile) => {
+    const user = incomingProfile?.user || {}
+
+    const explicitFirst = user.first_name?.trim()
+    const explicitLast = user.last_name?.trim()
+
+    let derivedFirst = explicitFirst
+    let derivedLast = explicitLast
+
+    if (!derivedFirst || !derivedLast) {
+      const parts = (user.name || '').trim().split(/\s+/).filter(Boolean)
+      if (!derivedFirst) {
+        derivedFirst = parts.length > 0 ? parts[0] : ''
+      }
+      if (!derivedLast) {
+        derivedLast = parts.length > 1 ? parts.slice(1).join(' ') : ''
+      }
+    }
+
+    setForm({
+      firstName: derivedFirst || '',
+      lastName: derivedLast || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      dateOfBirth: user.date_of_birth ? user.date_of_birth.slice(0, 10) : '',
+      street: user.address_line1 || user.location || '',
+      zip: user.zip_code || '',
+      country: user.country || '',
+      language: (user.language || 'en').toLowerCase()
+    })
+  }, [])
+
+  const fetchProfile = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await getProfile(userId)
+      setProfile(data)
+      hydrateForm(data)
+    } catch (err) {
+      setError(err?.message || 'Unable to load settings right now.')
+    } finally {
+      setLoading(false)
+    }
+  }, [hydrateForm, userId])
+
+  useEffect(() => {
+    fetchProfile()
+  }, [fetchProfile])
+
+  useEffect(() => {
+    const handleProfileUpdated = () => fetchProfile()
+    window.addEventListener('customer_profile_updated', handleProfileUpdated)
+    return () => window.removeEventListener('customer_profile_updated', handleProfileUpdated)
+  }, [fetchProfile])
+
+  const handleChange = (field) => (event) => {
+    const value = event?.target?.value ?? ''
+    setForm((prev) => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setSaveError(null)
+    setSaveMessage(null)
+
+    if (!form.firstName?.trim() || !form.email?.trim()) {
+      setSaveError('First name and email are required to update your profile.')
+      return
+    }
+
+    const fullName = [form.firstName, form.lastName].filter(Boolean).join(' ').trim()
+    const location = [form.street, form.country].filter(Boolean).join(', ')
+
+    const payloadUser = {
+      ...(profile?.user || {}),
+      first_name: form.firstName?.trim() || null,
+      last_name: form.lastName?.trim() || null,
+      name: fullName || null,
+      email: form.email?.trim() || null,
+      phone: form.phone?.trim() || null,
+      date_of_birth: form.dateOfBirth || null,
+      address_line1: form.street?.trim() || null,
+      zip_code: form.zip?.trim() || null,
+      country: form.country?.trim() || null,
+      location: location || null,
+      language: form.language?.trim() || (profile?.user?.language ?? 'en')
+    }
+
+    setSaving(true)
+    try {
+      const updated = await updateProfile(userId, { user: payloadUser })
+      setProfile(updated)
+      hydrateForm(updated)
+      setSaveMessage('Profile settings updated successfully.')
+      try {
+        if (updated?.user?.name) {
+          localStorage.setItem('customer_profile_name', updated.user.name)
+        }
+        if (updated?.user?.email) {
+          localStorage.setItem('customer_profile_email', updated.user.email)
+        }
+        if (updated?.user?.avatar_url) {
+          localStorage.setItem('customer_profile_avatar', updated.user.avatar_url)
+        }
+      } catch (_) {}
+      window.dispatchEvent(new CustomEvent('customer_profile_updated'))
+    } catch (err) {
+      setSaveError(err?.message || 'Failed to update profile settings.')
+    } finally {
+      setSaving(false)
+      setTimeout(() => {
+        setSaveMessage(null)
+      }, 4000)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white font-poppins">
       <MainHeader />
@@ -57,53 +205,140 @@ const ProfileSettings = () => {
         <p className="text-sm text-gray-600 mb-6">Manage your account settings and preferences</p>
 
         {/* Personal Information */}
-        <div className="bg-gray-100 rounded-2xl p-6 mb-6">
+        <form className="bg-gray-100 rounded-2xl p-6 mb-6" onSubmit={handleSubmit} noValidate>
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Personal Information</h3>
           <p className="text-xs text-gray-600 mb-5">Update your personal details and contact information</p>
+
+          {error && (
+            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+          {saveError && (
+            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {saveError}
+            </div>
+          )}
+          {saveMessage && (
+            <div className="mb-4 text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              {saveMessage}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-gray-600 mb-1">First name</label>
-              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="John" />
+              <input
+                value={form.firstName}
+                onChange={handleChange('firstName')}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="John"
+                disabled={loading || saving}
+                required
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-1">Last name</label>
-              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="Doe" />
+              <input
+                value={form.lastName}
+                onChange={handleChange('lastName')}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="Doe"
+                disabled={loading || saving}
+              />
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-xs text-gray-600 mb-1">Email address</label>
-              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="john.doe@example.com" />
+              <input
+                type="email"
+                value={form.email}
+                onChange={handleChange('email')}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="john.doe@example.com"
+                disabled={loading || saving}
+                required
+              />
             </div>
 
             <div>
               <label className="block text-xs text-gray-600 mb-1">Phone number</label>
-              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="+1 (555) 123-4567" />
+              <input
+                value={form.phone}
+                onChange={handleChange('phone')}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="+1 (555) 123-4567"
+                disabled={loading || saving}
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-1">Date of birth</label>
-              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="10/05/1990" />
+              <input
+                type="date"
+                value={form.dateOfBirth}
+                onChange={handleChange('dateOfBirth')}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                disabled={loading || saving}
+              />
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-xs text-gray-600 mb-1">Street address</label>
-              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="123 Main Street" />
+              <input
+                value={form.street}
+                onChange={handleChange('street')}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="123 Main Street"
+                disabled={loading || saving}
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-1">ZIP code</label>
-              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="10001" />
+              <input
+                value={form.zip}
+                onChange={handleChange('zip')}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="10001"
+                disabled={loading || saving}
+              />
             </div>
 
             <div>
               <label className="block text-xs text-gray-600 mb-1">Country</label>
-              <input className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="United States" />
+              <input
+                value={form.country}
+                onChange={handleChange('country')}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="United States"
+                disabled={loading || saving}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Language</label>
+              <select
+                value={form.language}
+                onChange={handleChange('language')}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                disabled={loading || saving}
+              >
+                <option value="en">English</option>
+                <option value="ja">Japanese</option>
+                <option value="ar">Arabic</option>
+                <option value="fr">French</option>
+              </select>
             </div>
           </div>
 
           <div className="mt-5 flex justify-end">
-            <button className="px-5 py-2 rounded-lg bg-[#1f3661] text-white text-sm">Save changes!</button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-lg bg-[#1f3661] text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={saving || loading}
+            >
+              {saving ? 'Saving...' : 'Save changes!'}
+            </button>
           </div>
-        </div>
+        </form>
 
         {/* Change Password */}
         <div className="bg-gray-100 rounded-2xl p-6 mb-6">
@@ -113,21 +348,42 @@ const ProfileSettings = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-gray-600 mb-1">Current Password</label>
-              <input type="password" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="Enter your current password" />
+              <input
+                type="password"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="Feature coming soon"
+                disabled
+              />
             </div>
             <div></div>
             <div>
               <label className="block text-xs text-gray-600 mb-1">New Password</label>
-              <input type="password" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="Enter new password (min. 8 characters)" />
+              <input
+                type="password"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="Enter new password (min. 8 characters)"
+                disabled
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-1">Confirm New Password</label>
-              <input type="password" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" placeholder="Confirm your new password" />
+              <input
+                type="password"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                placeholder="Confirm your new password"
+                disabled
+              />
             </div>
           </div>
 
           <div className="mt-5 flex justify-end">
-            <button className="px-5 py-2 rounded-lg bg-[#1f3661] text-white text-sm">update password!</button>
+            <button
+              className="px-5 py-2 rounded-lg bg-[#1f3661] text-white text-sm opacity-60 cursor-not-allowed"
+              type="button"
+              disabled
+            >
+              Update password
+            </button>
           </div>
         </div>
 

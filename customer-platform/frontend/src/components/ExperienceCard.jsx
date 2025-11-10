@@ -46,11 +46,17 @@ const ExperienceCard = ({ image, title, price, liked=false, id }) => {
       // Remove from wishlist
       const updatedWishlist = wishlist.filter(item => item.id !== tourId)
       localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+      try {
+        window.dispatchEvent(new CustomEvent('wishlist:changed', { detail: updatedWishlist }))
+      } catch (_) {}
       setIsInWishlist(false)
     } else {
       // Add tour to wishlist
       const updatedWishlist = [...wishlist, tourForWishlist]
       localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+      try {
+        window.dispatchEvent(new CustomEvent('wishlist:changed', { detail: updatedWishlist }))
+      } catch (_) {}
       setIsInWishlist(true)
     }
   }

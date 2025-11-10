@@ -28,6 +28,9 @@ const TourCard = ({ tour, onClick }) => {
       // Remove from wishlist
       const updatedWishlist = wishlist.filter(item => item.id !== tour.id)
       localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+      try {
+        window.dispatchEvent(new CustomEvent('wishlist:changed', { detail: updatedWishlist }))
+      } catch (_) {}
       setIsInWishlist(false)
     } else {
       // Add tour to wishlist
@@ -44,6 +47,9 @@ const TourCard = ({ tour, onClick }) => {
         location: tour.location || 'Tokyo Japan'
       }]
       localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+      try {
+        window.dispatchEvent(new CustomEvent('wishlist:changed', { detail: updatedWishlist }))
+      } catch (_) {}
       setIsInWishlist(true)
     }
   }

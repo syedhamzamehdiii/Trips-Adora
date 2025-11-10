@@ -34,7 +34,18 @@ const ShareReview = ({ booking, onClose }) => {
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-8">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">Share Your Travel Experience</h2>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <h2 className="text-3xl font-bold text-gray-900">Share Your Travel Experience</h2>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none"
+            aria-label="Close review form"
+          >
+            <FiX className="h-6 w-6" />
+          </button>
+        )}
+      </div>
 
       {/* Search input */}
       <div className="mb-8">

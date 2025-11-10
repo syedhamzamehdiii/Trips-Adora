@@ -8,10 +8,35 @@ const WishlistPage = () => {
   const [wishlistTours, setWishlistTours] = useState([])
 
   useEffect(() => {
-    // Load wishlist from localStorage
-    const savedWishlist = localStorage.getItem('wishlist')
-    if (savedWishlist) {
-      setWishlistTours(JSON.parse(savedWishlist))
+    const loadWishlist = () => {
+      try {
+        const savedWishlist = localStorage.getItem('wishlist')
+        const parsed = savedWishlist ? JSON.parse(savedWishlist) : []
+        if (Array.isArray(parsed)) {
+          setWishlistTours(parsed)
+        } else {
+          setWishlistTours([])
+        }
+      } catch (_) {
+        setWishlistTours([])
+      }
+    }
+
+    const handleWishlistChange = (event) => {
+      if (event?.detail && Array.isArray(event.detail)) {
+        setWishlistTours(event.detail)
+      } else {
+        loadWishlist()
+      }
+    }
+
+    loadWishlist()
+    window.addEventListener('wishlist:changed', handleWishlistChange)
+    window.addEventListener('storage', loadWishlist)
+
+    return () => {
+      window.removeEventListener('wishlist:changed', handleWishlistChange)
+      window.removeEventListener('storage', loadWishlist)
     }
   }, [])
 
@@ -19,77 +44,10 @@ const WishlistPage = () => {
     const updatedWishlist = wishlistTours.filter(tour => tour.id !== tourId)
     setWishlistTours(updatedWishlist)
     localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+    try {
+      window.dispatchEvent(new CustomEvent('wishlist:changed', { detail: updatedWishlist }))
+    } catch (_) {}
   }
-
-  const defaultWishlistTours = [
-    {
-      id: 1,
-      name: "Hokonay Highlights & Hidden Gems Tour",
-      image: "/assests/bg.jpg",
-      location: "Tokyo Japan",
-      rating: 4.8,
-      reviews: 384,
-      duration: "8 hours",
-      groupSize: "Up to 12",
-      isPrivate: true,
-      isTripadurasChoice: true,
-      tags: ["Sightseeing", "Local Food", "Private Transport", "HiddenGems", "Photo Spots"],
-      host: "Karvaan Tours",
-      oldPrice: "$250",
-      price: "$245/person",
-      slotsRemaining: 3
-    },
-    {
-      id: 2,
-      name: "Burj Khalifa Highlights & Hidden Gems Tour",
-      image: "/assests/bg.jpg",
-      location: "Dubai UAE",
-      rating: 4.7,
-      reviews: 256,
-      duration: "6 hours",
-      groupSize: "Up to 10",
-      isPrivate: true,
-      isTripadurasChoice: false,
-      tags: ["Sightseeing", "Iconic Landmarks", "Photo Spots", "City Tours"],
-      host: "Dubai Tours",
-      oldPrice: "$200",
-      price: "$167/person"
-    },
-    {
-      id: 3,
-      name: "Tokyo Highlights & Hidden Gems Tour",
-      image: "/assests/bg.jpg",
-      location: "Tokyo Japan",
-      rating: 4.9,
-      reviews: 512,
-      duration: "7 hours",
-      groupSize: "Up to 15",
-      isPrivate: true,
-      isTripadurasChoice: false,
-      tags: ["Sightseeing", "Local Culture", "Food Tours", "History"],
-      host: "Tokyo Adventures",
-      oldPrice: "$410",
-      price: "$345/person",
-      discount: "15% off"
-    },
-    {
-      id: 4,
-      name: "Hokonay Highlights & Hidden Gems Tour",
-      image: "/assests/bg.jpg",
-      location: "Tokyo Japan",
-      rating: 4.8,
-      reviews: 384,
-      duration: "8 hours",
-      groupSize: "Up to 12",
-      isPrivate: true,
-      isTripadurasChoice: true,
-      tags: ["Sightseeing", "Local Food", "Private Transport", "HiddenGems", "Photo Spots"],
-      host: "Karvaan Tours",
-      oldPrice: "$250",
-      price: "$245/person",
-      slotsRemaining: 1
-    }
-  ]
 
   return (
     <div className="min-h-screen bg-white">
@@ -110,6 +68,11 @@ const WishlistPage = () => {
         </div>
 
         {/* Tours Grid */}
+        {wishlistTours.length === 0 ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-gray-600">
+            Your wishlist is empty. Browse tours and tap the heart icon to save them here.
+          </div>
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {wishlistTours.map((tour) => (
             <div key={tour.id} className="bg-white rounded-2xl overflow-hidden shadow hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-custom-blue cursor-pointer">
@@ -190,6 +153,7 @@ const WishlistPage = () => {
             </div>
           ))}
         </div>
+        )}
       </section>
       
       <Footer />

@@ -1,10 +1,13 @@
-import React, { useState, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FiUser, FiChevronDown, FiShoppingCart } from 'react-icons/fi'
+import { FiChevronDown, FiShoppingCart } from 'react-icons/fi'
 import SettingsModal from './SettingsModal'
 import AttractionsDropdown from './AttractionsDropdown'
 import DestinationsDropdown from './DestinationsDropdown'
 import ExploreTripsAdoraDropdown from './ExploreTripsAdoraDropdown'
+import { getProfile } from '../services/profileService'
+
+const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
 const MainHeader = () => {
   const navigate = useNavigate()
@@ -18,6 +21,57 @@ const MainHeader = () => {
   const destinationsRef = useRef(null)
   const exploreRef = useRef(null)
   const [isExploreOpen, setIsExploreOpen] = useState(false)
+  const [profileSummary, setProfileSummary] = useState(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+
+  const userId = useMemo(
+    () => localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID,
+    []
+  )
+
+  const fetchProfileSummary = useCallback(async () => {
+    setProfileLoading(true)
+    try {
+      const data = await getProfile(userId)
+      setProfileSummary(data)
+    } catch (_) {
+      setProfileSummary(null)
+    } finally {
+      setProfileLoading(false)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    fetchProfileSummary()
+  }, [fetchProfileSummary])
+
+  useEffect(() => {
+    const handleProfileUpdated = () => fetchProfileSummary()
+    window.addEventListener('customer_profile_updated', handleProfileUpdated)
+    return () => window.removeEventListener('customer_profile_updated', handleProfileUpdated)
+  }, [fetchProfileSummary])
+
+  const user = profileSummary?.user
+  const languageCode = (user?.language || 'en').toUpperCase()
+  const displayName = useMemo(() => {
+    if (!user) return ''
+    if (user.first_name || user.last_name) {
+      return [user.first_name, user.last_name].filter(Boolean).join(' ').trim()
+    }
+    return user.name || ''
+  }, [user])
+
+  const initials = useMemo(() => {
+    if (displayName) {
+      const segments = displayName.split(/\s+/).filter(Boolean)
+      if (segments.length === 1) return segments[0][0]?.toUpperCase() || ''
+      return (segments[0][0] || '').toUpperCase() + (segments[segments.length - 1][0] || '').toUpperCase()
+    }
+    const fallback = user?.email || 'TA'
+    return fallback.slice(0, 2).toUpperCase()
+  }, [displayName, user?.email])
+
+  const avatarUrl = user?.avatar_url
 
   return (
     <>
@@ -44,17 +98,34 @@ const MainHeader = () => {
               {/* Language Selector and Profile */}
               <div className="flex items-center space-x-4 relative flex-shrink-0">
                 <div className="flex items-center text-gray-900 cursor-pointer hover:opacity-80">
-                  <span className="text-sm font-medium">EN</span>
+                  <span className="text-sm font-medium">{languageCode}</span>
                 </div>
 
-                <div 
+                <button
+                  type="button"
                   ref={profileRef}
-                  className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition"
-                  style={{ backgroundColor: '#1d236b' }}
+                  className="flex items-center gap-2 cursor-pointer transition hover:opacity-85"
                   onClick={() => setIsSettingsOpen(true)}
+                  aria-label="Open profile menu"
                 >
-                  <FiUser className="text-white text-sm" />
-                </div>
+                  {displayName && (
+                    <span className="hidden sm:block text-sm font-medium text-gray-900 max-w-[120px] truncate">
+                      {displayName}
+                    </span>
+                  )}
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden bg-[#1d236b] text-white text-sm font-semibold"
+                    style={{ opacity: profileLoading ? 0.7 : 1 }}
+                  >
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt={displayName || 'Profile avatar'} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-semibold tracking-wide" title={displayName || 'Profile'}>
+                        {initials}
+                      </span>
+                    )}
+                  </div>
+                </button>
               </div>
             </div>
           </div>
@@ -143,6 +214,7 @@ const MainHeader = () => {
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)}
         profileRef={profileRef}
+        profile={profileSummary}
       />
     </>
   )
