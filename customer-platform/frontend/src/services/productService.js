@@ -398,7 +398,7 @@ export const transformProductForFrontend = (product) => {
     id: product.id,
     name: product.name || product.title || product.productTitle || 'Untitled Product',
     image: image,
-    images: product.images || product.uploadedPhotos || [],
+    images: (product.images && product.images.length ? product.images : (product.gallery_images || product.uploadedPhotos || [])).map(i => (typeof i === 'string' ? i : (i?.url || i))),
     rating: product.rating || 4.8,
     reviews: reviewsText,
     reviewsCount: reviewsCount,
@@ -415,12 +415,17 @@ export const transformProductForFrontend = (product) => {
     description: product.description,
     tagline: product.tagline,
     highlights: product.highlights || [],
-    itineraries: product.itineraries || [],
-    vehicles: product.vehicles || [],
+    itineraries: product.itinerary || product.itineraries || [],
+    vehicles: product.vehicles || (product.vehicle_details ? [{
+      type: product.vehicle_details.vehicle_type,
+      model: product.vehicle_details.vehicle_model,
+      capacity: product.vehicle_details.capacity,
+      amount: product.price || 0
+    }] : []),
     // meeting points
-    meetingPoints: Array.isArray(product.pickupLocations) ? product.pickupLocations : [],
-    pickupTime: product.pickupTime || '',
-    availableDays: product.availableDays || [],
-    availableTimeSlots: product.availableTimeSlots || []
+    meetingPoints: Array.isArray(product.pickupLocations) ? product.pickupLocations : (product.pickup_dropoff ? [product.pickup_dropoff.pickup_location].filter(Boolean) : []),
+    pickupTime: product.pickupTime || (product.pickup_dropoff?.pickup_time || ''),
+    availableDays: product.availableDays || (product.pickup_dropoff?.available_days || []),
+    availableTimeSlots: product.availableTimeSlots || (product.pickup_dropoff?.available_time_slots || [])
   };
 };

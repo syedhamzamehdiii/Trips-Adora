@@ -16,6 +16,7 @@ import sunshine from "../../assests/sun-shine.jpg";
 import house from "../../assests/house.jpg";
 import mountfuj from "../../assests/mount-fuj.jpg";
 import TourCard from './TourCard'
+import ClimateWidget from './ClimateWidget'
 import { getPublishedProducts, transformProductForFrontend, addRecentlyViewed, recordProductClick, getProductClicks, getProductById, getCachedPublishedProductsSync } from '../services/productService'
 
 const ProductDetails = () => {
@@ -36,6 +37,7 @@ const ProductDetails = () => {
   const [recommended, setRecommended] = useState([])
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [isClimateOpen, setIsClimateOpen] = useState(false)
 
   const images = useMemo(() => {
     if (!product) return []
@@ -81,10 +83,8 @@ const ProductDetails = () => {
       }
     }
     load()
-    const iv = setInterval(load, 5000)
-    const handler = () => load()
-    window.addEventListener('realtime-products-update', handler)
-    return () => { cancelled = true; clearInterval(iv); window.removeEventListener('realtime-products-update', handler) }
+    // Reduced network chatter: no visibility or global refresh listeners here
+    return () => { cancelled = true }
   }, [slug])
 
   
@@ -241,6 +241,8 @@ const ProductDetails = () => {
               <p className="text-black leading-relaxed text-sm sm:text-base">{product.description || 'Experience an unforgettable tour.'}</p>
             </div>
             
+            {/* Climate content is shown in a modal, not inline */}
+
             {/* Trip Highlights */}
             <div className="mb-6 sm:mb-8">
               <div className="border border-[#302E2E] rounded-lg p-4 sm:p-6">
@@ -364,7 +366,10 @@ const ProductDetails = () => {
                   <button className="bg-white border border-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
                     Chat
                   </button>
-                  <button className="bg-white border border-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                  <button
+                    className="bg-white border border-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm"
+                    onClick={() => setIsClimateOpen(true)}
+                  >
                     Climate
                   </button>
                 </div>
@@ -529,6 +534,25 @@ const ProductDetails = () => {
             </div>
           </div>
         </div>
+
+        {/* Climate Modal */}
+        {isClimateOpen && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-60 flex items-center justify-center p-4" onClick={() => setIsClimateOpen(false)}>
+            <div className="relative w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+              {/* Borderless container with floating close button */}
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+                <button
+                  aria-label="Close"
+                  className="absolute right-3 top-3 z-10 bg-white/90 hover:bg-white text-gray-900 px-3 py-1 rounded-full text-sm"
+                  onClick={() => setIsClimateOpen(false)}
+                >
+                  Close
+                </button>
+                <ClimateWidget productName={product.name} productLocation={product.location} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Meeting Points - Full width */}
         {Array.isArray(product.meetingPoints) && product.meetingPoints.length > 0 && (

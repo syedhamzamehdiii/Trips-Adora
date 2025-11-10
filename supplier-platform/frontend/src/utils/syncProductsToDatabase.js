@@ -95,10 +95,12 @@ export const syncLocalStorageProductsToDatabase = async () => {
         };
 
         // Create product in database
+        // NOTE: Products are now auto-published on creation (bypassing admin approval temporarily)
         const createdProduct = await productService.createProduct(apiProductData);
         const dbProductId = createdProduct.id;
         
-        // Publish the product
+        // NOTE: Products are auto-published on creation, so this is optional but kept for compatibility
+        // TODO: When admin panel is implemented, this explicit publish will be required after admin approval
         await productService.publishProduct(dbProductId);
         
         // Update localStorage with database ID

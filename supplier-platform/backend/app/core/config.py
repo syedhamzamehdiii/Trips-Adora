@@ -8,8 +8,8 @@ except ImportError:
 
 class Settings(BaseSettings):
     # Database
-    MONGODB_URL: str = "mongodb+srv://sabaarif2003:7fU8J1xrmVzmmZXs@cluster0.qeih2ta.mongodb.net/esg_research"
-    DATABASE_NAME: str = "supplier_platform"
+    MONGODB_URL: str = "mongodb+srv://mehihamza1:mehihamza1@clusterr.st9ycu2.mongodb.net/TripsAdora"
+    DATABASE_NAME: str = "TripsAdora"
     
     # Security
     SECRET_KEY: str = "your-secret-key-here-change-in-production"

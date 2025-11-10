@@ -12,7 +12,8 @@ const productService = {
       const response = await api.post('/products/', productData);
       return response.data;
     } catch (error) {
-      console.error('Error creating product:', error);
+      const details = error?.response?.data || error?.message;
+      console.error('Error creating product:', details);
       throw error;
     }
   },

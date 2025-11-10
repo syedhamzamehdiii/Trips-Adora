@@ -9,6 +9,7 @@ import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
 import FromSupplierModal from '@/components/modals/FromSupplierModal';
 import RefundPolicyModal from '@/components/modals/RefundPolicyModal';
 import Footer from '@/components/common/Footer';
+import productService from '@/services/productService';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -92,51 +93,51 @@ const Dashboard = () => {
       } catch (_) {}
     };
 
-    const loadDashboardData = () => {
+    const loadDashboardData = async () => {
       try {
-        // Calculate real-time data from actual products
-        const allProductsData = localStorage.getItem('all_products');
-        if (allProductsData) {
-          const allProducts = JSON.parse(allProductsData);
-          
-          // Match Active Product Listing logic: count products that have a valid name/title
-          // and are in one of the relevant statuses (Published, Draft, Under Review)
-          const userProducts = allProducts.filter(p => {
-            if (!p) return false;
-            const displayName = (p.title || p.name || '').toString().trim();
-            const isRelevantStatus = p.status === 'Published' || p.status === 'Draft' || p.status === 'Under Review';
-            return displayName !== '' && isRelevantStatus;
-          });
-          
-          const publishedProducts = userProducts.filter(p => p.status === 'Published');
-          const draftProducts = userProducts.filter(p => p.status === 'Draft');
-          const underReviewProducts = userProducts.filter(p => p.status === 'Under Review');
+        // Fetch products from database
+        const response = await productService.getMyProducts({ page: 1, page_size: 100 });
+        const { transformApiProductsList } = await import('@/utils/productTransform');
+        const allProducts = transformApiProductsList(response);
+        
+        // Match Active Product Listing logic: count products that have a valid name/title
+        // and are in one of the relevant statuses (Published, Draft, Under Review)
+        const userProducts = allProducts.filter(p => {
+          if (!p) return false;
+          const displayName = (p.title || p.name || '').toString().trim();
+          const isRelevantStatus = p.status === 'Published' || p.status === 'Draft' || p.status === 'Under Review';
+          return displayName !== '' && isRelevantStatus;
+        });
+        
+        const publishedProducts = userProducts.filter(p => p.status === 'Published');
+        const draftProducts = userProducts.filter(p => p.status === 'Draft');
+        const underReviewProducts = userProducts.filter(p => p.status === 'Under Review');
 
-          // Calculate real-time metrics from user's products only
-          const totalProducts = userProducts.length;
-          const totalRevenue = userProducts.reduce((sum, product) => {
-            return sum + parseInt(product.revenue || product.vehicles?.[0]?.amount || 0);
-          }, 0);
-          
-          const totalBookings = userProducts.reduce((sum, product) => {
-            return sum + parseInt(product.bookings || 0);
-          }, 0);
-          
-          const totalCancellations = userProducts.reduce((sum, product) => {
-            return sum + parseInt(product.cancellations || 0);
-          }, 0);
-          
-          const cancellationRate = totalBookings > 0 ? Math.round((totalCancellations / totalBookings) * 100) : 0;
-          
-          const averageRating = userProducts.reduce((sum, product) => {
-            const rating = parseFloat(product.ratings?.split('/')[0] || 0);
-            return sum + rating;
-          }, 0) / Math.max(userProducts.length, 1);
-          
-          // Calculate activity percentages
-          const publishedPercent = totalProducts > 0 ? Math.round((publishedProducts.length / totalProducts) * 100) : 0;
-          const draftsPercent = totalProducts > 0 ? Math.round((draftProducts.length / totalProducts) * 100) : 0;
-          const underReviewPercent = totalProducts > 0 ? Math.round((underReviewProducts.length / totalProducts) * 100) : 0;
+        // Calculate real-time metrics from user's products only
+        const totalProducts = userProducts.length;
+        const totalRevenue = userProducts.reduce((sum, product) => {
+          return sum + parseInt(product.revenue || product.vehicles?.[0]?.amount || 0);
+        }, 0);
+        
+        const totalBookings = userProducts.reduce((sum, product) => {
+          return sum + parseInt(product.bookings || 0);
+        }, 0);
+        
+        const totalCancellations = userProducts.reduce((sum, product) => {
+          return sum + parseInt(product.cancellations || 0);
+        }, 0);
+        
+        const cancellationRate = totalBookings > 0 ? Math.round((totalCancellations / totalBookings) * 100) : 0;
+        
+        const averageRating = userProducts.reduce((sum, product) => {
+          const rating = parseFloat(product.ratings?.split('/')[0] || 0);
+          return sum + rating;
+        }, 0) / Math.max(userProducts.length, 1);
+        
+        // Calculate activity percentages
+        const publishedPercent = totalProducts > 0 ? Math.round((publishedProducts.length / totalProducts) * 100) : 0;
+        const draftsPercent = totalProducts > 0 ? Math.round((draftProducts.length / totalProducts) * 100) : 0;
+        const underReviewPercent = totalProducts > 0 ? Math.round((underReviewProducts.length / totalProducts) * 100) : 0;
 
           // Calculate today's metrics (simulated based on products)
           const todaysBookings = Math.floor(totalBookings * 0.1) + Math.floor(Math.random() * 5); // 10% of total + random
@@ -162,57 +163,48 @@ const Dashboard = () => {
               negativeRating: Math.min(cancellationRate + Math.floor(Math.random() * 10), 20)
             }
           });
-        }
-      } catch (_) {}
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      }
     };
 
-    const loadDraftProducts = () => {
+    const loadDraftProducts = async () => {
       try {
-        // Load draft products from localStorage
-        const allProductsData = localStorage.getItem('all_products');
-        if (allProductsData) {
-          const allProducts = JSON.parse(allProductsData);
-          const drafts = allProducts.filter(p => p.status === 'Draft');
-          
-          // Also check individual draft files
-          const draftKeys = Object.keys(localStorage).filter(key => key.startsWith('product_draft_'));
-          const additionalDrafts = [];
-          
-          draftKeys.forEach(key => {
+        // Load draft products from database
+        const response = await productService.getMyProducts({ status: 'draft', page: 1, page_size: 100 });
+        const { transformApiProductsList } = await import('@/utils/productTransform');
+        const allProducts = transformApiProductsList(response);
+        const drafts = allProducts.filter(p => p.status === 'Draft');
+        
+        // Also check localStorage for draft data (images and additional data)
+        const draftKeys = Object.keys(localStorage).filter(key => key.startsWith('product_draft_'));
+        const draftsWithProgress = drafts.map(draft => {
+          // Try to get full draft data from localStorage for progress calculation
+          const draftKey = `product_draft_${draft.dbProductId || draft.id}`;
+          const draftData = localStorage.getItem(draftKey);
+          let parsedDraftData = null;
+          if (draftData) {
             try {
-              const draftData = JSON.parse(localStorage.getItem(key));
-              if (draftData && draftData.title) {
-                // Check if this draft is not already in all_products
-                const existsInAllProducts = allProducts.some(p => p.id === draftData.draftId);
-                if (!existsInAllProducts) {
-                  additionalDrafts.push({
-                    id: draftData.draftId || key.replace('product_draft_', ''),
-                    name: draftData.title || 'Untitled Product',
-                    status: 'Draft',
-                    creationDate: draftData.lastModified ? new Date(draftData.lastModified).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
-                    revenue: draftData.vehicles?.[0]?.amount || 0,
-                    progress: calculateProgress(draftData)
-                  });
-                }
-              }
+              parsedDraftData = JSON.parse(draftData);
             } catch (e) {
               console.warn('Error parsing draft data:', e);
             }
-          });
+          }
           
-          // Combine drafts from all_products and individual draft files
-          const allDrafts = [...drafts, ...additionalDrafts].map(draft => ({
+          return {
             id: draft.id,
-            name: draft.name || draft.title || 'Untitled Product',
+            name: draft.name || 'Untitled Product',
             status: 'Draft',
-            creationDate: draft.creationDate || draft.creationDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
-            revenue: draft.revenue || draft.vehicles?.[0]?.amount || 0,
-            progress: draft.progress || calculateProgress(draft)
-          }));
-          
-          setDraftProducts(allDrafts.slice(0, 3)); // Show max 3 drafts
-        }
-      } catch (_) {}
+            creationDate: draft.creationDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
+            revenue: draft.revenue || 0,
+            progress: calculateProgress(parsedDraftData || draft)
+          };
+        });
+        
+        setDraftProducts(draftsWithProgress.slice(0, 3)); // Show max 3 drafts
+      } catch (error) {
+        console.error('Error loading drafts:', error);
+      }
     };
 
     const calculateProgress = (draftData) => {
@@ -232,13 +224,12 @@ const Dashboard = () => {
       return Math.round((completedSteps / totalSteps) * 100);
     };
 
-    const loadPopularActivities = () => {
-      try {
-        // Load all published products (these are the ones customers can book)
-        const allProductsData = localStorage.getItem('all_products');
-        if (allProductsData) {
-          const allProducts = JSON.parse(allProductsData);
-          const publishedProducts = allProducts.filter(p => p.status === 'Published');
+    const loadPopularActivities = async () => {
+      // Load all published products from database (these are the ones customers can book)
+      const response = await productService.getMyProducts({ status: 'published', page: 1, page_size: 100 });
+      const { transformApiProductsList } = await import('@/utils/productTransform');
+      const allProducts = transformApiProductsList(response);
+      const publishedProducts = allProducts.filter(p => p.status === 'Published');
           
           // Calculate customer demand analytics for each published product
           const activitiesWithAnalytics = publishedProducts.map(product => {
@@ -309,9 +300,7 @@ const Dashboard = () => {
             .sort((a, b) => b.demandScore - a.demandScore)
             .slice(0, 3);
           
-          setPopularActivities(topActivities);
-        }
-      } catch (_) {}
+      setPopularActivities(topActivities);
     };
 
     loadProfile();

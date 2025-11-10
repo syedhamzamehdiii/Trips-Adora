@@ -79,20 +79,19 @@ const Products = () => {
     };
   }, [openDropdown, showFilters, showStatusDropdown]);
 
-  // Load products from localStorage and update stats
+  // Load products from database API instead of localStorage (no constant polling)
   useEffect(() => {
-    const loadProducts = () => {
+    const loadProducts = async () => {
       try {
-        const allProductsData = localStorage.getItem('all_products');
-        let loadedProducts = [];
         
-        if (allProductsData) {
-          loadedProducts = JSON.parse(allProductsData);
-        } else {
-          // Start with empty products list
-          loadedProducts = [];
-          localStorage.setItem('all_products', JSON.stringify(loadedProducts));
-        }
+        // Fetch all products from database (no status filter to get all)
+        const response = await productService.getMyProducts({ page: 1, page_size: 100 });
+        const { transformApiProductsList } = await import('@/utils/productTransform');
+        
+        // Transform API products to localStorage format for compatibility
+        let loadedProducts = transformApiProductsList(response);
+        
+        
         
         // Deduplicate by id (primary key) - keep first occurrence only
         const uniqMap = new Map();
@@ -115,120 +114,39 @@ const Products = () => {
         const published = relevantProducts.filter(p => p.status === 'Published').length;
         const draft = relevantProducts.filter(p => p.status === 'Draft').length;
         
-        // Debug logging
-        console.log('📊 Product Stats Calculation:', {
-          totalLoaded: loadedProducts.length,
-          totalDeduped: deduped.length,
-          totalRelevant: relevantProducts.length,
-          published,
-          draft,
-          breakdown: relevantProducts.map(p => ({ id: p.id, name: p.name, status: p.status }))
-        });
+        
         const totalRevenue = relevantProducts
           .filter(p => p.status === 'Published')
           .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
         
-        // Store deduplicated products to avoid issues elsewhere
-        // Only update state if data has changed (prevent unnecessary re-renders)
-        setProducts(prevProducts => {
-          const hasChanged = JSON.stringify(prevProducts) !== JSON.stringify(deduped);
-          return hasChanged ? deduped : prevProducts;
+        // Only update if changed (prevents UI flicker)
+        setProducts(prev => (JSON.stringify(prev) !== JSON.stringify(deduped) ? deduped : prev));
+        setProductStats(prev => {
+          const next = { total: relevantProducts.length, active: published, draft: draft, revenue: totalRevenue };
+          return prev && prev.total === next.total && prev.active === next.active && prev.draft === next.draft && prev.revenue === next.revenue ? prev : next;
         });
         
-        setProductStats({
-          total: relevantProducts.length, // This should now be published + draft only
-          active: published,
-          draft: draft,
-          revenue: totalRevenue
-        });
-        
-        // Sync published products to backend cache for customer platform
-        // This will also automatically remove unpublished products (deleted, moved to draft, etc.)
-        const publishedProducts = deduped.filter(p => p.status === 'Published');
-        syncProductsToBackendCache(publishedProducts).catch(err => {
-          console.log('Cache sync skipped:', err.message);
-        });
+        // Note: Backend cache sync is no longer needed since products are in database
+        // Images are still synced from localStorage if needed
       } catch (error) {
-        console.error('Error loading products:', error);
+        console.error('Error loading products from database:', error);
+        // Fallback to empty array on error
+        setProducts([]);
+        setProductStats({ total: 0, active: 0, draft: 0, revenue: 0 });
       }
     };
     
-    // Sync products to backend cache
-    const syncProductsToBackendCache = async (publishedProducts) => {
-      try {
-        // Get full data for each published product
-        const productsWithFullData = publishedProducts.map(p => {
-          const fullDataKey = `product_full_${p.id}`;
-          const fullData = localStorage.getItem(fullDataKey);
-          let parsedFullData = null;
-          
-          if (fullData) {
-            try {
-              parsedFullData = JSON.parse(fullData);
-            } catch (e) {
-              console.warn('Failed to parse full data for product', p.id, e);
-            }
-          }
-          
-          // Debug: Check if coverImage exists in parsed data
-          if (parsedFullData) {
-            const hasCoverImage = !!parsedFullData.coverImage;
-            const coverImageType = parsedFullData.coverImage ? typeof parsedFullData.coverImage : 'null';
-            console.log(`📸 Product ${p.name}: coverImage=${hasCoverImage}, type=${coverImageType}`);
-          }
-          
-          return {
-            ...p,
-            _full_data: parsedFullData
-          };
-        });
-        
-        // Sync to backend cache
-        await productService.syncToBackendCache(productsWithFullData);
-        
-        // Sync full data for each product (including cover images)
-        let syncedCount = 0;
-        let imagesSynced = 0;
-        for (const product of productsWithFullData) {
-          if (product._full_data) {
-            try {
-              // Check if coverImage exists before syncing
-              const hasCoverImage = !!product._full_data.coverImage;
-              const coverImageType = product._full_data.coverImage ? typeof product._full_data.coverImage : 'null';
-              const coverImageValue = product._full_data.coverImage ? (typeof product._full_data.coverImage === 'string' ? product._full_data.coverImage.substring(0, 50) + '...' : 'object') : 'none';
-              
-              console.log(`📸 Syncing product ${product.name}:`, {
-                hasCoverImage,
-                coverImageType,
-                coverImagePreview: coverImageValue,
-                uploadedPhotosCount: product._full_data.uploadedPhotos?.length || 0
-              });
-              
-              await productService.syncFullProductData(product.id, product._full_data);
-              syncedCount++;
-              if (hasCoverImage) imagesSynced++;
-            } catch (err) {
-              console.warn('Failed to sync full data for product', product.id, err.message);
-            }
-          } else {
-            console.warn(`⚠️ Product ${product.name} has no _full_data to sync`);
-          }
-        }
-        
-        console.log('✅ Synced', syncedCount, 'of', publishedProducts.length, 'products with full data to backend cache');
-        console.log('📸 Products with cover images:', imagesSynced);
-      } catch (error) {
-        console.warn('Backend cache sync error:', error.message);
-      }
-    };
-    
-    // Initial load
+    // Initial load only
     loadProducts();
-    
-    // Refresh every 5 seconds to show real-time updates (reduced from 2 seconds)
-    const interval = setInterval(loadProducts, 5000);
-    
-    return () => clearInterval(interval);
+
+    // Revalidate when tab becomes visible (smooth experience)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        loadProducts();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   // Filter products based on active tab, search query, and filters
@@ -300,7 +218,7 @@ const Products = () => {
     setOpenDropdown(newState);
   };
 
-  const handleAction = (action, productId) => {
+  const handleAction = async (action, productId) => {
     console.log(`🎬 ACTION TRIGGERED: ${action} for product ID: ${productId}`);
     setOpenDropdown(null);
     
@@ -331,45 +249,67 @@ const Products = () => {
         console.log('User confirmation for clone:', confirmed);
         
         if (confirmed) {
-          const newDraftId = Date.now();
-          const clonedProduct = {
-            ...product,
-            id: newDraftId,
-            name: `${product.name} (Copy)`,
-            referenceCode: `T-${Math.floor(1000 + Math.random() * 9000)}`,
-            status: 'Draft',
-            bookings: 0,
-            creationDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
-          };
-          
-          // Add to products
-          const updatedProducts = [...products, clonedProduct];
-          localStorage.setItem('all_products', JSON.stringify(updatedProducts));
-          setProducts(updatedProducts);
-          
-          // Try to clone full draft data if it exists, otherwise pull from full published payload
-          let parsedData = null;
-          const originalDraftData = localStorage.getItem(`product_draft_${productId}`);
-          if (originalDraftData) {
-            parsedData = JSON.parse(originalDraftData);
-          } else {
-            const fullPub = localStorage.getItem(`product_full_${productId}`);
-            if (fullPub) {
-              parsedData = JSON.parse(fullPub);
+          try {
+            // Fetch full product data from API
+            const fullProduct = await productService.getProduct(product.dbProductId || productId);
+            
+            // Get images from localStorage if available
+            const fullDataKey = `product_full_${productId}`;
+            const fullData = localStorage.getItem(fullDataKey);
+            let parsedFullData = fullData ? JSON.parse(fullData) : null;
+            
+            // Transform to create new product
+            const { transformLocalProductToApi } = await import('@/utils/productTransform');
+            const apiProductData = transformLocalProductToApi(
+              { ...product, name: `${product.name} (Copy)` },
+              parsedFullData
+            );
+            
+            // Create new product in database (auto-published for now)
+            const clonedProduct = await productService.createProduct(apiProductData);
+
+            // Persist a draft snapshot in localStorage immediately (prevents empty draft screen)
+            try {
+              const source = parsedFullData || {};
+              const clonedFullData = {
+                ...source,
+                productTitle: `${(source.productTitle || product.name || 'Untitled Product')} (Copy)`,
+                productCategory: source.productCategory || product.category || 'Tour',
+                tagline: source.tagline || product.tagline || '',
+                description: source.description || product.description || '',
+                highlights: source.highlights || [],
+                vehicles: source.vehicles || [],
+                selectedPickupLocations: source.selectedPickupLocations || [],
+                selectedDropoffLocations: source.selectedDropoffLocations || [],
+                timeSlots: source.timeSlots || {},
+                itineraries: source.itineraries || [],
+                uploadedPhotos: source.uploadedPhotos || [],
+                coverImage: source.coverImage || null,
+                lastModified: new Date().toISOString()
+              };
+              localStorage.setItem(`product_full_${clonedProduct.id}`, JSON.stringify(clonedFullData));
+              localStorage.setItem(`product_draft_${clonedProduct.id}`, JSON.stringify(clonedFullData));
+            } catch (_) {}
+
+            // Try to save as draft in backend (best-effort)
+            try {
+              await productService.saveAsDraft(clonedProduct.id);
+            } catch (e) {
+              console.warn('Draft save in backend failed (kept local draft):', e?.response?.data || e?.message);
             }
+            
+            // Reload products to show the new clone
+            const response = await productService.getMyProducts({ page: 1, page_size: 1000 });
+            const { transformApiProductsList } = await import('@/utils/productTransform');
+            const updatedProducts = transformApiProductsList(response);
+            setProducts(updatedProducts);
+            
+            console.log('✅ Product cloned successfully:', clonedProduct);
+            alert(`✅ Product cloned successfully!\n\n"${product.name} (Copy)" is now in your drafts.`);
+          } catch (error) {
+            console.error('Error cloning product:', error);
+            alert(`❌ Failed to clone product: ${error.message}`);
           }
-          if (parsedData) {
-            const clonedDraftData = {
-              ...parsedData,
-              draftId: newDraftId,
-              productTitle: `${parsedData.productTitle || product.name} (Copy)`,
-              lastModified: new Date().toISOString()
-            };
-            localStorage.setItem(`product_draft_${newDraftId}`, JSON.stringify(clonedDraftData));
-          }
-          
-          console.log('✅ Product cloned successfully:', clonedProduct);
-          alert(`✅ Product cloned successfully!\n\n"${clonedProduct.name}" is now in your drafts.`);
         }
       }
     } else if (action === 'share') {
@@ -405,12 +345,21 @@ const Products = () => {
       // Restore archived product back to Published
       const product = products.find(p => p.id === productId);
       if (product && product.status === 'Archived') {
-        const updatedProducts = products.map(p =>
-          p.id === productId ? { ...p, status: 'Published' } : p
-        );
-        localStorage.setItem('all_products', JSON.stringify(updatedProducts));
-        setProducts(updatedProducts);
-        alert('✅ Product restored from archive.');
+        try {
+          // Publish the product (change from archived to published)
+          await productService.publishProduct(product.dbProductId || productId);
+          
+          // Reload products
+          const response = await productService.getMyProducts({ page: 1, page_size: 1000 });
+          const { transformApiProductsList } = await import('@/utils/productTransform');
+          const updatedProducts = transformApiProductsList(response);
+          setProducts(updatedProducts);
+          
+          alert('✅ Product restored from archive.');
+        } catch (error) {
+          console.error('Error unarchiving product:', error);
+          alert(`❌ Failed to restore product: ${error.message}`);
+        }
       }
     } else if (action === 'delete') {
       console.log('🗑️ Delete action started');
@@ -422,40 +371,26 @@ const Products = () => {
       console.log('User confirmation for delete:', confirmed);
       
       if (confirmed) {
-        const updatedProducts = products.filter(p => p.id !== productId);
-        localStorage.setItem('all_products', JSON.stringify(updatedProducts));
-        setProducts(updatedProducts);
-        
-        // Also remove draft data if it's a draft being deleted
-        if (product && product.status === 'Draft') {
-          // Remove the full draft data
-          localStorage.removeItem(`product_draft_${product.id}`);
-          console.log(`🗑️ Deleted full draft data: product_draft_${product.id}`);
-          
-          // Also check if this is the current draft
-          const draftData = localStorage.getItem('product_draft_current_draft');
-          if (draftData) {
-            const parsedDraft = JSON.parse(draftData);
-            if (parsedDraft.productTitle === product.name) {
-              localStorage.removeItem('product_draft_current_draft');
-            }
-          }
-        }
-        
-        // Remove full published data if it was published
-        if (product && product.status === 'Published') {
+        try {
+          // Delete from database
+          await productService.deleteProduct(product.dbProductId || productId);
+
+          // Remove associated localStorage image/draft artifacts
           localStorage.removeItem(`product_full_${product.id}`);
-          console.log(`🗑️ Deleted full published data: product_full_${product.id}`);
-          
-          // Also remove from backend cache by syncing updated list
-          const publishedProducts = updatedProducts.filter(p => p.status === 'Published');
-          syncProductsToBackendCache(publishedProducts).catch(err => {
-            console.log('Cache cleanup skipped:', err.message);
-          });
+          localStorage.removeItem(`product_draft_${product.id}`);
+
+          // Reload products from database
+          const response = await productService.getMyProducts({ page: 1, page_size: 100 });
+          const { transformApiProductsList } = await import('@/utils/productTransform');
+          const refreshed = transformApiProductsList(response);
+          setProducts(refreshed);
+
+          console.log('✅ Product deleted successfully');
+          alert('✅ Product deleted successfully!');
+        } catch (error) {
+          console.error('Error deleting product:', error);
+          alert(`❌ Failed to delete product: ${error.message}`);
         }
-        
-        console.log('✅ Product deleted successfully');
-        alert('✅ Product deleted successfully!');
       }
     }
   };
@@ -481,90 +416,85 @@ const Products = () => {
     setSearchQuery('');
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     console.log('🔄 Refresh button clicked');
     try {
-      const allProductsData = localStorage.getItem('all_products');
-      if (allProductsData) {
-        const loadedProducts = JSON.parse(allProductsData);
-        
-        // Recalculate stats - only count Published and Draft products (excluding Under Review)
-        const uniqMap = new Map();
-        loadedProducts.forEach(p => {
-          // Use id as primary key (should always exist), fallback to referenceCode then name
-          const key = p.id != null ? String(p.id) : (p.referenceCode ?? p.name);
-          // Only keep first occurrence if duplicate
-          if (!uniqMap.has(key)) {
-            uniqMap.set(key, p);
-          }
-        });
-        const deduped = Array.from(uniqMap.values());
-
-        const relevantProducts = deduped.filter(p => 
-          p.status === 'Published' || 
-          p.status === 'Draft'
-        );
-        
-        const published = relevantProducts.filter(p => p.status === 'Published').length;
-        const draft = relevantProducts.filter(p => p.status === 'Draft').length;
-        
-        // Debug logging
-        console.log('🔄 Refresh Product Stats:', {
-          totalLoaded: loadedProducts.length,
-          totalDeduped: deduped.length,
-          totalRelevant: relevantProducts.length,
-          published,
-          draft
-        });
-        const totalRevenue = relevantProducts
-          .filter(p => p.status === 'Published')
-          .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
-        
-        setProducts(deduped);
-        setProductStats({
-          total: relevantProducts.length, // This should now be published + draft only
-          active: published,
-          draft: draft,
-          revenue: totalRevenue
-        });
-        
-        console.log('✅ Refresh completed:', {
-          totalProducts: relevantProducts.length,
-          published,
-          draft,
-          revenue: totalRevenue
-        });
-        
-        // Optional: Show brief success message
-        const refreshBtn = document.querySelector('button[title="Refresh"]');
-        if (refreshBtn) {
-          refreshBtn.classList.add('animate-spin');
-          setTimeout(() => {
-            refreshBtn.classList.remove('animate-spin');
-          }, 500);
+      // Reload products from database
+      const response = await productService.getMyProducts({ page: 1, page_size: 100 });
+      const { transformApiProductsList } = await import('@/utils/productTransform');
+      const loadedProducts = transformApiProductsList(response);
+      
+      // Deduplicate
+      const uniqMap = new Map();
+      loadedProducts.forEach(p => {
+        const key = p.id != null ? String(p.id) : (p.referenceCode ?? p.name);
+        if (!uniqMap.has(key)) {
+          uniqMap.set(key, p);
         }
-      } else {
-        console.log('⚠️ No products found in localStorage');
+      });
+      const deduped = Array.from(uniqMap.values());
+
+      const relevantProducts = deduped.filter(p => 
+        p.status === 'Published' || 
+        p.status === 'Draft'
+      );
+      
+      const published = relevantProducts.filter(p => p.status === 'Published').length;
+      const draft = relevantProducts.filter(p => p.status === 'Draft').length;
+      
+      const totalRevenue = relevantProducts
+        .filter(p => p.status === 'Published')
+        .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
+      
+      setProducts(deduped);
+      setProductStats({
+        total: relevantProducts.length,
+        active: published,
+        draft: draft,
+        revenue: totalRevenue
+      });
+      
+      // Optional: Show brief success message
+      const refreshBtn = document.querySelector('button[title="Refresh"]');
+      if (refreshBtn) {
+        refreshBtn.classList.add('animate-spin');
+        setTimeout(() => {
+          refreshBtn.classList.remove('animate-spin');
+        }, 500);
       }
+      
+      console.log('✅ Refresh completed');
     } catch (error) {
       console.error('❌ Error during refresh:', error);
       alert('Error refreshing products. Please try again.');
     }
   };
 
-  const handleArchive = () => {
+  const handleArchive = async () => {
     if (selectedProducts.length === 0) return;
     
-    const updatedProducts = products.map(product => {
-      if (selectedProducts.includes(product.id)) {
-        return { ...product, status: 'Archived' };
+    try {
+      // Archive products - save as draft (closest equivalent to archived)
+      // TODO: When archive status is implemented in backend, use that instead
+      for (const productId of selectedProducts) {
+        const product = products.find(p => p.id === productId);
+        if (product && product.dbProductId) {
+          await productService.saveAsDraft(product.dbProductId);
+        }
       }
-      return product;
-    });
-    
-    localStorage.setItem('all_products', JSON.stringify(updatedProducts));
-    setProducts(updatedProducts);
-    setSelectedProducts([]);
+      
+      // Reload products
+      const response = await productService.getMyProducts({ page: 1, page_size: 1000 });
+      const { transformApiProductsList } = await import('@/utils/productTransform');
+      const updatedProducts = transformApiProductsList(response);
+      setProducts(updatedProducts);
+      setSelectedProducts([]);
+      
+      alert(`✅ ${selectedProducts.length} product(s) archived successfully.`);
+    } catch (error) {
+      console.error('Error archiving products:', error);
+      alert(`❌ Failed to archive products: ${error.message}`);
+    }
   };
 
 

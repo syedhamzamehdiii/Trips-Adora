@@ -34,8 +34,10 @@ const TopPicksSection = () => {
     }
 
     fetchTopPicks()
-    const iv = setInterval(fetchTopPicks, 5000)
-    return () => { cancelled = true; clearInterval(iv) }
+    // Revalidate only when tab becomes visible for a smoother feel
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchTopPicks() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible) }
   }, [])
 
   return (

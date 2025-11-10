@@ -1125,17 +1125,25 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 <label className="block text-sm font-medium text-gray-900 mb-2">
                   Product Title <span className="text-red-500">*</span>
                 </label>
-                <p className="text-sm text-gray-600 mb-3">Enter a clear and descriptive name for your product or service. (title should be maximum 40 characters)</p>
+                <p className="text-sm text-gray-600 mb-3">Enter a clear, descriptive title. <span className="font-medium">Min 30 characters</span> (max 40).</p>
                 <input
                   type="text"
                   value={productTitle}
                   onChange={(e) => setProductTitle(e.target.value)}
-                  placeholder="e.g., Mount Fuji, Tokyo"
+                  placeholder="e.g., Scenic Full‑Day Private Tour of Mount Fuji and Lake Kawaguchi"
                   required
                   maxLength={40}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-4 py-3 bg-white rounded-lg focus:outline-none focus:ring-2 ${
+                    productTitle.length > 0 && productTitle.length < 30
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                 />
-                <p className="text-xs text-gray-500 mt-1">{productTitle.length}/40 characters maximum</p>
+                <div className="mt-1 flex items-center justify-between">
+                  <p className={`${productTitle.length < 30 ? 'text-red-600' : 'text-gray-500' } text-xs`}>
+                    {productTitle.length} / 40 characters · {productTitle.length < 30 ? `${30 - productTitle.length} more needed` : 'Looks good'}
+                  </p>
+                </div>
               </div>
 
               <div>

@@ -28,13 +28,33 @@ async def create_product(
     """
     Create a new product.
     Requires authentication.
-    """
-    product = await ProductService.create_product(
-        product_data=product_data,
-        supplier_id=str(current_user.id)
-    )
     
-    return ProductResponse(**product.model_dump(), id=str(product.id))
+    TEMPORARY: Products are auto-published (bypassing admin approval).
+    TODO: When admin panel is implemented, products will be created as PENDING_REVIEW
+    and require admin approval before being visible to customers.
+    """
+    try:
+        print(f"📦 Creating product for supplier: {current_user.id}")
+        print(f"   Title: {product_data.title[:50]}...")
+        
+        product = await ProductService.create_product(
+            product_data=product_data,
+            supplier_id=str(current_user.id)
+        )
+        
+        print(f"✅ Product created successfully with ID: {product.id}")
+        print(f"   Status: {product.status}")
+        print(f"   Published at: {product.published_at}")
+        
+        return ProductResponse(**product.model_dump(exclude={"id"}), id=str(product.id))
+    except Exception as e:
+        print(f"❌ Error creating product: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create product: {str(e)}"
+        )
 
 
 @router.get("/", response_model=ProductListResponse)
@@ -60,7 +80,7 @@ async def get_my_products(
     total_pages = math.ceil(total / page_size)
     
     return ProductListResponse(
-        products=[ProductResponse(**p.model_dump(), id=str(p.id)) for p in products],
+        products=[ProductResponse(**p.model_dump(exclude={"id"}), id=str(p.id)) for p in products],
         total=total,
         page=page,
         page_size=page_size,
@@ -91,7 +111,7 @@ async def get_published_products(
     total_pages = math.ceil(total / page_size)
     
     return ProductListResponse(
-        products=[ProductResponse(**p.model_dump(), id=str(p.id)) for p in products],
+        products=[ProductResponse(**p.model_dump(exclude={"id"}), id=str(p.id)) for p in products],
         total=total,
         page=page,
         page_size=page_size,
@@ -173,7 +193,7 @@ async def get_product(product_id: str):
             detail="Product not found"
         )
     
-    return ProductResponse(**product.model_dump(), id=str(product.id))
+    return ProductResponse(**product.model_dump(exclude={"id"}), id=str(product.id))
 
 
 @router.put("/{product_id}", response_model=ProductResponse)
@@ -198,7 +218,7 @@ async def update_product(
             detail="Product not found or you don't have permission to update it"
         )
     
-    return ProductResponse(**product.model_dump(), id=str(product.id))
+    return ProductResponse(**product.model_dump(exclude={"id"}), id=str(product.id))
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -232,6 +252,10 @@ async def publish_product(
     """
     Publish a product (directly visible to customers).
     Changes status to PUBLISHED.
+    
+    TEMPORARY: Admin approval is bypassed.
+    TODO: When admin panel is implemented, this endpoint should check if product
+    has been approved by admin before allowing publication.
     """
     product = await ProductService.publish_product(
         product_id=product_id,
@@ -244,7 +268,7 @@ async def publish_product(
             detail="Product not found or you don't have permission to publish it"
         )
     
-    return ProductResponse(**product.model_dump(), id=str(product.id))
+    return ProductResponse(**product.model_dump(exclude={"id"}), id=str(product.id))
 
 
 @router.post("/{product_id}/draft", response_model=ProductResponse)
@@ -290,7 +314,7 @@ async def search_products(
     total_pages = math.ceil(total / page_size)
     
     return ProductListResponse(
-        products=[ProductResponse(**p.model_dump(), id=str(p.id)) for p in products],
+        products=[ProductResponse(**p.model_dump(exclude={"id"}), id=str(p.id)) for p in products],
         total=total,
         page=page,
         page_size=page_size,

@@ -8,8 +8,8 @@ except ImportError:
 
 class Settings(BaseSettings):
     # Database - Using same MongoDB as supplier platform
-    MONGODB_URL: str = "mongodb+srv://sabaarif2003:7fU8J1xrmVzmmZXs@cluster0.qeih2ta.mongodb.net/esg_research"
-    DATABASE_NAME: str = "supplier_platform"  # Same database
+    MONGODB_URL: str = "mongodb+srv://mehihamza1:mehihamza1@clusterr.st9ycu2.mongodb.net/TripsAdora"
+    DATABASE_NAME: str = "TripsAdora"  # Same database
     
     # CORS
     CORS_ORIGINS: list = [

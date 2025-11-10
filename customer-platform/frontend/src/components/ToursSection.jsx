@@ -38,8 +38,9 @@ const ToursSection = () => {
       }
     }
     load()
-    // periodic refresh to reflect supplier updates without manual reload
-    const refreshIv = setInterval(load, 5000)
+    // Smooth revalidation when tab becomes visible instead of constant polling
+    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVisible)
     // Realtime updates within the same tab
     const handler = () => {
       setProducts(prev => [...prev]) // trigger re-sort with latest clicks
@@ -75,8 +76,8 @@ const ToursSection = () => {
 
     return () => {
       window.removeEventListener('realtime-products-update', handler)
+      document.removeEventListener('visibilitychange', onVisible)
       cancelAnimationFrame(rafId)
-      clearInterval(refreshIv)
     }
   }, [])
 

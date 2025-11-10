@@ -11,11 +11,31 @@ class ProductService:
     
     @staticmethod
     async def create_product(product_data: ProductCreate, supplier_id: str) -> Product:
-        """Create a new product"""
+        """
+        Create a new product.
+        
+        TEMPORARY: Products are auto-published (bypassing admin approval).
+        TODO: When admin panel is implemented, uncomment the admin approval flow below.
+        """
         product_dict = product_data.model_dump()
         product_dict["supplier_id"] = supplier_id
+        
+        # TODO: ADMIN APPROVAL FLOW (to be uncommented when admin panel is ready)
+        # When admin panel is implemented, products should be created as PENDING_REVIEW
+        # and only published after admin approval. Uncomment the following:
+        # product_dict["status"] = ProductStatus.PENDING_REVIEW
+        
+        # TEMPORARY: Auto-publish products (bypass admin approval)
+        product_dict["status"] = ProductStatus.PUBLISHED
+        
         product = Product(**product_dict)
         await product.insert()
+        
+        # TEMPORARY: Set published_at timestamp immediately
+        # TODO: Remove this when admin approval is enabled - published_at should be set by admin
+        product.published_at = datetime.utcnow()
+        await product.save()
+        
         return product
     
     @staticmethod
@@ -97,12 +117,27 @@ class ProductService:
     
     @staticmethod
     async def publish_product(product_id: str, supplier_id: str) -> Optional[Product]:
-        """Publish a product (change status to published - directly visible to customers)"""
+        """
+        Publish a product (change status to published - directly visible to customers).
+        
+        TEMPORARY: Admin approval is bypassed.
+        TODO: When admin panel is implemented, add admin approval check here.
+        """
         product = await ProductService.get_product_by_id(product_id)
         
         if not product or product.supplier_id != supplier_id:
             return None
         
+        # TODO: ADMIN APPROVAL CHECK (to be uncommented when admin panel is ready)
+        # When admin panel is implemented, add this check:
+        # if product.status != ProductStatus.PENDING_REVIEW:
+        #     raise ValueError("Product must be approved by admin before publishing")
+        # 
+        # # Check if product has been approved by admin
+        # if not product.admin_approved:  # You'll need to add this field to Product model
+        #     raise ValueError("Product has not been approved by admin")
+        
+        # TEMPORARY: Allow direct publishing (bypass admin approval)
         product.status = ProductStatus.PUBLISHED
         product.published_at = datetime.utcnow()
         product.updated_at = datetime.utcnow()
