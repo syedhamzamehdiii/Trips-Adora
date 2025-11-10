@@ -392,7 +392,7 @@ const AccountSettings = () => {
       width,
       height
     );
-    return canvas.toDataURL('image/jpeg');
+    return canvas.toDataURL('image/jpeg', 0.99);
   };
 
   const applyCrop = () => {

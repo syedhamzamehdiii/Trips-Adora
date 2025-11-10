@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin, FiClock } from 'react-icons/fi';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import AddItineraryComponent from './AddItineraryComponent';
+import productService from '@/services/productService';
 
 const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [step, setStep] = useState(1);
@@ -11,6 +12,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
   const [selectedVehicleModel, setSelectedVehicleModel] = useState('');
   const [isLoadingDraft, setIsLoadingDraft] = useState(true);
+  const [dbProductId, setDbProductId] = useState(null);
+  const [itineraries, setItineraries] = useState([]);
   
   // Step 1 - Product Information
   const [productTitle, setProductTitle] = useState('');
@@ -83,7 +86,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [duration, setDuration] = useState('');
-  const [timeSlots, setTimeSlots] = useState({
+  const emptyTimeSlots = useMemo(() => ({
     Monday: [],
     Tuesday: [],
     Wednesday: [],
@@ -91,7 +94,42 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     Friday: [],
     Saturday: [],
     Sunday: []
-  });
+  }), []);
+
+  const normalizeTimeSlots = useCallback((rawSlots) => {
+    if (!rawSlots || typeof rawSlots !== 'object') {
+      return { ...emptyTimeSlots };
+    }
+
+    const normalized = { ...emptyTimeSlots };
+
+    Object.keys(normalized).forEach((day) => {
+      const value = rawSlots[day];
+
+      if (Array.isArray(value)) {
+        normalized[day] = value.filter(Boolean);
+        return;
+      }
+
+      if (typeof value === 'string' && value.trim()) {
+        normalized[day] = [value.trim()];
+        return;
+      }
+
+      if (value && typeof value === 'object') {
+        const collected = Object.values(value).flatMap((entry) => {
+          if (Array.isArray(entry)) return entry.filter(Boolean);
+          if (typeof entry === 'string' && entry.trim()) return [entry.trim()];
+          return [];
+        });
+        normalized[day] = collected;
+      }
+    });
+
+    return normalized;
+  }, [emptyTimeSlots]);
+
+  const [timeSlots, setTimeSlots] = useState(() => ({ ...emptyTimeSlots }));
   
   // Vehicle-Time Allocations (time + vehicle pairings)
   const [vehicleTimeAllocations, setVehicleTimeAllocations] = useState([]);
@@ -255,6 +293,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           const draftData = JSON.parse(savedDraft);
           console.log('📄 Draft data parsed:', draftData);
           
+          const detectedDbId = draftData.dbProductId || draftData.draftId || (draftId && draftId !== 'current_draft' ? draftId : null);
+          setDbProductId(detectedDbId || null);
+          if (Array.isArray(draftData.itineraries)) setItineraries(draftData.itineraries);
+
           // Load Step 1 data
           if (draftData.productTitle) {
             console.log('✅ Loading title:', draftData.productTitle);
@@ -317,10 +359,32 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           if (draftData.selectedPickupMinute) setSelectedPickupMinute(draftData.selectedPickupMinute);
           if (draftData.selectedWeekDay) setSelectedWeekDay(draftData.selectedWeekDay);
           if (draftData.selectedDate) setSelectedDate(draftData.selectedDate);
-          if (draftData.timeSlots) setTimeSlots(draftData.timeSlots);
+          if (draftData.timeSlots) setTimeSlots(normalizeTimeSlots(draftData.timeSlots));
           if (draftData.vehicleTimeAllocations) {
             console.log('✅ Loading vehicle-time allocations:', draftData.vehicleTimeAllocations.length);
             setVehicleTimeAllocations(draftData.vehicleTimeAllocations);
+          }
+
+          if (draftData.photoStoragePending) {
+            const targetId = detectedDbId || draftId;
+            if (targetId) {
+              (async () => {
+                try {
+                  console.log('🔄 Hydrating images for draft from server:', targetId);
+                  const fullProduct = await productService.getProduct(targetId);
+                  const { transformApiProductToDraftPayload } = await import('@/utils/productTransform');
+                  const hydratedDraft = transformApiProductToDraftPayload(fullProduct);
+                  if (hydratedDraft?.coverImage) {
+                    setCoverImage(hydratedDraft.coverImage);
+                  }
+                  if (Array.isArray(hydratedDraft?.uploadedPhotos) && hydratedDraft.uploadedPhotos.length) {
+                    setUploadedPhotos(hydratedDraft.uploadedPhotos);
+                  }
+                } catch (hydrationError) {
+                  console.warn('Unable to hydrate draft images from backend:', hydrationError);
+                }
+              })();
+            }
           }
           
           // Load current step
@@ -334,6 +398,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         } else {
           console.log('⚠️ No existing draft found for ID:', draftId);
           console.log('💡 Starting fresh - no saved data to load');
+          setDbProductId(draftId && draftId !== 'current_draft' ? draftId : null);
         }
       } catch (error) {
         console.error('❌ Error loading draft data:', error);
@@ -345,7 +410,19 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     };
     
     loadDraftData();
-  }, [draftId]);
+  }, [draftId, normalizeTimeSlots]);
+
+  // Utility to serialize photos for storage
+  const serializePhoto = (photo) => {
+    if (!photo) return null;
+    const url = photo.url || photo.preview || '';
+    if (!url) return null;
+    return {
+      id: photo.id || Date.now() + Math.random(),
+      url,
+      name: photo.name || 'Uploaded photo',
+    };
+  };
 
   // Auto-save draft data whenever any field changes
   useEffect(() => {
@@ -356,6 +433,26 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     
     const saveDraftData = () => {
       try {
+        const storageKey = `product_draft_${draftId}`;
+        let preservedCustomFields = undefined;
+
+        try {
+          const existingRaw = localStorage.getItem(storageKey);
+          if (existingRaw) {
+            const existingDraft = JSON.parse(existingRaw);
+            if (existingDraft?.customFields && typeof existingDraft.customFields === 'object') {
+              preservedCustomFields = existingDraft.customFields;
+            }
+          }
+        } catch (parseError) {
+          console.warn('Unable to read existing draft for custom fields preservation:', parseError);
+        }
+
+        const serializedPhotos = uploadedPhotos
+          .map(serializePhoto)
+          .filter(Boolean);
+        const serializedCover = serializePhoto(coverImage);
+
         const draftData = {
           // Step 1 data
           productTitle,
@@ -367,9 +464,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           description,
           highlights,
           
-          // Photo data - EXCLUDED to avoid localStorage quota errors
-          // uploadedPhotos,
-          // coverImage,
+          // Photo data
+          uploadedPhotos: serializedPhotos,
+          coverImage: serializedCover,
           
           // Step 4 data
           selectedGuideType,
@@ -412,11 +509,41 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           
           // Metadata
           lastModified: new Date().toISOString(),
-          draftId: draftId
+          draftId: draftId,
+          dbProductId: dbProductId || (draftId && draftId !== 'current_draft' ? draftId : null),
+          itineraries,
+          customFields: preservedCustomFields
         };
         
-        localStorage.setItem(`product_draft_${draftId}`, JSON.stringify(draftData));
-        console.log('💾 Draft auto-saved to product_draft_' + draftId);
+        const attemptSave = (payload) => {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(payload));
+            return true;
+          } catch (storageError) {
+            if (storageError && storageError.name === 'QuotaExceededError') {
+              return false;
+            }
+            throw storageError;
+          }
+        };
+
+        if (!attemptSave(draftData)) {
+          console.warn('⚠️ Draft save exceeded localStorage quota, retrying without embedded images.');
+          const slimDraft = {
+            ...draftData,
+            uploadedPhotos: [],
+            coverImage: null,
+            photoStoragePending: true
+          };
+
+          if (!attemptSave(slimDraft)) {
+            throw new Error('Draft save failed even after stripping images.');
+          } else {
+            console.log('💾 Draft saved without images due to storage limits.');
+          }
+        } else {
+          console.log('💾 Draft auto-saved to product_draft_' + draftId);
+        }
       } catch (error) {
         console.error('Error saving draft data:', error);
       }
@@ -430,7 +557,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     isLoadingDraft,
     productTitle, productCategory, sellingPoints, tagline,
     description, highlights,
-    // uploadedPhotos, coverImage, - removed from dependencies to avoid quota errors
+    uploadedPhotos, coverImage,
     selectedGuideType, selectedActivityType, selectedLanguages, selectedThingsToCarry,
     includedItems, excludedItems, accessibilityToggles,
     vehicles, vehicleTitle, selectedVehicleType, selectedVehicleModel, vehicleYear,
@@ -438,8 +565,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     totalDuration, vehicleDescription, selectedVehicleForTour,
     selectedPickupLocations, selectedDropoffLocations, activePickupLocations, activeDropoffLocations,
     selectedPickupHour, selectedPickupMinute, selectedWeekDay, selectedDate, timeSlots,
-    vehicleTimeAllocations,
-    step, draftId
+    vehicleTimeAllocations, itineraries,
+    step, draftId, dbProductId
   ]);
 
   // Auto-generate time slots when start/end time, duration, or weekday changes
@@ -746,18 +873,25 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const removeTimeSlot = (day, timeSlot) => {
     setTimeSlots(prev => ({
       ...prev,
-      [day]: prev[day].filter(slot => slot !== timeSlot)
+      [day]: Array.isArray(prev[day]) ? prev[day].filter(slot => slot !== timeSlot) : []
     }));
   };
 
   // Add a custom time slot to a specific day
   const addCustomTimeSlot = (day, time) => {
-    if (!timeSlots[day].includes(time)) {
-      setTimeSlots(prev => ({
+    setTimeSlots(prev => {
+      const current = Array.isArray(prev[day]) ? prev[day] : [];
+      if (current.includes(time)) {
+        return prev;
+      }
+      const nextDaySlots = [...current, time].sort(
+        (a, b) => parseTime(a.replace(' : ', ':')) - parseTime(b.replace(' : ', ':'))
+      );
+      return {
         ...prev,
-        [day]: [...prev[day], time].sort((a, b) => parseTime(a.replace(' : ', ':')) - parseTime(b.replace(' : ', ':')))
-      }));
-    }
+        [day]: nextDaySlots
+      };
+    });
   };
 
   const handleVehicleTypeChange = (vehicleType) => {
@@ -766,25 +900,49 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   };
 
   // === PHOTO UPLOAD HANDLERS ===
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+  const MIN_DIMENSION_PX = 720;
+
+  const validateImage = (file, onValid) => {
+    if (file.size > MAX_IMAGE_BYTES) {
+      alert(`"${file.name}" is too large. Maximum size is 5MB.`);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      if (img.width < MIN_DIMENSION_PX || img.height < MIN_DIMENSION_PX) {
+        alert(`"${file.name}" is too small. Minimum resolution is ${MIN_DIMENSION_PX}px on both width and height.`);
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      URL.revokeObjectURL(objectUrl);
+      onValid();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      alert(`Unable to read "${file.name}". Please try another image.`);
+    };
+    img.src = objectUrl;
+  };
+
   const handlePhotoUpload = (event) => {
     const files = Array.from(event.target.files);
     
     files.forEach(file => {
-      if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
-        alert(`File ${file.name} is too large. Maximum size is 2GB.`);
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedPhotos(prev => [...prev, {
-          id: Date.now() + Math.random(),
-          url: e.target.result,
-          file: file,
-          name: file.name
-        }]);
-      };
-      reader.readAsDataURL(file);
+      validateImage(file, () => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setUploadedPhotos(prev => [...prev, {
+            id: Date.now() + Math.random(),
+            url: e.target.result,
+            file: file,
+            name: file.name
+          }]);
+        };
+        reader.readAsDataURL(file);
+      });
     });
   };
 
@@ -792,21 +950,18 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     const file = event.target.files[0];
     if (!file) return;
     
-    if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
-      alert('File is too large. Maximum size is 2GB.');
-      return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setCoverImage({
-        id: Date.now(),
-        url: e.target.result,
-        file: file,
-        name: file.name
-      });
-    };
-    reader.readAsDataURL(file);
+    validateImage(file, () => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setCoverImage({
+          id: Date.now(),
+          url: e.target.result,
+          file: file,
+          name: file.name
+        });
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const removePhoto = (photoId) => {
@@ -822,23 +977,20 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   };
 
   const replacePhoto = (index, file) => {
-    if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
-      alert(`File ${file.name} is too large. Maximum size is 2GB.`);
-      return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setUploadedPhotos(prev => prev.map((photo, idx) => 
-        idx === index ? {
-          id: Date.now() + Math.random(),
-          url: e.target.result,
-          file: file,
-          name: file.name
-        } : photo
-      ));
-    };
-    reader.readAsDataURL(file);
+    validateImage(file, () => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setUploadedPhotos(prev => prev.map((photo, idx) => 
+          idx === index ? {
+            id: Date.now() + Math.random(),
+            url: e.target.result,
+            file: file,
+            name: file.name
+          } : photo
+        ));
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const setCoverFromUploadedPhoto = (photoIndex) => {
@@ -2783,7 +2935,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               {/* Time Slots Section - Dynamic for all weekdays */}
               <div className="space-y-6">
                 {Object.keys(timeSlots).map((day) => (
-                  timeSlots[day] && timeSlots[day].length > 0 && (
+                  Array.isArray(timeSlots[day]) && timeSlots[day].length > 0 && (
                     <div key={day}>
                       <h4 className="text-sm font-bold text-gray-900 mb-3">{day}</h4>
                      <div className="grid grid-cols-5 gap-2">
@@ -2811,12 +2963,61 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 ))}
                 
                 {/* Show message if no slots configured yet */}
-                {Object.values(timeSlots).every(slots => !slots || slots.length === 0) && (
+                {Object.values(timeSlots).every(slots => !Array.isArray(slots) || slots.length === 0) && (
                   <div className="text-center py-8">
                     <p className="text-sm text-gray-500 italic">
                       Select a weekday, then set start time, end time, and duration to generate time slots
                     </p>
                      </div>
+                )}
+                
+                {Array.isArray(itineraries) && itineraries.length > 0 && (
+                  <div className="mt-10 border-t border-gray-200 pt-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Saved Itinerary Stops</h3>
+                    <div className="space-y-4">
+                      {itineraries.map((stop, index) => (
+                        <div
+                          key={stop.id || index}
+                          className="flex items-start space-x-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                        >
+                          <div className="flex-shrink-0">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-semibold">
+                              {(stop.time && String(stop.time).trim()) || `#${index + 1}`}
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-base font-bold text-gray-900">
+                                {stop.title || stop.placeName || stop.location || `Stop ${index + 1}`}
+                              </h4>
+                              {stop.isFree !== undefined && (
+                                <span className={`ml-3 rounded-full px-3 py-1 text-xs font-semibold ${stop.isFree ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                  {stop.isFree ? 'Free' : 'Paid'}
+                                </span>
+                              )}
+                            </div>
+                            {stop.description && (
+                              <p className="mt-2 text-sm text-gray-600 line-clamp-3">{stop.description}</p>
+                            )}
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                              {stop.timeSpent && (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1">
+                                  <FiClock className="mr-1" size={12} />
+                                  {stop.timeSpent}
+                                </span>
+                              )}
+                              {stop.attractionType && (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1">
+                                  <FiMapPin className="mr-1" size={12} />
+                                  {stop.attractionType}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
                </div>
              </div>
@@ -3797,6 +3998,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             onClose();
           }}
           onBack={() => setShowItineraryComponent(false)}
+          currentItineraries={itineraries}
+          onItinerariesChange={setItineraries}
           coverImage={coverImage}
           uploadedPhotos={uploadedPhotos}
           productData={{
@@ -3825,8 +4028,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             timeSlots: timeSlots,
             vehicleTimeAllocations: vehicleTimeAllocations,
             applyToAllDays: applyToAllDays,
+            itineraries: itineraries,
             // Provide draftId so AddItineraryComponent can preload existing itineraries
-            draftId: draftId
+            draftId: draftId,
+            dbProductId: dbProductId || (draftId && draftId !== 'current_draft' ? draftId : null)
           }}
         />
       )}

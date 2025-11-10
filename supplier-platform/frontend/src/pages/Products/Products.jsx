@@ -3,6 +3,7 @@ import { FiTrendingUp, FiFileText, FiRefreshCw, FiArchive, FiSearch, FiFilter, F
 import { useNavigate, useLocation } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
 import productService from '@/services/productService';
+import CreateProductComponent from '@/components/products/CreateProductComponent';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -26,6 +27,9 @@ const Products = () => {
     draft: 0,
     revenue: 0
   });
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [isPreparingDraft, setIsPreparingDraft] = useState(false);
   const dropdownRefs = useRef({});
   const dropdownMenuRefs = useRef({});
   const filtersRef = useRef(null);
@@ -154,11 +158,9 @@ const Products = () => {
     // Tab filter
     let matchesTab = true;
     if (activeTab === 'drafts') {
-      // Drafts tab only shows drafts
       matchesTab = product.status === 'Draft';
     } else if (activeTab === 'active') {
-      // Active tab shows Published and Draft (inactive) per requirement
-      matchesTab = product.status === 'Published' || product.status === 'Draft';
+      matchesTab = ['Published', 'Pending', 'Rejected', 'Draft'].includes(product.status);
     }
     
     // Search query filter
@@ -227,17 +229,120 @@ const Products = () => {
       // Find the product
       const product = products.find(p => p.id === productId);
       if (product) {
-        if (product.status === 'Draft') {
-          // Navigate to drafts page to continue editing
-          console.log('📝 Opening draft for editing:', product.name);
-          navigate('/products/drafts');
-        } else if (product.status === 'Published') {
-          alert('📌 This product is already published.\n\nTo make changes:\n• Use "Clone" to create an editable copy\n• Or create a new version of this product');
-        } else if (product.status === 'Rejected') {
-          alert('❌ This product was rejected.\n\nPlease contact support or create a new product.');
-        } else {
-          alert('⚠️ This product cannot be edited at this time.');
+        if (isPreparingDraft) {
+          console.log('⚠️ Already preparing a draft, ignoring duplicate edit action.');
+          return;
         }
+
+        const normalizedStatus = (product.status || '').toLowerCase();
+        const resolvedProductId = product.dbProductId || productId;
+        const draftStorageKey = `product_draft_${resolvedProductId}`;
+
+        console.log('🔍 Product status for edit:', normalizedStatus);
+
+        if (normalizedStatus === 'draft') {
+          console.log('📝 Opening existing draft for editing:', product.name);
+          try {
+            const existingDraft = localStorage.getItem(draftStorageKey);
+            if (existingDraft) {
+              localStorage.setItem('product_draft_current_draft', existingDraft);
+            }
+          } catch (storageError) {
+            console.warn('Unable to prime current draft cache:', storageError);
+          }
+          setEditingProductId(String(resolvedProductId));
+          setShowCreateProduct(true);
+          return;
+        }
+
+        if (normalizedStatus === 'pending') {
+          alert('⚠️ This product is currently with the admin team for verification.\n\nPlease wait until the review is completed before making more changes.');
+          return;
+        }
+
+        if (normalizedStatus === 'published' || normalizedStatus === 'rejected') {
+          let proceed = true;
+          if (normalizedStatus === 'published') {
+            proceed = window.confirm(
+              '⚠️ Editing a published product will resend it for admin verification.\n\nYour listing may be temporarily unavailable until the admin approves it again.\n\nDo you want to continue?'
+            );
+          }
+
+          if (!proceed) {
+            console.log('ℹ️ User cancelled editing for published product.');
+            return;
+          }
+
+          try {
+            setIsPreparingDraft(true);
+            console.log('⬇️ Fetching full product payload for draft conversion:', resolvedProductId);
+            const fullProduct = await productService.getProduct(resolvedProductId);
+            const { transformApiProductToDraftPayload } = await import('@/utils/productTransform');
+
+            const draftPayload = transformApiProductToDraftPayload(fullProduct);
+            if (!draftPayload) {
+              throw new Error('Draft payload could not be generated from the product data.');
+            }
+
+            const enrichedDraft = {
+              ...draftPayload,
+              status: 'Draft',
+              originalStatus: product.status,
+              adminReviewRequired: normalizedStatus === 'published',
+              submissionStatus: normalizedStatus === 'published' ? 'pending_admin_review' : 'supplier_revision',
+              lastModified: new Date().toISOString()
+            };
+
+            const slimDraftBuilder = (draft) => ({
+              ...draft,
+              photoStoragePending: true,
+              uploadedPhotosMetadata: Array.isArray(draft.uploadedPhotos)
+                ? draft.uploadedPhotos.map(({ id, name }) => ({ id, name }))
+                : [],
+              uploadedPhotos: [],
+              coverImage: null
+            });
+
+            const persistWithFallback = (key, payload, fallbackBuilder) => {
+              const attempt = (data) => {
+                const serialized = JSON.stringify(data);
+                localStorage.setItem(key, serialized);
+                return { data, serialized };
+              };
+
+              try {
+                return attempt(payload);
+              } catch (err) {
+                if (err?.name === 'QuotaExceededError' && fallbackBuilder) {
+                  console.warn(`⚠️ localStorage quota exceeded for ${key}. Saving lightweight draft.`);
+                  return attempt(fallbackBuilder(payload));
+                }
+                throw err;
+              }
+            };
+
+            console.log('💾 Saving draft payload for editing:', draftStorageKey);
+            const savedDraft = persistWithFallback(draftStorageKey, enrichedDraft, slimDraftBuilder);
+            localStorage.setItem('product_draft_current_draft', savedDraft.serialized);
+
+            setEditingProductId(String(resolvedProductId));
+            setShowCreateProduct(true);
+
+            if (normalizedStatus === 'published') {
+              alert('ℹ️ Your updates will be sent for admin verification once you resubmit this product.');
+            } else {
+              alert('✅ You can now update this rejected product and resubmit it to the admin.');
+            }
+          } catch (error) {
+            console.error('Error preparing product for editing:', error);
+            alert(`❌ Failed to prepare product for editing: ${error?.message || error}`);
+          } finally {
+            setIsPreparingDraft(false);
+          }
+          return;
+        }
+
+        alert('⚠️ This product cannot be edited at this time.');
       }
     } else if (action === 'clone') {
       console.log('📋 Clone action started');
@@ -909,6 +1014,25 @@ const Products = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {isPreparingDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm">
+          <div className="bg-white px-6 py-4 rounded-lg shadow-xl border border-gray-200 text-center">
+            <p className="text-base font-medium text-gray-900 mb-1">Preparing product for editing…</p>
+            <p className="text-sm text-gray-600">We’re loading the latest content so you can make updates safely.</p>
+          </div>
+        </div>
+      )}
+
+      {showCreateProduct && (
+        <CreateProductComponent
+          onClose={() => {
+            setShowCreateProduct(false);
+            setEditingProductId(null);
+          }}
+          draftId={editingProductId || 'current_draft'}
+        />
       )}
 
       <Footer />

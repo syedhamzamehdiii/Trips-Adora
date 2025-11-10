@@ -95,7 +95,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
           dropoff_location: productData?.dropoffLocations?.[0] || '',
           pickup_time: productData?.pickupTime || '',
           available_days: productData?.weekDay ? [productData.weekDay] : [],
-          available_time_slots: productData?.timeSlots ? Object.keys(productData.timeSlots) : []
+          available_time_slots: productData?.timeSlots
+            ? Object.values(productData.timeSlots).flat().filter(Boolean)
+            : []
         },
         price: parseFloat(productData?.vehicles?.[0]?.amount || 0),
         currency: 'USD',
@@ -113,14 +115,29 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         throw new Error('Title must be at least 30 characters to save as draft');
       }
       
-      // Create product in database (will be auto-published, then we'll save as draft)
-      const createdProduct = await productService.createProduct(apiProductData);
-      const dbProductId = createdProduct.id;
-      console.log('✅ Draft product created in database with ID:', dbProductId);
-      
-      // Save as draft (change status from published to draft)
-      await productService.saveAsDraft(dbProductId);
-      console.log('✅ Draft saved successfully!');
+      const existingProductIdRaw = productData?.dbProductId || productData?.draftId || productData?.id;
+      const existingProductId = existingProductIdRaw && existingProductIdRaw !== 'current_draft'
+        ? existingProductIdRaw
+        : null;
+
+      let dbProductId = existingProductId;
+
+      if (existingProductId) {
+        console.log('♻️ Updating existing product draft:', existingProductId);
+        await productService.updateProduct(existingProductId, apiProductData);
+        await productService.saveAsDraft(existingProductId);
+        console.log('✅ Existing product updated & saved as draft:', existingProductId);
+      } else {
+        const createdProduct = await productService.createProduct(apiProductData);
+        dbProductId = createdProduct.id;
+        console.log('✅ Draft product created in database with ID:', dbProductId);
+        await productService.saveAsDraft(dbProductId);
+        console.log('✅ Draft saved successfully!');
+      }
+
+      if (!dbProductId) {
+        throw new Error('Draft save failed: missing product ID after persistence.');
+      }
       
       // Save images to localStorage for later use
       const fullDraftData = {
@@ -153,8 +170,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       };
       
       // Save full draft data with images to localStorage
-      localStorage.setItem(`product_draft_${dbProductId}`, JSON.stringify(fullDraftData));
-      console.log('💾 Full draft data with images saved to localStorage:', `product_draft_${dbProductId}`);
+      const storageDraftId = String(dbProductId);
+      localStorage.setItem(`product_draft_${storageDraftId}`, JSON.stringify(fullDraftData));
+      console.log('💾 Full draft data with images saved to localStorage:', `product_draft_${storageDraftId}`);
       
       // Show success message
       alert('✅ Draft saved successfully!');
@@ -190,48 +208,14 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       // Normalize title (support both title and productTitle)
       const publishTitle = (productData?.title || productData?.productTitle || '').trim();
 
-      // Read original image data (no compression)
-      const readAsDataURL = (file) => new Promise((resolve, reject) => {
-        try {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        } catch (e) { resolve(null); }
-      });
-
-      // Build image URLs from either prop `uploadedPhotos` or draft data using original file/base64
+      // Build image URLs from either prop `uploadedPhotos` or draft data
       const rawPhotos = Array.isArray(uploadedPhotos) && uploadedPhotos.length
         ? uploadedPhotos
         : (Array.isArray(productData?.uploadedPhotos) ? productData.uploadedPhotos : []);
-
-      const imageUrls = [];
-      for (const p of rawPhotos) {
-        if (!p) continue;
-        if (typeof p === 'string') {
-          imageUrls.push(p);
-        } else if (p.url) {
-          imageUrls.push(p.url);
-        } else if (p.file) {
-          const dataUrl = await readAsDataURL(p.file);
-          if (dataUrl) imageUrls.push(dataUrl);
-        }
-      }
-
-      // Cover image preference: prop coverImage > productData.coverImage > first image
-      let heroImageUrl = null;
-      if (coverImage) {
-        if (typeof coverImage === 'string') heroImageUrl = coverImage;
-        else if (coverImage.url) heroImageUrl = coverImage.url;
-        else if (coverImage.file) heroImageUrl = await readAsDataURL(coverImage.file);
-      }
-      if (!heroImageUrl && productData?.coverImage) {
-        const ci = productData.coverImage;
-        if (typeof ci === 'string') heroImageUrl = ci;
-        else if (ci.url) heroImageUrl = ci.url;
-        else if (ci.file) heroImageUrl = await readAsDataURL(ci.file);
-      }
-      if (!heroImageUrl) heroImageUrl = imageUrls[0] || null;
+      const imageUrls = rawPixelsToUrls(rawPhotos);
+      const heroUrl = (typeof coverImage === 'string' ? coverImage : (coverImage?.url))
+        || (typeof productData?.coverImage === 'string' ? productData.coverImage : productData?.coverImage?.url)
+        || (imageUrls[0] || null);
 
       // Normalize category to backend enum values
       const normalizedCategory = (productData?.category || 'tour')
@@ -269,7 +253,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       function rawPixelsToUrls(arr){
         return (Array.isArray(arr) ? arr : []).map(p => typeof p === 'string' ? p : (p && p.url ? p.url : null)).filter(Boolean);
       }
-      
+
       // Prepare product data for API (matching ProductCreate schema)
       const apiProductData = {
         title: publishTitle || 'Untitled Product',
@@ -283,7 +267,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
             }))
           : [],
         images: imageUrls,
-        hero_image: heroImageUrl || null,
+        hero_image: heroUrl || null,
         gallery_images: imageUrls.slice(1),
         itinerary: Array.isArray(productData?.itineraries)
           ? productData.itineraries.map(it => ({
@@ -313,7 +297,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
           dropoff_location: (productData?.dropoffLocations && productData.dropoffLocations[0]) ? String(productData.dropoffLocations[0]) : '',
           pickup_time: (productData?.pickupTime || '').toString(),
           available_days: availableDays,
-          available_time_slots: productData?.timeSlots ? Object.keys(productData.timeSlots) : []
+          available_time_slots: productData?.timeSlots
+            ? Object.values(productData.timeSlots).flat().filter(Boolean)
+            : []
         },
         price: parseFloat(productData?.vehicles?.[0]?.amount ?? productData?.price ?? 0),
         currency: 'USD',
@@ -329,19 +315,33 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
 
       // Save to database (required - no localStorage fallback)
       // Validate title length (backend requires min 30 chars)
-        if (!apiProductData.title || apiProductData.title.length < 30) {
+      if (!apiProductData.title || apiProductData.title.length < 30) {
         console.warn('apiProductData invalid title length', apiProductData.title);
         throw new Error(`Title must be at least 30 characters (got ${apiProductData.title?.length || 0})`);
-        }
-        
+      }
+
+      const existingProductIdRaw = productData?.dbProductId || productData?.draftId || productData?.id;
+      const existingProductId = existingProductIdRaw && existingProductIdRaw !== 'current_draft'
+        ? existingProductIdRaw
+        : null;
+
+      let dbProductId = existingProductId;
+
+      if (existingProductId) {
+        console.log('♻️ Updating existing product before publish:', existingProductId);
+        await productService.updateProduct(existingProductId, apiProductData);
+      } else {
         const createdProduct = await productService.createProduct(apiProductData);
-      const dbProductId = createdProduct.id;
+        dbProductId = createdProduct.id;
         console.log('✅ Product saved to database with ID:', dbProductId);
-        
-      // NOTE: Products are now auto-published on creation (bypassing admin approval temporarily)
-      // The explicit publish call below is optional but kept for compatibility
-        await productService.publishProduct(dbProductId);
-        console.log('✅ Product published in database');
+      }
+
+      if (!dbProductId) {
+        throw new Error('Publish failed: missing product ID after save.');
+      }
+
+      await productService.publishProduct(dbProductId);
+      console.log('✅ Product published in database');
 
       // Also persist full published data for cloning later - INCLUDING IMAGES
       // Save images to localStorage (will sync to backend cache which can handle large data)
@@ -436,8 +436,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       };
       // Try to save to localStorage, but if it fails due to quota, save to backend cache only
       try {
-      localStorage.setItem(`product_full_${dbProductId}`, JSON.stringify(fullPublishedData));
-        console.log('💾 Full published data saved to localStorage:', `product_full_${dbProductId}`);
+      const storageProductId = String(dbProductId);
+      localStorage.setItem(`product_full_${storageProductId}`, JSON.stringify(fullPublishedData));
+        console.log('💾 Full published data saved to localStorage:', `product_full_${storageProductId}`);
         console.log('📸 CoverImage in localStorage:', {
           hasCoverImage: !!fullPublishedData.coverImage,
           coverImageType: fullPublishedData.coverImage ? typeof fullPublishedData.coverImage : 'null',
@@ -502,29 +503,49 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   };
 
   // Use uploaded photos if available, otherwise use default photos
-  const defaultPhotos = [
-    { src: "/assets/Screenshot 2025-10-21 at 3.42.38 PM.png", alt: "Mount Fuji view 1" },
-    { src: "/assets/Screenshot 2025-10-21 at 3.44.28 PM.png", alt: "Mount Fuji view 2" },
-    { src: "/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png", alt: "Mount Fuji view 3" }
+  const defaultCoverImage = "/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg";
+
+  const coverPhoto = (() => {
+    if (coverImage?.url) return { src: coverImage.url, alt: coverImage.name || 'Cover image' };
+    if (typeof coverImage === 'string') return { src: coverImage, alt: 'Cover image' };
+    return null;
+  })();
+
+  const galleryPhotos = Array.isArray(uploadedPhotos)
+    ? uploadedPhotos
+        .map((photo, index) => {
+          if (!photo) return null;
+          if (typeof photo === 'string') return { src: photo, alt: `Gallery photo ${index + 1}` };
+          if (photo.url) return { src: photo.url, alt: photo.name || `Gallery photo ${index + 1}` };
+          return null;
+        })
+        .filter(Boolean)
+    : [];
+
+  const photos = galleryPhotos.length > 0 ? galleryPhotos : [
+    { src: "/assets/Screenshot 2025-10-21 at 3.42.38 PM.png", alt: "Default view 1" },
+    { src: "/assets/Screenshot 2025-10-21 at 3.44.28 PM.png", alt: "Default view 2" },
+    { src: "/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png", alt: "Default view 3" }
   ];
 
-  // Convert uploaded photos to the same format
-  const photos = uploadedPhotos && uploadedPhotos.length > 0 
-    ? uploadedPhotos.map(photo => ({ src: photo.url, alt: photo.name }))
-    : defaultPhotos;
+  const mainCoverImage = coverPhoto?.src || photos[0]?.src || defaultCoverImage;
 
-  // All photos for modal (cover + uploaded photos)
-  const allPhotos = coverImage && uploadedPhotos && uploadedPhotos.length > 0
-    ? [{ src: coverImage.url, alt: coverImage.name }, ...photos]
-    : [
-        { src: "/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg", alt: "Mount Fuji cover" },
-        ...defaultPhotos
+  const allPhotos = (() => {
+    const combined = [];
+    if (coverPhoto?.src) combined.push(coverPhoto);
+    const uniqueGallery = photos.filter(photo => coverPhoto?.src ? photo.src !== coverPhoto.src : true);
+    combined.push(...uniqueGallery);
+
+    if (combined.length === 0) {
+      return [
+        { src: defaultCoverImage, alt: 'Default cover image' },
+        { src: "/assets/Screenshot 2025-10-21 at 3.42.38 PM.png", alt: "Default view 1" },
+        { src: "/assets/Screenshot 2025-10-21 at 3.44.28 PM.png", alt: "Default view 2" }
       ];
+    }
 
-  // Determine main cover image
-  const mainCoverImage = coverImage 
-    ? coverImage.url 
-    : "/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg";
+    return combined;
+  })();
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const timeSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
@@ -555,10 +576,10 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
 
   // Use dynamic highlights from productData or fallback to defaults
   const defaultHighlights = [
-    { icon: 'mountain', text: 'Visit iconic Mount Fuji viewpoints including Lake Kawaguchi' },
-    { icon: 'camera', text: 'Explore Chureito Pagoda for the perfect panoramic shots' },
-    { icon: 'car', text: 'Comfortable private transport with flexible itinerary' },
-    { icon: 'guide', text: 'Multilingual guide (English, Japanese, Hindi available)' }
+    { icon: 'mountain', text: 'Experience breathtaking alpine scenery and glacier views' },
+    { icon: 'camera', text: 'Capture panoramic vistas from hidden vantage points' },
+    { icon: 'car', text: 'Comfortable private transport tailored to your group' },
+    { icon: 'guide', text: 'Expert local guide sharing culture, stories, and history' }
   ];
   
   const highlights = productData?.highlights && productData.highlights.length > 0
