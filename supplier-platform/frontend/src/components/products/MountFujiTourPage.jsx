@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   FiSave, 
   FiEdit3, 
@@ -24,10 +25,7 @@ import {
   FiFacebook,
   FiTwitter,
   FiChevronDown,
-  FiMenu,
-  FiHome,
   FiArrowLeft,
-  FiBell,
   FiChevronLeft,
   FiChevronRight,
   FiX
@@ -36,8 +34,116 @@ import PublishProductModal from './PublishProductModal';
 import ApplicationSubmittedPage from './ApplicationSubmittedPage';
 import Footer from '@/components/common/Footer';
 import productService from '@/services/productService';
+import Header from '@/components/common/Header';
+import dashboardService from '@/services/dashboardService';
+
+const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024; // ~1.5MB per image after compression
+const MAX_IMAGE_COUNT = 8;
+
+const approximateBytesFromDataUrl = (dataUrl = '') => {
+  if (typeof dataUrl !== 'string') return 0;
+  const base64 = dataUrl.split(',')[1];
+  if (!base64) return 0;
+  return Math.floor((base64.length * 3) / 4);
+};
+
+const compressDataUrl = async (dataUrl, maxBytes = MAX_IMAGE_BYTES) => {
+  if (typeof window === 'undefined' || !dataUrl?.startsWith('data:image')) {
+    return dataUrl;
+  }
+
+  const initialBytes = approximateBytesFromDataUrl(dataUrl);
+  if (initialBytes <= maxBytes) {
+    return dataUrl;
+  }
+
+  return await new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+
+      const scale = Math.sqrt(maxBytes / initialBytes);
+      const targetWidth = Math.max(1, Math.floor(img.width * Math.min(scale, 1)));
+      const targetHeight = Math.max(1, Math.floor(img.height * Math.min(scale, 1)));
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+      let quality = 0.85;
+      let output = canvas.toDataURL('image/jpeg', quality);
+      let iterations = 0;
+
+      while (approximateBytesFromDataUrl(output) > maxBytes && iterations < 8) {
+        quality -= 0.1;
+        output = canvas.toDataURL('image/jpeg', Math.max(quality, 0.4));
+        iterations += 1;
+      }
+
+      resolve(output);
+    };
+
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+};
+
+const normaliseImageSource = async (source) => {
+  if (!source || typeof source !== 'string') {
+    return null;
+  }
+
+  const trimmed = source.trim();
+  if (!trimmed.startsWith('data:image')) {
+    return trimmed;
+  }
+
+  try {
+    return await compressDataUrl(trimmed);
+  } catch (error) {
+    console.warn('Image compression failed, using original image.', error);
+    return trimmed;
+  }
+};
+
+const dedupeStrings = (items = []) => {
+  const seen = new Set();
+  const result = [];
+  items.forEach((item) => {
+    if (item && !seen.has(item)) {
+      seen.add(item);
+      result.push(item);
+    }
+  });
+  return result;
+};
+
+const buildImagePayload = async (sources = [], limit = MAX_IMAGE_COUNT) => {
+  const limited = sources.filter(Boolean).slice(0, limit);
+  if (limited.length === 0) {
+    return [];
+  }
+
+  const processed = await Promise.all(
+    limited.map(async (item) => {
+      const src = typeof item === 'string' ? item : item?.url || null;
+      if (!src) return null;
+      return await normaliseImageSource(src);
+    })
+  );
+
+  return dedupeStrings(processed.filter(Boolean));
+};
+
+const FALLBACK_SUPPLIER_ID = 'N/A';
 
 const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) => {
+  const navigate = useNavigate();
   const [selectedDay, setSelectedDay] = useState('Tuesday');
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [language, setLanguage] = useState('US English');
@@ -46,18 +152,216 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [previewProfile, setPreviewProfile] = useState({
+    name: 'User',
+    id: FALLBACK_SUPPLIER_ID,
+    photo: null,
+    balance: null
+  });
+
+  useEffect(() => {
+    const loadProfileFromStorage = () => {
+      try {
+        const stored =
+          localStorage.getItem('account_settings') ||
+          sessionStorage.getItem('account_settings');
+        const supplierId =
+          localStorage.getItem('supplier_id') ||
+          sessionStorage.getItem('supplier_id') ||
+          FALLBACK_SUPPLIER_ID;
+
+        let name = 'User';
+        let id = supplierId || FALLBACK_SUPPLIER_ID;
+        let photo = null;
+
+        if (stored) {
+          const data = JSON.parse(stored);
+          name =
+            data?.editableInfo?.publicName?.trim() ||
+            data?.profileData?.publicName?.trim() ||
+            name;
+          id =
+            data?.profileData?.contactValue?.toString().trim() ||
+            data?.editableInfo?.contactValue?.toString().trim() ||
+            id;
+          photo = data?.globalUserPhoto || data?.profilePhotoPreview || null;
+        }
+
+        const dashboardRaw =
+          localStorage.getItem('dashboard_data') ||
+          sessionStorage.getItem('dashboard_data');
+        let balance = previewProfile.balance;
+
+        if (dashboardRaw) {
+          try {
+            const dashboard = JSON.parse(dashboardRaw);
+            const value =
+              typeof dashboard?.balance === 'number'
+                ? dashboard.balance
+                : parseFloat(dashboard?.balance);
+            if (!Number.isNaN(value)) {
+              balance = value;
+            }
+          } catch (_) {
+            // ignore malformed dashboard data
+          }
+        }
+
+        setPreviewProfile({
+          name,
+          id: id || FALLBACK_SUPPLIER_ID,
+          photo,
+          balance
+        });
+
+        (async () => {
+          try {
+            const overview = await dashboardService.getOverview();
+            const availableBalance = overview?.metrics?.available_balance;
+            if (typeof availableBalance === 'number' && !Number.isNaN(availableBalance)) {
+              setPreviewProfile((prev) => ({ ...prev, balance: availableBalance }));
+            }
+          } catch (error) {
+            console.warn('Failed to refresh supplier balance', error);
+          }
+        })();
+      } catch (error) {
+        console.warn('Failed to load supplier preview profile', error);
+      }
+    };
+
+    loadProfileFromStorage();
+    window.addEventListener('account_settings_updated', loadProfileFromStorage);
+    window.addEventListener('accountSettingsUpdated', loadProfileFromStorage);
+    window.addEventListener('dashboard_data_updated', loadProfileFromStorage);
+    window.addEventListener('bookings_updated', loadProfileFromStorage);
+    window.addEventListener('products_updated', loadProfileFromStorage);
+    window.addEventListener('storage', loadProfileFromStorage);
+
+    return () => {
+      window.removeEventListener(
+        'account_settings_updated',
+        loadProfileFromStorage
+      );
+      window.removeEventListener(
+        'accountSettingsUpdated',
+        loadProfileFromStorage
+      );
+      window.removeEventListener('dashboard_data_updated', loadProfileFromStorage);
+      window.removeEventListener('bookings_updated', loadProfileFromStorage);
+      window.removeEventListener('products_updated', loadProfileFromStorage);
+      window.removeEventListener('storage', loadProfileFromStorage);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
+  const profileInitials = useMemo(() => {
+    if (!previewProfile?.name) return 'US';
+    const parts = previewProfile.name.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'US';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`
+      .toUpperCase()
+      .slice(0, 2);
+  }, [previewProfile?.name]);
+
+  const formattedBalance = useMemo(() => {
+    const value = previewProfile?.balance;
+    if (typeof value === 'number' && !Number.isNaN(value)) {
+      return value.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      });
+    }
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value;
+    }
+    return '1850';
+  }, [previewProfile?.balance]);
+
 
   const handleSaveDraft = async () => {
     try {
       console.log('💾 Saving draft to database...');
       
+      // Helper to coerce various inputs into clean string arrays
+      const ensureStringArray = (value, { splitOnComma = false } = {}) => {
+        if (!value) return [];
+        if (Array.isArray(value)) {
+          return value
+            .map((item) => {
+              if (typeof item === 'string') {
+                return item.trim();
+              }
+              if (item && typeof item === 'object') {
+                return (
+                  item.value?.toString().trim() ||
+                  item.label?.toString().trim() ||
+                  item.name?.toString().trim() ||
+                  ''
+                );
+              }
+              return '';
+            })
+            .map((item) => (splitOnComma ? item.split(',') : item))
+            .flat()
+            .map((item) => item.trim())
+            .filter(Boolean);
+        }
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (!trimmed) return [];
+          if (splitOnComma) {
+            return trimmed
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean);
+          }
+          return [trimmed];
+        }
+        return [];
+      };
+
+      const normalizedCategoryRaw = (productData?.category || 'tour').toString().trim();
+      const normalizedCategory = ['tour', 'hotel', 'rent_a_car'].includes(
+        normalizedCategoryRaw.toLowerCase()
+      )
+        ? normalizedCategoryRaw.toLowerCase()
+        : 'tour';
+
+      const normalizedLanguages = ensureStringArray(productData?.languages);
+      const normalizedThingsToCarry = ensureStringArray(productData?.thingsToCarry);
+      const normalizedSellingPoints = ensureStringArray(productData?.sellingPoints);
+      const normalizedBreadcrumb = ensureStringArray(productData?.breadcrumb, {
+        splitOnComma: true
+      });
+      const normalizedIncluded = ensureStringArray(productData?.includedItems);
+      const normalizedExcluded = ensureStringArray(productData?.excludedItems);
+      const normalizedAvailableDays = ensureStringArray(
+        productData?.availableDays ||
+          productData?.availableDay ||
+          (productData?.weekDay ? [productData.weekDay] : [])
+      );
+
       // Derive and normalize title from form state (support both title and productTitle)
       const normalizedTitle = (productData?.title || productData?.productTitle || '').trim();
+
+      const existingVehicles = Array.isArray(productData?.vehicles) ? productData.vehicles : [];
+      const selectedVehicleForTour = productData?.selectedVehicleForTour
+        ? (Array.isArray(productData.selectedVehicleForTour)
+            ? productData.selectedVehicleForTour[0]
+            : productData.selectedVehicleForTour)
+        : existingVehicles[0] || null;
+      const existingVehicleAllocations = Array.isArray(productData?.vehicleTimeAllocations)
+        ? productData.vehicleTimeAllocations
+        : [];
+      const primaryVehicle = selectedVehicleForTour || existingVehicles[0] || null;
 
       // Prepare product data for API (matching ProductCreate schema)
       const apiProductData = {
         title: normalizedTitle || 'Untitled Product',
-        category: productData?.category || 'tour',
+        category: normalizedCategory,
         tagline: productData?.tagline || '',
         description: productData?.description || 'No description provided',
         highlights: Array.isArray(productData?.highlights) ? productData.highlights.map(h => ({
@@ -76,43 +380,96 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         duration: productData?.duration || '',
         guide_type: productData?.guideType || '',
         activity_type: productData?.activityType || '',
-        languages: Array.isArray(productData?.languages) ? productData.languages : [],
-        things_to_carry: Array.isArray(productData?.thingsToCarry) ? productData.thingsToCarry : [],
+        languages: normalizedLanguages,
+        things_to_carry: normalizedThingsToCarry,
         included_excluded: {
-          included: Array.isArray(productData?.includedItems) ? productData.includedItems : 
-                   (productData?.includedItems ? [productData.includedItems] : []),
-          excluded: Array.isArray(productData?.excludedItems) ? productData.excludedItems : 
-                   (productData?.excludedItems ? [productData?.excludedItems] : [])
+          included: normalizedIncluded,
+          excluded: normalizedExcluded
         },
         accessibility: productData?.accessibility || {},
-        vehicle_details: productData?.vehicles?.[0] ? {
-          vehicle_type: productData.vehicles[0].type || 'car',
-          vehicle_model: productData.vehicles[0].model || '',
-          capacity: productData.vehicles[0].capacity || null
+        vehicle_details: primaryVehicle ? {
+          vehicle_type: primaryVehicle.type || 'car',
+          vehicle_model: primaryVehicle.model || '',
+          vehicle_year: primaryVehicle.year || null,
+          capacity: Number.isFinite(primaryVehicle.capacity)
+            ? primaryVehicle.capacity
+            : null
         } : null,
         pickup_dropoff: {
           pickup_location: productData?.pickupLocations?.[0] || '',
           dropoff_location: productData?.dropoffLocations?.[0] || '',
           pickup_time: productData?.pickupTime || '',
-          available_days: productData?.weekDay ? [productData.weekDay] : [],
+          available_days: normalizedAvailableDays,
           available_time_slots: productData?.timeSlots
             ? Object.values(productData.timeSlots).flat().filter(Boolean)
             : []
         },
-        price: parseFloat(productData?.vehicles?.[0]?.amount || 0),
-        currency: 'USD',
-        price_unit: 'Per Group',
+        price: primaryVehicle ? Number(primaryVehicle.amount || 0) : parseFloat(productData?.price || 0),
+        currency: primaryVehicle?.currency || 'USD',
+        price_unit: primaryVehicle?.pricingType || 'Per Group',
         destination: productData?.destination || '',
-        breadcrumb: productData?.breadcrumb || [],
-        selling_points: Array.isArray(productData?.sellingPoints) ? productData.sellingPoints : 
-                       (productData?.sellingPoints ? [productData.sellingPoints] : []),
+        breadcrumb: normalizedBreadcrumb,
+        selling_points: normalizedSellingPoints,
         style_theme: productData?.styleTheme || '',
         faqs: []
+      };
+
+      const possiblePhotos = Array.isArray(uploadedPhotos) && uploadedPhotos.length
+        ? uploadedPhotos
+        : Array.isArray(productData?.uploadedPhotos)
+          ? productData.uploadedPhotos
+          : [];
+
+      const photoSources = possiblePhotos
+        .map((photo) => {
+          if (!photo) return null;
+          if (typeof photo === 'string') return photo;
+          if (photo.url) return photo.url;
+          return null;
+        })
+        .filter(Boolean);
+
+      const imageUrls = await buildImagePayload(photoSources);
+
+      const heroCandidates = [
+        coverImage?.url,
+        typeof coverImage === 'string' ? coverImage : null,
+        productData?.coverImage?.url,
+        productData?.coverImage,
+        imageUrls[0],
+      ].filter(Boolean);
+
+      let heroUrl = null;
+      for (const candidate of heroCandidates) {
+        const processed = await normaliseImageSource(candidate);
+        if (processed) {
+          heroUrl = processed;
+          break;
+        }
+      }
+
+      if (!heroUrl && imageUrls.length > 0) {
+        heroUrl = imageUrls[0];
+      }
+
+      const dedupedImages = dedupeStrings(heroUrl ? [heroUrl, ...imageUrls] : imageUrls);
+      const galleryImages = dedupedImages.filter((url) => url !== heroUrl);
+
+      apiProductData.images = dedupedImages;
+      apiProductData.hero_image = heroUrl || null;
+      apiProductData.gallery_images = galleryImages;
+      apiProductData.custom_fields = {
+        vehicles_full: existingVehicles,
+        selected_vehicle_for_tour: selectedVehicleForTour,
+        vehicle_time_allocations: existingVehicleAllocations,
       };
 
       // Validate title length (minimum 30 chars for database)
       if (!apiProductData.title || apiProductData.title.length < 30) {
         throw new Error('Title must be at least 30 characters to save as draft');
+      }
+      if (!Number.isFinite(apiProductData.price) || apiProductData.price <= 0) {
+        throw new Error('Price must be greater than 0 to save as draft');
       }
       
       const existingProductIdRaw = productData?.dbProductId || productData?.draftId || productData?.id;
@@ -149,8 +506,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         tagline: productData?.tagline || '',
         description: productData?.description || '',
         highlights: productData?.highlights || [],
-        coverImage: coverImage?.url || coverImage || productData?.coverImage?.url || productData?.coverImage || null,
-        uploadedPhotos: (uploadedPhotos || productData?.uploadedPhotos || []).map(p => p.url || p).filter(Boolean),
+        coverImage: heroUrl || null,
+        uploadedPhotos: galleryImages,
         selectedGuideType: productData?.guideType || '',
         selectedActivityType: productData?.activityType || '',
         selectedLanguages: productData?.languages || [],
@@ -158,14 +515,15 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         includedItems: productData?.includedItems || '',
         excludedItems: productData?.excludedItems || '',
         accessibilityToggles: productData?.accessibility || {},
-        vehicles: productData?.vehicles || [],
-        selectedVehicleForTour: productData?.vehicles || [],
+        vehicles: existingVehicles,
+        selectedVehicleForTour,
         selectedPickupLocations: productData?.pickupLocations || [],
         selectedDropoffLocations: productData?.dropoffLocations || [],
         pickupTime: productData?.pickupTime || '',
         selectedWeekDay: productData?.weekDay || '',
         selectedDate: productData?.selectedDate || '',
         itineraries: productData?.itineraries || [],
+        vehicleTimeAllocations: existingVehicleAllocations,
         lastModified: new Date().toISOString()
       };
       
@@ -183,7 +541,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       }, 500);
     } catch (error) {
       console.error('❌ Error saving draft:', error);
-      alert(`Error saving draft: ${error.message}`);
+      const message = error?.friendlyMessage || error?.message || 'Unable to save draft.';
+      alert(`Error saving draft: ${message}`);
     }
   };
 
@@ -203,8 +562,6 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     try {
       // Check if there's an existing draft in database with the same title
       // (We'll handle this by checking if we're updating an existing draft)
-      const draftIdsToDelete = [];
-      
       // Normalize title (support both title and productTitle)
       const publishTitle = (productData?.title || productData?.productTitle || '').trim();
 
@@ -212,10 +569,41 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       const rawPhotos = Array.isArray(uploadedPhotos) && uploadedPhotos.length
         ? uploadedPhotos
         : (Array.isArray(productData?.uploadedPhotos) ? productData.uploadedPhotos : []);
-      const imageUrls = rawPixelsToUrls(rawPhotos);
-      const heroUrl = (typeof coverImage === 'string' ? coverImage : (coverImage?.url))
-        || (typeof productData?.coverImage === 'string' ? productData.coverImage : productData?.coverImage?.url)
-        || (imageUrls[0] || null);
+
+      const photoSources = rawPhotos
+        .map((photo) => {
+          if (!photo) return null;
+          if (typeof photo === 'string') return photo;
+          if (photo.url) return photo.url;
+          return null;
+        })
+        .filter(Boolean);
+
+      const imageUrls = await buildImagePayload(photoSources);
+
+      const heroCandidates = [
+        coverImage?.url,
+        typeof coverImage === 'string' ? coverImage : null,
+        productData?.coverImage?.url,
+        productData?.coverImage,
+        imageUrls[0],
+      ].filter(Boolean);
+
+      let heroUrl = null;
+      for (const candidate of heroCandidates) {
+        const processed = await normaliseImageSource(candidate);
+        if (processed) {
+          heroUrl = processed;
+          break;
+        }
+      }
+
+      if (!heroUrl && imageUrls.length > 0) {
+        heroUrl = imageUrls[0];
+      }
+
+      const dedupedImages = dedupeStrings(heroUrl ? [heroUrl, ...imageUrls] : imageUrls);
+      const galleryImages = dedupedImages.filter((url) => url !== heroUrl);
 
       // Normalize category to backend enum values
       const normalizedCategory = (productData?.category || 'tour')
@@ -250,10 +638,6 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       }
 
       // Helper to map photo objects/strings to URL strings
-      function rawPixelsToUrls(arr){
-        return (Array.isArray(arr) ? arr : []).map(p => typeof p === 'string' ? p : (p && p.url ? p.url : null)).filter(Boolean);
-      }
-
       // Prepare product data for API (matching ProductCreate schema)
       const apiProductData = {
         title: publishTitle || 'Untitled Product',
@@ -266,9 +650,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
               text: (h && h.text) ? h.text : ''
             }))
           : [],
-        images: imageUrls,
+        images: dedupedImages,
         hero_image: heroUrl || null,
-        gallery_images: imageUrls.slice(1),
+        gallery_images: galleryImages,
         itinerary: Array.isArray(productData?.itineraries)
           ? productData.itineraries.map(it => ({
               time: (it?.time && String(it.time).trim()) ? it.time : '09:00',
@@ -318,6 +702,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       if (!apiProductData.title || apiProductData.title.length < 30) {
         console.warn('apiProductData invalid title length', apiProductData.title);
         throw new Error(`Title must be at least 30 characters (got ${apiProductData.title?.length || 0})`);
+      }
+      if (!Number.isFinite(apiProductData.price) || apiProductData.price <= 0) {
+        throw new Error('Price must be greater than 0 before publishing.');
       }
 
       const existingProductIdRaw = productData?.dbProductId || productData?.draftId || productData?.id;
@@ -464,12 +851,6 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       // Clear draft data after publishing
       localStorage.removeItem('product_draft_current_draft');
       
-      // Also delete full draft data for all removed drafts
-      draftIdsToDelete.forEach(draftId => {
-        localStorage.removeItem(`product_draft_${draftId}`);
-        console.log(`🗑️ Deleted full draft data: product_draft_${draftId}`);
-      });
-      
     // Close publish modal and show success modal
     setShowPublishModal(false);
     setShowSuccessModal(true);
@@ -480,7 +861,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       }, 2000);
     } catch (error) {
       console.error('❌ Error publishing product:', error);
-      alert('Error publishing product. Please try again.');
+      const message = error?.friendlyMessage || error?.message || 'Unable to publish product.';
+      alert(message);
     }
   };
 
@@ -546,6 +928,16 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
 
     return combined;
   })();
+
+  const hasCoverPhoto = Boolean(coverPhoto?.src);
+
+  const openGalleryPhoto = (galleryIndex) => {
+    const offset = hasCoverPhoto ? 1 : 0;
+    const targetIndex = galleryIndex + offset;
+    handlePhotoClick(
+      targetIndex >= 0 && targetIndex < allPhotos.length ? targetIndex : offset
+    );
+  };
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const timeSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
@@ -627,127 +1019,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header Navbar */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            {/* Logo */}
-            <div className="flex items-center">
-              <img src="/assets/logo.jpg" alt="TripsAdora" className="h-12 w-auto" />
-            </div>
-            
-            {/* Navigation Links */}
-            <nav className="hidden md:flex space-x-8">
-              <a href="#" className="text-[#1d236b] font-medium relative">
-                Home
-                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
-              </a>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">FAQs</a>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Support</a>
-            </nav>
-            
-            {/* User Info Section */}
-            <div className="flex items-center space-x-6">
-              {/* Notification Icons */}
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <FiClock size={20} className="text-gray-600" />
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-                </div>
-                <div className="relative">
-                  <FiBell size={20} className="text-gray-600" />
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-                </div>
-              </div>
-              
-              {/* Language Selector */}
-              <div className="flex items-center space-x-1">
-                <span className="text-sm font-medium text-gray-700">EN</span>
-                <FiChevronDown size={14} className="text-gray-600" />
-              </div>
-              
-              {/* Balance */}
-              <div className="text-right">
-                <p className="text-xs text-gray-600">Available Balance</p>
-                <p className="text-lg font-bold text-gray-900">$1850</p>
-              </div>
-              
-              {/* User Profile */}
-              <div className="flex flex-col items-center">
-                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                  <FiUser size={20} className="text-gray-600" />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">ID 00032123</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Working Navbar */}
-      <nav className="bg-transparent border-b border-gray-200">
-        <div className="w-full px-6 py-4">
-          <div className="flex items-center justify-center space-x-12 relative">
-            <button 
-              onClick={() => window.location.href = '/dashboard'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Dashboard
-            </button>
-            
-            {/* Listings with Dropdown */}
-            <div className="relative group">
-              <button className="flex items-center space-x-1 text-black font-medium hover:text-gray-600">
-                <span>Listings</span>
-                <FiChevronDown size={16} />
-              </button>
-              
-              {/* Dropdown Menu */}
-              <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <div className="py-2">
-                  <button 
-                    onClick={() => window.location.href = '/products/create'}
-                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 border-b border-gray-100"
-                  >
-                    Create new product
-                  </button>
-                  <button 
-                    onClick={() => window.location.href = '/products'}
-                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50"
-                  >
-                    Active Product listing
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <button 
-              onClick={() => window.location.href = '/availability'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Availability
-            </button>
-            <button 
-              onClick={() => window.location.href = '/bookings'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Bookings
-            </button>
-            <button 
-              onClick={() => window.location.href = '/insights'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Insights
-            </button>
-            <button 
-              onClick={() => window.location.href = '/finance'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Finance
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Header activePage="home" />
 
       {/* Page Header */}
       <div className="w-full px-6 py-6 bg-gray-50">
@@ -823,7 +1095,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                       src={photos[0].src}
                       alt={photos[0].alt}
                     className="w-full h-[240px] object-cover rounded-lg cursor-pointer hover:opacity-80 transition-all"
-                    onClick={() => handlePhotoClick(1)}
+                    onClick={() => openGalleryPhoto(0)}
                   />
                 </div>
                 )}
@@ -839,7 +1111,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                   {/* See More Button Overlay */}
                     <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center rounded-lg">
                     <button 
-                      onClick={() => setShowPhotoModal(true)}
+                      onClick={() => openGalleryPhoto(0)}
                       className="bg-gray-800 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition-all"
                     >
                       See More
@@ -1370,8 +1642,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 {/* Main Photo */}
                 <div className="relative">
                   <img
-                    src={allPhotos[currentPhotoIndex].src}
-                    alt={allPhotos[currentPhotoIndex].alt}
+                    src={allPhotos[currentPhotoIndex]?.src}
+                    alt={allPhotos[currentPhotoIndex]?.alt || 'Gallery photo'}
                     className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
                   />
                   
@@ -1392,12 +1664,12 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 
                 {/* Photo Counter */}
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-full">
-                  {currentPhotoIndex + 1} / {photos.length}
+                  {Math.min(currentPhotoIndex + 1, allPhotos.length)} / {allPhotos.length}
                 </div>
                 
                 {/* Thumbnail Strip */}
                 <div className="absolute bottom-4 left-4 right-4 flex space-x-2 overflow-x-auto pb-2">
-                  {photos.map((photo, index) => (
+                  {allPhotos.map((photo, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentPhotoIndex(index)}

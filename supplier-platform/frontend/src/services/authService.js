@@ -13,6 +13,18 @@ const api = axios.create({
   },
 })
 
+const storeSupplierId = (supplierCode) => {
+  if (!supplierCode) {
+    return
+  }
+  try {
+    localStorage.setItem('supplier_id', supplierCode)
+    sessionStorage.setItem('supplier_id', supplierCode)
+  } catch (error) {
+    console.warn('Failed to persist supplier ID', error)
+  }
+}
+
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
@@ -95,6 +107,7 @@ class AuthService {
       // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
+      storeSupplierId(user?.supplier_code)
 
       return {
         success: true,
@@ -133,6 +146,7 @@ class AuthService {
       // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
+      storeSupplierId(user?.supplier_code)
 
       return {
         success: true,
@@ -159,6 +173,7 @@ class AuthService {
       // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
+      storeSupplierId(user?.supplier_code)
 
       return {
         success: true,
@@ -186,6 +201,7 @@ class AuthService {
       // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
+      storeSupplierId(user?.supplier_code)
 
       return {
         success: true,

@@ -3,7 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import initiate_database
 from app.services.localstorage_cache import LocalStorageCache
-from app.api.v1 import auth, upload, products
+from app.api.v1 import (
+    auth,
+    upload,
+    products,
+    settings as settings_router,
+    vehicles as vehicles_router,
+    dashboard as dashboard_router,
+)
 
 app = FastAPI(
     title="TripsAdora Supplier Platform API",
@@ -36,6 +43,9 @@ async def startup_event():
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(upload.router, prefix="/api/v1", tags=["Upload"])
 app.include_router(products.router, prefix="/api/v1", tags=["Products"])
+app.include_router(settings_router.router, prefix="/api/v1", tags=["Settings"])
+app.include_router(vehicles_router.router, prefix="/api/v1", tags=["Vehicles"])
+app.include_router(dashboard_router.router, prefix="/api/v1", tags=["Dashboard"])
 
 @app.get("/")
 async def root():

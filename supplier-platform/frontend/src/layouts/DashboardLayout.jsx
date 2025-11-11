@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
@@ -6,6 +6,8 @@ import SettingsDropdown from '@/components/common/SettingsDropdown';
 import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
 import FromSupplierModal from '@/components/modals/FromSupplierModal';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
+import { settingsService } from '@/services/settingsService';
+import dashboardService from '@/services/dashboardService';
 
 const DashboardLayout = ({ children }) => {
   const { user } = useAuth();
@@ -18,7 +20,12 @@ const DashboardLayout = ({ children }) => {
   const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
   const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
-  const [profileVersion, setProfileVersion] = useState(0); // bump to re-render when account settings change
+  const [profileSummary, setProfileSummary] = useState({
+    name: 'User',
+    id: 'N/A',
+    photo: null,
+    balance: 0,
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
@@ -29,6 +36,73 @@ const DashboardLayout = ({ children }) => {
   const isProductsPage = location.pathname.includes('/products');
   const isInsightsPage = location.pathname === '/insights';
   const isBookingsPage = location.pathname === '/bookings';
+  const profileInitials = useMemo(() => {
+    if (!profileSummary?.name) return 'US';
+    const parts = profileSummary.name.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'US';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }, [profileSummary?.name]);
+
+  const loadProfileFromCache = useCallback(() => {
+    try {
+      const saved =
+        localStorage.getItem('account_settings') ||
+        sessionStorage.getItem('account_settings');
+      if (saved) {
+        const data = JSON.parse(saved);
+        const name =
+          data?.editableInfo?.publicName?.trim() ||
+          data?.profileData?.publicName?.trim() ||
+          'User';
+        const id =
+          data?.profileData?.supplierCode ||
+          data?.profileData?.contactValue ||
+          localStorage.getItem('supplier_id') ||
+          sessionStorage.getItem('supplier_id') ||
+          'N/A';
+        const photo = data?.globalUserPhoto || null;
+        return { name, id, photo, balance: 0 };
+      }
+    } catch (error) {
+      console.warn('Failed to load cached supplier profile', error);
+    }
+    return { name: 'User', id: 'N/A', photo: null, balance: 0 };
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
+    const cached = loadProfileFromCache();
+    let balance = cached.balance ?? 0;
+    try {
+      const overview = await dashboardService.getOverview();
+      balance = Math.round(overview?.metrics?.available_balance ?? 0);
+    } catch (error) {
+      console.error('Failed to fetch dashboard overview for layout', error);
+    }
+    try {
+      const response = await settingsService.getSettings();
+      const settings = response?.settings || {};
+      if (Object.keys(settings).length > 0) {
+        const name =
+          settings?.editableInfo?.publicName?.trim() ||
+          settings?.profileData?.publicName?.trim() ||
+          'User';
+        const id =
+          settings?.profileData?.supplierCode ||
+          settings?.profileData?.contactValue ||
+          localStorage.getItem('supplier_id') ||
+          sessionStorage.getItem('supplier_id') ||
+          'N/A';
+        const photo = settings?.globalUserPhoto || null;
+        setProfileSummary({ name, id, photo, balance });
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to fetch supplier profile settings', error);
+    }
+
+    setProfileSummary({ ...cached, balance });
+  }, [loadProfileFromCache]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -96,14 +170,17 @@ const DashboardLayout = ({ children }) => {
 
   // Listen for profile updates from Account Settings
   useEffect(() => {
-    const onUpdate = () => setProfileVersion(v => v + 1);
-    window.addEventListener('account_settings_updated', onUpdate);
-    window.addEventListener('storage', onUpdate);
+    fetchProfile();
+    const handleProfileUpdate = () => fetchProfile();
+    window.addEventListener('account_settings_updated', handleProfileUpdate);
+    window.addEventListener('accountSettingsUpdated', handleProfileUpdate);
+    window.addEventListener('storage', handleProfileUpdate);
     return () => {
-      window.removeEventListener('account_settings_updated', onUpdate);
-      window.removeEventListener('storage', onUpdate);
+      window.removeEventListener('account_settings_updated', handleProfileUpdate);
+      window.removeEventListener('accountSettingsUpdated', handleProfileUpdate);
+      window.removeEventListener('storage', handleProfileUpdate);
     };
-  }, []);
+  }, [fetchProfile]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -242,41 +319,15 @@ const DashboardLayout = ({ children }) => {
                   className="bg-[#1d236b] rounded-lg px-4 py-2 flex items-center space-x-3 hover:bg-[#1d236b]/90 transition-colors"
                 >
                   <div className="w-8 h-8 bg-gray-300 rounded-full overflow-hidden flex items-center justify-center">
-                    {(() => {
-                      try {
-                        const saved = localStorage.getItem('account_settings');
-                        if (saved) {
-                          const data = JSON.parse(saved);
-                          if (data && data.globalUserPhoto) {
-                            return <img src={data.globalUserPhoto} alt="Profile" className="w-full h-full object-cover" />;
-                          }
-                        }
-                      } catch(_) {}
-                      return <span className="text-xs font-semibold text-gray-600">EW</span>;
-                    })()}
+                    {profileSummary.photo ? (
+                      <img src={profileSummary.photo} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-semibold text-gray-600">{profileInitials}</span>
+                    )}
                   </div>
                   <div className="text-white">
-                    {(() => {
-                      try {
-                        const saved = localStorage.getItem('account_settings');
-                        if (saved) {
-                          const data = JSON.parse(saved);
-                          const name = data?.editableInfo?.publicName || 'Edward William';
-                          return (
-                            <>
-                              <div className="text-sm font-semibold">{name}</div>
-                              <div className="text-xs text-gray-300">ID 00032123</div>
-                            </>
-                          );
-                        }
-                      } catch(_) {}
-                      return (
-                        <>
-                          <div className="text-sm font-semibold">Edward William</div>
-                          <div className="text-xs text-gray-300">ID 00032123</div>
-                        </>
-                      );
-                    })()}
+                    <div className="text-sm font-semibold">{profileSummary.name}</div>
+                    <div className="text-xs text-gray-300">ID {profileSummary.id}</div>
                   </div>
                 </button>
                 
@@ -408,11 +459,11 @@ const DashboardLayout = ({ children }) => {
         isOpen={showTravellerSectionModal}
         onClose={() => setShowTravellerSectionModal(false)}
         userProfile={{
-          name: "Edward William",
-          initials: "EW",
-          balance: 1850,
-          id: "00032123", 
-          profileImage: "/assets/profile-placeholder.jpg"
+          name: profileSummary.name,
+          initials: profileInitials,
+          balance: profileSummary.balance ?? 0,
+          id: profileSummary.id,
+          profileImage: profileSummary.photo || '/assets/profile-placeholder.jpg'
         }}
       />
 

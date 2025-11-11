@@ -16,6 +16,10 @@ const AddItinerary = () => {
     ticketFare: '',
   });
   const navigate = useNavigate();
+  const supplierId =
+    localStorage.getItem('supplier_id') ||
+    sessionStorage.getItem('supplier_id') ||
+    'N/A';
 
   const steps = [
     { id: 1, title: 'Overview', completed: true },
@@ -277,7 +281,7 @@ const AddItinerary = () => {
               
               <span className="text-sm">Available Balance $1850</span>
               <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-              <span className="text-sm">ID 00032123</span>
+              <span className="text-sm">ID {supplierId}</span>
             </div>
           </div>
         </div>

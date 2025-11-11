@@ -12,7 +12,24 @@ const productService = {
       const response = await api.post('/products/', productData);
       return response.data;
     } catch (error) {
-      const details = error?.response?.data || error?.message;
+      const { response } = error || {};
+      const details = response?.data?.detail ?? response?.data ?? error?.message;
+
+      let friendlyMessage = '';
+      if (Array.isArray(details)) {
+        friendlyMessage = details
+          .map((item) => item?.msg || item?.detail || item?.message || JSON.stringify(item))
+          .join(', ');
+      } else if (typeof details === 'string') {
+        friendlyMessage = details;
+      } else if (details && typeof details === 'object') {
+        friendlyMessage = details.message || details.error || JSON.stringify(details);
+      }
+
+      if (friendlyMessage) {
+        error.friendlyMessage = friendlyMessage;
+      }
+
       console.error('Error creating product:', details);
       throw error;
     }

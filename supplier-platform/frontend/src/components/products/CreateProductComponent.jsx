@@ -3,6 +3,7 @@ import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDow
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import AddItineraryComponent from './AddItineraryComponent';
 import productService from '@/services/productService';
+import vehicleService from '@/services/vehicleService';
 
 const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [step, setStep] = useState(1);
@@ -36,7 +37,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   
   // Vehicle Management
   const [vehicles, setVehicles] = useState([]);
-  const [editingVehicleIndex, setEditingVehicleIndex] = useState(null);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [vehicleError, setVehicleError] = useState(null);
+  const [vehicleSaving, setVehicleSaving] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState(null);
   
   // Step 5 - Vehicle Form Fields
   const [vehicleTitle, setVehicleTitle] = useState('');
@@ -48,6 +52,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [productAmount, setProductAmount] = useState('');
   const [totalDuration, setTotalDuration] = useState('');
   const [vehicleDescription, setVehicleDescription] = useState('');
+  const editingVehicle = useMemo(
+    () => vehicles.find((vehicle) => vehicle.id === editingVehicleId) || null,
+    [vehicles, editingVehicleId]
+  );
   
   // Step 6 dropdown states
   const [showSelectLocationsDropdown, setShowSelectLocationsDropdown] = useState(false);
@@ -133,6 +141,29 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   
   // Vehicle-Time Allocations (time + vehicle pairings)
   const [vehicleTimeAllocations, setVehicleTimeAllocations] = useState([]);
+
+  const loadVehicles = useCallback(async () => {
+    setVehiclesLoading(true);
+    setVehicleError(null);
+    try {
+      const fetched = await vehicleService.list();
+      const mapped = Array.isArray(fetched) ? fetched : [];
+      setVehicles(mapped);
+      setSelectedVehicleForTour((prevSelected) => {
+        if (prevSelected?.id) {
+          const match = mapped.find((vehicle) => vehicle.id === prevSelected.id);
+          return match || prevSelected;
+        }
+        return prevSelected || (mapped.length ? mapped[0] : null);
+      });
+    } catch (error) {
+      console.error('Failed to load vehicle options:', error);
+      setVehicles([]);
+      setVehicleError(error?.message || 'Failed to load vehicles.');
+    } finally {
+      setVehiclesLoading(false);
+    }
+  }, []);
   
   // Google Maps state
   const [mapCenter, setMapCenter] = useState({ lat: 35.3606, lng: 138.7274 }); // Mount Fuji area
@@ -330,10 +361,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           if (draftData.accessibilityToggles) setAccessibilityToggles(draftData.accessibilityToggles);
           
           // Load Step 5 data (Vehicles)
-          if (draftData.vehicles) {
-            console.log('✅ Loading vehicles:', draftData.vehicles.length, 'vehicles');
-            setVehicles(draftData.vehicles);
-          }
           if (draftData.vehicleTitle) setVehicleTitle(draftData.vehicleTitle);
           if (draftData.selectedVehicleType) setSelectedVehicleType(draftData.selectedVehicleType);
           if (draftData.selectedVehicleModel) setSelectedVehicleModel(draftData.selectedVehicleModel);
@@ -411,6 +438,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     
     loadDraftData();
   }, [draftId, normalizeTimeSlots]);
+
+  useEffect(() => {
+    loadVehicles();
+  }, [loadVehicles]);
 
   // Utility to serialize photos for storage
   const serializePhoto = (photo) => {
@@ -1018,19 +1049,32 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   };
 
   // === VEHICLE HANDLERS (Legacy - for modal selection) ===
-  const deleteVehicle = (index) => {
-    if (window.confirm('Are you sure you want to delete this vehicle?')) {
-      setVehicles(prev => prev.filter((_, idx) => idx !== index));
-      // Also clear edit mode if deleting the vehicle being edited
-      if (editingVehicleIndex === index) {
+  const deleteVehicle = async (vehicleId) => {
+    if (!vehicleId) return;
+    if (!window.confirm('Are you sure you want to delete this vehicle?')) {
+      return;
+    }
+
+    try {
+      await vehicleService.remove(vehicleId);
+      setVehicles((prev) => {
+        const next = prev.filter((vehicle) => vehicle.id !== vehicleId);
+        if (prevSelected && prevSelected.id === vehicleId) {
+          setSelectedVehicleForTour(next.length ? next[0] : null);
+        }
+        return next;
+      });
+      if (editingVehicleId === vehicleId) {
         clearVehicleForm();
-        setEditingVehicleIndex(null);
       }
+    } catch (error) {
+      console.error('Failed to delete vehicle option:', error);
+      alert(error?.message || 'Failed to delete vehicle.');
     }
   };
 
   // === STEP 5 VEHICLE FORM HANDLERS ===
-  const saveVehicleOption = () => {
+  const saveVehicleOption = async () => {
     // Validate all required fields
     if (!vehicleTitle || !selectedVehicleType || !selectedVehicleModel || 
         !vehicleAttributes || !numTravellers || !currency || 
@@ -1039,35 +1083,53 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       return;
     }
 
-    const newVehicle = {
-      id: editingVehicleIndex !== null ? vehicles[editingVehicleIndex].id : Date.now(),
-      title: vehicleTitle,
+    const capacityValue = parseInt(numTravellers, 10);
+    const amountValue = Number(productAmount);
+
+    const payload = {
+      id: editingVehicleId || undefined,
+      title: vehicleTitle.trim(),
       type: selectedVehicleType,
       model: selectedVehicleModel,
       year: vehicleYear,
       attributes: vehicleAttributes,
-      capacity: parseInt(numTravellers),
-      currency: currency,
-      pricingType: pricingType,
-      amount: productAmount,
+      capacity: Number.isFinite(capacityValue) ? capacityValue : null,
+      currency,
+      pricingType,
+      amount: Number.isFinite(amountValue) ? amountValue : 0,
       duration: totalDuration,
-      description: vehicleDescription
+      description: vehicleDescription.trim(),
     };
 
-    if (editingVehicleIndex !== null) {
-      // Update existing vehicle
-      setVehicles(prev => prev.map((v, idx) => 
-        idx === editingVehicleIndex ? newVehicle : v
-      ));
-      setEditingVehicleIndex(null);
-    } else {
-      // Add new vehicle
-      setVehicles(prev => [...prev, newVehicle]);
-    }
+    setVehicleSaving(true);
+    setVehicleError(null);
 
-    // Clear form
-    clearVehicleForm();
-    alert('Vehicle option saved successfully!');
+    try {
+      if (editingVehicleId) {
+        const updated = await vehicleService.update(editingVehicleId, payload);
+        setVehicles((prev) =>
+          prev.map((vehicle) => (vehicle.id === updated.id ? updated : vehicle))
+        );
+        setSelectedVehicleForTour((prevSelected) => {
+          if (!prevSelected) return updated;
+          return prevSelected.id === updated.id ? updated : prevSelected;
+        });
+        setEditingVehicleId(null);
+        alert('Vehicle option updated successfully!');
+      } else {
+        const created = await vehicleService.create(payload);
+        setVehicles((prev) => [created, ...prev]);
+        setSelectedVehicleForTour((prevSelected) => prevSelected || created);
+        alert('Vehicle option saved successfully!');
+      }
+      clearVehicleForm();
+    } catch (error) {
+      console.error('Failed to save vehicle option:', error);
+      setVehicleError(error?.message || 'Failed to save vehicle.');
+      alert(error?.message || 'Failed to save vehicle.');
+    } finally {
+      setVehicleSaving(false);
+    }
   };
 
   const clearVehicleForm = () => {
@@ -1082,22 +1144,31 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     setProductAmount('');
     setTotalDuration('');
     setVehicleDescription('');
+    setEditingVehicleId(null);
   };
 
-  const editVehicleOption = (index) => {
-    const vehicle = vehicles[index];
-    setVehicleTitle(vehicle.title);
-    setSelectedVehicleType(vehicle.type);
-    setSelectedVehicleModel(vehicle.model);
-    setVehicleYear(vehicle.year);
-    setVehicleAttributes(vehicle.attributes);
-    setNumTravellers(vehicle.capacity.toString());
-    setCurrency(vehicle.currency);
-    setPricingType(vehicle.pricingType);
-    setProductAmount(vehicle.amount);
-    setTotalDuration(vehicle.duration);
-    setVehicleDescription(vehicle.description);
-    setEditingVehicleIndex(index);
+  const editVehicleOption = (vehicle) => {
+    if (!vehicle) return;
+    setVehicleTitle(vehicle.title || '');
+    setSelectedVehicleType(vehicle.type || '');
+    setSelectedVehicleModel(vehicle.model || '');
+    setVehicleYear(vehicle.year || '2024');
+    setVehicleAttributes(vehicle.attributes || '');
+    setNumTravellers(
+      typeof vehicle.capacity === 'number' && !Number.isNaN(vehicle.capacity)
+        ? String(vehicle.capacity)
+        : ''
+    );
+    setCurrency(vehicle.currency || '');
+    setPricingType(vehicle.pricingType || '');
+    setProductAmount(
+      typeof vehicle.amount === 'number' && !Number.isNaN(vehicle.amount)
+        ? String(vehicle.amount)
+        : ''
+    );
+    setTotalDuration(vehicle.duration || '');
+    setVehicleDescription(vehicle.description || '');
+    setEditingVehicleId(vehicle.id || null);
     
     // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3363,7 +3434,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">
                   Title to your Option
-                  {editingVehicleIndex !== null && (
+                  {editingVehicleId && (
                     <span className="ml-3 text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full">Editing</span>
                   )}
                 </h3>
@@ -3637,16 +3708,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                   <div className="flex gap-3 mt-3">
                     <button 
                       onClick={saveVehicleOption}
-                      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                      disabled={vehicleSaving}
+                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${vehicleSaving ? 'bg-blue-300 cursor-not-allowed text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                     >
-                      {editingVehicleIndex !== null ? 'Update' : 'Save'}
+                      {vehicleSaving ? 'Saving...' : editingVehicleId ? 'Update' : 'Save'}
                   </button>
-                    {editingVehicleIndex !== null && (
+                    {editingVehicleId && (
                       <button 
-                        onClick={() => {
-                          clearVehicleForm();
-                          setEditingVehicleIndex(null);
-                        }}
+                        onClick={clearVehicleForm}
                         className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium transition-colors"
                       >
                         Cancel
@@ -3660,12 +3729,22 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               <div className="space-y-4">
                 <h3 className="text-xl font-bold text-gray-900">Existing Vehicle Options</h3>
                 
-                {vehicles.length === 0 ? (
+                {vehicleError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4">
+                    {vehicleError}
+                  </div>
+                )}
+
+                {vehiclesLoading ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center text-gray-500">
+                    Loading vehicles...
+                  </div>
+                ) : vehicles.length === 0 ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
                     <p className="text-gray-500">No vehicles added yet. Click "Select Vehicle" above to add your first vehicle.</p>
-                      </div>
+                  </div>
                 ) : (
-                  vehicles.map((vehicle, index) => (
+                  vehicles.map((vehicle) => (
                     <div key={vehicle.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -3675,7 +3754,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                       <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
                             {vehicle.attributes && <span>{vehicle.attributes}</span>}
                             {vehicle.year && <span>{vehicle.year}</span>}
-                            {vehicle.capacity && <span>Best for upto {vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span>}
+                            {typeof vehicle.capacity === 'number' && !Number.isNaN(vehicle.capacity) && (
+                              <span>Best for upto {vehicle.capacity}</span>
+                            )}
                             {vehicle.duration && <span>Approximate time {vehicle.duration}</span>}
                       </div>
                           {vehicle.description && (
@@ -3693,7 +3774,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                     </div>
                     <div className="flex space-x-2 ml-4">
                           <button 
-                            onClick={() => editVehicleOption(index)}
+                            onClick={() => editVehicleOption(vehicle)}
                             className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
                             title="Edit vehicle"
                           >
@@ -3702,7 +3783,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                         </svg>
                       </button>
                           <button 
-                            onClick={() => deleteVehicle(index)}
+                            onClick={() => deleteVehicle(vehicle.id)}
                             className="p-2 text-gray-400 hover:text-red-600 transition-colors"
                             title="Delete vehicle"
                           >

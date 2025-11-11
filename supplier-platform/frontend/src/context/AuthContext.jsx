@@ -33,8 +33,7 @@ export const AuthProvider = ({ children }) => {
         try {
           const userData = await authService.getCurrentUser()
           if (userData) {
-            // Ensure a persistent supplier_id exists
-            ensureSupplierId()
+            persistSupplierId(userData?.supplier_code)
             setUser(userData)
           } else {
             // No user data returned, clear tokens
@@ -61,40 +60,51 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  // Ensure a single, persistent supplier_id is stored and propagated
-  const ensureSupplierId = () => {
+  const persistSupplierId = (incomingSupplierId) => {
     try {
-      let supplierId = localStorage.getItem('supplier_id') || sessionStorage.getItem('supplier_id')
+      let supplierId = (incomingSupplierId || '').trim()
       if (!supplierId) {
-        // Try from account_settings
+        supplierId = localStorage.getItem('supplier_id') || sessionStorage.getItem('supplier_id') || ''
+      }
+      if (!supplierId) {
         const saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings')
         if (saved) {
-          const data = JSON.parse(saved)
-          supplierId = data?.profileData?.contactValue || null
+          try {
+            const data = JSON.parse(saved)
+            supplierId =
+              data?.profileData?.supplierCode ||
+              data?.profileData?.contactValue ||
+              ''
+          } catch (_) {
+            supplierId = ''
+          }
         }
       }
       if (!supplierId) {
-        // Generate an 8-digit ID
-        supplierId = String(Math.floor(10000000 + Math.random() * 90000000))
+        return
       }
-      // Persist in both stores for resilience
+
       localStorage.setItem('supplier_id', supplierId)
       sessionStorage.setItem('supplier_id', supplierId)
 
-      // Also mirror into account_settings if present
       const saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings')
       if (saved) {
-        const data = JSON.parse(saved)
-        const updated = {
-          ...data,
+        try {
+          const data = JSON.parse(saved)
+          const updated = {
+            ...data,
             profileData: {
               ...(data?.profileData || {}),
-              contactValue: supplierId
+              supplierCode: supplierId,
+              contactValue: supplierId,
+              contactLabel: data?.profileData?.contactLabel || 'Supplier ID'
             }
-        }
-        localStorage.setItem('account_settings', JSON.stringify(updated))
-        sessionStorage.setItem('account_settings', JSON.stringify(updated))
-        window.dispatchEvent(new Event('account_settings_updated'))
+          }
+          const serialized = JSON.stringify(updated)
+          localStorage.setItem('account_settings', serialized)
+          sessionStorage.setItem('account_settings', serialized)
+          window.dispatchEvent(new Event('account_settings_updated'))
+        } catch (_) {}
       }
     } catch (_) {}
   }
@@ -105,6 +115,7 @@ export const AuthProvider = ({ children }) => {
       const result = await authService.login(credentials)
       
       if (result.success) {
+        persistSupplierId(result.user?.supplier_code)
         setUser(result.user)
         return { success: true }
       }
@@ -124,6 +135,7 @@ export const AuthProvider = ({ children }) => {
       const result = await authService.register(userData)
       
       if (result.success) {
+        persistSupplierId(result.user?.supplier_code)
         setUser(result.user)
         return { success: true }
       }
@@ -158,6 +170,8 @@ export const AuthProvider = ({ children }) => {
       setLoading(true)
       await authService.logout()
       setUser(null)
+      localStorage.removeItem('supplier_id')
+      sessionStorage.removeItem('supplier_id')
     } catch (error) {
       console.error('Logout error:', error)
     } finally {

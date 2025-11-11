@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { settingsService } from '@/services/settingsService';
 
 const Header = ({ activePage = '' }) => {
   const navigate = useNavigate();
@@ -11,32 +12,79 @@ const Header = ({ activePage = '' }) => {
   const languageRef = useRef(null);
   
   // Real-time profile from account settings
-  const [profile, setProfile] = useState({ name: 'Edward William', id: '00032123', photo: null });
+  const [profile, setProfile] = useState({ name: 'User', id: 'N/A', photo: null });
+
+  const loadProfileFromCache = useCallback(() => {
+    try {
+      const saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
+      if (saved) {
+        const data = JSON.parse(saved);
+        const name =
+          data?.editableInfo?.publicName?.trim() ||
+          data?.profileData?.publicName?.trim() ||
+          'User';
+        const id =
+          data?.profileData?.supplierCode ||
+          data?.profileData?.contactValue ||
+          localStorage.getItem('supplier_id') ||
+          sessionStorage.getItem('supplier_id') ||
+          'N/A';
+        const photo = data?.globalUserPhoto || null;
+        setProfile({ name, id, photo });
+      }
+    } catch (error) {
+      console.warn('Failed to load cached profile settings', error);
+    }
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      loadProfileFromCache();
+      return;
+    }
+
+    try {
+      const response = await settingsService.getSettings();
+      const settings = response?.settings || {};
+
+      if (Object.keys(settings).length > 0) {
+        const name =
+          settings?.editableInfo?.publicName?.trim() ||
+          settings?.profileData?.publicName?.trim() ||
+          'User';
+        const id =
+          settings?.profileData?.supplierCode ||
+          settings?.profileData?.contactValue ||
+          localStorage.getItem('supplier_id') ||
+          sessionStorage.getItem('supplier_id') ||
+          'N/A';
+        const photo = settings?.globalUserPhoto || null;
+        setProfile({ name, id, photo });
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to fetch account settings for header', error);
+    }
+
+    loadProfileFromCache();
+  }, [loadProfileFromCache]);
 
   useEffect(() => {
-    const loadProfile = () => {
-      try {
-        const saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
-        if (saved) {
-          const data = JSON.parse(saved);
-          const name = data?.editableInfo?.publicName || 'Edward William';
-          const id = data?.profileData?.contactValue || '00032123';
-          const photo = data?.globalUserPhoto || null;
-          setProfile({ name, id, photo });
-        }
-      } catch (_) {}
+    fetchProfile();
+    const handleProfileUpdate = () => {
+      loadProfileFromCache();
+      fetchProfile();
     };
-    loadProfile();
-    // Listen for global updates
-    window.addEventListener('account_settings_updated', loadProfile);
-    window.addEventListener('accountSettingsUpdated', loadProfile);
-    window.addEventListener('storage', loadProfile);
+    window.addEventListener('account_settings_updated', handleProfileUpdate);
+    window.addEventListener('accountSettingsUpdated', handleProfileUpdate);
+    window.addEventListener('storage', handleProfileUpdate);
     return () => {
-      window.removeEventListener('account_settings_updated', loadProfile);
-      window.removeEventListener('accountSettingsUpdated', loadProfile);
-      window.removeEventListener('storage', loadProfile);
+      window.removeEventListener('account_settings_updated', handleProfileUpdate);
+      window.removeEventListener('accountSettingsUpdated', handleProfileUpdate);
+      window.removeEventListener('storage', handleProfileUpdate);
     };
-  }, []);
+  }, [fetchProfile, loadProfileFromCache]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {

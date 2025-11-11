@@ -1,25 +1,30 @@
 // Frontend/src/services/settingsService.js
 import { apiService } from './api';
-import config from '@/config';
+
+const BASE_PATH = '/settings';
 
 export const settingsService = {
-  getProfile: async () => {
-    return await apiService.get(config.endpoints.settings.profile);
+  async getSettings() {
+    return apiService.get(`${BASE_PATH}`);
   },
 
-  updateProfile: async (profileData) => {
-    return await apiService.put(config.endpoints.settings.profile, profileData);
+  async saveSettings(settings) {
+    return apiService.put(`${BASE_PATH}`, { settings });
   },
 
-  updateAccount: async (accountData) => {
-    return await apiService.put(config.endpoints.settings.account, accountData);
+  async updateProfile(profileSettings) {
+    return apiService.put(`${BASE_PATH}/profile`, { settings: profileSettings });
   },
 
-  updateBanking: async (bankingData) => {
-    return await apiService.put(config.endpoints.settings.banking, bankingData);
+  async updateAccount(accountSettings) {
+    return apiService.put(`${BASE_PATH}/account`, { settings: accountSettings });
   },
 
-  updateNotifications: async (notificationData) => {
-    return await apiService.put(config.endpoints.settings.notifications, notificationData);
+  async updateBanking(bankingSettings) {
+    return apiService.put(`${BASE_PATH}/banking`, { settings: bankingSettings });
+  },
+
+  async updateNotifications(notificationSettings) {
+    return apiService.put(`${BASE_PATH}/notifications`, { settings: notificationSettings });
   },
 };

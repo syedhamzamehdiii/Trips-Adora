@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { FiUpload, FiEdit, FiUserPlus, FiLock, FiAlertCircle, FiCheck, FiInfo, FiEye, FiEyeOff, FiSettings } from 'react-icons/fi';
 import Button from '@/components/common/Button';
 import Input from '@/components/common/Input';
+import { settingsService } from '@/services/settingsService';
 
 const AccountSettings = () => {
   // User profile data
@@ -19,7 +20,7 @@ const AccountSettings = () => {
     state: 'Tokyo Prefecture',
     country: 'Japan',
     contactType: 'DG number',
-    contactValue: '87654320'
+    contactValue: null
   });
 
   // Contact information state for multiple phone numbers
@@ -53,8 +54,11 @@ const AccountSettings = () => {
   // hydration flag to avoid overwriting saved data with defaults on first mount
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Persist helper (writes immediately)
-  const persistSettings = (next = {}) => {
+  const saveTimeoutRef = useRef(null);
+  const latestSettingsRef = useRef(null);
+
+  // Persist helper (writes immediately and syncs to backend with debounce)
+  const persistSettings = (next = {}, options = {}) => {
     try {
       const payloadRaw = {
         profileData,
@@ -69,7 +73,10 @@ const AccountSettings = () => {
         businessLicensePreview,
         liabilityInsurancePreview,
         logoPreview,
-        ...next
+        hasAddedUser,
+        addedUserEmail,
+        userAccess,
+        ...next,
       };
       // compress by removing huge images if exceeding ~4.5MB budget
       let payload = { ...payloadRaw };
@@ -87,10 +94,45 @@ const AccountSettings = () => {
         payload.logoPreview = null;
         json = JSON.stringify(payload);
       }
-      localStorage.setItem('account_settings', json);
+
+      try {
+        localStorage.setItem('account_settings', json);
+        sessionStorage.setItem('account_settings', json);
+      } catch (storageError) {
+        console.warn('Unable to persist account settings to storage', storageError);
+      }
+
       window.dispatchEvent(new Event('account_settings_updated'));
       window.dispatchEvent(new Event('accountSettingsUpdated'));
-    } catch (_) {}
+
+      latestSettingsRef.current = payload;
+
+      const syncToBackend = async () => {
+        try {
+          await settingsService.saveSettings(payload);
+        } catch (error) {
+          console.error('Failed to sync account settings to backend', error);
+        }
+      };
+
+      if (options.immediate) {
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+          saveTimeoutRef.current = null;
+        }
+        syncToBackend();
+      } else {
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        saveTimeoutRef.current = window.setTimeout(async () => {
+          await syncToBackend();
+          saveTimeoutRef.current = null;
+        }, 600);
+      }
+    } catch (error) {
+      console.error('Persist settings error', error);
+    }
   };
   
   // Settings states
@@ -134,6 +176,58 @@ const AccountSettings = () => {
       [field]: value
     }));
   };
+
+  const hydrateFromSettings = useCallback((data = {}) => {
+    if (!data || typeof data !== 'object') {
+      return;
+    }
+
+    if (data.profileData) {
+      setProfileData(prev => ({ ...prev, ...data.profileData }));
+    }
+    if (Array.isArray(data.contactNumbers) && data.contactNumbers.length > 0) {
+      setContactNumbers(data.contactNumbers);
+    }
+    if (data.notifications) {
+      setNotifications(prev => ({ ...prev, ...data.notifications }));
+    }
+    if (data.reports) {
+      setReports(prev => ({ ...prev, ...data.reports }));
+    }
+    if (data.twoFactor) {
+      setTwoFactor(prev => ({ ...prev, ...data.twoFactor }));
+    }
+    if (data.passwordData) {
+      setPasswordData(prev => ({ ...prev, ...data.passwordData }));
+    }
+    if (data.editableInfo) {
+      setEditableInfo(prev => ({ ...prev, ...data.editableInfo }));
+    }
+    if ('globalUserPhoto' in data) {
+      setGlobalUserPhoto(data.globalUserPhoto);
+      setProfilePhotoPreview(data.globalUserPhoto || null);
+    }
+    if ('businessLicensePreview' in data) {
+      setBusinessLicensePreview(data.businessLicensePreview || null);
+    }
+    if ('liabilityInsurancePreview' in data) {
+      setLiabilityInsurancePreview(data.liabilityInsurancePreview || null);
+    }
+    if ('logoPreview' in data) {
+      setLogoPreview(data.logoPreview || null);
+    }
+    if ('hasAddedUser' in data) {
+      setHasAddedUser(Boolean(data.hasAddedUser));
+    }
+    if ('addedUserEmail' in data) {
+      setAddedUserEmail(data.addedUserEmail || '');
+    }
+    if (data.userAccess) {
+      setUserAccess(prev => ({ ...prev, ...data.userAccess }));
+    }
+
+    latestSettingsRef.current = data;
+  }, []);
 
   // Contact number management functions
   const addContactNumber = () => {
@@ -229,11 +323,7 @@ const AccountSettings = () => {
   const handleUserAccessToggle = (role) => {
     setUserAccess(prev => {
       const updated = { ...prev, roles: { ...prev.roles, [role]: !prev.roles[role] } };
-      try {
-        const saved = localStorage.getItem('account_settings');
-        const base = saved ? JSON.parse(saved) : {};
-        localStorage.setItem('account_settings', JSON.stringify({ ...base, userAccess: updated, hasAddedUser, addedUserEmail }));
-      } catch (_) {}
+      persistSettings({ userAccess: updated });
       return updated;
     });
   };
@@ -241,11 +331,7 @@ const AccountSettings = () => {
   const handleLoginToggle = () => {
     setUserAccess(prev => {
       const updated = { ...prev, allowLogin: !prev.allowLogin };
-      try {
-        const saved = localStorage.getItem('account_settings');
-        const base = saved ? JSON.parse(saved) : {};
-        localStorage.setItem('account_settings', JSON.stringify({ ...base, userAccess: updated, hasAddedUser, addedUserEmail }));
-      } catch (_) {}
+      persistSettings({ userAccess: updated });
       return updated;
     });
   };
@@ -254,11 +340,7 @@ const AccountSettings = () => {
     setHasAddedUser(false);
     setAddedUserEmail('');
     setShowRemoveConfirm(false);
-    try {
-      const saved = localStorage.getItem('account_settings');
-      const base = saved ? JSON.parse(saved) : {};
-      localStorage.setItem('account_settings', JSON.stringify({ ...base, hasAddedUser: false, addedUserEmail: '', userAccess }));
-    } catch (_) {}
+    persistSettings({ hasAddedUser: false, addedUserEmail: '', userAccess }, { immediate: true });
   };
 
   const handleEditInfo = () => {
@@ -291,24 +373,7 @@ const AccountSettings = () => {
       alert('Please complete all required fields and upload all documents before saving.');
       return;
     }
-    // Persist immediately on save to avoid losing office info when navigating fast
-    try {
-      const payload = {
-        profileData,
-        contactNumbers,
-        notifications,
-        reports,
-        twoFactor,
-        passwordData,
-        editableInfo,
-        globalUserPhoto,
-        businessLicensePreview,
-        liabilityInsurancePreview,
-        logoPreview
-      };
-      localStorage.setItem('account_settings', JSON.stringify(payload));
-      window.dispatchEvent(new Event('account_settings_updated'));
-    } catch (_) {}
+    persistSettings({}, { immediate: true });
     setIsEditingInfo(false);
   };
 
@@ -407,76 +472,76 @@ const AccountSettings = () => {
 
   // Persist and load settings in real-time
   useEffect(() => {
-    try {
-      let saved = localStorage.getItem('account_settings');
-      if (!saved) {
-        saved = sessionStorage.getItem('account_settings');
-      }
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.profileData) setProfileData(data.profileData);
-        if (data.contactNumbers) setContactNumbers(data.contactNumbers);
-        if (data.notifications) setNotifications(data.notifications);
-        if (data.reports) setReports(data.reports);
-        if (data.twoFactor) setTwoFactor(data.twoFactor);
-        if (data.passwordData) setPasswordData(data.passwordData);
-        if (data.editableInfo) setEditableInfo(data.editableInfo);
-        if (data.globalUserPhoto) {
-          setGlobalUserPhoto(data.globalUserPhoto);
-          setProfilePhotoPreview(data.globalUserPhoto);
+    let isMounted = true;
+
+    const bootstrapSettings = async () => {
+      try {
+        const response = await settingsService.getSettings();
+        const remoteSettings = response?.settings || {};
+
+        if (isMounted && Object.keys(remoteSettings).length > 0) {
+          hydrateFromSettings(remoteSettings);
+          try {
+            const serialized = JSON.stringify(remoteSettings);
+            localStorage.setItem('account_settings', serialized);
+            sessionStorage.setItem('account_settings', serialized);
+          } catch (storageError) {
+            console.warn('Unable to cache account settings locally', storageError);
+          }
+          window.dispatchEvent(new Event('account_settings_updated'));
+          window.dispatchEvent(new Event('accountSettingsUpdated'));
+        } else {
+          const saved =
+            localStorage.getItem('account_settings') ||
+            sessionStorage.getItem('account_settings');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (isMounted) {
+              hydrateFromSettings(parsed);
+            }
+            if (Object.keys(remoteSettings).length === 0) {
+              try {
+                await settingsService.saveSettings(parsed);
+              } catch (error) {
+                console.error('Failed to seed backend settings from local cache', error);
+              }
+            }
+          }
         }
-        if (data.businessLicensePreview) setBusinessLicensePreview(data.businessLicensePreview);
-        if (data.liabilityInsurancePreview) setLiabilityInsurancePreview(data.liabilityInsurancePreview);
-        if (data.logoPreview) setLogoPreview(data.logoPreview);
-        if (typeof data.hasAddedUser === 'boolean') setHasAddedUser(data.hasAddedUser);
-        if (data.addedUserEmail) setAddedUserEmail(data.addedUserEmail);
-        if (data.userAccess) setUserAccess(data.userAccess);
+      } catch (error) {
+        console.error('Failed to load account settings from backend', error);
+        const saved =
+          localStorage.getItem('account_settings') ||
+          sessionStorage.getItem('account_settings');
+        if (saved && isMounted) {
+          try {
+            hydrateFromSettings(JSON.parse(saved));
+          } catch (parseError) {
+            console.error('Failed to parse cached account settings', parseError);
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setIsHydrated(true);
+        }
       }
-      setIsHydrated(true);
-    } catch (_) {}
-  }, []);
+    };
+
+    bootstrapSettings();
+
+    return () => {
+      isMounted = false;
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+    };
+  }, [hydrateFromSettings]);   
 
   // Manual save function (via button)
-  const handleConfirmAndSaveAll = () => {
-    const payloadRaw = {
-      profileData,
-      contactNumbers,
-      notifications,
-      reports,
-      twoFactor,
-      passwordData,
-      editableInfo,
-      globalUserPhoto,
-      businessLicensePreview,
-      liabilityInsurancePreview,
-      logoPreview,
-      hasAddedUser,
-      addedUserEmail,
-      userAccess
-    };
-    try {
-      let payload = { ...payloadRaw };
-      let json = JSON.stringify(payload);
-      const limit = 4.5 * 1024 * 1024;
-      if (json.length > limit) { payload.businessLicensePreview = null; json = JSON.stringify(payload); }
-      if (json.length > limit) { payload.liabilityInsurancePreview = null; json = JSON.stringify(payload); }
-      if (json.length > limit) { payload.logoPreview = null; json = JSON.stringify(payload); }
-      localStorage.setItem('account_settings', json);
-      // fire both events to satisfy all listeners
-      window.dispatchEvent(new Event('account_settings_updated'));
-      window.dispatchEvent(new Event('accountSettingsUpdated'));
-      alert('All account settings saved successfully!');
-    } catch (err) {
-      try {
-        sessionStorage.setItem('account_settings', JSON.stringify(payloadRaw));
-        window.dispatchEvent(new Event('account_settings_updated'));
-        window.dispatchEvent(new Event('accountSettingsUpdated'));
-        alert('All account settings saved successfully!');
-      } catch (e) {
-        console.error('Save error:', e);
-        alert('Failed to save settings. Please try again.');
-      }
-    }
+  const handleConfirmAndSaveAll = async () => {
+    persistSettings({}, { immediate: true });
+    alert('All account settings saved successfully!');
   };
 
   const handleToggle = (section, key) => {
@@ -599,7 +664,9 @@ const AccountSettings = () => {
 
           {/* Middle: Supplier ID and Upload */}
           <div className="text-center">
-            <div className="text-lg font-semibold text-gray-900 mb-2">Supplier ID {localStorage.getItem('supplier_id') || sessionStorage.getItem('supplier_id') || '00032123'}</div>
+            <div className="text-lg font-semibold text-gray-900 mb-2">
+              Supplier ID {profileData?.contactValue || localStorage.getItem('supplier_id') || sessionStorage.getItem('supplier_id') || 'N/A'}
+            </div>
             <input
               type="file"
               onChange={(e) => handleFileUpload('profile', e)}

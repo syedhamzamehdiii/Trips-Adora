@@ -10,6 +10,7 @@ import FromSupplierModal from '@/components/modals/FromSupplierModal';
 import RefundPolicyModal from '@/components/modals/RefundPolicyModal';
 import Footer from '@/components/common/Footer';
 import productService from '@/services/productService';
+import dashboardService from '@/services/dashboardService';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -33,27 +34,91 @@ const Dashboard = () => {
   const profileRef = useRef(null);
 
   // Load profile data from localStorage in real-time
-  const [sidebarProfile, setSidebarProfile] = useState({ name: 'Edward William', photo: null, id: '00032123', location: 'Notting Hill, London' });
+  const [sidebarProfile, setSidebarProfile] = useState({ name: 'User', photo: null, id: 'N/A', location: 'Tokyo, Japan' });
   const [supplierMode, setSupplierMode] = useState(true);
-  const [dashboardData, setDashboardData] = useState({
-    balance: 1850,
-    todaysBookings: 18,
-    tomorrowsBookings: 24,
-    totalProducts: 12,
+  const DEFAULT_DASHBOARD = {
+    balance: 0,
+    todaysBookings: 0,
+    tomorrowsBookings: 0,
+    totalProducts: 0,
     cancellationRate: 0,
-    freshReviews: 4.8,
-    todaysBalance: 760,
+    freshReviews: 0,
+    todaysBalance: 0,
     myActivity: {
-      published: 50,
-      drafts: 15,
-      underReview: 35
+      published: 0,
+      drafts: 0,
+      underReview: 0,
+      counts: {
+        published: 0,
+        draft: 0,
+        under_review: 0,
+        total: 0,
+      },
     },
     accountStability: {
-      positiveRating: 70,
-      cancellation: 18,
-      negativeRating: 12
-    }
-  });
+      positiveRating: 100,
+      cancellation: 0,
+      negativeRating: 0,
+    },
+    financeSummary: {
+      totalEarning: 0,
+      pendingPayout: 0,
+      lossFromCancellation: 0,
+      paidThisMonth: 0,
+    },
+    bookingsSummary: {
+      total: 0,
+      today: 0,
+      tomorrow: 0,
+    },
+    bookings: [],
+  };
+  const [dashboardData, setDashboardData] = useState(DEFAULT_DASHBOARD);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState(null);
+
+  const transformOverviewToDashboardState = (overview, previous = dashboardData) => {
+    const metrics = overview?.metrics || {};
+    const activityPercentages = overview?.activity?.percentages || {};
+    const activityCounts = overview?.activity?.counts || {};
+    const finance = overview?.finance || {};
+    const products = overview?.products || {};
+    const stability = overview?.account_stability || {};
+    const bookings = overview?.bookings || {};
+
+    return {
+      balance: Math.round(metrics.available_balance ?? previous.balance ?? 0),
+      todaysBookings: bookings.today ?? metrics.todays_bookings ?? previous.bookingsSummary?.today ?? 0,
+      tomorrowsBookings: bookings.tomorrow ?? metrics.tomorrows_bookings ?? previous.bookingsSummary?.tomorrow ?? 0,
+      totalProducts: products.total ?? 0,
+      cancellationRate: products.cancellation_rate ?? 0,
+      freshReviews: products.average_rating ?? 0,
+      todaysBalance: Math.round(metrics.todays_balance ?? previous.todaysBalance ?? 0),
+      myActivity: {
+        published: activityPercentages.published ?? 0,
+        drafts: activityPercentages.draft ?? 0,
+        underReview: activityPercentages.under_review ?? 0,
+        counts: activityCounts,
+      },
+      accountStability: {
+        positiveRating: stability.positive ?? 0,
+        cancellation: stability.cancellation ?? 0,
+        negativeRating: stability.negative ?? 0,
+      },
+      financeSummary: {
+        totalEarning: finance.total_earning ?? previous.financeSummary?.totalEarning ?? 0,
+        pendingPayout: finance.pending_payout ?? previous.financeSummary?.pendingPayout ?? 0,
+        lossFromCancellation: finance.loss_from_cancellation ?? previous.financeSummary?.lossFromCancellation ?? 0,
+        paidThisMonth: finance.paid_this_month ?? previous.financeSummary?.paidThisMonth ?? 0,
+      },
+      bookingsSummary: {
+        total: bookings.total ?? 0,
+        today: bookings.today ?? previous.bookingsSummary?.today ?? 0,
+        tomorrow: bookings.tomorrow ?? previous.bookingsSummary?.tomorrow ?? 0,
+      },
+      bookings: Array.isArray(bookings.items) ? bookings.items : [],
+    };
+  };
 
   // Keep toggle in sync with global mode (tripsadora_mode)
   useEffect(() => {
@@ -80,7 +145,10 @@ const Dashboard = () => {
     const loadProfile = () => {
       try {
         let saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
-        const supplierId = localStorage.getItem('supplier_id') || sessionStorage.getItem('supplier_id') || '00032123';
+        const supplierId =
+          localStorage.getItem('supplier_id') ||
+          sessionStorage.getItem('supplier_id') ||
+          'N/A';
         if (saved) {
           const data = JSON.parse(saved);
           setSidebarProfile({
@@ -94,77 +162,18 @@ const Dashboard = () => {
     };
 
     const loadDashboardData = async () => {
+      setDashboardLoading(true);
+      setDashboardError(null);
       try {
-        // Fetch products from database
-        const response = await productService.getMyProducts({ page: 1, page_size: 100 });
-        const { transformApiProductsList } = await import('@/utils/productTransform');
-        const allProducts = transformApiProductsList(response);
-        
-        // Match Active Product Listing logic: count products that have a valid name/title
-        // and are in one of the relevant statuses (Published, Draft, Under Review)
-        const userProducts = allProducts.filter(p => {
-          if (!p) return false;
-          const displayName = (p.title || p.name || '').toString().trim();
-          const isRelevantStatus = p.status === 'Published' || p.status === 'Draft' || p.status === 'Under Review';
-          return displayName !== '' && isRelevantStatus;
-        });
-        
-        const publishedProducts = userProducts.filter(p => p.status === 'Published');
-        const draftProducts = userProducts.filter(p => p.status === 'Draft');
-        const underReviewProducts = userProducts.filter(p => p.status === 'Under Review');
-
-        // Calculate real-time metrics from user's products only
-        const totalProducts = userProducts.length;
-        const totalRevenue = userProducts.reduce((sum, product) => {
-          return sum + parseInt(product.revenue || product.vehicles?.[0]?.amount || 0);
-        }, 0);
-        
-        const totalBookings = userProducts.reduce((sum, product) => {
-          return sum + parseInt(product.bookings || 0);
-        }, 0);
-        
-        const totalCancellations = userProducts.reduce((sum, product) => {
-          return sum + parseInt(product.cancellations || 0);
-        }, 0);
-        
-        const cancellationRate = totalBookings > 0 ? Math.round((totalCancellations / totalBookings) * 100) : 0;
-        
-        const averageRating = userProducts.reduce((sum, product) => {
-          const rating = parseFloat(product.ratings?.split('/')[0] || 0);
-          return sum + rating;
-        }, 0) / Math.max(userProducts.length, 1);
-        
-        // Calculate activity percentages
-        const publishedPercent = totalProducts > 0 ? Math.round((publishedProducts.length / totalProducts) * 100) : 0;
-        const draftsPercent = totalProducts > 0 ? Math.round((draftProducts.length / totalProducts) * 100) : 0;
-        const underReviewPercent = totalProducts > 0 ? Math.round((underReviewProducts.length / totalProducts) * 100) : 0;
-
-          // Calculate today's metrics (simulated based on products)
-          const todaysBookings = Math.floor(totalBookings * 0.1) + Math.floor(Math.random() * 5); // 10% of total + random
-          const tomorrowsBookings = Math.floor(totalBookings * 0.15) + Math.floor(Math.random() * 8); // 15% of total + random
-          const todaysBalance = Math.floor(totalRevenue * 0.05) + Math.floor(Math.random() * 200); // 5% of total + random
-
-          setDashboardData({
-            balance: Math.floor(totalRevenue * 0.1) + Math.floor(Math.random() * 500), // 10% of total revenue + random
-            todaysBookings: todaysBookings,
-            tomorrowsBookings: tomorrowsBookings,
-            totalProducts: totalProducts,
-            cancellationRate: cancellationRate,
-            freshReviews: Math.round(averageRating * 10) / 10,
-            todaysBalance: todaysBalance,
-            myActivity: {
-              published: publishedPercent,
-              drafts: draftsPercent,
-              underReview: underReviewPercent
-            },
-            accountStability: {
-              positiveRating: Math.max(70 - cancellationRate, 50), // Higher cancellation = lower positive rating
-              cancellation: cancellationRate,
-              negativeRating: Math.min(cancellationRate + Math.floor(Math.random() * 10), 20)
-            }
-          });
+        const overview = await dashboardService.getOverview();
+      const transformed = transformOverviewToDashboardState(overview);
+        setDashboardData(transformed);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
+        setDashboardError(error?.message || 'Unable to load dashboard data right now.');
+        setDashboardData(DEFAULT_DASHBOARD);
+      } finally {
+        setDashboardLoading(false);
       }
     };
 
@@ -311,21 +320,18 @@ const Dashboard = () => {
     window.addEventListener('account_settings_updated', loadProfile);
     window.addEventListener('accountSettingsUpdated', loadProfile);
     window.addEventListener('storage', loadProfile);
-    window.addEventListener('dashboard_data_updated', loadDashboardData);
-    window.addEventListener('products_updated', () => {
+    const handleProductsUpdated = () => {
+      loadDashboardData();
       loadDraftProducts();
       loadPopularActivities();
-    });
+    };
+    window.addEventListener('products_updated', handleProductsUpdated);
     
     return () => {
       window.removeEventListener('account_settings_updated', loadProfile);
       window.removeEventListener('accountSettingsUpdated', loadProfile);
       window.removeEventListener('storage', loadProfile);
-      window.removeEventListener('dashboard_data_updated', loadDashboardData);
-      window.removeEventListener('products_updated', () => {
-        loadDraftProducts();
-        loadPopularActivities();
-      });
+      window.removeEventListener('products_updated', handleProductsUpdated);
     };
   }, []);
 
@@ -562,7 +568,15 @@ const Dashboard = () => {
           </div>
         </div>
         
-              </div>
+      </div>
+
+      {dashboardError && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {dashboardError}
+          </div>
+        </div>
+      )}
 
       {/* Blue Sidebar - starts from top navigation and extends through hero */}
       <div className="absolute right-0 top-0 w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-4 text-white z-50" style={{top: '-80px', height: 'calc(max(70vh, 800px) + 161px)', paddingTop: '80px'}}>

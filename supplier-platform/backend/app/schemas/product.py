@@ -36,7 +36,7 @@ class ProductBase(BaseModel):
     vehicle_details: Optional[VehicleDetails] = None
     pickup_dropoff: Optional[PickupDropoff] = None
     price: float
-    currency: str = "USD"
+    currency: str = "USD" 
     price_unit: str = "Per Group"
     commission_rate: Optional[float] = 20.0
     faqs: List[FAQ] = []

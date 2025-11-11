@@ -1,6 +1,7 @@
 # app/api/v1/products.py
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List, Optional
+from pymongo.errors import DocumentTooLarge
 import math
 
 from app.models.user import User
@@ -47,6 +48,18 @@ async def create_product(
         print(f"   Published at: {product.published_at}")
         
         return ProductResponse(**product.model_dump(exclude={"id"}), id=str(product.id))
+    except DocumentTooLarge:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Product media is too large. Please compress or remove some images and try again.",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Error creating product: {e}")
         import traceback
@@ -291,7 +304,7 @@ async def save_as_draft(
             detail="Product not found or you don't have permission to save it as draft"
         )
     
-    return ProductResponse(**product.model_dump(), id=str(product.id))
+    return ProductResponse(**product.model_dump(exclude={"id"}), id=str(product.id))
 
 
 @router.get("/search/query", response_model=ProductListResponse)

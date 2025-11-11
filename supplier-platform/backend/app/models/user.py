@@ -1,6 +1,6 @@
 from beanie import Document
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, Annotated
+from typing import Optional
 from datetime import datetime
 from enum import Enum
 
@@ -19,6 +19,7 @@ class User(Document):
     phone: Optional[str] = None
     address: Optional[str] = None
     country: Optional[str] = None
+    supplier_code: Optional[str] = Field(default=None, description="Human-readable supplier identifier")
     role: UserRole = UserRole.SUPPLIER
     is_active: bool = True
     is_verified: bool = False
@@ -27,6 +28,7 @@ class User(Document):
 
     class Settings:
         name = "users"
+        indexes = ["email", "supplier_code"]
 
 
 class UserCreate(BaseModel):
@@ -56,6 +58,7 @@ class UserResponse(BaseModel):
     phone: Optional[str]
     address: Optional[str]
     country: Optional[str]
+    supplier_code: Optional[str]
     role: str
     is_active: bool
     is_verified: bool
