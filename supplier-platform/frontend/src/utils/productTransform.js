@@ -70,6 +70,8 @@ const buildCustomFields = (productData) => {
 };
 
 export const transformApiProductToLocal = (apiProduct) => {
+  // Handle both full ProductResponse and lightweight ProductSummary responses
+  // Summary responses may not have: custom_fields, vehicle_details, pickup_dropoff, itinerary, etc.
   const customFields = apiProduct.custom_fields || {};
   const vehiclesFull = Array.isArray(customFields?.vehicles_full) ? customFields.vehicles_full : null;
   const itinerariesFull = Array.isArray(customFields?.itineraries_full) ? customFields.itineraries_full : null;
@@ -97,6 +99,7 @@ export const transformApiProductToLocal = (apiProduct) => {
       new Date(apiProduct.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') :
       new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
     ratings: apiProduct.rating ? `${apiProduct.rating}/5` : '0/5',
+    // Handle missing vehicle_details in summary responses
     vehicles: vehiclesFull && vehiclesFull.length
       ? vehiclesFull
       : (apiProduct.vehicle_details ? [{
@@ -113,13 +116,14 @@ export const transformApiProductToLocal = (apiProduct) => {
           duration: apiProduct.duration || '',
           description: ''
         }] : []),
+    // Handle missing itinerary in summary responses
     itineraries: itinerariesFull || apiProduct.itinerary || [],
     pickupLocations,
     dropoffLocations,
     pickupTime,
     availableDays,
     availableTimeSlots,
-    // Store additional API data for reference
+    // Store additional API data for reference (includes hero_image_url for summaries)
     _apiData: apiProduct
   };
 };

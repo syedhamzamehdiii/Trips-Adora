@@ -30,6 +30,8 @@ const Products = () => {
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
   const [isPreparingDraft, setIsPreparingDraft] = useState(false);
+  const [cloningProductId, setCloningProductId] = useState(null);
+  const [deletingProductId, setDeletingProductId] = useState(null);
   const dropdownRefs = useRef({});
   const dropdownMenuRefs = useRef({});
   const filtersRef = useRef(null);
@@ -88,8 +90,8 @@ const Products = () => {
     const loadProducts = async () => {
       try {
         
-        // Fetch all products from database (no status filter to get all)
-        const response = await productService.getMyProducts({ page: 1, page_size: 100 });
+        // Fetch all products from database using lightweight summary (excludes images)
+        const response = await productService.getMyProducts({ page: 1, page_size: 50, summary: true });
         const { transformApiProductsList } = await import('@/utils/productTransform');
         
         // Transform API products to localStorage format for compatibility
@@ -245,7 +247,27 @@ const Products = () => {
           try {
             const existingDraft = localStorage.getItem(draftStorageKey);
             if (existingDraft) {
-              localStorage.setItem('product_draft_current_draft', existingDraft);
+              try {
+                localStorage.setItem('product_draft_current_draft', existingDraft);
+              } catch (currentDraftError) {
+                if (currentDraftError?.name === 'QuotaExceededError') {
+                  console.warn('⚠️ Could not save current_draft reference due to quota. Using lightweight reference.');
+                  // Save just a reference instead of full data
+                  const lightweightRef = JSON.stringify({
+                    draftId: resolvedProductId,
+                    storageKey: draftStorageKey,
+                    lastModified: new Date().toISOString()
+                  });
+                  try {
+                    localStorage.setItem('product_draft_current_draft', lightweightRef);
+                  } catch (refError) {
+                    console.warn('⚠️ Could not save even lightweight reference:', refError);
+                    // Continue anyway - the main draft exists
+                  }
+                } else {
+                  throw currentDraftError;
+                }
+              }
             }
           } catch (storageError) {
             console.warn('Unable to prime current draft cache:', storageError);
@@ -323,7 +345,30 @@ const Products = () => {
 
             console.log('💾 Saving draft payload for editing:', draftStorageKey);
             const savedDraft = persistWithFallback(draftStorageKey, enrichedDraft, slimDraftBuilder);
-            localStorage.setItem('product_draft_current_draft', savedDraft.serialized);
+            
+            // Save reference to current draft (with fallback for quota issues)
+            try {
+              localStorage.setItem('product_draft_current_draft', savedDraft.serialized);
+            } catch (currentDraftError) {
+              if (currentDraftError?.name === 'QuotaExceededError') {
+                console.warn('⚠️ Could not save current_draft reference due to quota. Using lightweight reference.');
+                // Save just a reference instead of full data
+                const lightweightRef = JSON.stringify({
+                  draftId: resolvedProductId,
+                  storageKey: draftStorageKey,
+                  photoStoragePending: savedDraft.data.photoStoragePending || false,
+                  lastModified: savedDraft.data.lastModified
+                });
+                try {
+                  localStorage.setItem('product_draft_current_draft', lightweightRef);
+                } catch (refError) {
+                  console.error('⚠️ Could not save even lightweight reference:', refError);
+                  // Continue anyway - the main draft is saved
+                }
+              } else {
+                throw currentDraftError;
+              }
+            }
 
             setEditingProductId(String(resolvedProductId));
             setShowCreateProduct(true);
@@ -345,6 +390,10 @@ const Products = () => {
         alert('⚠️ This product cannot be edited at this time.');
       }
     } else if (action === 'clone') {
+      if (cloningProductId || deletingProductId) {
+        return; // Already processing
+      }
+      
       console.log('📋 Clone action started');
       // Clone the product as a new draft
       const product = products.find(p => p.id === productId);
@@ -354,6 +403,7 @@ const Products = () => {
         console.log('User confirmation for clone:', confirmed);
         
         if (confirmed) {
+          setCloningProductId(productId);
           try {
             // Fetch full product data from API
             const fullProduct = await productService.getProduct(product.dbProductId || productId);
@@ -404,7 +454,7 @@ const Products = () => {
             }
             
             // Reload products to show the new clone
-            const response = await productService.getMyProducts({ page: 1, page_size: 1000 });
+            const response = await productService.getMyProducts({ page: 1, page_size: 50, summary: true });
             const { transformApiProductsList } = await import('@/utils/productTransform');
             const updatedProducts = transformApiProductsList(response);
             setProducts(updatedProducts);
@@ -414,6 +464,8 @@ const Products = () => {
           } catch (error) {
             console.error('Error cloning product:', error);
             alert(`❌ Failed to clone product: ${error.message}`);
+          } finally {
+            setCloningProductId(null);
           }
         }
       }
@@ -455,7 +507,7 @@ const Products = () => {
           await productService.publishProduct(product.dbProductId || productId);
           
           // Reload products
-          const response = await productService.getMyProducts({ page: 1, page_size: 1000 });
+          const response = await productService.getMyProducts({ page: 1, page_size: 50, summary: true });
           const { transformApiProductsList } = await import('@/utils/productTransform');
           const updatedProducts = transformApiProductsList(response);
           setProducts(updatedProducts);
@@ -467,6 +519,10 @@ const Products = () => {
         }
       }
     } else if (action === 'delete') {
+      if (cloningProductId || deletingProductId) {
+        return; // Already processing
+      }
+      
       console.log('🗑️ Delete action started');
       // Delete the product
       const product = products.find(p => p.id === productId);
@@ -476,6 +532,7 @@ const Products = () => {
       console.log('User confirmation for delete:', confirmed);
       
       if (confirmed) {
+        setDeletingProductId(productId);
         try {
           // Delete from database
           await productService.deleteProduct(product.dbProductId || productId);
@@ -485,7 +542,7 @@ const Products = () => {
           localStorage.removeItem(`product_draft_${product.id}`);
 
           // Reload products from database
-          const response = await productService.getMyProducts({ page: 1, page_size: 100 });
+          const response = await productService.getMyProducts({ page: 1, page_size: 50, summary: true });
           const { transformApiProductsList } = await import('@/utils/productTransform');
           const refreshed = transformApiProductsList(response);
           setProducts(refreshed);
@@ -495,6 +552,8 @@ const Products = () => {
         } catch (error) {
           console.error('Error deleting product:', error);
           alert(`❌ Failed to delete product: ${error.message}`);
+        } finally {
+          setDeletingProductId(null);
         }
       }
     }
@@ -524,8 +583,8 @@ const Products = () => {
   const handleRefresh = async () => {
     console.log('🔄 Refresh button clicked');
     try {
-      // Reload products from database
-      const response = await productService.getMyProducts({ page: 1, page_size: 100 });
+      // Reload products from database using lightweight summary
+      const response = await productService.getMyProducts({ page: 1, page_size: 50, summary: true });
       const { transformApiProductsList } = await import('@/utils/productTransform');
       const loadedProducts = transformApiProductsList(response);
       
@@ -588,8 +647,8 @@ const Products = () => {
         }
       }
       
-      // Reload products
-      const response = await productService.getMyProducts({ page: 1, page_size: 1000 });
+      // Reload products using lightweight summary
+      const response = await productService.getMyProducts({ page: 1, page_size: 50, summary: true });
       const { transformApiProductsList } = await import('@/utils/productTransform');
       const updatedProducts = transformApiProductsList(response);
       setProducts(updatedProducts);
@@ -845,9 +904,16 @@ const Products = () => {
                       e.stopPropagation();
                       handleAction('clone', product.id);
                     }}
-                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer"
+                    disabled={cloningProductId === product.id || deletingProductId === product.id}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
                   >
-                    Clone
+                    <span>Clone</span>
+                    {cloningProductId === product.id && (
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    )}
                   </button>
                 </li>
                 <li>
@@ -871,9 +937,16 @@ const Products = () => {
                       e.stopPropagation();
                       handleAction('delete', product.id);
                     }}
-                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    disabled={cloningProductId === product.id || deletingProductId === product.id}
+                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
                   >
-                    Delete
+                    <span>Delete</span>
+                    {deletingProductId === product.id && (
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    )}
                   </button>
                 </li>
               </ul>

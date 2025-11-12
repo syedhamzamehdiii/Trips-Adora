@@ -79,10 +79,27 @@ export const cancelBooking = async (userId, bookingId, reason) => {
   return handleResponse(response);
 };
 
+export const deleteBooking = async (userId, bookingId) => {
+  if (!userId) {
+    throw new Error('userId is required to delete a booking');
+  }
+  if (!bookingId) {
+    throw new Error('bookingId is required to delete a booking');
+  }
+  const response = await fetch(
+    `${API_BASE_URL}/bookings/${encodeURIComponent(userId)}/${encodeURIComponent(bookingId)}/delete`,
+    {
+      method: 'DELETE',
+    },
+  );
+  return handleResponse(response);
+};
+
 export default {
   getBookings,
   createBooking,
   cancelBooking,
+  deleteBooking,
 };
 
 

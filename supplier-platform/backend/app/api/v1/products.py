@@ -11,6 +11,8 @@ from app.schemas.product import (
     ProductUpdate,
     ProductResponse,
     ProductListResponse,
+    ProductSummary,
+    ProductSummaryListResponse,
     ProductPublishRequest,
     ProductStatusUpdate
 )
@@ -70,16 +72,19 @@ async def create_product(
         )
 
 
-@router.get("/", response_model=ProductListResponse)
+@router.get("/")
 async def get_my_products(
     status_filter: Optional[ProductStatus] = Query(None, alias="status"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    summary: bool = Query(False, description="Return lightweight summary (excludes images and heavy fields)"),
     current_user: User = Depends(get_current_user)
 ):
     """
     Get all products for the authenticated supplier.
     Supports filtering by status and pagination.
+    
+    Use summary=true for faster list views (excludes images, itinerary, etc.)
     """
     skip = (page - 1) * page_size
     
@@ -87,18 +92,61 @@ async def get_my_products(
         supplier_id=str(current_user.id),
         status=status_filter,
         skip=skip,
-        limit=page_size
+        limit=page_size,
+        summary_only=summary
     )
     
     total_pages = math.ceil(total / page_size)
     
-    return ProductListResponse(
-        products=[ProductResponse(**p.model_dump(exclude={"id"}), id=str(p.id)) for p in products],
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages
-    )
+    if summary:
+        # Return lightweight summaries
+        summaries = []
+        for p in products:
+            # Extract hero_image URL if it's a URL, otherwise None
+            hero_image_url = None
+            if hasattr(p, 'hero_image') and p.hero_image:
+                # If it's a URL (starts with http), use it; otherwise skip base64
+                if isinstance(p.hero_image, str) and p.hero_image.startswith(('http://', 'https://', '/')):
+                    hero_image_url = p.hero_image
+                # For base64, we skip it in summary mode
+            
+            summaries.append(ProductSummary(
+                id=str(p.id),
+                supplier_id=p.supplier_id,
+                title=p.title,
+                category=p.category,
+                tagline=p.tagline,
+                status=p.status,
+                price=p.price,
+                currency=p.currency,
+                destination=p.destination,
+                duration=p.duration,
+                views=p.views,
+                bookings_count=p.bookings_count,
+                rating=p.rating,
+                reviews_count=p.reviews_count,
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+                published_at=p.published_at,
+                hero_image_url=hero_image_url
+            ))
+        
+        return ProductSummaryListResponse(
+            products=summaries,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages
+        )
+    else:
+        # Return full products
+        return ProductListResponse(
+            products=[ProductResponse(**p.model_dump(exclude={"id"}), id=str(p.id)) for p in products],
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages
+        )
 
 
 @router.get("/published", response_model=ProductListResponse)

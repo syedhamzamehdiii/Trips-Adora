@@ -38,7 +38,7 @@ class ReviewService:
         return doc
 
     @staticmethod
-    async def list_reviews(user_id: str, limit: int = 200) -> List[Dict[str, Any]]:
+    async def list_reviews(user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         try:
             cursor = (
                 ReviewService._collection()
@@ -46,7 +46,7 @@ class ReviewService:
                 .sort("created_at", -1)
                 .limit(limit)
             )
-            documents = await cursor.to_list(length=None)
+            documents = await cursor.to_list(length=limit)
         except (ConnectionError, AutoReconnect, ServerSelectionTimeoutError) as exc:
             raise DatabaseUnavailableError("Review data is currently unavailable.") from exc
         return [ReviewService._serialize(doc) for doc in documents]

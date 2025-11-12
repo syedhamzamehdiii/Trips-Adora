@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
@@ -61,6 +61,8 @@ const ProfileSettings = () => {
     []
   )
 
+  const hasLoadedOnceRef = useRef(false)
+
   const hydrateForm = useCallback((incomingProfile) => {
     const user = incomingProfile?.user || {}
 
@@ -94,12 +96,13 @@ const ProfileSettings = () => {
   }, [])
 
   const fetchProfile = useCallback(async () => {
-    setLoading(true)
+    setLoading(!hasLoadedOnceRef.current)  // Only show loading on first load
     setError(null)
     try {
       const data = await getProfile(userId)
       setProfile(data)
       hydrateForm(data)
+      hasLoadedOnceRef.current = true
     } catch (err) {
       setError(err?.message || 'Unable to load settings right now.')
     } finally {

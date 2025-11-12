@@ -2,15 +2,16 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
+import { useSettings } from '@/context/SettingsContext';
 import SettingsDropdown from '@/components/common/SettingsDropdown';
 import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
 import FromSupplierModal from '@/components/modals/FromSupplierModal';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
-import { settingsService } from '@/services/settingsService';
 import dashboardService from '@/services/dashboardService';
 
 const DashboardLayout = ({ children }) => {
   const { user } = useAuth();
+  const { profile } = useSettings(); // Use global settings context
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -20,89 +21,48 @@ const DashboardLayout = ({ children }) => {
   const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
   const [showFromSupplierModal, setShowFromSupplierModal] = useState(false);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
-  const [profileSummary, setProfileSummary] = useState({
-    name: 'User',
-    id: 'N/A',
-    photo: null,
-    balance: 0,
-  });
+  const [balance, setBalance] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
   const languageRef = useRef(null);
   const profileRef = useRef(null);
+  const hasLoadedBalanceRef = useRef(false);
 
   const isProductsPage = location.pathname.includes('/products');
   const isInsightsPage = location.pathname === '/insights';
   const isBookingsPage = location.pathname === '/bookings';
   const profileInitials = useMemo(() => {
-    if (!profileSummary?.name) return 'US';
-    const parts = profileSummary.name.split(/\s+/).filter(Boolean);
+    if (!profile?.name) return 'US';
+    const parts = profile.name.split(/\s+/).filter(Boolean);
     if (parts.length === 0) return 'US';
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-  }, [profileSummary?.name]);
+  }, [profile?.name]);
 
-  const loadProfileFromCache = useCallback(() => {
-    try {
-      const saved =
-        localStorage.getItem('account_settings') ||
-        sessionStorage.getItem('account_settings');
-      if (saved) {
-        const data = JSON.parse(saved);
-        const name =
-          data?.editableInfo?.publicName?.trim() ||
-          data?.profileData?.publicName?.trim() ||
-          'User';
-        const id =
-          data?.profileData?.supplierCode ||
-          data?.profileData?.contactValue ||
-          localStorage.getItem('supplier_id') ||
-          sessionStorage.getItem('supplier_id') ||
-          'N/A';
-        const photo = data?.globalUserPhoto || null;
-        return { name, id, photo, balance: 0 };
+  // Fetch balance in background (non-blocking)
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (hasLoadedBalanceRef.current) return; // Only fetch once
+      try {
+        const overview = await dashboardService.getOverview();
+        const newBalance = Math.round(overview?.metrics?.available_balance ?? 0);
+        setBalance(newBalance);
+        hasLoadedBalanceRef.current = true;
+      } catch (error) {
+        console.error('Failed to fetch balance', error);
       }
-    } catch (error) {
-      console.warn('Failed to load cached supplier profile', error);
-    }
-    return { name: 'User', id: 'N/A', photo: null, balance: 0 };
+    };
+    fetchBalance();
   }, []);
 
-  const fetchProfile = useCallback(async () => {
-    const cached = loadProfileFromCache();
-    let balance = cached.balance ?? 0;
-    try {
-      const overview = await dashboardService.getOverview();
-      balance = Math.round(overview?.metrics?.available_balance ?? 0);
-    } catch (error) {
-      console.error('Failed to fetch dashboard overview for layout', error);
-    }
-    try {
-      const response = await settingsService.getSettings();
-      const settings = response?.settings || {};
-      if (Object.keys(settings).length > 0) {
-        const name =
-          settings?.editableInfo?.publicName?.trim() ||
-          settings?.profileData?.publicName?.trim() ||
-          'User';
-        const id =
-          settings?.profileData?.supplierCode ||
-          settings?.profileData?.contactValue ||
-          localStorage.getItem('supplier_id') ||
-          sessionStorage.getItem('supplier_id') ||
-          'N/A';
-        const photo = settings?.globalUserPhoto || null;
-        setProfileSummary({ name, id, photo, balance });
-        return;
-      }
-    } catch (error) {
-      console.error('Failed to fetch supplier profile settings', error);
-    }
-
-    setProfileSummary({ ...cached, balance });
-  }, [loadProfileFromCache]);
+  const profileSummary = useMemo(() => ({
+    name: profile?.name || 'User',
+    id: profile?.id || 'N/A',
+    photo: profile?.photo || null,
+    balance,
+  }), [profile, balance]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -168,19 +128,7 @@ const DashboardLayout = ({ children }) => {
     persistNotifications(updated);
   };
 
-  // Listen for profile updates from Account Settings
-  useEffect(() => {
-    fetchProfile();
-    const handleProfileUpdate = () => fetchProfile();
-    window.addEventListener('account_settings_updated', handleProfileUpdate);
-    window.addEventListener('accountSettingsUpdated', handleProfileUpdate);
-    window.addEventListener('storage', handleProfileUpdate);
-    return () => {
-      window.removeEventListener('account_settings_updated', handleProfileUpdate);
-      window.removeEventListener('accountSettingsUpdated', handleProfileUpdate);
-      window.removeEventListener('storage', handleProfileUpdate);
-    };
-  }, [fetchProfile]);
+  // Profile is now managed by SettingsContext - no need to fetch here
 
   return (
     <div className="min-h-screen bg-white">
@@ -244,15 +192,15 @@ const DashboardLayout = ({ children }) => {
                           <div className="text-center text-sm text-gray-500 py-6">No notifications</div>
                         ) : (
                         (showAllNotifications ? notifications : notifications.filter(n => !n.read).slice(0, 5)).map((n) => {
-                          const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
-                          const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
+                          const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
+                          const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
                           return (
-                            <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''}`} onClick={() => markAsRead(n.id)}>
-                              <div className={`w-2 h-2 ${typeColor} rounded-full mt-2`}></div>
-                              <div>
+                            <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} cursor-pointer hover:opacity-90 transition-opacity`} onClick={() => markAsRead(n.id)}>
+                              <div className={`w-2 h-2 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
+                              <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                                {n.message && (<p className="text-xs text-gray-600">{n.message}</p>)}
-                                <p className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()}</p>
+                                {n.message && (<p className="text-xs text-gray-600 mt-1">{n.message}</p>)}
+                                <p className="text-xs text-gray-500 mt-1">{new Date(n.created_at || n.createdAt).toLocaleString()}</p>
                               </div>
                             </div>
                           );

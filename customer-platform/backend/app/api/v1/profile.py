@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Path, status
+import asyncio
 
 from datetime import datetime
 
@@ -32,12 +33,19 @@ async def get_profile(
             detail="Profile not found",
         )
     try:
-        bookings = await BookingService.get_bookings_for_user(user_id)
-        stats = await BookingService.get_stats_for_user(user_id, bookings=bookings)
-        upcoming_trips = await BookingService.get_upcoming_trips(user_id, bookings=bookings)
-        recent_activity = await ActivityService.get_recent_activity(user_id, bookings=bookings)
-        travel_preferences = await ActivityService.get_travel_preferences(user_id, bookings=bookings)
-        refer_summary = await ReferralService.get_summary(user_id, profile)
+        bookings = await BookingService.get_bookings_for_user(user_id, limit=50)  # Limit to 50 for faster fetching
+        # Run all dependent queries in parallel for faster response
+        stats, upcoming_trips, recent_activity, travel_preferences, refer_summary = await asyncio.gather(
+            BookingService.get_stats_for_user(user_id, bookings=bookings),
+            BookingService.get_upcoming_trips(user_id, bookings=bookings),
+            ActivityService.get_recent_activity(user_id, bookings=bookings, limit=4),
+            ActivityService.get_travel_preferences(user_id, bookings=bookings),
+            ReferralService.get_summary(user_id, profile),
+            return_exceptions=True
+        )
+        # Handle any exceptions from parallel queries
+        if isinstance(stats, Exception) or isinstance(upcoming_trips, Exception) or isinstance(recent_activity, Exception) or isinstance(travel_preferences, Exception) or isinstance(refer_summary, Exception):
+            raise DatabaseUnavailableError("Error fetching profile data")
     except (DatabaseUnavailableError, AutoReconnect, ServerSelectionTimeoutError):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -64,12 +72,19 @@ async def upsert_profile(
             user_id=user_id,
             payload=request.model_dump(exclude_unset=True),
         )
-        bookings = await BookingService.get_bookings_for_user(user_id)
-        stats = await BookingService.get_stats_for_user(user_id, bookings=bookings)
-        upcoming_trips = await BookingService.get_upcoming_trips(user_id, bookings=bookings)
-        recent_activity = await ActivityService.get_recent_activity(user_id, bookings=bookings)
-        travel_preferences = await ActivityService.get_travel_preferences(user_id, bookings=bookings)
-        refer_summary = await ReferralService.get_summary(user_id, profile)
+        bookings = await BookingService.get_bookings_for_user(user_id, limit=50)  # Limit to 50 for faster fetching
+        # Run all dependent queries in parallel for faster response
+        stats, upcoming_trips, recent_activity, travel_preferences, refer_summary = await asyncio.gather(
+            BookingService.get_stats_for_user(user_id, bookings=bookings),
+            BookingService.get_upcoming_trips(user_id, bookings=bookings),
+            ActivityService.get_recent_activity(user_id, bookings=bookings, limit=4),
+            ActivityService.get_travel_preferences(user_id, bookings=bookings),
+            ReferralService.get_summary(user_id, profile),
+            return_exceptions=True
+        )
+        # Handle any exceptions from parallel queries
+        if isinstance(stats, Exception) or isinstance(upcoming_trips, Exception) or isinstance(recent_activity, Exception) or isinstance(travel_preferences, Exception) or isinstance(refer_summary, Exception):
+            raise DatabaseUnavailableError("Error fetching profile data")
     except (DatabaseUnavailableError, AutoReconnect, ServerSelectionTimeoutError):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -105,12 +120,19 @@ async def update_profile(
             detail="Profile not found",
         )
     try:
-        bookings = await BookingService.get_bookings_for_user(user_id)
-        stats = await BookingService.get_stats_for_user(user_id, bookings=bookings)
-        upcoming_trips = await BookingService.get_upcoming_trips(user_id, bookings=bookings)
-        recent_activity = await ActivityService.get_recent_activity(user_id, bookings=bookings)
-        travel_preferences = await ActivityService.get_travel_preferences(user_id, bookings=bookings)
-        refer_summary = await ReferralService.get_summary(user_id, profile)
+        bookings = await BookingService.get_bookings_for_user(user_id, limit=50)  # Limit to 50 for faster fetching
+        # Run all dependent queries in parallel for faster response
+        stats, upcoming_trips, recent_activity, travel_preferences, refer_summary = await asyncio.gather(
+            BookingService.get_stats_for_user(user_id, bookings=bookings),
+            BookingService.get_upcoming_trips(user_id, bookings=bookings),
+            ActivityService.get_recent_activity(user_id, bookings=bookings, limit=4),
+            ActivityService.get_travel_preferences(user_id, bookings=bookings),
+            ReferralService.get_summary(user_id, profile),
+            return_exceptions=True
+        )
+        # Handle any exceptions from parallel queries
+        if isinstance(stats, Exception) or isinstance(upcoming_trips, Exception) or isinstance(recent_activity, Exception) or isinstance(travel_preferences, Exception) or isinstance(refer_summary, Exception):
+            raise DatabaseUnavailableError("Error fetching profile data")
     except (DatabaseUnavailableError, AutoReconnect, ServerSelectionTimeoutError):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

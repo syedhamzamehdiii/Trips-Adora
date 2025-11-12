@@ -6,6 +6,7 @@ from app.models.coi_document import COIDocument
 from app.models.product import Product
 from app.models.account_settings import SupplierAccountSettings
 from app.models.vehicle import SupplierVehicle
+from app.models.notification import Notification
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ async def initiate_database():
         # Initialize Beanie with all document models
         await init_beanie(
             database=db.database,
-            document_models=[User, COIDocument, Product, SupplierAccountSettings, SupplierVehicle]
+            document_models=[User, COIDocument, Product, SupplierAccountSettings, SupplierVehicle, Notification]
         )
         logger.info("Beanie initialized successfully!")
         

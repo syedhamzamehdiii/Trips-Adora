@@ -152,6 +152,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [previewProfile, setPreviewProfile] = useState({
     name: 'User',
     id: FALLBACK_SUPPLIER_ID,
@@ -282,6 +284,12 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
 
 
   const handleSaveDraft = async () => {
+    if (isSavingDraft || isPublishing) {
+      console.log('⏳ Already processing, please wait...');
+      return;
+    }
+    
+    setIsSavingDraft(true);
     try {
       console.log('💾 Saving draft to database...');
       
@@ -404,7 +412,20 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
             ? Object.values(productData.timeSlots).flat().filter(Boolean)
             : []
         },
-        price: primaryVehicle ? Number(primaryVehicle.amount || 0) : parseFloat(productData?.price || 0),
+        price: (() => {
+          // Try multiple sources for price
+          if (primaryVehicle?.amount != null && !isNaN(primaryVehicle.amount) && parseFloat(primaryVehicle.amount) > 0) {
+            return parseFloat(primaryVehicle.amount);
+          }
+          if (productData?.productAmount != null && !isNaN(productData.productAmount) && parseFloat(productData.productAmount) > 0) {
+            return parseFloat(productData.productAmount);
+          }
+          if (productData?.price != null && !isNaN(productData.price) && parseFloat(productData.price) > 0) {
+            return parseFloat(productData.price);
+          }
+          // Fallback to vehicle amount or 0
+          return primaryVehicle ? Number(primaryVehicle.amount || 0) : parseFloat(productData?.price || productData?.productAmount || 0);
+        })(),
         currency: primaryVehicle?.currency || 'USD',
         price_unit: primaryVehicle?.pricingType || 'Per Group',
         destination: productData?.destination || '',
@@ -429,7 +450,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         })
         .filter(Boolean);
 
-      const imageUrls = await buildImagePayload(photoSources);
+      // For drafts, skip heavy image compression to speed up saving
+      // Just use the images as-is (compression happens on publish)
+      const imageUrls = photoSources.length > 0 ? photoSources.slice(0, MAX_IMAGE_COUNT) : [];
 
       const heroCandidates = [
         coverImage?.url,
@@ -439,14 +462,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         imageUrls[0],
       ].filter(Boolean);
 
-      let heroUrl = null;
-      for (const candidate of heroCandidates) {
-        const processed = await normaliseImageSource(candidate);
-        if (processed) {
-          heroUrl = processed;
-          break;
-        }
-      }
+      // For drafts, use first candidate without compression to speed up
+      let heroUrl = heroCandidates.length > 0 ? heroCandidates[0] : null;
 
       if (!heroUrl && imageUrls.length > 0) {
         heroUrl = imageUrls[0];
@@ -543,10 +560,19 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       console.error('❌ Error saving draft:', error);
       const message = error?.friendlyMessage || error?.message || 'Unable to save draft.';
       alert(`Error saving draft: ${message}`);
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
   const handlePublishProduct = async () => {
+    if (isPublishing || isSavingDraft) {
+      console.log('⏳ Already processing, please wait...');
+      return;
+    }
+    
+    setIsPublishing(true);
+    
     // Debug: Log what we have at the start
     console.log('🚀 Publishing product - Initial state:', {
       hasCoverImageProp: !!coverImage,
@@ -685,9 +711,68 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
             ? Object.values(productData.timeSlots).flat().filter(Boolean)
             : []
         },
-        price: parseFloat(productData?.vehicles?.[0]?.amount ?? productData?.price ?? 0),
-        currency: 'USD',
-        price_unit: 'Per Group',
+        price: (() => {
+          // Try multiple sources for price, prioritizing valid numbers > 0
+          const vehicleAmount = productData?.vehicles?.[0]?.amount;
+          const directPrice = productData?.price;
+          const productAmount = productData?.productAmount; // From CreateProductComponent
+          
+          console.log('🔍 Price extraction debug:', {
+            vehicleAmount,
+            directPrice,
+            productAmount,
+            vehicles: productData?.vehicles,
+            productDataKeys: Object.keys(productData || {})
+          });
+          
+          // Check vehicle amount first if it's a valid positive number
+          if (vehicleAmount != null && vehicleAmount !== '' && !isNaN(vehicleAmount) && parseFloat(vehicleAmount) > 0) {
+            const parsed = parseFloat(vehicleAmount);
+            console.log('✅ Using vehicle amount:', parsed);
+            return parsed;
+          }
+          
+          // Check productAmount (from CreateProductComponent form)
+          if (productAmount != null && productAmount !== '' && !isNaN(productAmount) && parseFloat(productAmount) > 0) {
+            const parsed = parseFloat(productAmount);
+            console.log('✅ Using productAmount:', parsed);
+            return parsed;
+          }
+          
+          // Fall back to direct price if it's a valid positive number
+          if (directPrice != null && directPrice !== '' && !isNaN(directPrice) && parseFloat(directPrice) > 0) {
+            const parsed = parseFloat(directPrice);
+            console.log('✅ Using direct price:', parsed);
+            return parsed;
+          }
+          
+          // Try vehicle amount even if 0 (might be valid)
+          if (vehicleAmount != null && vehicleAmount !== '' && !isNaN(vehicleAmount)) {
+            const parsed = parseFloat(vehicleAmount);
+            console.log('⚠️ Using vehicle amount (may be 0):', parsed);
+            return parsed;
+          }
+          
+          // Try productAmount even if 0
+          if (productAmount != null && productAmount !== '' && !isNaN(productAmount)) {
+            const parsed = parseFloat(productAmount);
+            console.log('⚠️ Using productAmount (may be 0):', parsed);
+            return parsed;
+          }
+          
+          // Try direct price even if 0
+          if (directPrice != null && directPrice !== '' && !isNaN(directPrice)) {
+            const parsed = parseFloat(directPrice);
+            console.log('⚠️ Using direct price (may be 0):', parsed);
+            return parsed;
+          }
+          
+          // Default to 0
+          console.warn('❌ No valid price found, defaulting to 0');
+          return 0;
+        })(),
+        currency: productData?.vehicles?.[0]?.currency || productData?.currency || 'USD',
+        price_unit: productData?.vehicles?.[0]?.pricingType || productData?.pricingType || 'Per Group',
         destination: (productData?.destination || '').toString(),
         breadcrumb: Array.isArray(productData?.breadcrumb) ? productData.breadcrumb : [],
         selling_points: Array.isArray(productData?.sellingPoints) ? productData.sellingPoints : (productData?.sellingPoints ? [productData.sellingPoints] : []),
@@ -704,7 +789,15 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         throw new Error(`Title must be at least 30 characters (got ${apiProductData.title?.length || 0})`);
       }
       if (!Number.isFinite(apiProductData.price) || apiProductData.price <= 0) {
-        throw new Error('Price must be greater than 0 before publishing.');
+        console.error('❌ Price validation failed:', {
+          price: apiProductData.price,
+          vehicleAmount: productData?.vehicles?.[0]?.amount,
+          directPrice: productData?.price,
+          productAmount: productData?.productAmount,
+          vehicles: productData?.vehicles,
+          productDataKeys: Object.keys(productData || {})
+        });
+        throw new Error(`Price must be greater than 0 before publishing. Found: ${apiProductData.price}. Please check that the price is set in the vehicle details or product price field.`);
       }
 
       const existingProductIdRaw = productData?.dbProductId || productData?.draftId || productData?.id;
@@ -863,6 +956,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       console.error('❌ Error publishing product:', error);
       const message = error?.friendlyMessage || error?.message || 'Unable to publish product.';
       alert(message);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -1054,17 +1149,43 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
           <div className="flex items-center space-x-3">
             <button 
               onClick={handleSaveDraft}
-              className="flex items-center space-x-2 px-4 py-2 border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 bg-white shadow-sm transition-colors"
+              disabled={isSavingDraft || isPublishing}
+              className="flex items-center space-x-2 px-4 py-2 border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 bg-white shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FiEdit3 size={16} />
-              <span>Save as Draft</span>
+              {isSavingDraft ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <FiEdit3 size={16} />
+                  <span>Save as Draft</span>
+                </>
+              )}
             </button>
             <button 
               onClick={() => setShowPublishModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md transition-colors"
+              disabled={isSavingDraft || isPublishing}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FiUpload size={16} />
-              <span>Publish Product</span>
+              {isPublishing ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Publishing...</span>
+                </>
+              ) : (
+                <>
+                  <FiUpload size={16} />
+                  <span>Publish Product</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1618,6 +1739,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         isOpen={showPublishModal}
         onClose={() => setShowPublishModal(false)}
         onPublish={handlePublishProduct}
+        isPublishing={isPublishing}
       />
 
           {/* Application Submitted Success Modal */}

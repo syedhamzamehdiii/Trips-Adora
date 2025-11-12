@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
+import logging
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -13,6 +14,8 @@ from app.schemas.booking import BookingCreateRequest
 from app.services.activity_service import ActivityService
 from app.services.wallet_service import WalletService
 from pymongo.errors import AutoReconnect, ServerSelectionTimeoutError
+
+logger = logging.getLogger(__name__)
 
 
 ACTIVE_STATUSES = {"pending", "customized", "confirmed"}
@@ -110,10 +113,14 @@ class BookingService:
         }
 
     @staticmethod
-    async def get_bookings_for_user(user_id: str) -> List[Dict[str, Any]]:
+    async def get_bookings_for_user(user_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         try:
-            cursor = BookingService._collection().find({"user_id": user_id}).sort("start_date", 1)
-            bookings = await cursor.to_list(length=None)
+            # Exclude bookings deleted by customer
+            query = {"user_id": user_id, "deleted_by_customer": {"$ne": True}}
+            cursor = BookingService._collection().find(query).sort("start_date", 1)
+            if limit:
+                cursor = cursor.limit(limit)
+            bookings = await cursor.to_list(length=limit or None)
         except (ConnectionError, AutoReconnect, ServerSelectionTimeoutError) as exc:
             raise DatabaseUnavailableError("Bookings data is currently unavailable.") from exc
         return [BookingService._serialize_booking(booking) for booking in bookings]
@@ -224,24 +231,95 @@ class BookingService:
             }
         )
 
+        # Update booking status to "cancelled" instead of deleting
+        # This allows suppliers to see cancelled bookings and track account stability
         try:
-            result = await collection.delete_one({"_id": object_id, "user_id": user_id})
+            update_result = await collection.update_one(
+                {"_id": object_id, "user_id": user_id},
+                {
+                    "$set": {
+                        "status": "cancelled",
+                        "cancelled_at": datetime.utcnow(),
+                        "cancellation_reason": (reason or "").strip(),
+                        "updated_at": datetime.utcnow(),
+                    }
+                }
+            )
         except (ConnectionError, AutoReconnect, ServerSelectionTimeoutError) as exc:
             raise DatabaseUnavailableError("Unable to cancel booking right now.") from exc
 
-        if result.deleted_count == 1:
-            serialized = BookingService._serialize_booking(booking)
+        if update_result.modified_count == 1:
+            # Fetch updated booking
+            updated_booking = await collection.find_one({"_id": object_id})
+            serialized = BookingService._serialize_booking(updated_booking)
+            
             await ActivityService.log_booking_cancelled(
-                {**booking, **serialized},
+                {**updated_booking, **serialized},
                 reason=reason,
             )
             await WalletService.record_booking_transaction(
                 user_id,
-                {**booking, **serialized},
+                {**updated_booking, **serialized},
                 direction="credit",
                 description=reason or "Booking cancelled",
                 status="refund",
             )
+            
+            # Create notification for supplier if supplier_id exists
+            supplier_id = updated_booking.get("supplier_id")
+            if supplier_id:
+                # Ensure supplier_id is a string
+                supplier_id = str(supplier_id)
+                try:
+                    logger.info(f"Creating cancellation notification for supplier {supplier_id}, booking {updated_booking.get('id')}")
+                    await BookingService._create_supplier_cancellation_notification(
+                        supplier_id, 
+                        {**updated_booking, **serialized}, 
+                        reason
+                    )
+                except Exception as e:
+                    logger.error(f"Could not create supplier cancellation notification: {e}", exc_info=True)
+            else:
+                logger.warning(f"No supplier_id found in booking {updated_booking.get('id')} for cancellation notification")
+            
+            return True
+        return False
+
+    @staticmethod
+    async def delete_booking(user_id: str, booking_id: str) -> bool:
+        """
+        Permanently delete a booking for storage cleanup.
+        This is a customer-only action and does NOT affect supplier booking counts.
+        The booking is marked as deleted_by_customer but remains visible to suppliers.
+        """
+        try:
+            object_id = ObjectId(booking_id)
+        except (InvalidId, TypeError):
+            return False
+
+        collection = BookingService._collection()
+        booking = await collection.find_one({"_id": object_id, "user_id": user_id})
+        if not booking:
+            return False
+
+        # Mark as deleted_by_customer instead of actually deleting
+        # This way suppliers can still see it for their records
+        try:
+            update_result = await collection.update_one(
+                {"_id": object_id, "user_id": user_id},
+                {
+                    "$set": {
+                        "deleted_by_customer": True,
+                        "deleted_at": datetime.utcnow(),
+                        "updated_at": datetime.utcnow(),
+                    }
+                }
+            )
+        except (ConnectionError, AutoReconnect, ServerSelectionTimeoutError) as exc:
+            raise DatabaseUnavailableError("Unable to delete booking right now.") from exc
+
+        if update_result.modified_count == 1:
+            logger.info(f"Booking {booking_id} marked as deleted by customer {user_id}")
             return True
         return False
 
@@ -249,9 +327,26 @@ class BookingService:
     async def create_booking(user_id: str, payload: BookingCreateRequest) -> Dict[str, Any]:
         now = datetime.utcnow()
         status_value = payload.status.value if isinstance(payload.status, Enum) else str(payload.status).lower()
+        
+        # Look up supplier_id from the product
+        supplier_id = None
+        if payload.productId:
+            try:
+                db = get_database()
+                product = await db.products.find_one({"_id": ObjectId(payload.productId)})
+                if product:
+                    supplier_id = product.get("supplier_id") or product.get("user_id")
+                    # Ensure supplier_id is a string
+                    if supplier_id:
+                        supplier_id = str(supplier_id)
+                        logger.info(f"Found supplier_id {supplier_id} for product {payload.productId}")
+            except Exception as e:
+                logger.warning(f"Could not fetch supplier_id for product {payload.productId}: {e}")
+        
         document: Dict[str, Any] = {
             "user_id": user_id,
             "product_id": payload.productId,
+            "supplier_id": supplier_id,  # Store supplier_id for filtering
             "title": payload.title,
             "tour_name": payload.title,
             "destination": payload.destination or payload.location,
@@ -293,6 +388,70 @@ class BookingService:
             description="Booking payment",
             status=serialized.get("status"),
         )
+        
+        # Create notification for supplier if supplier_id exists
+        if supplier_id:
+            try:
+                await BookingService._create_supplier_notification(supplier_id, serialized)
+            except Exception as e:
+                logger.warning(f"Could not create supplier notification: {e}")
+        
         return serialized
+
+    @staticmethod
+    async def _create_supplier_notification(supplier_id: str, booking: Dict[str, Any]) -> None:
+        """Create a notification for the supplier when their product is booked."""
+        try:
+            db = get_database()
+            notifications_collection = db["supplier_notifications"]
+            
+            notification = {
+                "supplier_id": supplier_id,
+                "type": "booking",
+                "title": f"New booking for {booking.get('title', 'your product')}",
+                "message": f"{booking.get('customer_name', 'A customer')} booked your product",
+                "booking_id": booking.get("id"),
+                "product_id": booking.get("product_id"),
+                "read": False,
+                "created_at": datetime.utcnow(),
+            }
+            
+            await notifications_collection.insert_one(notification)
+            logger.info(f"Created notification for supplier {supplier_id} about booking {booking.get('id')}")
+        except Exception as e:
+            logger.error(f"Error creating supplier notification: {e}")
+            # Don't raise - notification failure shouldn't break booking creation
+
+    @staticmethod
+    async def _create_supplier_cancellation_notification(
+        supplier_id: str, 
+        booking: Dict[str, Any], 
+        reason: Optional[str] = None
+    ) -> None:
+        """Create a notification for the supplier when a booking is cancelled."""
+        try:
+            db = get_database()
+            notifications_collection = db["supplier_notifications"]
+            
+            booking_title = booking.get('title') or booking.get('tour_name') or 'your product'
+            customer_name = booking.get('customer_name') or 'A customer'
+            reason_text = f" Reason: {reason}" if reason else ""
+            
+            notification = {
+                "supplier_id": supplier_id,
+                "type": "cancellation",
+                "title": f"Booking cancelled: {booking_title}",
+                "message": f"{customer_name} cancelled their booking.{reason_text}",
+                "booking_id": booking.get("id"),
+                "product_id": booking.get("product_id"),
+                "read": False,
+                "created_at": datetime.utcnow(),
+            }
+            
+            await notifications_collection.insert_one(notification)
+            logger.info(f"Created cancellation notification for supplier {supplier_id} about booking {booking.get('id')}")
+        except Exception as e:
+            logger.error(f"Error creating supplier cancellation notification: {e}")
+            # Don't raise - notification failure shouldn't break booking cancellation
 
 

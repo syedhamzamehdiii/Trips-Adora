@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   FiSearch, 
   FiRefreshCw, 
@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
 import ShareTripModal from '@/components/modals/ShareTripModal';
 import BookingDetailsModal from '@/components/modals/BookingDetailsModal';
+import bookingService from '@/services/bookingService';
 
 const BookingsPage = () => {
   const navigate = useNavigate();
@@ -35,69 +36,96 @@ const BookingsPage = () => {
   });
 
   const [bookings, setBookings] = useState([]);
+  const [bookingStats, setBookingStats] = useState({ total: 0, by_status: {}, total_revenue: 0 });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
-  // Load bookings from storage in real-time
-  useEffect(() => {
-    const load = () => {
-      try {
-        const raw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
-        if (raw) {
-          const list = JSON.parse(raw);
-          if (Array.isArray(list)) {
-            setBookings(list);
-          } else {
-            setBookings([]);
-          }
-        } else {
-          setBookings([]);
-        }
-      } catch (e) {
-        console.error('Error loading bookings:', e);
-        setBookings([]);
-      }
-    };
-    load();
-    window.addEventListener('storage', load);
-    window.addEventListener('bookings_updated', load);
-    return () => {
-      window.removeEventListener('storage', load);
-      window.removeEventListener('bookings_updated', load);
+  // Normalize booking data from API to match frontend format
+  const normalizeBooking = useCallback((booking) => {
+    return {
+      id: booking.id,
+      bookingId: booking.id,
+      productId: booking.product_id,
+      booking: booking.title || booking.tour_name,
+      customerName: booking.customer_name || 'Guest',
+      customerEmail: booking.customer_email || '',
+      bookedOn: booking.created_at ? new Date(booking.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+      travelDate: booking.start_date ? new Date(booking.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+      status: booking.status || 'pending',
+      amount: booking.total_amount || 0,
+      currency: booking.currency || 'USD',
+      referenceCode: booking.id?.slice(-8).toUpperCase() || 'N/A',
+      ...booking
     };
   }, []);
 
-  const handleRefresh = () => {
+  // Fetch bookings from API
+  const fetchBookings = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Normalize status filter - handle "Cancelled" vs "cancelled"
+      let statusFilter = filters.status !== 'All Status' ? filters.status : null;
+      if (statusFilter && (statusFilter.toLowerCase() === 'cancelled' || statusFilter.toLowerCase() === 'canceled')) {
+        statusFilter = 'cancelled'; // Normalize to lowercase for API
+      }
+      const response = await bookingService.getBookings({
+        status: statusFilter,
+        limit: 500, // Get all bookings, frontend will paginate
+        skip: 0
+      });
+      
+      const bookingsList = Array.isArray(response?.bookings) ? response.bookings : [];
+      const normalized = bookingsList.map(normalizeBooking);
+      setBookings(normalized);
+      
+      if (response?.stats) {
+        setBookingStats(response.stats);
+      }
+    } catch (err) {
+      console.error('Error fetching bookings:', err);
+      setError(err?.message || 'Failed to load bookings');
+      setBookings([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters.status, normalizeBooking]);
+
+  // Load bookings on mount and when filters change
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  // Listen for booking updates
+  useEffect(() => {
+    const handleUpdate = () => fetchBookings();
+    window.addEventListener('supplier_bookings_updated', handleUpdate);
+    return () => window.removeEventListener('supplier_bookings_updated', handleUpdate);
+  }, [fetchBookings]);
+
+  const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const raw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
-      if (raw) {
-        const list = JSON.parse(raw);
-        if (Array.isArray(list)) {
-          setBookings(list);
-        } else {
-          setBookings([]);
-        }
-      } else {
-        setBookings([]);
-      }
-      // Reset to first page when refreshing
+      await fetchBookings();
       setCurrentPage(1);
-    } catch (e) {
-      console.error('Error refreshing bookings:', e);
+    } catch (err) {
+      console.error('Error refreshing bookings:', err);
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
     }
   };
 
-  const handleDeleteBooking = (bookingId) => {
+  const handleDeleteBooking = async (bookingId) => {
     if (window.confirm('Are you sure you want to delete this booking?')) {
       try {
+        // Note: Delete functionality would require a DELETE endpoint
+        // For now, just remove from local state
         const updated = bookings.filter(b => b.id !== bookingId);
-        localStorage.setItem('bookings', JSON.stringify(updated));
         setBookings(updated);
-        window.dispatchEvent(new Event('bookings_updated'));
+        window.dispatchEvent(new Event('supplier_bookings_updated'));
       } catch (e) {
         console.error('Error deleting booking:', e);
       }
@@ -167,8 +195,14 @@ const BookingsPage = () => {
     }
     
     if (filters.status !== 'All Status') {
-      const bookingStatus = (b.status || '').trim();
-      if (bookingStatus !== filters.status) return false;
+      const bookingStatus = (b.status || '').trim().toLowerCase();
+      const filterStatus = filters.status.toLowerCase();
+      // Handle both "Cancelled" and "cancelled" variations
+      if (filterStatus === 'cancelled' || filterStatus === 'canceled') {
+        if (bookingStatus !== 'cancelled' && bookingStatus !== 'canceled') return false;
+      } else {
+        if (bookingStatus !== filterStatus) return false;
+      }
     }
     
     if (filters.productName && !String(b.booking || '').toLowerCase().includes(filters.productName.toLowerCase())) return false;
@@ -210,24 +244,17 @@ const BookingsPage = () => {
   const endIndex = startIndex + itemsPerPage;
   const paginatedBookings = filtered.slice(startIndex, endIndex);
 
-  // Stats derived from ALL bookings (not filtered) for summary cards
+  // Stats derived from API stats or calculated from bookings
   const allBookingStats = {
-    total: bookings.length,
-    upcoming: bookings.filter(b => {
-      const status = (b.status || '').trim();
-      return status === 'Upcoming' || status === 'Confirmed' || status === 'Pending';
-    }).length,
-    refundDispute: bookings.filter(b => {
-      const status = (b.status || '').trim();
-      return status === 'Refund/Dispute' || status === 'Refund' || status === 'Dispute';
-    }).length,
-    cancelled: bookings.filter(b => {
-      const status = (b.status || '').trim();
-      return status === 'Canceled' || status === 'Cancelled';
-    }).length
+    total: bookingStats.total || bookings.length,
+    upcoming: (bookingStats.by_status?.confirmed || 0) + 
+              (bookingStats.by_status?.pending || 0) + 
+              (bookingStats.by_status?.customized || 0),
+    refundDispute: 0, // Not tracked in current schema
+    cancelled: bookingStats.by_status?.cancelled || 0
   };
 
-  const bookingStats = [
+  const bookingStatsCards = [
     { number: String(allBookingStats.total).padStart(2, '0'), label: 'Total Bookings' },
     { number: String(allBookingStats.upcoming).padStart(2, '0'), label: 'Upcoming Trips' },
     { number: String(allBookingStats.refundDispute).padStart(2, '0'), label: 'Refund/Dispute' },
@@ -341,7 +368,7 @@ const BookingsPage = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {bookingStats.map((stat, index) => (
+        {bookingStatsCards.map((stat, index) => (
           <div key={index} className="bg-gray-50 rounded-lg p-6 border border-gray-200 shadow-sm">
             <div className="text-3xl font-bold text-gray-900 mb-1">{stat.number}</div>
             <div className="text-sm text-gray-600">{stat.label}</div>
@@ -380,10 +407,31 @@ const BookingsPage = () => {
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+          <div className="text-gray-500">Loading bookings...</div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="text-red-800">{error}</div>
+          <button
+            onClick={handleRefresh}
+            className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {/* Bookings Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+      {!isLoading && (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left">
@@ -455,7 +503,7 @@ const BookingsPage = () => {
                         ? 'bg-green-100 text-green-800'
                         : (booking.status || '').trim() === 'Pending' || (booking.status || '').trim() === 'Upcoming'
                         ? 'bg-yellow-100 text-yellow-800'
-                        : (booking.status || '').trim() === 'Canceled' || (booking.status || '').trim() === 'Cancelled'
+                        : (booking.status || '').trim().toLowerCase() === 'cancelled' || (booking.status || '').trim().toLowerCase() === 'canceled'
                         ? 'bg-red-100 text-red-800'
                         : (booking.status || '').trim() === 'Refund/Dispute' || (booking.status || '').trim() === 'Refund' || (booking.status || '').trim() === 'Dispute'
                         ? 'bg-orange-100 text-orange-800'
@@ -497,7 +545,8 @@ const BookingsPage = () => {
             </tbody>
           </table>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -684,9 +733,9 @@ const BookingsPage = () => {
                 >
                   <option value="All Status">All Status</option>
                   <option value="Confirmed">Confirmed</option>
-                  <option value="Canceled">Canceled</option>
                   <option value="Pending">Pending</option>
                   <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
             </div>

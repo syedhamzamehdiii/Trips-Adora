@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { FiArrowLeft, FiSearch, FiFilter, FiMapPin, FiDownload, FiCalendar, FiDollarSign, FiUsers, FiChevronDown } from 'react-icons/fi'
-import { getBookings } from '../services/bookingService'
+import { FiArrowLeft, FiSearch, FiFilter, FiMapPin, FiDownload, FiCalendar, FiDollarSign, FiUsers, FiChevronDown, FiTrash2 } from 'react-icons/fi'
+import { getBookings, deleteBooking } from '../services/bookingService'
 
 const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
@@ -69,6 +69,7 @@ const BookingsPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [successMessage, setSuccessMessage] = useState('')
+  const [deletingBookingId, setDeletingBookingId] = useState(null)
   
   const [filterProductName, setFilterProductName] = useState('')
   const [filterTravelDateStart, setFilterTravelDateStart] = useState('')
@@ -108,6 +109,26 @@ const BookingsPage = () => {
     window.addEventListener('customer_bookings_updated', handleUpdated)
     return () => window.removeEventListener('customer_bookings_updated', handleUpdated)
   }, [fetchBookings])
+
+  const handleDeleteBooking = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to delete this booking? This will remove it from your bookings list, but it will still be visible to the supplier.')) {
+      return
+    }
+
+    setDeletingBookingId(bookingId)
+    try {
+      await deleteBooking(userId, bookingId)
+      setSuccessMessage('Booking deleted successfully.')
+      fetchBookings()
+      window.dispatchEvent(new CustomEvent('customer_bookings_updated'))
+      setTimeout(() => setSuccessMessage(''), 5000)
+    } catch (err) {
+      setError(err?.message || 'Failed to delete booking.')
+      setTimeout(() => setError(null), 5000)
+    } finally {
+      setDeletingBookingId(null)
+    }
+  }
 
   useEffect(() => {
     // Real-time filtering
@@ -435,6 +456,15 @@ const BookingsPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                           </svg>
                           Share Your Review
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteBooking(booking.id || booking.bookingId)}
+                          disabled={deletingBookingId === (booking.id || booking.bookingId)}
+                          className="px-4 py-2 border border-red-300 rounded-lg text-red-700 font-medium hover:bg-red-50 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Delete this booking from your list (supplier will still see it)"
+                        >
+                          <FiTrash2 className="w-4 h-4" />
+                          {deletingBookingId === (booking.id || booking.bookingId) ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
                     </div>

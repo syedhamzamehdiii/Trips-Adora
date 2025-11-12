@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiUpload, FiPlus, FiFilter, FiSearch, FiTruck, FiMapPin, FiUsers, FiClock, FiPower, FiCalendar, FiRefreshCw, FiChevronDown, FiCheck } from 'react-icons/fi';
 import Footer from '@/components/common/Footer';
 import Calendar from '@/components/common/Calendar';
+import productService from '@/services/productService';
 
 const AvailabilityCalendar = () => {
   // Real-time data states
@@ -41,11 +42,15 @@ const AvailabilityCalendar = () => {
   const productsPerPage = 7;
 
   // Build and download CSV for current schedules (real-time)
-  const handleExportSchedule = () => {
+  const handleExportSchedule = async () => {
     try {
-      // Load full product data to include time slots and allocations
-      const allProductsData = localStorage.getItem('all_products');
-      const allProducts = allProductsData ? JSON.parse(allProductsData) : [];
+      // Fetch products from API (real-time data)
+      const response = await productService.getMyProducts({
+        page: 1,
+        page_size: 100,
+        summary: false
+      });
+      const allProducts = Array.isArray(response?.items) ? response.items : (Array.isArray(response) ? response : []);
 
       // Helper to collect time slots from multiple sources
       const collectTimeSlots = (p) => {
@@ -82,8 +87,8 @@ const AvailabilityCalendar = () => {
         return Array.from(slots).sort();
       };
 
-      // Use filteredProducts to respect the current filters in UI
-      const idsToExport = new Set(filteredProducts.map(fp => fp.id));
+      // Use products state to respect the current filters in UI
+      const idsToExport = new Set(products.map(fp => fp.id));
 
       const rows = [];
       // Header row
@@ -137,7 +142,7 @@ const AvailabilityCalendar = () => {
     return title || model || type || 'Vehicle';
   };
 
-  // Load real-time data from localStorage on component mount
+  // Load real-time data from API on component mount
   useEffect(() => {
     loadRealTimeData();
   }, []);
@@ -145,17 +150,33 @@ const AvailabilityCalendar = () => {
   const loadRealTimeData = async () => {
     try {
       setIsRefreshing(true);
-      console.log('🔄 Loading real-time data for Availability page...');
+      console.log('🔄 Loading real-time data for Availability page from API...');
       
-      // Add a small delay to make the animation visible
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Fetch products from API (real-time data)
+      const response = await productService.getMyProducts({
+        page: 1,
+        page_size: 100, // Get all products
+        summary: false // Get full product data including vehicles and time slots
+      });
       
-      // Get all products from localStorage
-      const allProductsData = localStorage.getItem('all_products');
-      const allProducts = allProductsData ? JSON.parse(allProductsData) : [];
+      // Extract products from API response - API returns { products: [...], total, page, etc. }
+      const allProducts = Array.isArray(response?.products) 
+        ? response.products 
+        : (Array.isArray(response?.items) 
+          ? response.items 
+          : (Array.isArray(response) ? response : []));
+      console.log('📦 Fetched products from API:', allProducts.length);
+      console.log('📦 Sample product status:', allProducts[0]?.status);
       
       // Show BOTH Published and Draft products in Availability (never hide drafts)
-      const relevantProducts = allProducts.filter(product => product.status === 'Published' || product.status === 'Draft');
+      // Status can be: "published", "draft", "PUBLISHED", "DRAFT", or ProductStatus enum value
+      const relevantProducts = allProducts.filter(product => {
+        if (!product) return false;
+        const status = typeof product.status === 'string' 
+          ? product.status.toLowerCase() 
+          : String(product.status || '').toLowerCase();
+        return status === 'published' || status === 'draft';
+      });
       console.log('📦 Found products for availability (Published + Draft):', relevantProducts.length);
 
       // Extract unique data for filters
@@ -184,16 +205,19 @@ const AvailabilityCalendar = () => {
           });
         };
 
-        if (product.vehicles && Array.isArray(product.vehicles) && product.vehicles.length > 0) {
-          addVehiclesToSet(product.vehicles);
+        // Extract vehicles from vehicle_details.vehicles or product.vehicles
+        const vehiclesArray = product.vehicle_details?.vehicles || product.vehicles || [];
+        if (Array.isArray(vehiclesArray) && vehiclesArray.length > 0) {
+          addVehiclesToSet(vehiclesArray);
         } else {
           // Fallback: check if there is a full draft payload for this product id
           const draftKey = product.id ? `product_draft_${product.id}` : null;
           if (draftKey && localStorage.getItem(draftKey)) {
             try {
               const draftPayload = JSON.parse(localStorage.getItem(draftKey));
-              if (draftPayload && Array.isArray(draftPayload.vehicles) && draftPayload.vehicles.length > 0) {
-                addVehiclesToSet(draftPayload.vehicles);
+              const draftVehicles = draftPayload?.vehicle_details?.vehicles || draftPayload?.vehicles || [];
+              if (Array.isArray(draftVehicles) && draftVehicles.length > 0) {
+                addVehiclesToSet(draftVehicles);
               }
             } catch (e) {
               console.warn('Unable to parse draft payload for vehicles', e);
@@ -213,8 +237,9 @@ const AvailabilityCalendar = () => {
         }
 
         // Extract group sizes (from vehicle capacity)
-        if (product.vehicles && Array.isArray(product.vehicles)) {
-          product.vehicles.forEach(vehicle => {
+        const vehiclesForGroupSize = product.vehicle_details?.vehicles || product.vehicles || [];
+        if (Array.isArray(vehiclesForGroupSize)) {
+          vehiclesForGroupSize.forEach(vehicle => {
             if (vehicle.capacity) {
               uniqueGroupSizes.add(`${vehicle.capacity} Person`);
             }
@@ -242,17 +267,37 @@ const AvailabilityCalendar = () => {
           });
         };
 
-        // 1) From vehicle-time allocations saved on publish
+        // Extract time slots from multiple possible locations
+        // 1) From pickup_dropoff.available_time_slots (if stored there)
+        const pickupDropoff = product.pickup_dropoff || product.pickupDropoff;
+        if (Array.isArray(pickupDropoff?.available_time_slots) && pickupDropoff.available_time_slots.length > 0) {
+          pickupDropoff.available_time_slots.forEach(slot => {
+            if (typeof slot === 'string' && slot.trim()) {
+              uniqueTimeSlots.add(slot.trim());
+            }
+          });
+        }
+        // Also check for time_slots object format
+        if (pickupDropoff?.time_slots && typeof pickupDropoff.time_slots === 'object') {
+          addTimeSlotsFromGenerated(pickupDropoff.time_slots);
+        }
+        // 2) From vehicle-time allocations saved on publish (custom_fields or direct)
         if (Array.isArray(product.vehicleTimeAllocations) && product.vehicleTimeAllocations.length > 0) {
           addTimeSlots(product.vehicleTimeAllocations);
         }
-        // 2) From generated timeSlots stored on the product (if any)
+        // 3) From generated timeSlots stored on the product (if any)
         if (product.timeSlots) {
           addTimeSlotsFromGenerated(product.timeSlots);
         }
-        // 3) Fallbacks to full payloads stored for published/drafts
-        if (!(Array.isArray(product.vehicleTimeAllocations) && product.vehicleTimeAllocations.length > 0) && !product.timeSlots) {
-          // Fallback to full payloads stored for published/drafts
+        // 4) From custom_fields (might store time slots)
+        if (product.custom_fields?.timeSlots) {
+          addTimeSlotsFromGenerated(product.custom_fields.timeSlots);
+        }
+        if (Array.isArray(product.custom_fields?.vehicleTimeAllocations)) {
+          addTimeSlots(product.custom_fields.vehicleTimeAllocations);
+        }
+        // 5) Fallbacks to localStorage for backward compatibility
+        if (uniqueTimeSlots.size === 0) {
           const fullKey = product.id ? `product_full_${product.id}` : null;
           if (fullKey && localStorage.getItem(fullKey)) {
             try {
@@ -310,18 +355,27 @@ const AvailabilityCalendar = () => {
 
       // Create product list for display (respect real status)
       const productList = relevantProducts.map((product, index) => {
-        const vehicleCount = product.vehicles?.length || 0;
-        const vehicleType = product.vehicles?.[0] ? getVehicleDisplayName(product.vehicles[0]) : 'N/A';
-        const groupSize = product.vehicles?.[0]?.capacity ? `1-${product.vehicles[0].capacity} People` : 'N/A';
+        // Extract vehicles from vehicle_details if available
+        const vehicleDetails = product.vehicle_details;
+        const vehiclesArray = vehicleDetails?.vehicles || product.vehicles || [];
+        const vehicleCount = Array.isArray(vehiclesArray) ? vehiclesArray.length : 0;
+        const vehicleType = vehiclesArray?.[0] ? getVehicleDisplayName(vehiclesArray[0]) : 'N/A';
+        const groupSize = vehiclesArray?.[0]?.capacity ? `1-${vehiclesArray[0].capacity} People` : 'N/A';
+        
+        // Check status (handle both string and enum values)
+        const statusStr = typeof product.status === 'string' 
+          ? product.status 
+          : String(product.status || '');
+        const isPublished = statusStr.toLowerCase() === 'published';
         
         return {
           id: product.id || `product-${index + 1}`,
           name: product.name || product.title || `Product ${index + 1}`,
-          status: product.status === 'Published' ? 'Active' : 'Inactive',
+          status: isPublished ? 'Active' : 'Inactive',
           details: `${vehicleType} > ${product.category || 'Tour'} > ${groupSize}`,
           vehicles: `${vehicleCount}/${vehicleCount} available`,
-          isActive: product.status === 'Published',
-          vehiclesRaw: Array.isArray(product.vehicles) ? product.vehicles : []
+          isActive: isPublished,
+          vehiclesRaw: Array.isArray(vehiclesArray) ? vehiclesArray : []
         };
       });
 
@@ -331,7 +385,10 @@ const AvailabilityCalendar = () => {
       const totalCount = productList.length;
       const activeCount = productList.filter(p => p.isActive).length;
       const inactiveCount = productList.filter(p => !p.isActive).length;
-      const totalVehiclesCount = relevantProducts.reduce((sum, p) => sum + (p.vehicles?.length || 0), 0);
+      const totalVehiclesCount = relevantProducts.reduce((sum, p) => {
+        const vehicles = p.vehicle_details?.vehicles || p.vehicles || [];
+        return sum + (Array.isArray(vehicles) ? vehicles.length : 0);
+      }, 0);
 
       setTotalSelectedProducts(totalCount);
       setActiveProducts(activeCount);
