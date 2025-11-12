@@ -21,10 +21,12 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Filter out "*" from origins if credentials are enabled (FastAPI requirement)
+cors_origins = [origin for origin in settings.CORS_ORIGINS if origin != "*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
-    allow_credentials=True,
+    allow_origins=cors_origins if cors_origins else ["*"],  # Use explicit origins or allow all
+    allow_credentials=True if cors_origins else False,  # Only enable credentials with explicit origins
     allow_methods=["*"],
     allow_headers=["*"],
 )

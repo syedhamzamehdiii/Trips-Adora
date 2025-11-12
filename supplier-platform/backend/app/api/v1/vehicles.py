@@ -21,7 +21,7 @@ router = APIRouter(prefix="/vehicles", tags=["Vehicles"])
 @router.get("/", response_model=VehicleListResponse)
 async def list_vehicles(current_user: User = Depends(get_current_user)) -> VehicleListResponse:
     vehicles = await VehicleService.list_for_supplier(str(current_user.id))
-    return VehicleListResponse(vehicles=[VehicleResponse(**vehicle.model_dump()) for vehicle in vehicles])
+    return VehicleListResponse(vehicles=[VehicleResponse(**vehicle.model_dump(exclude={"id"}), id=str(vehicle.id)) for vehicle in vehicles])
 
 
 @router.post("/", response_model=VehicleResponse, status_code=status.HTTP_201_CREATED)
@@ -33,7 +33,7 @@ async def create_vehicle(
         str(current_user.id),
         payload.dict(exclude_unset=True),
     )
-    return VehicleResponse(**document.model_dump())
+    return VehicleResponse(**document.model_dump(exclude={"id"}), id=str(document.id))
 
 
 @router.put("/{vehicle_id}", response_model=VehicleResponse)
@@ -60,7 +60,7 @@ async def update_vehicle(
             detail="Vehicle not found",
         )
 
-    return VehicleResponse(**document.model_dump())
+    return VehicleResponse(**document.model_dump(exclude={"id"}), id=str(document.id))
 
 
 @router.delete("/{vehicle_id}", status_code=status.HTTP_204_NO_CONTENT)
