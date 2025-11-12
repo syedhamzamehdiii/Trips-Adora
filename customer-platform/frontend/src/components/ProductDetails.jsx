@@ -21,13 +21,16 @@ import { getPublishedProducts, transformProductForFrontend, addRecentlyViewed, r
 
 const ProductDetails = () => {
   const navigate = useNavigate()
-  const { slug } = useParams()
+  const { slug, id } = useParams()
+  // Get identifier from either slug (for /tours/:slug) or id (for /product-details/:id)
+  const identifier = slug || id
+  
   // Instant render from cached list (no spinner)
   const initialFromCache = (() => {
     try {
       const cache = getCachedPublishedProductsSync().map(transformProductForFrontend)
       const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-')
-      return cache.find(p => normalize(p.name) === String((slug || '')).toLowerCase() || String(p.id) === String(slug)) || null
+      return cache.find(p => normalize(p.name) === String((identifier || '')).toLowerCase() || String(p.id) === String(identifier)) || null
     } catch {
       return null
     }
@@ -56,16 +59,30 @@ const ProductDetails = () => {
     const load = async () => {
       try {
         setLoading(true)
-        // Try to find by slug in published list
+        if (!identifier) {
+          if (!cancelled) setProduct(null)
+          return
+        }
+        
+        // Try to find by name (slug) first in published list
         const data = await getPublishedProducts({ page: 1, page_size: 50 })
         const list = (data.products || []).map(transformProductForFrontend)
         const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-')
-        let found = list.find(p => normalize(p.name) === String(slug || '').toLowerCase())
+        
+        // First try to find by name (slug) - this works for /tours/:slug routes
+        let found = list.find(p => normalize(p.name) === String(identifier).toLowerCase())
+        
+        // If not found by name, try to find by ID in the list
         if (!found) {
-          // fallback: maybe slug is id
-          const byId = await getProductById(String(slug))
+          found = list.find(p => String(p.id) === String(identifier))
+        }
+        
+        // If still not found, try fetching by ID from API (for /product-details/:id routes)
+        if (!found) {
+          const byId = await getProductById(String(identifier))
           if (byId) found = transformProductForFrontend(byId)
         }
+        
         if (!cancelled) {
           setProduct(found || null)
           if (found) addRecentlyViewed(found)
@@ -85,7 +102,7 @@ const ProductDetails = () => {
     load()
     // Reduced network chatter: no visibility or global refresh listeners here
     return () => { cancelled = true }
-  }, [slug])
+  }, [identifier])
 
   
   // Ratings data for the Customer Reviews block
