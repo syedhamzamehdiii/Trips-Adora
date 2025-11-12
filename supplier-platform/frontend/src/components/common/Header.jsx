@@ -326,7 +326,7 @@ const Header = ({ activePage = '' }) => {
                     </div>
                     <div className="space-y-3 max-h-80 overflow-y-auto">
                       {notifications.slice(0, 3).length === 0 ? (
-                        <div className="text-center text-sm text-gray-500 py-6">No notifications</div>
+                        <div className="text-center text-sm text-gray-500 py-6">No recent notifications</div>
                       ) : (
                         notifications.slice(0, 3).map((n) => {
                           const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
@@ -450,7 +450,7 @@ const Header = ({ activePage = '' }) => {
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900">All Notifications</h2>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {unreadCount > 0 && (
                   <>
                     <span className="text-sm text-gray-600 font-medium">Unread: {unreadCount}</span>
@@ -459,7 +459,7 @@ const Header = ({ activePage = '' }) => {
                         e.stopPropagation();
                         handleMarkAllRead();
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
                     >
                       <FiCheck className="w-4 h-4" />
                       Mark all read
@@ -472,10 +472,11 @@ const Header = ({ activePage = '' }) => {
                       e.stopPropagation();
                       clearNotificationsCache();
                     }}
-                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors font-medium"
                     title="Clear all notifications"
                   >
-                    <FiX className="w-5 h-5" />
+                    <FiX className="w-4 h-4" />
+                    Clear all
                   </button>
                 )}
                 <button
@@ -484,7 +485,7 @@ const Header = ({ activePage = '' }) => {
                     setShowAllNotificationsModal(false);
                   }}
                   className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Close"
+                  title="Close modal"
                 >
                   <FiX className="w-6 h-6" />
                 </button>
@@ -500,7 +501,7 @@ const Header = ({ activePage = '' }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No notifications</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No recent notifications</h3>
                   <p className="text-sm text-gray-600">You're all caught up!</p>
                 </div>
               ) : (
@@ -511,7 +512,7 @@ const Header = ({ activePage = '' }) => {
                     return (
                       <div 
                         key={n.id} 
-                        className={`flex items-start space-x-3 p-4 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} transition-opacity border border-gray-100 ${!n.read ? 'cursor-pointer hover:opacity-90' : ''}`}
+                        className={`relative flex items-start space-x-3 p-4 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} transition-opacity border border-gray-100 ${!n.read ? 'cursor-pointer hover:opacity-90' : ''}`}
                         onClick={() => {
                           if (!n.read) {
                             markAsRead(n.id);
@@ -520,7 +521,7 @@ const Header = ({ activePage = '' }) => {
                       >
                         <div className={`w-3 h-3 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900">{n.title}</p>
+                          <p className="text-sm font-semibold text-gray-900 pr-6">{n.title}</p>
                           {n.message && (
                             <p className="text-sm text-gray-600 mt-1">{n.message}</p>
                           )}
@@ -552,6 +553,17 @@ const Header = ({ activePage = '' }) => {
                             </button>
                           </div>
                         </div>
+                        {/* Quick delete cross button - top right corner */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteNotification(n.id);
+                          }}
+                          className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                          title="Delete notification"
+                        >
+                          <FiX className="w-4 h-4" />
+                        </button>
                         {!n.read && (
                           <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
                         )}
