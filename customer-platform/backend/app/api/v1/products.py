@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException, status
-from typing import List, Optional
+from typing import Any, List, Optional
 import math
 from datetime import datetime
 
@@ -133,6 +133,108 @@ async def get_product(product_id: str):
                 detail="Product not found"
             )
         
+        # Import schemas
+        from app.schemas.product import Highlight, IncludedExcluded, ItineraryItem, PickupDropoff
+        
+        # Format highlights
+        highlights = []
+        if product.get("highlights"):
+            for h in product.get("highlights", []):
+                if isinstance(h, dict):
+                    highlights.append(Highlight(icon=h.get("icon"), text=h.get("text", "")))
+                elif isinstance(h, str):
+                    highlights.append(Highlight(text=h))
+        
+        # Format included_excluded
+        included_excluded = None
+        if product.get("included_excluded"):
+            inc_exc = product.get("included_excluded")
+            included_excluded = IncludedExcluded(
+                included=inc_exc.get("included", []) if isinstance(inc_exc, dict) else [],
+                excluded=inc_exc.get("excluded", []) if isinstance(inc_exc, dict) else []
+            )
+        
+        # Helper to normalize list values
+        def _ensure_list(value):
+            if not value:
+                return []
+            if isinstance(value, list):
+                return value
+            return [value]
+
+        # Format itinerary - prefer rich data stored in custom_fields
+        itinerary: List[ItineraryItem] = []
+        custom_fields = product.get("custom_fields") if isinstance(product.get("custom_fields"), dict) else {}
+
+        itinerary_sources: List[Any] = []
+        if custom_fields:
+            for key in ["itineraries_full", "itinerary_full", "itineraries", "itinerary"]:
+                data = custom_fields.get(key)
+                if data:
+                    itinerary_sources.append(data)
+        # Fallback to top-level fields
+        for key in ["itineraries", "itinerary"]:
+            data = product.get(key)
+            if data:
+                itinerary_sources.append(data)
+
+        for source in itinerary_sources:
+            if not isinstance(source, list):
+                continue
+            for item in source:
+                if not isinstance(item, dict):
+                    continue
+                itinerary.append(
+                    ItineraryItem(
+                        location=item.get("location") or item.get("placeName") or item.get("title"),
+                        title=item.get("title") or item.get("placeName") or item.get("location"),
+                        description=item.get("description", ""),
+                        time=item.get("time"),
+                        timeSpent=item.get("timeSpent"),
+                        isFree=item.get("isFree", item.get("entryFree")),
+                        photo=item.get("photo") or item.get("croppedPhoto"),
+                        attractionType=item.get("attractionType") or item.get("attractionsType"),
+                        activities=_ensure_list(item.get("activities"))
+                    )
+                )
+            if itinerary:
+                break  # stop at the richest dataset available
+
+        # Format pickup_dropoff - merge data from multiple possible sources
+        pickup_locations: List[Any] = []
+        dropoff_locations: List[Any] = []
+        pickup_time: Optional[str] = None
+
+        if custom_fields:
+            pickup_locations.extend(_ensure_list(custom_fields.get("pickup_locations")))
+            dropoff_locations.extend(_ensure_list(custom_fields.get("dropoff_locations")))
+            pickup_time = custom_fields.get("pickup_time") or pickup_time
+
+        # Legacy fields sometimes stored at top-level
+        pickup_locations.extend(_ensure_list(product.get("pickupLocations")))
+        dropoff_locations.extend(_ensure_list(product.get("dropoffLocations")))
+        pickup_time = product.get("pickupTime") or pickup_time
+
+        pd = product.get("pickup_dropoff")
+        if isinstance(pd, dict):
+            pickup_locations.extend(_ensure_list(pd.get("pickup_locations") or pd.get("pickup_location")))
+            dropoff_locations.extend(_ensure_list(pd.get("dropoff_locations") or pd.get("dropoff_location")))
+            pickup_time = pd.get("pickup_time") or pickup_time
+
+        # Remove falsy values while preserving order
+        pickup_locations = [loc for loc in pickup_locations if loc]
+        dropoff_locations = [loc for loc in dropoff_locations if loc]
+
+        pickup_dropoff = (
+            PickupDropoff(
+                pickup_locations=pickup_locations,
+                pickup_time=pickup_time,
+                dropoff_locations=dropoff_locations
+            )
+            if (pickup_locations or dropoff_locations or pickup_time)
+            else None
+        )
+        
         return ProductResponse(
             id=product.get("id", ""),
             title=product.get("title", ""),
@@ -154,7 +256,11 @@ async def get_product(product_id: str):
             created_at=product.get("created_at", datetime.utcnow()),
             published_at=product.get("published_at"),
             location=product.get("location"),
-            groupSize=product.get("groupSize")
+            groupSize=product.get("groupSize"),
+            highlights=highlights,
+            included_excluded=included_excluded,
+            itinerary=itinerary,
+            pickup_dropoff=pickup_dropoff
         )
     except HTTPException:
         raise

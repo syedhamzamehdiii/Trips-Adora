@@ -10,6 +10,55 @@ logger = logging.getLogger(__name__)
 class ProductService:
     """Service layer for product operations for customer platform"""
     
+    # Field projection - only fetch what we need for list views
+    LIST_PROJECTION = {
+        "_id": 1,
+        "title": 1,
+        "tagline": 1,
+        "category": 1,
+        "hero_image": 1,
+        "images": {"$slice": 1},  # Only first image
+        "price": 1,
+        "currency": 1,
+        "price_unit": 1,
+        "destination": 1,
+        "duration": 1,
+        "activity_type": 1,
+        "rating": 1,
+        "reviews_count": 1,
+        "views": 1,
+        "bookings_count": 1,
+        "published_at": 1,
+        "created_at": 1
+    }
+    
+    # Full projection for detail view
+    DETAIL_PROJECTION = {
+        "supplier_id": 0  # Hide supplier_id from customers
+    }
+    
+    @staticmethod
+    def _format_product(product: dict, is_detail: bool = False) -> dict:
+        """Format product data"""
+        if not product:
+            return None
+            
+        product["id"] = str(product["_id"])
+        del product["_id"]
+        
+        # Set location from destination (only if destination has a value)
+        if "destination" in product and product.get("destination"):
+            product["location"] = product.get("destination")
+        
+        # Set groupSize from activity_type
+        if "activity_type" in product and product["activity_type"]:
+            if "Private" in product["activity_type"]:
+                product["groupSize"] = "Up to 12"
+            elif "Group" in product["activity_type"]:
+                product["groupSize"] = "Up to 20"
+        
+        return product
+    
     @staticmethod
     async def get_published_products(
         skip: int = 0,
@@ -19,91 +68,98 @@ class ProductService:
         search: Optional[str] = None
     ) -> Tuple[List[dict], int]:
         """
-        Get all published products from MongoDB.
+        Get all published products from MongoDB with optimized query.
         Returns products and total count.
         """
         try:
             db = get_database()
             collection = db.products
             
-            # Build query for published products
+            # Build query - status index will be used!
             query = {"status": "published"}
             
             if category:
                 query["category"] = category
             
             if destination:
+                # Use regex for destination filtering
                 query["destination"] = {"$regex": destination, "$options": "i"}
             
-            if search:
-                query["$or"] = [
-                    {"title": {"$regex": search, "$options": "i"}},
-                    {"description": {"$regex": search, "$options": "i"}}
+            # Only apply search filter if search term is provided and not empty
+            # Handle both None and empty string cases
+            if search is not None and isinstance(search, str) and search.strip():
+                # Search across multiple fields using regex (works without text index)
+                # This ensures all products are searchable like the regular fetch
+                search_term = search.strip()
+                search_regex = {"$regex": search_term, "$options": "i"}
+                
+                # Build $or conditions for search
+                search_conditions = [
+                    {"title": search_regex},
+                    {"tagline": search_regex},
+                    {"description": search_regex},
+                    {"destination": search_regex},
+                    {"category": search_regex}
                 ]
+                
+                # If destination filter is already set, we need to combine it with search
+                # The destination in $or will work alongside the destination filter
+                query["$or"] = search_conditions
             
-            # Get total count
-            total = await collection.count_documents(query)
+            logger.info(f"📊 Query: {query}")
+            logger.info(f"📊 Search term: {search if search else 'None'}")
             
-            # Get products with pagination
-            cursor = collection.find(query).skip(skip).limit(limit).sort("published_at", -1)
+            # Get products with pagination and projection (single optimized query)
+            cursor = (
+                collection
+                .find(query, ProductService.LIST_PROJECTION)
+                .sort("published_at", -1)
+                .skip(skip)
+                .limit(limit)
+            )
+            
             products = await cursor.to_list(length=limit)
             
-            # Convert ObjectId to string and format data
-            formatted_products = []
-            for product in products:
-                product["id"] = str(product["_id"])
-                del product["_id"]
-                
-                # Set location from destination if available
-                if "destination" in product:
-                    product["location"] = product["destination"]
-                
-                # Set groupSize from activity_type or vehicle_details
-                if "activity_type" in product and product["activity_type"]:
-                    if "Private" in product["activity_type"]:
-                        product["groupSize"] = "Up to 12"
-                    elif "Group" in product["activity_type"]:
-                        product["groupSize"] = "Up to 20"
-                
-                formatted_products.append(product)
+            # Count total (with hint to use index)
+            total = await collection.count_documents(query)
             
+            # Format products
+            formatted_products = [
+                ProductService._format_product(p) 
+                for p in products
+            ]
+            
+            logger.info(f"✅ Fetched {len(products)} products (total: {total})")
             return formatted_products, total
             
         except Exception as e:
-            logger.error(f"Error fetching published products: {e}")
+            logger.error(f"❌ Error fetching published products: {e}")
+            import traceback
+            traceback.print_exc()
             return [], 0
     
     @staticmethod
     async def get_product_by_id(product_id: str) -> Optional[dict]:
-        """Get a specific product by ID"""
+        """Get a specific product by ID with full details"""
         try:
             db = get_database()
             collection = db.products
             
-            product = await collection.find_one({
-                "_id": ObjectId(product_id), 
-                "status": "published"
-            })
+            product = await collection.find_one(
+                {
+                    "_id": ObjectId(product_id), 
+                    "status": "published"
+                },
+                ProductService.DETAIL_PROJECTION
+            )
             
             if product:
-                product["id"] = str(product["_id"])
-                del product["_id"]
-                
-                # Set location from destination if available
-                if "destination" in product:
-                    product["location"] = product["destination"]
-                
-                # Set groupSize
-                if "activity_type" in product and product["activity_type"]:
-                    if "Private" in product["activity_type"]:
-                        product["groupSize"] = "Up to 12"
-                    elif "Group" in product["activity_type"]:
-                        product["groupSize"] = "Up to 20"
+                return ProductService._format_product(product, is_detail=True)
             
-            return product
+            return None
             
         except Exception as e:
-            logger.error(f"Error fetching product by ID: {e}")
+            logger.error(f"❌ Error fetching product by ID: {e}")
             return None
     
     @staticmethod
@@ -113,34 +169,30 @@ class ProductService:
             db = get_database()
             collection = db.products
             
-            # Get top products by views, bookings, or rating
-            cursor = collection.find({"status": "published"}).sort([
-                ("views", -1),
-                ("bookings_count", -1),
-                ("rating", -1)
-            ]).limit(limit)
+            # Use compound index for top picks
+            cursor = (
+                collection
+                .find(
+                    {"status": "published"},
+                    ProductService.LIST_PROJECTION
+                )
+                .sort([
+                    ("views", -1),
+                    ("bookings_count", -1)
+                ])
+                .limit(limit)
+            )
             
             products = await cursor.to_list(length=limit)
             
-            formatted_products = []
-            for product in products:
-                product["id"] = str(product["_id"])
-                del product["_id"]
-                
-                if "destination" in product:
-                    product["location"] = product["destination"]
-                
-                if "activity_type" in product and product["activity_type"]:
-                    if "Private" in product["activity_type"]:
-                        product["groupSize"] = "Up to 12"
-                    elif "Group" in product["activity_type"]:
-                        product["groupSize"] = "Up to 20"
-                
-                formatted_products.append(product)
+            formatted_products = [
+                ProductService._format_product(p) 
+                for p in products
+            ]
             
+            logger.info(f"✅ Fetched {len(formatted_products)} top picks")
             return formatted_products
             
         except Exception as e:
-            logger.error(f"Error fetching top picks: {e}")
+            logger.error(f"❌ Error fetching top picks: {e}")
             return []
-

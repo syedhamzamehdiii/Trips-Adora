@@ -243,79 +243,69 @@ const ProductDetails = () => {
             
             {/* Climate content is shown in a modal, not inline */}
 
-            {/* Trip Highlights */}
-            <div className="mb-6 sm:mb-8">
-              <div className="border border-[#302E2E] rounded-lg p-4 sm:p-6">
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#302E2E] mb-3 sm:mb-4">Trip Highlights</h2>
-                <ul className="space-y-2 sm:space-y-3">
-                  {(product.highlights && product.highlights.length ? product.highlights : [
-                    { text: 'Visit the most iconic landmarks and hidden gems' },
-                    { text: 'Small group size for personalized experience' },
-                    { text: 'Complimentary refreshments and snacks' },
-                    { text: 'Expert local guide with insider knowledge' },
-                    { text: 'All entrance fees and transportation included' },
-                    { text: 'Photo opportunities at scenic viewpoints' }
-                  ]).slice(0,6).map((h, idx) => (
-                    <li key={idx} className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#302E2E] flex items-center justify-center mt-0.5">
-                      <span className="text-[#302E2E] text-sm">✓</span>
-                    </div>
-                      <span className="text-[#302E2E] text-sm sm:text-base">{h.text || h}</span>
-                    </li>
-                  ))}
-                </ul>
+            {/* Trip Highlights - Added by supplier */}
+            {Array.isArray(product.highlights) && product.highlights.length > 0 && (
+              <div className="mb-6 sm:mb-8">
+                <div className="border border-[#302E2E] rounded-lg p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#302E2E] mb-3 sm:mb-4">Trip Highlights</h2>
+                  <p className="text-gray-500 text-xs sm:text-sm mb-3">Added by supplier named: Highlights</p>
+                  <ul className="space-y-2 sm:space-y-3">
+                    {product.highlights.map((h, idx) => {
+                      const text = typeof h === 'string' ? h : (h.text || '');
+                      return text ? (
+                        <li key={idx} className="flex items-start gap-2 sm:gap-3">
+                          <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-[#302E2E] flex items-center justify-center mt-0.5">
+                            <span className="text-[#302E2E] text-sm">✓</span>
+                          </div>
+                          <span className="text-[#302E2E] text-sm sm:text-base">{text}</span>
+                        </li>
+                      ) : null;
+                    })}
+                  </ul>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* What's Included and Vehicles Available */}
+            {/* What's Included and What's Excluded - Added by supplier */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
               {/* What's Included */}
               <div>
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">What's Included</h2>
-                <ul className="space-y-2 sm:space-y-3">
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border border-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
-                      <Check className="w-2 h-2 sm:w-3 sm:h-3 text-[#77FF90AD]" />
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Professional tour guide</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border border-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
-                      <Check className="w-2 h-2 sm:w-3 sm:h-3 text-[#77FF90AD]" />
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Transportation in air-conditioned vehicle</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border border-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
-                      <Check className="w-2 h-2 sm:w-3 sm:h-3 text-[#77FF90AD]" />
-                    </div>
-                    <span className="text-black text-sm sm:text-base">All entrance tickets and fees</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border border-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
-                      <Check className="w-2 h-2 sm:w-3 sm:h-3 text-[#77FF90AD]" />
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Lunch at local restaurant</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border border-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
-                      <Check className="w-2 h-2 sm:w-3 sm:h-3 text-[#77FF90AD]" />
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Bottled water and snacks</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border border-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
-                      <Check className="w-2 h-2 sm:w-3 sm:h-3 text-[#77FF90AD]" />
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Hotel pickup and drop-off</span>
-                  </li>
-                  <li className="flex items-start gap-2 sm:gap-3">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border border-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
-                      <Check className="w-2 h-2 sm:w-3 sm:h-3 text-[#77FF90AD]" />
-                    </div>
-                    <span className="text-black text-sm sm:text-base">Travel insurance</span>
-                  </li>
-                </ul>
+                <p className="text-gray-500 text-xs sm:text-sm mb-3">Added by supplier</p>
+                {Array.isArray(product.includedItems) && product.includedItems.length > 0 ? (
+                  <ul className="space-y-2 sm:space-y-3">
+                    {product.includedItems.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2 sm:gap-3">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 border border-[#77FF90AD] rounded-full flex items-center justify-center mt-0.5">
+                          <Check className="w-2 h-2 sm:w-3 sm:h-3 text-[#77FF90AD]" />
+                        </div>
+                        <span className="text-black text-sm sm:text-base">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 text-sm">No items listed</p>
+                )}
+              </div>
+
+              {/* What's Excluded */}
+              <div>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">What's Excluded</h2>
+                <p className="text-gray-500 text-xs sm:text-sm mb-3">Added by supplier</p>
+                {Array.isArray(product.excludedItems) && product.excludedItems.length > 0 ? (
+                  <ul className="space-y-2 sm:space-y-3">
+                    {product.excludedItems.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2 sm:gap-3">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 border border-red-300 rounded-full flex items-center justify-center mt-0.5">
+                          <span className="text-red-500 text-xs">✗</span>
+                        </div>
+                        <span className="text-black text-sm sm:text-base">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 text-sm">No items listed</p>
+                )}
               </div>
 
               {/* Vehicles Available */}
@@ -554,32 +544,38 @@ const ProductDetails = () => {
           </div>
         )}
 
-        {/* Meeting Points - Full width */}
+        {/* Meeting Points - Full width - Matching supplier design */}
         {Array.isArray(product.meetingPoints) && product.meetingPoints.length > 0 && (
           <div className="mt-8 sm:mt-12">
             <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-2">Meeting Points</h2>
             <p className="text-gray-500 text-sm sm:text-base mb-4">Choose your convenient pickup location</p>
             <div className="rounded-lg p-3 sm:p-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {product.meetingPoints.map((loc, idx) => (
-                  <div key={idx} className="border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <MapPin className="w-5 h-5 text-[#0E1DC4] mt-1" />
-                      <div className="flex-1">
-                        <h3 className="font-bold text-black text-sm sm:text-base">{typeof loc === 'string' ? loc : (loc.name || 'Pickup Location')}</h3>
-                        {typeof loc === 'object' && loc.address && (
-                          <p className="text-gray-500 text-xs sm:text-sm">{loc.address}</p>
-                        )}
-                      </div>
-                      {(product.pickupTime || (typeof loc === 'object' && loc.time)) && (
-                        <div className="flex items-center gap-1 text-gray-600 text-xs sm:text-sm">
-                          <Clock className="w-4 h-4" />
-                          <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200">{(typeof loc === 'object' && loc.time) || product.pickupTime}</span>
+                {product.meetingPoints.map((loc, idx) => {
+                  const locationName = typeof loc === 'string' ? loc : (loc.name || loc || 'Pickup Location');
+                  const address = typeof loc === 'object' ? (loc.address || '') : '';
+                  const time = product.pickupTime || (typeof loc === 'object' ? loc.time : '') || '8:00 AM';
+                  
+                  return (
+                    <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 flex-1">
+                          <MapPin className="w-5 h-5 text-[#0E1DC4] mt-1 flex-shrink-0" />
+                          <div className="flex-1">
+                            <h3 className="font-bold text-black text-sm sm:text-base mb-1">{locationName}</h3>
+                            {address && (
+                              <p className="text-gray-500 text-xs sm:text-sm">{address}</p>
+                            )}
+                          </div>
                         </div>
-                      )}
+                        <div className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1 flex-shrink-0">
+                          <Clock className="w-4 h-4 text-gray-600" />
+                          <span className="text-gray-700 text-xs sm:text-sm font-medium">{time}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -594,13 +590,134 @@ const ProductDetails = () => {
           </p>
         </div>
 
-        <Itinerary items={Array.isArray(product.itineraries) ? product.itineraries.map(it => ({
-          title: it.title || it.name,
-          time: it.time,
-          description: it.description,
-          ticket: it.ticket,
-          activities: it.activities || []
-        })) : []} />
+        {/* Tour Itinerary - Matching supplier design */}
+        {Array.isArray(product.itineraries) && product.itineraries.length > 0 && (
+          <div className="mt-8 sm:mt-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Tour Itinerary</h2>
+            <p className="text-gray-500 mb-6">Your personalized travel plan at a glance</p>
+            
+            {/* Tour Type Bar */}
+            <div className="mb-8">
+              <div className="bg-blue-100 border border-blue-200 rounded-lg px-4 py-3 flex items-center">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-4 relative">
+                  <Clock className="w-5 h-5 text-white" />
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1">
+                    <div className="w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-blue-600"></div>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-black">One day Tour</h3>
+                  <p className="text-sm text-gray-600">(06:00 - 23:15)</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline */}
+            <div className="relative">
+              {/* Timeline Line */}
+              <div className="absolute left-4 top-8 bottom-8 w-0.5 bg-gray-300"></div>
+
+              {/* Pick-up Location */}
+              {Array.isArray(product.meetingPoints) && product.meetingPoints.length > 0 && (
+                <div className="flex items-start mb-8 relative">
+                  <div className="w-8 h-8 border-2 border-green-700 bg-green-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                    <MapPin className="w-4 h-4 text-green-700" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">Pick-up</h3>
+                    <div className="flex flex-wrap gap-2 mb-1">
+                      {product.meetingPoints.slice(0, 3).map((loc, idx) => (
+                        <span key={idx} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                          {typeof loc === 'string' ? loc : (loc.name || loc)}
+                        </span>
+                      ))}
+                    </div>
+                    {product.pickupTime && (
+                      <p className="text-sm text-gray-600">Time: {product.pickupTime}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Itinerary Stops */}
+              {product.itineraries.map((item, index) => {
+                const location = item.location || item.title || item.name || `Stop ${index + 1}`;
+                const description = item.description || '';
+                const timeSpent = item.timeSpent || '';
+                const isFree = item.isFree !== false;
+                const photo = item.photo || null;
+                const attractionType = item.attractionType || '';
+                const activities = item.activities || [];
+                
+                return (
+                  <div key={index} className="flex items-start mb-8 relative">
+                    <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10 overflow-hidden">
+                      {photo ? (
+                        <img src={photo} alt={location} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-sm font-semibold text-gray-800">
+                          {location[0]?.toUpperCase() || String(index + 1)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">{location}</h3>
+                      {description && (
+                        <p className="text-gray-600 mb-3">{description}</p>
+                      )}
+                      
+                      {/* Activities */}
+                      {(attractionType || activities.length > 0) && (
+                        <div className="mb-3">
+                          <p className="text-gray-600 font-bold mb-2">Activities:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {attractionType && (
+                              <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">{attractionType}</span>
+                            )}
+                            {activities.map((act, idx) => (
+                              <span key={idx} className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">{act}</span>
+                            ))}
+                            {!attractionType && activities.length === 0 && (
+                              <>
+                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Sightseeing & Photography</span>
+                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Food & Drink</span>
+                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Cultural visit</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Time and Ticket Info */}
+                      <div className="flex items-center gap-2">
+                        {isFree && (
+                          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                            Ticket: Free
+                          </span>
+                        )}
+                        {timeSpent && (
+                          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                            {timeSpent}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Finished - Return */}
+              <div className="flex items-start mb-8 relative">
+                <div className="w-8 h-8 border-2 border-blue-700 bg-blue-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                  <ArrowUpRight className="w-4 h-4 text-blue-700 rotate-180" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl sm:text-2xl font-bold text-black">Finished - Return</h3>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Customer Reviews */}
         <div className="max-w-6xl mx-auto mt-12">

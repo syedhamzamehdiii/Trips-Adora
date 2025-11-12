@@ -14,7 +14,7 @@ const SearchResultsPage = () => {
   const [tourTypes, setTourTypes] = useState([])
   const [locations, setLocations] = useState([])
   const [durations, setDurations] = useState([])
-  const [priceRange, setPriceRange] = useState([0, 1000])
+  const [priceRange, setPriceRange] = useState([0, 10000000]) // Increased max to show all products including expensive ones
   const [minimumRating, setMinimumRating] = useState('Any Rating')
   const [itemsPerPage, setItemsPerPage] = useState('9')
   const [sortBy, setSortBy] = useState('Recommended')
@@ -30,17 +30,94 @@ const SearchResultsPage = () => {
         const searchParams = new URLSearchParams(location.search)
         const searchTerm = searchParams.get('q') || ''
         
-        const params = {
-          page: 1,
-          page_size: parseInt(itemsPerPage) || 9,
-          search: searchTerm
+        let allProducts = []
+        let total = 0
+        
+        if (searchTerm && searchTerm.trim()) {
+          // With search term - use pagination
+          const params = {
+            page: 1,
+            page_size: parseInt(itemsPerPage) || 9,
+            search: searchTerm.trim()
+          }
+          const data = await getPublishedProducts(params)
+          if (data && data.products && Array.isArray(data.products)) {
+            allProducts = data.products
+            total = data.total || 0
+          }
+        } else {
+          // No search term - fetch ALL products by getting all pages
+          const pageSize = 100 // Max allowed by API
+          let currentPage = 1
+          let hasMore = true
+          
+          console.log('🔍 Fetching all products (no search term)...')
+          
+          while (hasMore) {
+            const params = {
+              page: currentPage,
+              page_size: pageSize
+            }
+            console.log(`📄 Fetching page ${currentPage}...`)
+            const data = await getPublishedProducts(params)
+            
+            console.log(`📦 Page ${currentPage} response:`, {
+              productsCount: data?.products?.length || 0,
+              total: data?.total || 0,
+              totalPages: data?.total_pages || 0
+            })
+            
+            if (data && data.products && Array.isArray(data.products)) {
+              if (data.products.length > 0) {
+                allProducts = [...allProducts, ...data.products]
+                total = data.total || 0
+                console.log(`✅ Added ${data.products.length} products. Total so far: ${allProducts.length}`)
+                
+                // Check if there are more pages
+                if (data.total_pages && currentPage < data.total_pages) {
+                  currentPage++
+                } else {
+                  hasMore = false
+                  console.log('✅ Reached last page')
+                }
+              } else {
+                // Empty page means we're done
+                hasMore = false
+                console.log('✅ No more products (empty page)')
+              }
+            } else {
+              hasMore = false
+              console.log('⚠️ Invalid response, stopping')
+            }
+          }
+          
+          console.log(`✅ Finished fetching. Total products: ${allProducts.length}, Total in DB: ${total}`)
         }
         
-        const data = await getPublishedProducts(params)
-        if (data && data.products && Array.isArray(data.products)) {
-          const transformed = data.products.map(transformProductForFrontend)
+        if (allProducts.length > 0) {
+          console.log('🔄 Transforming products...', allProducts.length)
+          const transformed = allProducts.map((product, index) => {
+            try {
+              const transformedProduct = transformProductForFrontend(product)
+              console.log(`✅ Product ${index + 1} transformed:`, {
+                id: transformedProduct.id,
+                name: transformedProduct.name,
+                price: transformedProduct.price,
+                location: transformedProduct.location,
+                duration: transformedProduct.duration,
+                rating: transformedProduct.rating,
+                hasImage: !!transformedProduct.image
+              })
+              return transformedProduct
+            } catch (error) {
+              console.error(`❌ Error transforming product ${index + 1}:`, error, product)
+              return null
+            }
+          }).filter(p => p !== null) // Remove any failed transformations
+          
+          console.log(`✅ Transformed ${transformed.length} products successfully`)
           setProducts(transformed)
-          setTotalProducts(data.total || 0)
+          setTotalProducts(total)
         } else {
           setProducts([])
           setTotalProducts(0)
@@ -79,38 +156,70 @@ const SearchResultsPage = () => {
   // Filter products based on active filters
   const filteredProducts = useMemo(() => {
     let filtered = allProducts
+    console.log(`🔍 Starting with ${filtered.length} products for filtering`)
 
     // Apply price range filter
     if (priceRange && priceRange.length === 2) {
+      const beforeCount = filtered.length
       filtered = filtered.filter(product => {
-        // Extract numeric price from string like "$245/person"
-        const priceValue = parseInt(product.price.match(/\$(\d+)/)?.[1] || '0')
-        return priceValue >= priceRange[0] && priceValue <= priceRange[1]
+        // Extract numeric price from string like "$245/person" or "$245"
+        const priceMatch = product.price?.match(/\$(\d+)/)
+        const priceValue = priceMatch ? parseInt(priceMatch[1]) : 0
+        const passes = priceValue >= priceRange[0] && priceValue <= priceRange[1]
+        if (!passes) {
+          console.log(`❌ Product "${product.name}" filtered out by price: $${priceValue} (range: $${priceRange[0]}-$${priceRange[1]})`)
+        }
+        return passes
       })
+      console.log(`💰 Price filter: ${beforeCount} → ${filtered.length} products`)
     }
 
     // Apply minimum rating filter
     if (minimumRating !== 'Any Rating') {
+      const beforeCount = filtered.length
       const minRating = parseFloat(minimumRating)
-      filtered = filtered.filter(product => product.rating >= minRating)
+      filtered = filtered.filter(product => {
+        const productRating = product.rating || 0
+        const passes = productRating >= minRating
+        if (!passes) {
+          console.log(`❌ Product "${product.name}" filtered out by rating: ${productRating} (minimum: ${minRating})`)
+        }
+        return passes
+      })
+      console.log(`⭐ Rating filter: ${beforeCount} → ${filtered.length} products`)
     }
 
     // Apply location filter
     if (locations.length > 0) {
-      filtered = filtered.filter(product => 
-        locations.some(loc => product.location.includes(loc))
-      )
+      const beforeCount = filtered.length
+      filtered = filtered.filter(product => {
+        const productLocation = product.location || ''
+        const passes = locations.some(loc => productLocation.includes(loc))
+        if (!passes) {
+          console.log(`❌ Product "${product.name}" filtered out by location: "${productLocation}" (looking for: ${locations.join(', ')})`)
+        }
+        return passes
+      })
+      console.log(`📍 Location filter: ${beforeCount} → ${filtered.length} products`)
     }
 
     // Apply duration filter
     if (durations.length > 0) {
-      filtered = filtered.filter(product => 
-        durations.some(dur => product.duration.includes(dur))
-      )
+      const beforeCount = filtered.length
+      filtered = filtered.filter(product => {
+        const productDuration = product.duration || ''
+        const passes = durations.some(dur => productDuration.includes(dur))
+        if (!passes) {
+          console.log(`❌ Product "${product.name}" filtered out by duration: "${productDuration}" (looking for: ${durations.join(', ')})`)
+        }
+        return passes
+      })
+      console.log(`⏱️ Duration filter: ${beforeCount} → ${filtered.length} products`)
     }
 
     // Apply tour type filter
     if (tourTypes.length > 0) {
+      const beforeCount = filtered.length
       filtered = filtered.filter(product => {
         const isPrivate = product.isPrivate === true || String(product.activity_type || '').toLowerCase().includes('private')
         const matchesPrivate = tourTypes.includes('Private Tours') ? isPrivate : true
@@ -118,8 +227,10 @@ const SearchResultsPage = () => {
         // Customize Tours currently passes through (no dedicated flag yet)
         return matchesPrivate && matchesShared
       })
+      console.log(`🎯 Tour type filter: ${beforeCount} → ${filtered.length} products`)
     }
 
+    console.log(`✅ Final filtered products: ${filtered.length}`)
     return filtered
   }, [allProducts, priceRange, minimumRating, locations, durations, tourTypes])
 
@@ -251,8 +362,8 @@ const SearchResultsPage = () => {
                       <input
                         type="range"
                         min="0"
-                        max="1000"
-                        step="50"
+                        max="10000000"
+                        step="10000"
                         value={priceRange[1]}
                         onChange={handlePriceChange}
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
@@ -331,13 +442,18 @@ const SearchResultsPage = () => {
               </div>
             ) : visibleProducts.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {visibleProducts.map((product) => (
-                  <TourCard 
-                    key={product.id} 
-                    tour={product}
-                    onClick={() => navigate(`/product-details/${product.id}`)}
-                  />
-                ))}
+                {visibleProducts.map((product) => {
+                  // Ensure we're using the actual MongoDB ObjectId, not a slug
+                  const productId = product.id
+                  console.log('🔗 Navigating to product:', { id: productId, name: product.name })
+                  return (
+                    <TourCard 
+                      key={product.id} 
+                      tour={product}
+                      onClick={() => navigate(`/product-details/${productId}`)}
+                    />
+                  )
+                })}
               </div>
             ) : (
               <div className="text-center py-12 text-gray-500">

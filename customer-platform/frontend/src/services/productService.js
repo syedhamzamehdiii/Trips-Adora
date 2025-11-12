@@ -131,13 +131,18 @@ export const getPublishedProducts = async (params = {}, retries = 3) => {
       
       if (response.ok) {
         const data = await response.json();
-        // Only use API data if it has products, otherwise fallback to localStorage
-        if (data.products && Array.isArray(data.products) && data.products.length > 0) {
-          console.log('✅ Using API data:', data.products.length, 'products');
-          try { localStorage.setItem('published_products_cache', JSON.stringify(data.products)); } catch {}
+        // Always return API data if response is OK, even if products array is empty
+        // This allows pagination to work correctly (empty array means no more pages)
+        if (data && data.products && Array.isArray(data.products)) {
+          if (data.products.length > 0) {
+            console.log('✅ Using API data:', data.products.length, 'products');
+            try { localStorage.setItem('published_products_cache', JSON.stringify(data.products)); } catch {}
+          } else {
+            console.log('📭 API returned empty products array (end of pagination)');
+          }
           return data;
         } else {
-          console.log('⚠️ API returned empty products, using localStorage fallback...');
+          console.log('⚠️ API returned invalid data structure, using localStorage fallback...');
           break; // Exit retry loop and use localStorage
         }
       }
@@ -259,17 +264,27 @@ export const getTopPicks = async (limit = 4, retries = 3) => {
  * Fetch a single product by ID
  */
 export const getProductById = async (productId) => {
+  // Validate productId
+  if (!productId || productId === 'undefined' || productId === 'null') {
+    console.error('❌ Invalid product ID:', productId);
+    return null;
+  }
+  
   // Try API first
   try {
     const url = `${API_BASE_URL}/products/${productId}`;
+    console.log('📡 Fetching product from API:', url);
     const response = await fetch(url);
     
     if (response.ok) {
       const data = await response.json();
+      console.log('✅ Product fetched from API:', data.title || data.name);
       return data;
+    } else {
+      console.log(`⚠️ API returned ${response.status}, trying localStorage fallback...`);
     }
   } catch (error) {
-    console.log('API failed, trying localStorage fallback...');
+    console.log('❌ API failed, trying localStorage fallback...', error);
   }
   
   // Fallback to supplier backend cache
@@ -402,11 +417,11 @@ export const transformProductForFrontend = (product) => {
     rating: product.rating || 4.8,
     reviews: reviewsText,
     reviewsCount: reviewsCount,
-    duration: product.duration || '8 hours',
+    duration: (product.duration && product.duration.trim()) || '8 hours',
     groupSize: product.groupSize || 'Up to 12',
     price: price,
     oldPrice: oldPrice,
-    location: product.location || product.destination || 'Tokyo Japan',
+    location: (product.location && product.location.trim()) || (product.destination && product.destination.trim()) || 'Tokyo Japan',
     tags: ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
     host: 'Karvaan Tours',
     isPrivate: product.activity_type?.includes('Private') || true,
@@ -415,11 +430,17 @@ export const transformProductForFrontend = (product) => {
     description: product.description,
     tagline: product.tagline,
     highlights: product.highlights || [],
-    itineraries: product.itineraries || [],
+    itineraries: product.itineraries || product.itinerary || [],
     vehicles: product.vehicles || [],
-    // meeting points
-    meetingPoints: Array.isArray(product.pickupLocations) ? product.pickupLocations : [],
-    pickupTime: product.pickupTime || '',
+    // meeting points - from pickup_dropoff or pickupLocations
+    meetingPoints: product.pickup_dropoff?.pickup_locations || 
+                   (Array.isArray(product.pickupLocations) ? product.pickupLocations : []),
+    pickupTime: product.pickup_dropoff?.pickup_time || product.pickupTime || '',
+    // included/excluded
+    includedItems: product.included_excluded?.included || 
+                   (product.includedItems ? (Array.isArray(product.includedItems) ? product.includedItems : [product.includedItems]) : []),
+    excludedItems: product.included_excluded?.excluded || 
+                   (product.excludedItems ? (Array.isArray(product.excludedItems) ? product.excludedItems : [product.excludedItems]) : []),
     availableDays: product.availableDays || [],
     availableTimeSlots: product.availableTimeSlots || []
   };
