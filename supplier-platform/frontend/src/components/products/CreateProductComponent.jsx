@@ -344,7 +344,15 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           }
           if (draftData.highlights) {
             console.log('✅ Loading highlights:', draftData.highlights.length, 'items');
-            setHighlights(draftData.highlights);
+            // Ensure all highlights have unique IDs
+            const highlightsWithIds = Array.isArray(draftData.highlights)
+              ? draftData.highlights.map((h, idx) => ({
+                  ...h,
+                  id: h.id || Date.now() + idx,
+                  text: h.text || ''
+                }))
+              : [{ id: Date.now(), text: '' }];
+            setHighlights(highlightsWithIds);
           }
           
           // Load photo data (will be empty due to quota fix)
@@ -1526,18 +1534,20 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 <p className="text-gray-600 mb-4">Describe in 3-5 sentences what makes your activity unique and different from others. Highlight the special features or experiences that set it apart, so customers can easily compare and see why yours is the best choice.</p>
                 
                 <div className="space-y-4">
-                  {highlights.map((highlight, index) => (
-                    <div key={highlight.id} className="relative flex items-center gap-2">
+                  {highlights.map((highlight, index) => {
+                    const highlightId = highlight?.id ?? `highlight-${index}`;
+                    return (
+                    <div key={String(highlightId)} className="relative flex items-center gap-2">
                       <input
                         type="text"
-                        value={highlight.text}
-                        onChange={(e) => handleHighlightChange(highlight.id, e.target.value)}
+                        value={highlight?.text || ''}
+                        onChange={(e) => handleHighlightChange(highlightId, e.target.value)}
                         placeholder="e.g., Churelto Pagoda and Lake Kawaguchi"
                         className="flex-1 px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                       {highlights.length > 1 && (
                         <button
-                          onClick={() => removeHighlight(highlight.id)}
+                          onClick={() => removeHighlight(highlightId)}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                           title="Remove highlight"
                         >
@@ -1545,7 +1555,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                         </button>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 <div className="text-right mt-4">
@@ -3017,31 +3028,33 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               {/* Time Slots Section - Dynamic for all weekdays */}
               <div className="space-y-6">
                 {Object.keys(timeSlots).map((day) => (
-                  Array.isArray(timeSlots[day]) && timeSlots[day].length > 0 && (
-                    <div key={day}>
-                      <h4 className="text-sm font-bold text-gray-900 mb-3">{day}</h4>
-                     <div className="grid grid-cols-5 gap-2">
-                        {timeSlots[day].map((time, index) => (
-                         <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
-                           <span className="text-gray-700">{time}</span>
-                            <button 
-                              onClick={() => {
-                                setTimeSlots(prev => ({
-                                  ...prev,
-                                  [day]: prev[day].filter((_, i) => i !== index)
-                                }));
-                              }}
-                              className="text-gray-400 hover:text-red-500"
-                            >
-                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                             </svg>
-                           </button>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                  )
+                  <React.Fragment key={day}>
+                    {Array.isArray(timeSlots[day]) && timeSlots[day].length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-900 mb-3">{day}</h4>
+                       <div className="grid grid-cols-5 gap-2">
+                          {timeSlots[day].map((time, index) => (
+                           <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
+                             <span className="text-gray-700">{time}</span>
+                              <button 
+                                onClick={() => {
+                                  setTimeSlots(prev => ({
+                                    ...prev,
+                                    [day]: prev[day].filter((_, i) => i !== index)
+                                  }));
+                                }}
+                                className="text-gray-400 hover:text-red-500"
+                              >
+                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                               </svg>
+                             </button>
+                           </div>
+                          ))}
+                       </div>
+                      </div>
+                    )}
+                  </React.Fragment>
                 ))}
                 
                 {/* Show message if no slots configured yet */}
