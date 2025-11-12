@@ -4,6 +4,7 @@ from datetime import datetime
 from beanie import PydanticObjectId
 from app.models.product import Product, ProductStatus
 from app.schemas.product import ProductCreate, ProductUpdate
+from app.core.database import get_database
 
 
 class ProductService:
@@ -51,15 +52,89 @@ class ProductService:
         supplier_id: str,
         status: Optional[ProductStatus] = None,
         skip: int = 0,
-        limit: int = 20
+        limit: int = 20,
+        summary_only: bool = False
     ) -> tuple[List[Product], int]:
-        """Get products for a specific supplier with pagination"""
+        """
+        Get products for a specific supplier with pagination.
+        
+        Args:
+            supplier_id: Supplier ID
+            status: Optional status filter
+            skip: Number of products to skip
+            limit: Maximum number of products to return
+            summary_only: If True, exclude heavy fields (images, itinerary, etc.) for faster queries
+        """
         query = {"supplier_id": supplier_id}
         if status:
             query["status"] = status
         
         total = await Product.find(query).count()
-        products = await Product.find(query).skip(skip).limit(limit).to_list()
+        
+        if summary_only:
+            # Use Motor directly with projection to exclude heavy fields for better performance
+            db = get_database()
+            collection = db[Product.Settings.name]
+            
+            # Projection to exclude heavy fields
+            projection = {
+                "_id": 1,
+                "supplier_id": 1,
+                "title": 1,
+                "category": 1,
+                "tagline": 1,
+                "status": 1,
+                "price": 1,
+                "currency": 1,
+                "destination": 1,
+                "duration": 1,
+                "views": 1,
+                "bookings_count": 1,
+                "rating": 1,
+                "reviews_count": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "published_at": 1,
+                "hero_image": 1,  # Keep only hero_image for thumbnail
+            }
+            
+            cursor = collection.find(query, projection).skip(skip).limit(limit)
+            raw_products = await cursor.to_list(length=limit)
+            
+            # Convert to Product objects (lightweight) - use model_validate to handle missing fields
+            products = []
+            for raw in raw_products:
+                # Build minimal dict with required fields
+                product_dict = {
+                    "supplier_id": raw.get("supplier_id", ""),
+                    "title": raw.get("title", "Untitled"),
+                    "description": "",  # Minimal description for summary
+                    "category": raw.get("category"),
+                    "tagline": raw.get("tagline"),
+                    "status": raw.get("status", ProductStatus.DRAFT),
+                    "price": raw.get("price", 0.0),
+                    "currency": raw.get("currency", "USD"),
+                    "destination": raw.get("destination"),
+                    "duration": raw.get("duration"),
+                    "views": raw.get("views", 0),
+                    "bookings_count": raw.get("bookings_count", 0),
+                    "rating": raw.get("rating"),
+                    "reviews_count": raw.get("reviews_count", 0),
+                    "created_at": raw.get("created_at", datetime.utcnow()),
+                    "updated_at": raw.get("updated_at", datetime.utcnow()),
+                    "published_at": raw.get("published_at"),
+                    "hero_image": raw.get("hero_image"),
+                }
+                # Use model_validate to create Product with minimal data
+                try:
+                    product = Product.model_validate(product_dict)
+                    product.id = raw.get("_id")
+                    products.append(product)
+                except Exception as e:
+                    # Skip products that can't be validated
+                    continue
+        else:
+            products = await Product.find(query).skip(skip).limit(limit).to_list()
         
         return products, total
     

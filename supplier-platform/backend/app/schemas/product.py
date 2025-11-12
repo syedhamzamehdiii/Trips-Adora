@@ -85,6 +85,32 @@ class ProductUpdate(BaseModel):
     custom_fields: Optional[Dict[str, Any]] = None
 
 
+class ProductSummary(BaseModel):
+    """Lightweight product summary for list views - excludes heavy fields like images"""
+    id: str
+    supplier_id: str
+    title: str
+    category: ProductCategory
+    tagline: Optional[str] = None
+    status: ProductStatus
+    price: float
+    currency: str
+    destination: Optional[str] = None
+    duration: Optional[str] = None
+    views: int
+    bookings_count: int
+    rating: Optional[float] = None
+    reviews_count: int
+    created_at: datetime
+    updated_at: datetime
+    published_at: Optional[datetime] = None
+    # Only include first image URL (not base64) for thumbnail
+    hero_image_url: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+
 class ProductResponse(ProductBase):
     """Schema for product responses"""
     id: str
@@ -105,6 +131,15 @@ class ProductResponse(ProductBase):
 class ProductListResponse(BaseModel):
     """Schema for paginated product list"""
     products: List[ProductResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class ProductSummaryListResponse(BaseModel):
+    """Schema for paginated product summary list (lightweight)"""
+    products: List[ProductSummary]
     total: int
     page: int
     page_size: int

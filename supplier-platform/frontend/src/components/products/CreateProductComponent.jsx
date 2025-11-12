@@ -1056,17 +1056,28 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     }
 
     try {
+      const wasSelected = selectedVehicleForTour?.id === vehicleId;
       await vehicleService.remove(vehicleId);
-      setVehicles((prev) => {
-        const next = prev.filter((vehicle) => vehicle.id !== vehicleId);
-        if (prevSelected && prevSelected.id === vehicleId) {
-          setSelectedVehicleForTour(next.length ? next[0] : null);
+      // Reload vehicles from database to ensure consistency
+      const fetched = await vehicleService.list();
+      const mapped = Array.isArray(fetched) ? fetched : [];
+      setVehicles(mapped);
+      
+      // Update selected vehicle if the deleted one was selected
+      if (wasSelected) {
+        setSelectedVehicleForTour(mapped.length ? mapped[0] : null);
+      } else {
+        // Preserve current selection if it still exists
+        const currentSelected = mapped.find(v => v.id === selectedVehicleForTour?.id);
+        if (currentSelected) {
+          setSelectedVehicleForTour(currentSelected);
         }
-        return next;
-      });
+      }
+      
       if (editingVehicleId === vehicleId) {
         clearVehicleForm();
       }
+      alert('Vehicle deleted successfully!');
     } catch (error) {
       console.error('Failed to delete vehicle option:', error);
       alert(error?.message || 'Failed to delete vehicle.');
@@ -1107,9 +1118,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     try {
       if (editingVehicleId) {
         const updated = await vehicleService.update(editingVehicleId, payload);
-        setVehicles((prev) =>
-          prev.map((vehicle) => (vehicle.id === updated.id ? updated : vehicle))
-        );
+        // Reload vehicles from database to ensure consistency
+        await loadVehicles();
         setSelectedVehicleForTour((prevSelected) => {
           if (!prevSelected) return updated;
           return prevSelected.id === updated.id ? updated : prevSelected;
@@ -1118,7 +1128,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         alert('Vehicle option updated successfully!');
       } else {
         const created = await vehicleService.create(payload);
-        setVehicles((prev) => [created, ...prev]);
+        // Reload vehicles from database to ensure consistency
+        await loadVehicles();
         setSelectedVehicleForTour((prevSelected) => prevSelected || created);
         alert('Vehicle option saved successfully!');
       }
@@ -3100,7 +3111,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                    {/* Modal Header */}
                    <div className="p-6 border-b border-gray-200 relative sticky top-0 bg-white z-10">
                      <h2 className="text-lg font-semibold text-gray-900">Select Vehicle</h2>
-                     <p className="text-sm text-gray-600 mt-1">Choose a vehicle from your existing vehicles in published products and drafts.</p>
+                     <p className="text-sm text-gray-600 mt-1">Choose a vehicle from your existing vehicles. To edit or delete vehicles, go back to the vehicle form section.</p>
                      
                      {/* Close Button */}
                      <button
@@ -3113,217 +3124,108 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
 
                    {/* Modal Content - List of Saved Vehicles */}
                    <div className="p-6">
-                     {/* Load all existing vehicles from localStorage */}
+                     {/* Load all existing vehicles from database */}
                      {(() => {
-                       // Get all existing vehicles from all products AND drafts in localStorage
-                       try {
-                        // Source vehicles ONLY from:
-                        // 1) Current product form
-                        // 2) Published products in all_products (what you've created and published)
-                        const seenVehicles = new Set();
-                        const collectedVehicles = [];
-
-                        // Helper: validate vehicle has required fields
-                        const isValidVehicle = (v) => {
-                          if (!v) return false;
-                          const hasBasics = (v.title || v.model || '').toString().trim() !== '' && (v.type || '').toString().trim() !== '';
-                          const hasNumbers = Number.isFinite(parseInt(v.capacity)) && (v.amount !== undefined);
-                          return hasBasics && hasNumbers;
-                        };
-
-                        // 1) Current product vehicles
-                        vehicles.forEach(v => {
-                          const vt = (v.title || '').toLowerCase().trim();
-                          const ty = (v.type || '').toLowerCase().trim();
-                          const md = (v.model || '').toLowerCase().trim();
-                          const key = `${vt}|${ty}|${md}`;
-                          if (!seenVehicles.has(key) && isValidVehicle(v)) {
-                            seenVehicles.add(key);
-                            collectedVehicles.push(v);
-                          }
-                        });
-
-                        // 2) Vehicles from published products
-                        try {
-                          const allProductsRaw = localStorage.getItem('all_products');
-                          if (allProductsRaw) {
-                            const allProducts = JSON.parse(allProductsRaw);
-                            allProducts
-                              .filter(p => p && p.status === 'Published' && Array.isArray(p.vehicles))
-                              .forEach(p => {
-                                p.vehicles.forEach(v => {
-                                  const vt = (v.title || '').toLowerCase().trim();
-                                  const ty = (v.type || '').toLowerCase().trim();
-                                  const md = (v.model || '').toLowerCase().trim();
-                                  const key = `${vt}|${ty}|${md}`;
-                                  if (!seenVehicles.has(key) && isValidVehicle(v)) {
-                                    seenVehicles.add(key);
-                                    collectedVehicles.push(v);
-                                  }
-                                });
-                              });
-                          }
-                        } catch (e) {
-                          console.warn('Error reading all_products for vehicles', e);
-                        }
-
-                        const availableVehicles = collectedVehicles;
+                       // Use vehicles loaded from database (same as "Existing Vehicle Options")
+                       const availableVehicles = vehicles;
                          
-                         if (availableVehicles.length === 0) {
-                           return (
-                             <div className="text-center py-12">
-                               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                 </svg>
-                               </div>
-                               <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
-                               <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
-                               <button
-                                 onClick={() => setShowSelectVehicleModal(false)}
-                                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                               >
-                                 Close
-                               </button>
-                             </div>
-                           );
-                         }
-                         
+                       if (vehiclesLoading) {
                          return (
-                           <div className="space-y-3">
-                             {availableVehicles.map((vehicle, index) => {
-                               const isSelected = selectedVehicleForTour?.id === vehicle.id || 
-                                                 (selectedVehicleForTour && selectedVehicleForTour.title === vehicle.title);
-                               return (
-                               <div 
-                                 key={vehicle.id || `${vehicle.title}-${index}`}
-                                 className={`rounded-lg p-4 cursor-pointer transition-all ${
-                                   isSelected 
-                                     ? 'bg-blue-50 border-2 border-blue-600' 
-                                     : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
-                                 }`}
-                                 onClick={() => {
-                                   setSelectedVehicleForTour(vehicle);
-                                 }}
-                               >
-                       <div className="flex justify-between items-start">
-                         <div className="flex-1">
-                           <div className="flex items-baseline mb-1">
-                                     <h3 className="text-lg font-bold text-gray-900">{vehicle.title}</h3>
-                                     {isSelected && (
-                                       <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
-                                         <FiCheckCircle className="mr-1" size={14} />
-                                         Selected
-                                       </span>
-                                     )}
-                           </div>
-                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
-                                     {vehicle.attributes ? (<span className="italic">{vehicle.attributes}</span>) : null}
-                                     {vehicle.year ? (<span>{vehicle.year}</span>) : null}
-                                     {Number.isFinite(parseInt(vehicle.capacity)) ? (
-                                       <span>Best for upto <span className="text-blue-600 font-medium">{parseInt(vehicle.capacity) < 10 ? '0' : ''}{parseInt(vehicle.capacity)}</span></span>
-                                     ) : null}
-                                     {vehicle.duration ? (
-                                       <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
-                                     ) : null}
-                           </div>
-                                   <p className="text-xs text-gray-500 leading-relaxed mb-2">
-                                     {vehicle.description}
-                           </p>
-                                   <div className="flex items-center space-x-2 text-sm">
-                                     <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
-                                     <span className="text-gray-400">•</span>
-                                     <span className="text-gray-600">{vehicle.pricingType}</span>
-                                   </div>
-                         </div>
-                         <div className="text-right ml-4">
-                                   <div className="text-lg font-bold text-blue-600">{vehicle.currency} {vehicle.amount}</div>
-                                   <div className="text-xs text-gray-500">{vehicle.pricingType}</div>
-                           </div>
-                         </div>
-                       </div>
-                               );
-                             })}
-                     </div>
-                         );
-                       } catch (error) {
-                         console.error('Error loading existing vehicles:', error);
-                         // Fallback to current product's vehicles only
-                         if (vehicles.length === 0) {
-                           return (
-                             <div className="text-center py-12">
-                               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                 </svg>
-                               </div>
-                               <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
-                               <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
-                               <button
-                                 onClick={() => setShowSelectVehicleModal(false)}
-                                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                               >
-                                 Close
-                               </button>
+                           <div className="text-center py-12">
+                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                               <svg className="w-8 h-8 text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                               </svg>
                              </div>
-                           );
-                         }
-                         
-                         return (
-                           <div className="space-y-3">
-                             {vehicles.map((vehicle, index) => {
-                               const isSelected = selectedVehicleForTour?.id === vehicle.id;
-                               return (
-                               <div 
-                                 key={vehicle.id}
-                                 className={`rounded-lg p-4 cursor-pointer transition-all ${
-                                   isSelected 
-                                     ? 'bg-blue-50 border-2 border-blue-600' 
-                                     : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
-                                 }`}
-                                 onClick={() => {
-                                   setSelectedVehicleForTour(vehicle);
-                                 }}
-                               >
-                       <div className="flex justify-between items-start">
-                         <div className="flex-1">
-                           <div className="flex items-baseline mb-1">
-                                     <h3 className="text-lg font-bold text-gray-900">{vehicle.title}</h3>
-                                     {isSelected && (
-                                       <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
-                                         <FiCheckCircle className="mr-1" size={14} />
-                                         Selected
-                                       </span>
-                                     )}
+                             <h3 className="text-lg font-medium text-gray-900 mb-2">Loading Vehicles...</h3>
                            </div>
-                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
-                                     <span className="italic">{vehicle.attributes}</span>
-                                     <span>{vehicle.year}</span>
-                                     <span>Best for upto <span className="text-blue-600 font-medium">{vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span></span>
-                                     <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
-                           </div>
-                                   <p className="text-xs text-gray-500 leading-relaxed mb-2">
-                                     {vehicle.description}
-                           </p>
-                                   <div className="flex items-center space-x-2 text-sm">
-                                     <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
-                                     <span className="text-gray-400">•</span>
-                                     <span className="text-gray-600">{vehicle.pricingType}</span>
-                                   </div>
-                         </div>
-                         <div className="text-right ml-4">
-                                   <div className="text-lg font-bold text-blue-600">{vehicle.currency} {vehicle.amount}</div>
-                                   <div className="text-xs text-gray-500">{vehicle.pricingType}</div>
-                           </div>
-                         </div>
-                       </div>
-                               );
-                             })}
-                     </div>
                          );
                        }
-                     })()}
+
+                       if (availableVehicles.length === 0) {
+                         return (
+                           <div className="text-center py-12">
+                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                               <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                               </svg>
+                             </div>
+                             <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
+                             <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
+                             <button
+                               onClick={() => setShowSelectVehicleModal(false)}
+                               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                             >
+                               Close
+                             </button>
                            </div>
+                         );
+                       }
+                       
+                       return (
+                         <div className="space-y-3">
+                           {availableVehicles.map((vehicle, index) => {
+                             const isSelected = selectedVehicleForTour?.id === vehicle.id || 
+                                               (selectedVehicleForTour && selectedVehicleForTour.title === vehicle.title);
+                             return (
+                               <div 
+                                 key={vehicle.id || `vehicle-${index}`}
+                                 className={`rounded-lg p-4 cursor-pointer transition-all ${
+                                   isSelected 
+                                     ? 'bg-blue-50 border-2 border-blue-600' 
+                                     : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
+                                 }`}
+                                 onClick={() => {
+                                   setSelectedVehicleForTour(vehicle);
+                                   setShowSelectVehicleModal(false);
+                                 }}
+                               >
+                                 <div className="flex justify-between items-start">
+                                   <div className="flex-1">
+                                     <div className="flex items-baseline mb-1">
+                                       <div className="flex items-center">
+                                         <h3 className="text-lg font-bold text-gray-900">{vehicle.title || 'Untitled Vehicle'}</h3>
+                                         {isSelected && (
+                                           <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
+                                             <FiCheckCircle className="mr-1" size={14} />
+                                             Selected
+                                           </span>
+                                         )}
+                                       </div>
+                                     </div>
+                                     <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
+                                       {vehicle.attributes && <span className="italic">{vehicle.attributes}</span>}
+                                       {vehicle.year && <span>{vehicle.year}</span>}
+                                       {Number.isFinite(parseInt(vehicle.capacity)) && (
+                                         <span>Best for upto <span className="text-blue-600 font-medium">{String(parseInt(vehicle.capacity)).padStart(2, '0')}</span></span>
+                                       )}
+                                       {vehicle.duration && (
+                                         <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
+                                       )}
+                                     </div>
+                                     {vehicle.description && (
+                                       <p className="text-xs text-gray-500 leading-relaxed mb-2">
+                                         {vehicle.description}
+                                       </p>
+                                     )}
+                                     <div className="flex items-center space-x-2 text-sm">
+                                       <span className="font-semibold text-blue-600">{vehicle.currency || '$'} {vehicle.amount || '0'}</span>
+                                       <span className="text-gray-400">•</span>
+                                       <span className="text-gray-600">{vehicle.pricingType || 'Per Group'}</span>
+                                     </div>
+                                   </div>
+                                   <div className="text-right ml-4">
+                                     <div className="text-lg font-bold text-blue-600">{vehicle.currency || '$'} {vehicle.amount || '0'}</div>
+                                     <div className="text-xs text-gray-500">{vehicle.pricingType || 'Per Group'}</div>
+                                   </div>
+                                 </div>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       );
+                     })()}
+                   </div>
 
                    {/* Modal Footer */}
                    <div className="p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0">
@@ -4099,6 +4001,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             accessibility: accessibilityToggles,
             // Vehicle data - pass only the selected vehicle as an array
             vehicles: selectedVehicleForTour ? [selectedVehicleForTour] : vehicles,
+            // Vehicle form fields (for price extraction)
+            productAmount: productAmount,
+            currency: currency,
+            pricingType: pricingType,
             // Location & Time data (now using arrays for multiple locations)
             pickupLocations: selectedPickupLocations,
             dropoffLocations: selectedDropoffLocations,

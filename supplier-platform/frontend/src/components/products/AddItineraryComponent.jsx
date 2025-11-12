@@ -53,8 +53,10 @@ const AddItineraryComponent = ({
   const [minutes, setMinutes] = useState('30');
   const [hasSavedItinerary, setHasSavedItinerary] = useState(false);
   const [itineraryEntries, setItineraryEntries] = useState(Array.isArray(currentItineraries) ? currentItineraries : []);
-  const [showSubmitView, setShowSubmitView] = useState(false);
+  // Initialize showSubmitView to true if there are existing itineraries
+  const [showSubmitView, setShowSubmitView] = useState(Array.isArray(currentItineraries) && currentItineraries.length > 0);
   const [showFinalLook, setShowFinalLook] = useState(false);
+  const [editingItineraryId, setEditingItineraryId] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [placeName, setPlaceName] = useState('');
   const [description, setDescription] = useState('');
@@ -80,7 +82,12 @@ const AddItineraryComponent = ({
       }
       return currentItineraries;
     });
-    setHasSavedItinerary(currentItineraries.length > 0);
+    const hasItineraries = currentItineraries.length > 0;
+    setHasSavedItinerary(hasItineraries);
+    // If there are existing itineraries, automatically show the submit view (management page)
+    if (hasItineraries) {
+      setShowSubmitView(true);
+    }
   }, [currentItineraries]);
 
   // Load existing itineraries from draft when available
@@ -106,6 +113,8 @@ const AddItineraryComponent = ({
             return parsed.itineraries;
           });
           setHasSavedItinerary(true);
+          // Automatically show submit view (management page) if there are existing itineraries
+          setShowSubmitView(true);
           onItinerariesChange?.(parsed.itineraries);
         }
       }
@@ -278,8 +287,8 @@ const AddItineraryComponent = ({
     const inferredTime = `${String(startHour % 24).padStart(2, '0')}:00`;
 
     const normalizedName = placeName?.trim() || '';
-    const newEntry = {
-      id: Date.now(),
+    const entryData = {
+      id: editingItineraryId || Date.now(),
       title: normalizedName || 'Itinerary Stop',
       placeName: normalizedName || 'Fujinimiya',
       location: normalizedName || 'Fujinimiya',
@@ -287,7 +296,7 @@ const AddItineraryComponent = ({
       attractionType: selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
       timeSpent: `${hours}h ${minutes}min`,
       isFree: entryIsFree,
-      hasPhoto: uploadedPhoto !== null,
+      hasPhoto: uploadedPhoto !== null || photoPreview !== null,
       photo: photoPreview,
       time: inferredTime,
       ticket: entryIsFree ? 'Free' : 'Paid',
@@ -298,7 +307,18 @@ const AddItineraryComponent = ({
       ].filter(Boolean)
     };
 
-    const updatedEntries = [...itineraryEntries, newEntry];
+    let updatedEntries;
+    if (editingItineraryId) {
+      // Update existing entry
+      updatedEntries = itineraryEntries.map(entry => 
+        entry.id === editingItineraryId ? entryData : entry
+      );
+      setEditingItineraryId(null);
+    } else {
+      // Add new entry
+      updatedEntries = [...itineraryEntries, entryData];
+    }
+    
     setItineraryEntries(updatedEntries);
     setShowAddItineraryModal(false);
     setHasSavedItinerary(true);
@@ -331,9 +351,35 @@ const AddItineraryComponent = ({
     setImageToCrop(null);
     setCrop({ unit: '%', width: 100, aspect: 1 });
     setCompletedCrop(null);
+    setEditingItineraryId(null);
     if (photoInputRef.current) {
       photoInputRef.current.value = '';
     }
+  };
+
+  const handleEditItinerary = (entry) => {
+    setEditingItineraryId(entry.id);
+    setPlaceName(entry.placeName || entry.location || entry.title || '');
+    setDescription(entry.description || '');
+    setSelectedAttraction(entry.attractionType || 'Select Attractions');
+    // Parse timeSpent (e.g., "2h 30min" -> hours: "02", minutes: "30")
+    const timeMatch = (entry.timeSpent || '').match(/(\d+)h\s*(\d+)min/);
+    if (timeMatch) {
+      setHours(String(parseInt(timeMatch[1])).padStart(2, '0'));
+      setMinutes(String(parseInt(timeMatch[2])).padStart(2, '0'));
+    } else {
+      setHours('02');
+      setMinutes('30');
+    }
+    setEntryIsFree(entry.isFree !== false);
+    if (entry.photo) {
+      setPhotoPreview(entry.photo);
+      setCroppedPhoto(entry.photo);
+    } else {
+      setPhotoPreview(null);
+      setCroppedPhoto(null);
+    }
+    setShowAddItineraryModal(true);
   };
 
   // Persist any changes to itinerary list to draft (e.g., delete)
@@ -855,15 +901,20 @@ const AddItineraryComponent = ({
                             
                             {/* Action Icons - Right aligned */}
                             <div className="flex items-center space-x-1 ml-4">
-                              <button className="p-1 text-gray-500 hover:text-blue-600 transition-colors">
+                              <button 
+                                onClick={() => handleEditItinerary(entry)}
+                                className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                title="Edit itinerary"
+                              >
                                 <FiEdit3 size={16} />
                               </button>
                               <button 
                                 onClick={() => handleDeleteEntry(entry.id)}
                                 className="p-1 text-gray-500 hover:text-red-600 transition-colors"
+                                title="Delete itinerary"
                               >
                                 <FiTrash2 size={16} />
-                      </button>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -927,9 +978,27 @@ const AddItineraryComponent = ({
           <div className="bg-white rounded-lg shadow-xl w-[600px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-black">Add new Itinerary stop</h2>
+              <h2 className="text-xl font-bold text-black">
+                {editingItineraryId ? 'Edit Itinerary Stop' : 'Add new Itinerary stop'}
+              </h2>
               <button
-                onClick={() => setShowAddItineraryModal(false)}
+                onClick={() => {
+                  setShowAddItineraryModal(false);
+                  setEditingItineraryId(null);
+                  // Reset form when closing
+                  setPlaceName('');
+                  setDescription('');
+                  setSelectedAttraction('Select Attractions');
+                  setHours('02');
+                  setMinutes('30');
+                  setEntryIsFree(true);
+                  setUploadedPhoto(null);
+                  setPhotoPreview(null);
+                  setCroppedPhoto(null);
+                  if (photoInputRef.current) {
+                    photoInputRef.current.value = '';
+                  }
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <FiX size={24} />
@@ -1111,7 +1180,7 @@ const AddItineraryComponent = ({
                 onClick={handleSaveItinerary}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Save
+                {editingItineraryId ? 'Update' : 'Save'}
               </button>
             </div>
           </div>

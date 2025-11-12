@@ -10,6 +10,8 @@ from app.api.v1 import (
     settings as settings_router,
     vehicles as vehicles_router,
     dashboard as dashboard_router,
+    bookings as bookings_router,
+    notifications as notifications_router,
 )
 
 app = FastAPI(
@@ -46,6 +48,8 @@ app.include_router(products.router, prefix="/api/v1", tags=["Products"])
 app.include_router(settings_router.router, prefix="/api/v1", tags=["Settings"])
 app.include_router(vehicles_router.router, prefix="/api/v1", tags=["Vehicles"])
 app.include_router(dashboard_router.router, prefix="/api/v1", tags=["Dashboard"])
+app.include_router(bookings_router.router, prefix="/api/v1", tags=["Bookings"])
+app.include_router(notifications_router.router, prefix="/api/v1", tags=["Notifications"])
 
 @app.get("/")
 async def root():

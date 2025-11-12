@@ -49,3 +49,22 @@ async def cancel_booking(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.delete(
+    "/{user_id}/{booking_id}/delete",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Permanently delete a booking (customer storage cleanup only)",
+)
+async def delete_booking(
+    user_id: str = Path(..., description="Customer identifier, e.g. email slug"),
+    booking_id: str = Path(..., description="Booking identifier"),
+):
+    """
+    Permanently delete a booking for customer storage cleanup.
+    This does NOT affect supplier booking counts - the booking remains visible to suppliers.
+    """
+    success = await BookingService.delete_booking(user_id, booking_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+

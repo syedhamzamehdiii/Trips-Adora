@@ -107,12 +107,15 @@ const ProfileReviews = () => {
     []
   )
 
+  const hasLoadedOnceRef = useRef(false)
+
   const fetchReviews = useCallback(async () => {
-    setLoading(true)
+    setLoading(!hasLoadedOnceRef.current)  // Only show loading on first load
     setError(null)
     try {
       const data = await getReviews(userId)
       setReviews(data)
+      hasLoadedOnceRef.current = true
     } catch (err) {
       setError(err?.message || 'Unable to load reviews right now.')
       setReviews([])

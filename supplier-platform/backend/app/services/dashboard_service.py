@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional
+import asyncio
 
 from beanie import PydanticObjectId
 
@@ -49,13 +50,41 @@ class SupplierDashboardService:
         return await Product.find(Product.supplier_id == supplier_id).to_list()
 
     @staticmethod
-    async def _fetch_bookings(product_ids: Iterable[str]) -> List[Dict[str, Any]]:
+    async def _fetch_bookings(product_ids: Iterable[str], supplier_id: Optional[str] = None) -> List[Dict[str, Any]]:
         product_ids = list(product_ids)
-        if not product_ids:
-            return []
-
         db = get_database()
-        cursor = db["customer_bookings"].find({"product_id": {"$in": product_ids}})
+        
+        # Optimize: If supplier_id is provided, query by supplier_id directly (faster)
+        if supplier_id:
+            query = {"supplier_id": supplier_id}
+            # Use projection to fetch only needed fields for better performance
+            cursor = db["customer_bookings"].find(query, {
+                "product_id": 1,
+                "status": 1,
+                "start_date": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "total_amount": 1,
+                "amount": 1,
+                "price": 1,
+                "currency": 1,
+                "payout_status": 1,
+                "customer_name": 1,
+                "customer_email": 1,
+                "reference_code": 1,
+                "title": 1,
+                "tour_name": 1,
+                "travel_date": 1,
+                "tour_date": 1,
+                "net_amount": 1,
+                "supplier_id": 1,
+            }).limit(500)  # Limit to prevent huge queries
+        elif product_ids:
+            query = {"product_id": {"$in": product_ids}}
+            cursor = db["customer_bookings"].find(query).limit(500)
+        else:
+            return []
+        
         bookings = await cursor.to_list(length=None)
         return bookings
 
@@ -231,14 +260,18 @@ class SupplierDashboardService:
 
     @staticmethod
     async def get_overview(supplier_id: str) -> Dict[str, Any]:
+        # Fetch products first (needed for product_map)
         products = await SupplierDashboardService._fetch_products(supplier_id)
         product_map = {str(product.id): product for product in products}
-        bookings_raw = await SupplierDashboardService._fetch_bookings(product_map.keys())
+        
+        # Fetch bookings by supplier_id directly (much faster than product_ids)
+        bookings_raw = await SupplierDashboardService._fetch_bookings(product_map.keys(), supplier_id=supplier_id)
         bookings = [
             SupplierDashboardService._serialize_booking(booking, product_map)
             for booking in bookings_raw
         ]
 
+        # Calculate all metrics (these are fast synchronous operations)
         bookings_metrics = SupplierDashboardService._derive_bookings_metrics(bookings)
         finance_metrics = SupplierDashboardService._derive_finance_metrics(bookings)
         activity_metrics = SupplierDashboardService._derive_activity_metrics(products)

@@ -142,6 +142,7 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
+    // Load profile from cache instantly
     const loadProfile = () => {
       try {
         let saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
@@ -160,27 +161,46 @@ const Dashboard = () => {
         }
       } catch (_) {}
     };
-
+    
+    loadProfile();
+    
+    // Listen for updates
+    const handleUpdate = () => loadProfile();
+    window.addEventListener('account_settings_updated', handleUpdate);
+    window.addEventListener('accountSettingsUpdated', handleUpdate);
+    
     const loadDashboardData = async () => {
-      setDashboardLoading(true);
+      // Only show loading if no data exists
+      if (!dashboardData || Object.keys(dashboardData).length === 0) {
+        setDashboardLoading(true);
+      }
       setDashboardError(null);
       try {
         const overview = await dashboardService.getOverview();
-      const transformed = transformOverviewToDashboardState(overview);
+        const transformed = transformOverviewToDashboardState(overview);
         setDashboardData(transformed);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
         setDashboardError(error?.message || 'Unable to load dashboard data right now.');
-        setDashboardData(DEFAULT_DASHBOARD);
+        if (!dashboardData || Object.keys(dashboardData).length === 0) {
+          setDashboardData(DEFAULT_DASHBOARD);
+        }
       } finally {
         setDashboardLoading(false);
       }
     };
+    
+    loadDashboardData();
+    
+    return () => {
+      window.removeEventListener('account_settings_updated', handleUpdate);
+      window.removeEventListener('accountSettingsUpdated', handleUpdate);
+    };
 
     const loadDraftProducts = async () => {
       try {
-        // Load draft products from database
-        const response = await productService.getMyProducts({ status: 'draft', page: 1, page_size: 100 });
+        // Load draft products from database using lightweight summary
+        const response = await productService.getMyProducts({ status: 'draft', page: 1, page_size: 20, summary: true });
         const { transformApiProductsList } = await import('@/utils/productTransform');
         const allProducts = transformApiProductsList(response);
         const drafts = allProducts.filter(p => p.status === 'Draft');
@@ -235,7 +255,7 @@ const Dashboard = () => {
 
     const loadPopularActivities = async () => {
       // Load all published products from database (these are the ones customers can book)
-      const response = await productService.getMyProducts({ status: 'published', page: 1, page_size: 100 });
+      const response = await productService.getMyProducts({ status: 'published', page: 1, page_size: 20, summary: true });
       const { transformApiProductsList } = await import('@/utils/productTransform');
       const allProducts = transformApiProductsList(response);
       const publishedProducts = allProducts.filter(p => p.status === 'Published');
@@ -497,15 +517,15 @@ const Dashboard = () => {
                           <div className="text-center text-sm text-gray-500 py-6">No notifications</div>
                         ) : (
                         (showAllNotifications ? notifications : notifications.filter(n => !n.read).slice(0, 5)).map((n) => {
-                          const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
-                          const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
+                          const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
+                          const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
                           return (
-                            <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''}`} onClick={() => markAsRead(n.id)}>
-                              <div className={`w-2 h-2 ${typeColor} rounded-full mt-2`}></div>
-                          <div>
+                            <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} cursor-pointer hover:opacity-90 transition-opacity`} onClick={() => markAsRead(n.id)}>
+                              <div className={`w-2 h-2 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
+                          <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                                {n.message && (<p className="text-xs text-gray-600">{n.message}</p>)}
-                                <p className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()}</p>
+                                {n.message && (<p className="text-xs text-gray-600 mt-1">{n.message}</p>)}
+                                <p className="text-xs text-gray-500 mt-1">{new Date(n.created_at || n.createdAt).toLocaleString()}</p>
                           </div>
                         </div>
                           );

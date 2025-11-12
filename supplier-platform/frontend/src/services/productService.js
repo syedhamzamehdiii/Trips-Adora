@@ -37,7 +37,8 @@ const productService = {
 
   /**
    * Get all products for the current supplier
-   * @param {Object} params - Query parameters (status, page, page_size)
+   * @param {Object} params - Query parameters (status, page, page_size, summary)
+   * @param {boolean} params.summary - If true, returns lightweight summary (excludes images) for faster loading
    * @returns {Promise} API response with products list
    */
   getMyProducts: async (params = {}) => {

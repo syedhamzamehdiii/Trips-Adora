@@ -5,8 +5,10 @@ import { FiUpload, FiEdit, FiUserPlus, FiLock, FiAlertCircle, FiCheck, FiInfo, F
 import Button from '@/components/common/Button';
 import Input from '@/components/common/Input';
 import { settingsService } from '@/services/settingsService';
+import { useSettings } from '@/context/SettingsContext';
 
 const AccountSettings = () => {
+  const { settings: contextSettings, updateSettings } = useSettings();
   // User profile data
   const [profileData, setProfileData] = useState({
     publicName: 'Your Public Name',
@@ -101,6 +103,9 @@ const AccountSettings = () => {
       } catch (storageError) {
         console.warn('Unable to persist account settings to storage', storageError);
       }
+
+      // Update global context instantly (no waiting for API)
+      updateSettings(payload);
 
       window.dispatchEvent(new Event('account_settings_updated'));
       window.dispatchEvent(new Event('accountSettingsUpdated'));

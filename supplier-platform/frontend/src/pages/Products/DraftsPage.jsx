@@ -46,12 +46,30 @@ const DraftsPage = () => {
         // Load draft info from localStorage (for current draft being edited)
         const savedDraft = localStorage.getItem('product_draft_current_draft');
         if (savedDraft) {
-          const parsed = JSON.parse(savedDraft);
-          setDraftData(parsed);
+          try {
+            const parsed = JSON.parse(savedDraft);
+            // Check if it's a lightweight reference (has storageKey but no full data)
+            if (parsed.storageKey && !parsed.productTitle) {
+              // It's a reference - load the actual draft from the storage key
+              const actualDraft = localStorage.getItem(parsed.storageKey);
+              if (actualDraft) {
+                const actualParsed = JSON.parse(actualDraft);
+                setDraftData(actualParsed);
+              } else {
+                // Fallback to the reference itself
+                setDraftData(parsed);
+              }
+            } else {
+              // It's the full draft data
+              setDraftData(parsed);
+            }
+          } catch (parseError) {
+            console.warn('Unable to parse current draft data:', parseError);
+          }
         }
         
-        // Load all products from database
-        const response = await productService.getMyProducts({ page: 1, page_size: 100 });
+        // Load all products from database using lightweight summary
+        const response = await productService.getMyProducts({ page: 1, page_size: 50, summary: true });
         const { transformApiProductsList } = await import('@/utils/productTransform');
         const allProducts = transformApiProductsList(response);
         
@@ -218,8 +236,8 @@ const DraftsPage = () => {
                                     // Remove images from localStorage
                                     localStorage.removeItem(`product_draft_${draft.id}`);
                                     
-                                    // Reload drafts from database
-                                    const response = await productService.getMyProducts({ status: 'draft', page: 1, page_size: 1000 });
+                                    // Reload drafts from database using lightweight summary
+                                    const response = await productService.getMyProducts({ status: 'draft', page: 1, page_size: 50, summary: true });
                                     const { transformApiProductsList } = await import('@/utils/productTransform');
                                     const allProducts = transformApiProductsList(response);
                                     const drafts = allProducts.filter(p => p.status === 'Draft');
