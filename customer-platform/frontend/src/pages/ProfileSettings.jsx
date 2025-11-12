@@ -56,10 +56,8 @@ const ProfileSettings = () => {
   const [saveError, setSaveError] = useState(null)
   const [saveMessage, setSaveMessage] = useState(null)
 
-  const userId = useMemo(
-    () => localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID,
-    []
-  )
+  // Compute userId synchronously for initial state
+  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
 
   const hasLoadedOnceRef = useRef(false)
 
@@ -95,24 +93,63 @@ const ProfileSettings = () => {
     })
   }, [])
 
+  // Load cached profile immediately on mount (synchronous)
+  const [initialProfile] = useState(() => {
+    try {
+      const cached = localStorage.getItem(`customer_profile_cache_${userId}`);
+      const timestamp = localStorage.getItem(`customer_profile_cache_ts_${userId}`);
+      if (cached && timestamp) {
+        const age = Date.now() - parseInt(timestamp, 10);
+        if (age < 5 * 60 * 1000) { // 5 minutes
+          return JSON.parse(cached);
+        }
+      }
+    } catch (_) {
+      // Ignore cache errors
+    }
+    return null;
+  })
+
+  // Set initial profile from cache if available
+  useEffect(() => {
+    if (initialProfile) {
+      setProfile(initialProfile)
+      hydrateForm(initialProfile)
+      setLoading(false)
+      hasLoadedOnceRef.current = true
+    }
+  }, [initialProfile, hydrateForm])
+
   const fetchProfile = useCallback(async () => {
-    setLoading(!hasLoadedOnceRef.current)  // Only show loading on first load
+    // Only show loading if we don't have cached data
+    if (!initialProfile) {
+      setLoading(true)
+    }
     setError(null)
     try {
-      const data = await getProfile(userId)
+      const data = await getProfile(userId, true) // Use cache
       setProfile(data)
       hydrateForm(data)
       hasLoadedOnceRef.current = true
     } catch (err) {
-      setError(err?.message || 'Unable to load settings right now.')
+      // Only show error if we don't have cached data
+      if (!initialProfile) {
+        setError(err?.message || 'Unable to load settings right now.')
+      }
     } finally {
       setLoading(false)
     }
-  }, [hydrateForm, userId])
+  }, [hydrateForm, userId, initialProfile])
 
   useEffect(() => {
-    fetchProfile()
-  }, [fetchProfile])
+    // If we have cached data, fetch fresh in background
+    if (initialProfile) {
+      fetchProfile() // This will fetch in background
+    } else {
+      // No cache, fetch immediately
+      fetchProfile()
+    }
+  }, []) // Only run once on mount
 
   useEffect(() => {
     const handleProfileUpdated = () => fetchProfile()

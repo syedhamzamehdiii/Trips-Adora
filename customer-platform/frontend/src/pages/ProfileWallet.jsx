@@ -95,30 +95,66 @@ const ProfileWallet = () => {
   const [paypalEmail, setPaypalEmail] = useState('')
   const [payoneerEmail, setPayoneerEmail] = useState('')
 
-  const userId = useMemo(
-    () => localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID,
-    []
-  )
+  // Compute userId synchronously for initial state
+  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
 
   const hasLoadedOnceRef = useRef(false)
 
+  // Load cached wallet immediately on mount (synchronous)
+  const [initialWallet] = useState(() => {
+    try {
+      const cached = localStorage.getItem(`customer_wallet_cache_${userId}`);
+      const timestamp = localStorage.getItem(`customer_wallet_cache_ts_${userId}`);
+      if (cached && timestamp) {
+        const age = Date.now() - parseInt(timestamp, 10);
+        if (age < 5 * 60 * 1000) { // 5 minutes
+          return JSON.parse(cached);
+        }
+      }
+    } catch (_) {
+      // Ignore cache errors
+    }
+    return null;
+  })
+
+  // Set initial wallet from cache if available
+  useEffect(() => {
+    if (initialWallet) {
+      setWallet(initialWallet)
+      setLoading(false)
+      hasLoadedOnceRef.current = true
+    }
+  }, [initialWallet])
+
   const fetchWallet = useCallback(async () => {
-    setLoading(!hasLoadedOnceRef.current)
+    // Only show loading if we don't have cached data
+    if (!initialWallet) {
+      setLoading(true)
+    }
     setError(null)
     try {
-      const data = await getWallet(userId)
+      const data = await getWallet(userId, true) // Use cache
       setWallet(data)
       hasLoadedOnceRef.current = true
     } catch (err) {
-      setError(err?.message || 'Unable to load wallet information.')
+      // Only show error if we don't have cached data
+      if (!initialWallet) {
+        setError(err?.message || 'Unable to load wallet information.')
+      }
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, initialWallet])
 
   useEffect(() => {
-    fetchWallet()
-  }, [fetchWallet])
+    // If we have cached data, fetch fresh in background
+    if (initialWallet) {
+      fetchWallet() // This will fetch in background
+    } else {
+      // No cache, fetch immediately
+      fetchWallet()
+    }
+  }, []) // Only run once on mount
 
   useEffect(() => {
     const handler = () => fetchWallet()

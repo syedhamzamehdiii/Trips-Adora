@@ -9,29 +9,55 @@ const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID ||
 const HeaderLandingPage = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const profileRef = useRef(null)
-  const [profileSummary, setProfileSummary] = useState(null)
+  
+  // Compute userId synchronously for initial state
+  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
+
+  // Load cached profile immediately on mount (synchronous)
+  const [profileSummary, setProfileSummary] = useState(() => {
+    try {
+      const cached = localStorage.getItem(`customer_profile_cache_${userId}`);
+      const timestamp = localStorage.getItem(`customer_profile_cache_ts_${userId}`);
+      if (cached && timestamp) {
+        const age = Date.now() - parseInt(timestamp, 10);
+        if (age < 5 * 60 * 1000) { // 5 minutes
+          return JSON.parse(cached);
+        }
+      }
+    } catch (_) {
+      // Ignore cache errors
+    }
+    return null;
+  })
   const [profileLoading, setProfileLoading] = useState(false)
 
-  const userId = useMemo(
-    () => localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID,
-    []
-  )
-
   const fetchProfile = useCallback(async () => {
-    setProfileLoading(true)
+    // Only show loading if we don't have cached data
+    if (!profileSummary) {
+      setProfileLoading(true)
+    }
     try {
-      const data = await getProfile(userId)
+      const data = await getProfile(userId, true) // Use cache
       setProfileSummary(data)
     } catch (_) {
-      setProfileSummary(null)
+      // Only clear if we don't have cached data
+      if (!profileSummary) {
+        setProfileSummary(null)
+      }
     } finally {
       setProfileLoading(false)
     }
-  }, [userId])
+  }, [userId, profileSummary])
 
   useEffect(() => {
-    fetchProfile()
-  }, [fetchProfile])
+    // If we have cached data, fetch fresh in background
+    if (profileSummary) {
+      fetchProfile() // This will fetch in background
+    } else {
+      // No cache, fetch immediately
+      fetchProfile()
+    }
+  }, []) // Only run once on mount
 
   useEffect(() => {
     const handleProfileUpdated = () => fetchProfile()

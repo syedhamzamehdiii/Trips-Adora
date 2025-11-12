@@ -176,20 +176,30 @@ const Header = ({ activePage = '' }) => {
   const handleMarkAllRead = useCallback(async () => {
     if (!notifications.length) return;
     const token = localStorage.getItem('access_token');
-    const updated = notifications.map((n) =>
-      n.read ? n : { ...n, read: true, read_at: new Date().toISOString() }
-    );
-    persistNotifications(updated);
+    
+    // Clear all notifications (mark as read and remove them)
+    persistNotifications([]);
 
     if (token) {
       try {
         await notificationService.markAllAsRead();
+        // Also delete all notifications from backend
+        for (const notification of notifications) {
+          try {
+            await notificationService.deleteNotification(notification.id);
+          } catch (error) {
+            console.error('Error deleting notification:', error);
+          }
+        }
       } catch (error) {
         console.error('Error marking all notifications as read:', error);
-        fetchNotifications();
       }
     }
-  }, [notifications, persistNotifications, fetchNotifications]);
+    
+    // Close modal after clearing
+    setShowAllNotificationsModal(false);
+    setShowNotifications(false);
+  }, [notifications, persistNotifications]);
 
   const handleDeleteNotification = useCallback(async (id) => {
     if (!id) return;
@@ -315,12 +325,12 @@ const Header = ({ activePage = '' }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            clearNotificationsCache();
+                            handleMarkAllRead();
                           }}
-                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Clear all notifications"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
                         >
-                          <FiX className="w-5 h-5" />
+                          <FiCheck className="w-3 h-3" />
+                          Mark as read
                         </button>
                       )}
                     </div>
@@ -451,44 +461,18 @@ const Header = ({ activePage = '' }) => {
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900">All Notifications</h2>
               <div className="flex items-center gap-3">
-                {unreadCount > 0 && (
-                  <>
-                    <span className="text-sm text-gray-600 font-medium">Unread: {unreadCount}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMarkAllRead();
-                      }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
-                    >
-                      <FiCheck className="w-4 h-4" />
-                      Mark all read
-                    </button>
-                  </>
-                )}
                 {notifications.length > 0 && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      clearNotificationsCache();
+                      handleMarkAllRead();
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors font-medium"
-                    title="Clear all notifications"
+                    className="inline-flex items-center gap-1 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
                   >
-                    <FiX className="w-4 h-4" />
-                    Clear all
+                    <FiCheck className="w-4 h-4" />
+                    Mark as read
                   </button>
                 )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowAllNotificationsModal(false);
-                  }}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Close modal"
-                >
-                  <FiX className="w-6 h-6" />
-                </button>
               </div>
             </div>
 
@@ -521,49 +505,14 @@ const Header = ({ activePage = '' }) => {
                       >
                         <div className={`w-3 h-3 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 pr-6">{n.title}</p>
+                          <p className="text-sm font-semibold text-gray-900">{n.title}</p>
                           {n.message && (
                             <p className="text-sm text-gray-600 mt-1">{n.message}</p>
                           )}
                           <p className="text-xs text-gray-500 mt-2">
                             {new Date(n.created_at || n.createdAt).toLocaleString()}
                           </p>
-                          <div className="flex items-center gap-3 mt-3">
-                            {!n.read && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  markAsRead(n.id);
-                                }}
-                                className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-                              >
-                                <FiCheck className="w-4 h-4" />
-                                Mark as read
-                              </button>
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteNotification(n.id);
-                              }}
-                              className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                            >
-                              <FiTrash2 className="w-4 h-4" />
-                              Delete
-                            </button>
-                          </div>
                         </div>
-                        {/* Quick delete cross button - top right corner */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteNotification(n.id);
-                          }}
-                          className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                          title="Delete notification"
-                        >
-                          <FiX className="w-4 h-4" />
-                        </button>
                         {!n.read && (
                           <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
                         )}
