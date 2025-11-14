@@ -38,11 +38,27 @@ class ReviewService:
         return doc
 
     @staticmethod
-    async def list_reviews(user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    async def list_reviews(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         try:
+            # Use projection to fetch only necessary fields for faster queries
             cursor = (
                 ReviewService._collection()
-                .find({"user_id": user_id})
+                .find(
+                    {"user_id": user_id},
+                    {
+                        "user_id": 1,
+                        "product_id": 1,
+                        "product_title": 1,
+                        "booking_id": 1,
+                        "rating": 1,
+                        "title": 1,
+                        "content": 1,
+                        "visited_at": 1,
+                        "author": 1,
+                        "created_at": 1,
+                        "updated_at": 1,
+                    }
+                )
                 .sort("created_at", -1)
                 .limit(limit)
             )

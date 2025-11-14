@@ -46,7 +46,23 @@ class ProfileService:
     async def get_profile(user_id: str) -> Optional[Dict[str, Any]]:
         collection = ProfileService._collection()
         try:
-            document = await collection.find_one({"user_id": user_id})
+            # Use projection to fetch only necessary fields for faster queries
+            document = await collection.find_one(
+                {"user_id": user_id},
+                {
+                    "user_id": 1,
+                    "user": 1,
+                    "wishlist": 1,
+                    "created_at": 1,
+                    "updated_at": 1,
+                    # Exclude heavy fields that are computed separately
+                    # "stats": 0,
+                    # "upcoming_trips": 0,
+                    # "recent_activity": 0,
+                    # "travel_preferences": 0,
+                    # "refer_and_earn": 0,
+                }
+            )
         except (ConnectionError, AutoReconnect, ServerSelectionTimeoutError) as exc:
             raise DatabaseUnavailableError("Profile data is currently unavailable.") from exc
         if not document:

@@ -78,7 +78,21 @@ class WalletService:
 
     @staticmethod
     async def get_wallet(user_id: str) -> Optional[Dict[str, Any]]:
-        doc = await WalletService._collection().find_one({"user_id": user_id})
+        # Use projection to fetch only necessary fields for faster queries
+        doc = await WalletService._collection().find_one(
+            {"user_id": user_id},
+            {
+                "user_id": 1,
+                "balances": 1,
+                "preferences": 1,
+                "payment_methods": 1,
+                "bank_accounts": 1,
+                "payment_history": 1,
+                "recent_transactions": 1,
+                "created_at": 1,
+                "updated_at": 1,
+            }
+        )
         if not doc:
             return None
         return WalletService._prepare(doc)

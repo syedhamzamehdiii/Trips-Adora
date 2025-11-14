@@ -165,19 +165,11 @@ const MainHeader = () => {
               {/* Left Side Dropdowns */}
               <div className="flex items-center space-x-8">
                 <div 
-                  ref={exploreRef}
-                  className="flex items-center text-gray-900 cursor-pointer group"
-                  onClick={() => setIsExploreOpen(!isExploreOpen)}
-                >
-                  <span className="text-sm font-medium group-hover:opacity-80">Things to do</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
-                </div>
-                <div 
                   ref={attractionsRef}
                   className="flex items-center text-gray-900 cursor-pointer group"
                   onClick={() => setIsAttractionsOpen(!isAttractionsOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:opacity-80">Top Attractions of Japan</span>
+                  <span className="text-sm font-medium group-hover:opacity-80">Top Attractions</span>
                   <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
                 </div>
                 <div 
@@ -185,7 +177,15 @@ const MainHeader = () => {
                   className="flex items-center text-gray-900 cursor-pointer group"
                   onClick={() => setIsDestinationsOpen(!isDestinationsOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:opacity-80">Trips Inspiration</span>
+                  <span className="text-sm font-medium group-hover:opacity-80">Top Destinations</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
+                </div>
+                <div 
+                  ref={exploreRef}
+                  className="flex items-center text-gray-900 cursor-pointer group"
+                  onClick={() => setIsExploreOpen(!isExploreOpen)}
+                >
+                  <span className="text-sm font-medium group-hover:opacity-80">Explore TripsAdora</span>
                   <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
                 </div>
               </div>

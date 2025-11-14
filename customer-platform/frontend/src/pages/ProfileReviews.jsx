@@ -102,31 +102,67 @@ const ProfileReviews = () => {
   const [isSortOpen, setIsSortOpen] = useState(false)
   const textareaRef = useRef(null)
 
-  const userId = useMemo(
-    () => localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID,
-    []
-  )
+  // Compute userId synchronously for initial state
+  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
 
   const hasLoadedOnceRef = useRef(false)
 
+  // Load cached reviews immediately on mount (synchronous)
+  const [initialReviews] = useState(() => {
+    try {
+      const cached = localStorage.getItem(`customer_reviews_cache_${userId}`);
+      const timestamp = localStorage.getItem(`customer_reviews_cache_ts_${userId}`);
+      if (cached && timestamp) {
+        const age = Date.now() - parseInt(timestamp, 10);
+        if (age < 5 * 60 * 1000) { // 5 minutes
+          return JSON.parse(cached);
+        }
+      }
+    } catch (_) {
+      // Ignore cache errors
+    }
+    return null;
+  })
+
+  // Set initial reviews from cache if available
+  useEffect(() => {
+    if (initialReviews) {
+      setReviews(initialReviews)
+      setLoading(false)
+      hasLoadedOnceRef.current = true
+    }
+  }, [initialReviews])
+
   const fetchReviews = useCallback(async () => {
-    setLoading(!hasLoadedOnceRef.current)  // Only show loading on first load
+    // Only show loading if we don't have cached data
+    if (!initialReviews) {
+      setLoading(true)
+    }
     setError(null)
     try {
-      const data = await getReviews(userId)
+      const data = await getReviews(userId, true) // Use cache
       setReviews(data)
       hasLoadedOnceRef.current = true
     } catch (err) {
-      setError(err?.message || 'Unable to load reviews right now.')
-      setReviews([])
+      // Only show error if we don't have cached data
+      if (!initialReviews) {
+        setError(err?.message || 'Unable to load reviews right now.')
+        setReviews([])
+      }
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, initialReviews])
 
   useEffect(() => {
-    fetchReviews()
-  }, [fetchReviews])
+    // If we have cached data, fetch fresh in background
+    if (initialReviews) {
+      fetchReviews() // This will fetch in background
+    } else {
+      // No cache, fetch immediately
+      fetchReviews()
+    }
+  }, []) // Only run once on mount
 
   useEffect(() => {
     const handleRefresh = () => fetchReviews()

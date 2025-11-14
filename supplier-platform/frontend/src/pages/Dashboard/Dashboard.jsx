@@ -73,9 +73,26 @@ const Dashboard = () => {
     },
     bookings: [],
   };
-  const [dashboardData, setDashboardData] = useState(DEFAULT_DASHBOARD);
+  // Load cached dashboard data immediately on mount (synchronous)
+  const [dashboardData, setDashboardData] = useState(() => {
+    try {
+      const cached = localStorage.getItem('supplier_dashboard_cache');
+      const timestamp = localStorage.getItem('supplier_dashboard_cache_ts');
+      if (cached && timestamp) {
+        const age = Date.now() - parseInt(timestamp, 10);
+        if (age < 2 * 60 * 1000) { // 2 minutes
+          const overview = JSON.parse(cached);
+          return transformOverviewToDashboardState(overview, DEFAULT_DASHBOARD);
+        }
+      }
+    } catch (_) {
+      // Ignore cache errors
+    }
+    return DEFAULT_DASHBOARD;
+  });
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState(null);
+  const hasLoadedOnceRef = useRef(false);
 
   const transformOverviewToDashboardState = (overview, previous = dashboardData) => {
     const metrics = overview?.metrics || {};
@@ -161,40 +178,31 @@ const Dashboard = () => {
         }
       } catch (_) {}
     };
-    
-    loadProfile();
-    
-    // Listen for updates
-    const handleUpdate = () => loadProfile();
-    window.addEventListener('account_settings_updated', handleUpdate);
-    window.addEventListener('accountSettingsUpdated', handleUpdate);
-    
+
     const loadDashboardData = async () => {
-      // Only show loading if no data exists
-      if (!dashboardData || Object.keys(dashboardData).length === 0) {
+      // Only show loading if we don't have cached data
+      const hasCachedData = dashboardData && Object.keys(dashboardData).length > 0 && 
+        dashboardData.balance !== undefined && dashboardData.balance !== null;
+      
+      if (!hasCachedData) {
         setDashboardLoading(true);
       }
       setDashboardError(null);
       try {
-        const overview = await dashboardService.getOverview();
-        const transformed = transformOverviewToDashboardState(overview);
+        const overview = await dashboardService.getOverview(true); // Use cache
+        const transformed = transformOverviewToDashboardState(overview, dashboardData);
         setDashboardData(transformed);
+        hasLoadedOnceRef.current = true;
       } catch (error) {
         console.error('Error loading dashboard data:', error);
-        setDashboardError(error?.message || 'Unable to load dashboard data right now.');
-        if (!dashboardData || Object.keys(dashboardData).length === 0) {
+        // Only show error if we don't have cached data
+        if (!hasCachedData) {
+          setDashboardError(error?.message || 'Unable to load dashboard data right now.');
           setDashboardData(DEFAULT_DASHBOARD);
         }
       } finally {
         setDashboardLoading(false);
       }
-    };
-    
-    loadDashboardData();
-    
-    return () => {
-      window.removeEventListener('account_settings_updated', handleUpdate);
-      window.removeEventListener('accountSettingsUpdated', handleUpdate);
     };
 
     const loadDraftProducts = async () => {
@@ -332,11 +340,22 @@ const Dashboard = () => {
       setPopularActivities(topActivities);
     };
 
+    // Load all data
     loadProfile();
-    loadDashboardData();
+    
+    // If we have cached dashboard data, fetch fresh in background
+    if (dashboardData && Object.keys(dashboardData).length > 0 && 
+        dashboardData.balance !== undefined && dashboardData.balance !== null) {
+      loadDashboardData(); // This will fetch in background
+    } else {
+      // No cache, fetch immediately
+      loadDashboardData();
+    }
+    
     loadDraftProducts();
     loadPopularActivities();
     
+    // Listen for updates
     window.addEventListener('account_settings_updated', loadProfile);
     window.addEventListener('accountSettingsUpdated', loadProfile);
     window.addEventListener('storage', loadProfile);

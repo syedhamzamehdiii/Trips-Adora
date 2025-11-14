@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiInfo, FiMail } from 'react-icons/fi'
 
@@ -6,19 +6,51 @@ const ExploreTripsAdoraDropdown = ({ isOpen, onClose, triggerRef }) => {
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const navigate = useNavigate()
 
-  useEffect(() => {
-    if (isOpen && triggerRef?.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      const dropdownWidth = 560
-
-      let left = rect.left
-      if (left + dropdownWidth > window.innerWidth - 20) {
-        left = window.innerWidth - dropdownWidth - 20
-      }
-
-      setPosition({ top: rect.bottom + 5, left })
+  const calculatePosition = useCallback(() => {
+    if (!isOpen || !triggerRef?.current) return
+    
+    const rect = triggerRef.current.getBoundingClientRect()
+    const dropdownWidth = 560
+    const padding = 20
+    
+    // Position dropdown below the link, aligned to left edge of trigger
+    let left = rect.left
+    
+    // Ensure dropdown doesn't go off the right edge
+    if (left + dropdownWidth > window.innerWidth - padding) {
+      left = window.innerWidth - dropdownWidth - padding
     }
+    
+    // Ensure dropdown doesn't go off the left edge
+    if (left < padding) {
+      left = padding
+    }
+    
+    setPosition({ 
+      top: rect.bottom + 5, 
+      left: left 
+    })
   }, [isOpen, triggerRef])
+
+  useEffect(() => {
+    if (isOpen) {
+      // Calculate position immediately
+      calculatePosition()
+      
+      // Recalculate on scroll and resize
+      const handleUpdate = () => {
+        requestAnimationFrame(calculatePosition)
+      }
+      
+      window.addEventListener('scroll', handleUpdate, true)
+      window.addEventListener('resize', handleUpdate)
+      
+      return () => {
+        window.removeEventListener('scroll', handleUpdate, true)
+        window.removeEventListener('resize', handleUpdate)
+      }
+    }
+  }, [isOpen, calculatePosition])
 
   if (!isOpen) return null
 
