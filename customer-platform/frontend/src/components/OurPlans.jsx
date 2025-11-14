@@ -90,26 +90,7 @@ const OurPlans = () => {
 			<div className='w-full border-t border-[#E9ECF1] bg-white'></div>
 		</section>
 
-		{/* Category pills under hero */}
-		<section className='w-full bg-[#F7F9FF] border-t border-b border-[#E9ECF1]'>
-			<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-				
-
-
-				<div className="flex flex-wrap items-center justify-start gap-2 py-3 overflow-x-auto">
-  {['All Experience', 'Admission Tickets', 'Guide Tours', 'Day Trips', 'Private Tours'].map((t, idx) => (
-    <button
-      key={idx}
-      style={{ fontFamily: 'Poppins' }}
-      className="px-7 py-2 mx-5 rounded-full text-sm  whitespace-nowrap bg-white shadow-sm border border-[#E9ECF1] text-[#8C8B8B]"
-    >
-      {t}
-    </button>
-  ))}
-</div>
-
-			</div>
-		</section>
+		
 
 		{/* Mount Fuji at a Glance */}
 		<section className='py-10 bg-[#ffffff]'>
