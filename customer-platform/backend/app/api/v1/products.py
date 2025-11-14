@@ -133,8 +133,25 @@ async def get_product(product_id: str):
                 detail="Product not found"
             )
         
+        # DEBUG: Log raw product data from MongoDB
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"🔍 [DEBUG] Raw product from MongoDB (ID: {product_id}):")
+        logger.info(f"   - guide_type: {product.get('guide_type')}")
+        logger.info(f"   - things_to_carry: {product.get('things_to_carry')}")
+        logger.info(f"   - languages: {product.get('languages')}")
+        logger.info(f"   - included_excluded: {product.get('included_excluded')}")
+        logger.info(f"   - vehicle_details: {product.get('vehicle_details')}")
+        logger.info(f"   - accessibility: {product.get('accessibility')}")
+        logger.info(f"   - highlights: {product.get('highlights')}")
+        logger.info(f"   - itinerary: {len(product.get('itinerary', []))} items")
+        logger.info(f"   - pickup_dropoff: {product.get('pickup_dropoff')}")
+        
         # Import schemas
-        from app.schemas.product import Highlight, IncludedExcluded, ItineraryItem, PickupDropoff
+        from app.schemas.product import (
+            Highlight, IncludedExcluded, ItineraryItem, PickupDropoff,
+            VehicleDetails, Accessibility, FAQ
+        )
         
         # Format highlights
         highlights = []
@@ -153,6 +170,65 @@ async def get_product(product_id: str):
                 included=inc_exc.get("included", []) if isinstance(inc_exc, dict) else [],
                 excluded=inc_exc.get("excluded", []) if isinstance(inc_exc, dict) else []
             )
+        
+        # Extract guide_type, things_to_carry, languages
+        guide_type = product.get("guide_type")
+        things_to_carry = product.get("things_to_carry", [])
+        if not isinstance(things_to_carry, list):
+            things_to_carry = [things_to_carry] if things_to_carry else []
+        
+        languages = product.get("languages", [])
+        if not isinstance(languages, list):
+            languages = [languages] if languages else []
+        
+        # DEBUG: Log extracted values
+        logger.info(f"🔍 [DEBUG] Extracted values:")
+        logger.info(f"   - guide_type: {guide_type}")
+        logger.info(f"   - things_to_carry: {things_to_carry}")
+        logger.info(f"   - languages: {languages}")
+        
+        # Format vehicle_details
+        vehicle_details = None
+        if product.get("vehicle_details"):
+            vd = product.get("vehicle_details")
+            if isinstance(vd, dict):
+                vehicle_details = VehicleDetails(
+                    vehicle_type=vd.get("vehicle_type"),
+                    vehicle_model=vd.get("vehicle_model"),
+                    vehicle_year=vd.get("vehicle_year"),
+                    capacity=vd.get("capacity")
+                )
+        
+        # Format accessibility
+        accessibility = None
+        if product.get("accessibility"):
+            acc = product.get("accessibility")
+            if isinstance(acc, dict):
+                accessibility = Accessibility(
+                    wheelchair_accessible=acc.get("wheelchair_accessible", False),
+                    service_animals_allowed=acc.get("service_animals_allowed", False),
+                    infant_seat_available=acc.get("infant_seat_available", False),
+                    stroller_friendly=acc.get("stroller_friendly", False)
+                )
+        
+        # Format FAQs
+        faqs = []
+        if product.get("faqs"):
+            for f in product.get("faqs", []):
+                if isinstance(f, dict):
+                    faqs.append(FAQ(question=f.get("question", ""), answer=f.get("answer", "")))
+        
+        # Extract selling_points and style_theme
+        selling_points = product.get("selling_points", [])
+        if not isinstance(selling_points, list):
+            selling_points = [selling_points] if selling_points else []
+        
+        style_theme = product.get("style_theme")
+        
+        # Extract gallery_images
+        gallery_images = product.get("gallery_images", [])
+        if not isinstance(gallery_images, list):
+            gallery_images = []
         
         # Helper to normalize list values
         def _ensure_list(value):
@@ -216,26 +292,38 @@ async def get_product(product_id: str):
         pickup_time = product.get("pickupTime") or pickup_time
 
         pd = product.get("pickup_dropoff")
+        available_days = []
+        available_time_slots = []
+        
         if isinstance(pd, dict):
-            pickup_locations.extend(_ensure_list(pd.get("pickup_locations") or pd.get("pickup_location")))
-            dropoff_locations.extend(_ensure_list(pd.get("dropoff_locations") or pd.get("dropoff_location")))
+            # Support both singular and plural field names
+            pickup_loc = pd.get("pickup_locations") or pd.get("pickup_location")
+            dropoff_loc = pd.get("dropoff_locations") or pd.get("dropoff_location")
+            pickup_locations.extend(_ensure_list(pickup_loc))
+            dropoff_locations.extend(_ensure_list(dropoff_loc))
             pickup_time = pd.get("pickup_time") or pickup_time
+            # Also extract available_days and available_time_slots
+            available_days = pd.get("available_days", [])
+            available_time_slots = pd.get("available_time_slots", [])
 
         # Remove falsy values while preserving order
         pickup_locations = [loc for loc in pickup_locations if loc]
         dropoff_locations = [loc for loc in dropoff_locations if loc]
-
+        
         pickup_dropoff = (
             PickupDropoff(
                 pickup_locations=pickup_locations,
                 pickup_time=pickup_time,
-                dropoff_locations=dropoff_locations
+                dropoff_locations=dropoff_locations,
+                available_days=available_days if isinstance(available_days, list) else [],
+                available_time_slots=available_time_slots if isinstance(available_time_slots, list) else []
             )
             if (pickup_locations or dropoff_locations or pickup_time)
             else None
         )
         
-        return ProductResponse(
+        # Create response
+        response = ProductResponse(
             id=product.get("id", ""),
             title=product.get("title", ""),
             tagline=product.get("tagline"),
@@ -243,6 +331,7 @@ async def get_product(product_id: str):
             category=product.get("category", "tour"),
             images=product.get("images", []),
             hero_image=product.get("hero_image"),
+            gallery_images=gallery_images,
             price=product.get("price", 0.0),
             currency=product.get("currency", "USD"),
             price_unit=product.get("price_unit", "Per Group"),
@@ -257,11 +346,33 @@ async def get_product(product_id: str):
             published_at=product.get("published_at"),
             location=product.get("location"),
             groupSize=product.get("groupSize"),
+            # Product details fields
+            guide_type=guide_type,
+            things_to_carry=things_to_carry,
+            languages=languages,
             highlights=highlights,
             included_excluded=included_excluded,
             itinerary=itinerary,
-            pickup_dropoff=pickup_dropoff
+            pickup_dropoff=pickup_dropoff,
+            vehicle_details=vehicle_details,
+            accessibility=accessibility,
+            faqs=faqs,
+            selling_points=selling_points,
+            style_theme=style_theme
         )
+        
+        # DEBUG: Log response data
+        logger.info(f"🔍 [DEBUG] ProductResponse created:")
+        logger.info(f"   - guide_type: {response.guide_type}")
+        logger.info(f"   - things_to_carry count: {len(response.things_to_carry)}")
+        logger.info(f"   - languages count: {len(response.languages)}")
+        logger.info(f"   - highlights count: {len(response.highlights)}")
+        logger.info(f"   - included_excluded: {response.included_excluded is not None}")
+        logger.info(f"   - itinerary count: {len(response.itinerary)}")
+        logger.info(f"   - vehicle_details: {response.vehicle_details is not None}")
+        logger.info(f"   - accessibility: {response.accessibility is not None}")
+        
+        return response
     except HTTPException:
         raise
     except Exception as e:

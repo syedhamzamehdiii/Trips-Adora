@@ -261,7 +261,7 @@ export const getTopPicks = async (limit = 4, retries = 3) => {
 };
 
 /**
- * Fetch a single product by ID
+ * Fetch a single product by ID - Gets FULL product details with all fields
  */
 export const getProductById = async (productId) => {
   // Validate productId
@@ -270,26 +270,42 @@ export const getProductById = async (productId) => {
     return null;
   }
   
-  // Try API first
+  // Try API first - This endpoint returns FULL product details
   try {
     const url = `${API_BASE_URL}/products/${productId}`;
-    console.log('📡 Fetching product from API:', url);
+    console.log('📡 [DEBUG] getProductById - Fetching FULL product details from API:', url);
     const response = await fetch(url);
     
     if (response.ok) {
       const data = await response.json();
-      console.log('✅ Product fetched from API:', data.title || data.name);
+      console.log('✅ [DEBUG] getProductById - Product fetched from API:', {
+        id: data.id,
+        title: data.title,
+        hasGuideType: !!data.guide_type,
+        hasThingsToCarry: Array.isArray(data.things_to_carry) && data.things_to_carry.length > 0,
+        hasLanguages: Array.isArray(data.languages) && data.languages.length > 0,
+        hasIncludedExcluded: !!data.included_excluded,
+        hasVehicleDetails: !!data.vehicle_details,
+        hasAccessibility: !!data.accessibility,
+        highlightsCount: Array.isArray(data.highlights) ? data.highlights.length : 0,
+        itineraryCount: Array.isArray(data.itinerary) ? data.itinerary.length : 0
+      });
       return data;
     } else {
-      console.log(`⚠️ API returned ${response.status}, trying localStorage fallback...`);
+      console.log(`⚠️ [DEBUG] getProductById - API returned ${response.status}, trying localStorage fallback...`);
+      const errorText = await response.text();
+      console.log(`⚠️ [DEBUG] getProductById - Error response:`, errorText);
     }
   } catch (error) {
-    console.log('❌ API failed, trying localStorage fallback...', error);
+    console.log('❌ [DEBUG] getProductById - API failed, trying localStorage fallback...', error);
   }
   
   // Fallback to supplier backend cache
   const localStorageProducts = await getSupplierLocalStorageProducts();
   const product = localStorageProducts.find(p => p.id === productId || p.id === String(productId));
+  if (product) {
+    console.log('⚠️ [DEBUG] getProductById - Using localStorage fallback (may have limited data)');
+  }
   return product || null;
 };
 
@@ -370,6 +386,20 @@ export const emitRealtimeUpdate = () => {
  * Transform product from API or localStorage to frontend format
  */
 export const transformProductForFrontend = (product) => {
+  // DEBUG: Log incoming product data
+  console.log('🔍 [DEBUG] transformProductForFrontend - Raw product:', {
+    id: product.id,
+    guide_type: product.guide_type,
+    things_to_carry: product.things_to_carry,
+    languages: product.languages,
+    included_excluded: product.included_excluded,
+    vehicle_details: product.vehicle_details,
+    accessibility: product.accessibility,
+    highlights: product.highlights,
+    itinerary: product.itinerary,
+    pickup_dropoff: product.pickup_dropoff
+  });
+  
   // Handle both API format and localStorage format
   // Get image from various sources - prioritize coverImage/hero_image
   let image = null;
@@ -409,7 +439,28 @@ export const transformProductForFrontend = (product) => {
   const reviewsCount = product.reviews_count || 0;
   const reviewsText = reviewsCount >= 1000 ? `${(reviewsCount / 1000).toFixed(1)}k reviews` : reviewsCount >= 100 ? `${reviewsCount} reviews` : '384 reviews';
 
-  return {
+  // Transform vehicle_details to vehicles array
+  let vehicles = product.vehicles || [];
+  if (product.vehicle_details && !vehicles.length) {
+    // Convert vehicle_details object to vehicles array format
+    const vd = product.vehicle_details;
+    vehicles = [{
+      type: vd.vehicle_type || '',
+      model: vd.vehicle_model || '',
+      year: vd.vehicle_year || '',
+      capacity: vd.capacity || null
+    }];
+  }
+
+  // Extract meeting points from pickup_dropoff
+  const pickupDropoff = product.pickup_dropoff || {};
+  const meetingPoints = pickupDropoff.pickup_locations || 
+                       (Array.isArray(product.pickupLocations) ? product.pickupLocations : []);
+  const pickupTime = pickupDropoff.pickup_time || product.pickupTime || '';
+  const availableDays = pickupDropoff.available_days || product.availableDays || [];
+  const availableTimeSlots = pickupDropoff.available_time_slots || product.availableTimeSlots || [];
+
+  const transformed = {
     id: product.id,
     name: product.name || product.title || product.productTitle || 'Untitled Product',
     image: image,
@@ -431,17 +482,36 @@ export const transformProductForFrontend = (product) => {
     tagline: product.tagline,
     highlights: product.highlights || [],
     itineraries: product.itineraries || product.itinerary || [],
-    vehicles: product.vehicles || [],
+    vehicles: vehicles,
+    // Product details fields
+    guideType: product.guide_type,
+    thingsToCarry: product.things_to_carry || [],
+    languages: product.languages || [],
+    accessibility: product.accessibility || null,
     // meeting points - from pickup_dropoff or pickupLocations
-    meetingPoints: product.pickup_dropoff?.pickup_locations || 
-                   (Array.isArray(product.pickupLocations) ? product.pickupLocations : []),
-    pickupTime: product.pickup_dropoff?.pickup_time || product.pickupTime || '',
+    meetingPoints: meetingPoints,
+    pickupTime: pickupTime,
     // included/excluded
     includedItems: product.included_excluded?.included || 
                    (product.includedItems ? (Array.isArray(product.includedItems) ? product.includedItems : [product.includedItems]) : []),
     excludedItems: product.included_excluded?.excluded || 
                    (product.excludedItems ? (Array.isArray(product.excludedItems) ? product.excludedItems : [product.excludedItems]) : []),
-    availableDays: product.availableDays || [],
-    availableTimeSlots: product.availableTimeSlots || []
+    availableDays: availableDays,
+    availableTimeSlots: availableTimeSlots
   };
+  
+  // DEBUG: Log transformed product
+  console.log('🔍 [DEBUG] transformProductForFrontend - Transformed product:', {
+    guideType: transformed.guideType,
+    thingsToCarry: transformed.thingsToCarry,
+    languages: transformed.languages,
+    includedItems: transformed.includedItems,
+    excludedItems: transformed.excludedItems,
+    vehicles: transformed.vehicles,
+    accessibility: transformed.accessibility,
+    highlights: transformed.highlights,
+    itineraries: transformed.itineraries
+  });
+  
+  return transformed;
 };

@@ -145,6 +145,9 @@ class ProductService:
             db = get_database()
             collection = db.products
             
+            # DEBUG: Log query
+            logger.info(f"🔍 [DEBUG] ProductService.get_product_by_id - Querying MongoDB for product_id: {product_id}")
+            
             product = await collection.find_one(
                 {
                     "_id": ObjectId(product_id), 
@@ -154,12 +157,27 @@ class ProductService:
             )
             
             if product:
-                return ProductService._format_product(product, is_detail=True)
+                # DEBUG: Log what was fetched from MongoDB
+                logger.info(f"🔍 [DEBUG] ProductService.get_product_by_id - Raw MongoDB document keys: {list(product.keys())}")
+                logger.info(f"🔍 [DEBUG] ProductService.get_product_by_id - Has guide_type: {'guide_type' in product}")
+                logger.info(f"🔍 [DEBUG] ProductService.get_product_by_id - Has things_to_carry: {'things_to_carry' in product}")
+                logger.info(f"🔍 [DEBUG] ProductService.get_product_by_id - Has languages: {'languages' in product}")
+                logger.info(f"🔍 [DEBUG] ProductService.get_product_by_id - Has included_excluded: {'included_excluded' in product}")
+                logger.info(f"🔍 [DEBUG] ProductService.get_product_by_id - Has vehicle_details: {'vehicle_details' in product}")
+                logger.info(f"🔍 [DEBUG] ProductService.get_product_by_id - Has accessibility: {'accessibility' in product}")
+                
+                formatted = ProductService._format_product(product, is_detail=True)
+                logger.info(f"🔍 [DEBUG] ProductService.get_product_by_id - Formatted product keys: {list(formatted.keys()) if formatted else 'None'}")
+                return formatted
+            else:
+                logger.warning(f"🔍 [DEBUG] ProductService.get_product_by_id - Product not found or not published")
             
             return None
             
         except Exception as e:
             logger.error(f"❌ Error fetching product by ID: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     @staticmethod

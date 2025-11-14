@@ -64,30 +64,97 @@ const ProductDetails = () => {
           return
         }
         
-        // Try to find by name (slug) first in published list
-        const data = await getPublishedProducts({ page: 1, page_size: 50 })
-        const list = (data.products || []).map(transformProductForFrontend)
-        const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-')
+        // IMPORTANT: Always fetch full product details by ID for detail page
+        // The /published endpoint uses LIST_PROJECTION which excludes detail fields
+        // We need to use /products/{id} endpoint to get all fields
+        console.log('🔍 [DEBUG] ProductDetails - Fetching full product details for:', identifier);
         
-        // First try to find by name (slug) - this works for /tours/:slug routes
-        let found = list.find(p => normalize(p.name) === String(identifier).toLowerCase())
+        let found = null;
         
-        // If not found by name, try to find by ID in the list
-        if (!found) {
-          found = list.find(p => String(p.id) === String(identifier))
+        // First, try to fetch by ID directly (this gets ALL fields)
+        // Check if identifier looks like an ObjectId (24 hex characters)
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(String(identifier));
+        
+        if (isObjectId) {
+          // It's an ID, fetch directly
+          console.log('🔍 [DEBUG] ProductDetails - Identifier is ObjectId, fetching by ID');
+          const byId = await getProductById(String(identifier));
+          if (byId) {
+            found = transformProductForFrontend(byId);
+            console.log('🔍 [DEBUG] ProductDetails - Fetched by ID, has full data:', {
+              guideType: found?.guideType,
+              thingsToCarry: found?.thingsToCarry?.length,
+              languages: found?.languages?.length,
+              includedItems: found?.includedItems?.length,
+              excludedItems: found?.excludedItems?.length,
+              vehicles: found?.vehicles?.length,
+              accessibility: found?.accessibility ? 'yes' : 'no'
+            });
+          }
+        } else {
+          // It's a slug, try to find in list first to get ID, then fetch full details
+          console.log('🔍 [DEBUG] ProductDetails - Identifier is slug, searching in list first');
+          const data = await getPublishedProducts({ page: 1, page_size: 50 });
+          const list = (data.products || []).map(transformProductForFrontend);
+          const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-');
+          
+          // Find by slug
+          const listProduct = list.find(p => normalize(p.name) === String(identifier).toLowerCase());
+          
+          if (listProduct && listProduct.id) {
+            // Found in list, now fetch full details by ID
+            console.log('🔍 [DEBUG] ProductDetails - Found in list, fetching full details by ID:', listProduct.id);
+            const byId = await getProductById(String(listProduct.id));
+            if (byId) {
+              found = transformProductForFrontend(byId);
+              console.log('🔍 [DEBUG] ProductDetails - Fetched full details, has data:', {
+                guideType: found?.guideType,
+                thingsToCarry: found?.thingsToCarry?.length,
+                languages: found?.languages?.length,
+                includedItems: found?.includedItems?.length,
+                excludedItems: found?.excludedItems?.length,
+                vehicles: found?.vehicles?.length,
+                accessibility: found?.accessibility ? 'yes' : 'no'
+              });
+            } else {
+              // Fallback to list product if API fails
+              found = listProduct;
+              console.log('🔍 [DEBUG] ProductDetails - API fetch failed, using list product (limited data)');
+            }
+          } else {
+            // Not found in list, try direct fetch anyway
+            console.log('🔍 [DEBUG] ProductDetails - Not found in list, trying direct fetch');
+            const byId = await getProductById(String(identifier));
+            if (byId) found = transformProductForFrontend(byId);
+          }
         }
         
-        // If still not found, try fetching by ID from API (for /product-details/:id routes)
-        if (!found) {
-          const byId = await getProductById(String(identifier))
-          if (byId) found = transformProductForFrontend(byId)
+        // DEBUG: Log final found product
+        if (found) {
+          console.log('🔍 [DEBUG] ProductDetails - Final product data:', {
+            id: found.id,
+            name: found.name,
+            guideType: found.guideType,
+            thingsToCarry: found.thingsToCarry,
+            languages: found.languages,
+            includedItems: found.includedItems,
+            excludedItems: found.excludedItems,
+            vehicles: found.vehicles,
+            accessibility: found.accessibility,
+            highlights: found.highlights,
+            itineraries: found.itineraries
+          });
+        } else {
+          console.log('🔍 [DEBUG] ProductDetails - Product not found for identifier:', identifier);
         }
         
         if (!cancelled) {
           setProduct(found || null)
           if (found) addRecentlyViewed(found)
         }
-        // Recommended from explore (most clicked)
+        // Recommended from explore (most clicked) - use list for recommendations
+        const data = await getPublishedProducts({ page: 1, page_size: 50 })
+        const list = (data.products || []).map(transformProductForFrontend)
         const clicks = getProductClicks()
         const sorted = list
           .map(p => ({ ...p, clicks: clicks[p.id] || 0 }))
@@ -331,15 +398,96 @@ const ProductDetails = () => {
                 <div className="space-y-3 sm:space-y-4">
                   {(product.vehicles || []).length > 0 ? (
                     product.vehicles.map((v, idx) => (
-                      <div key={idx}>
-                        <p className="text-black font-bold text-sm sm:text-base">{v.model || v.type || 'Vehicle'}</p>
-                        <p className="text-gray-500 text-xs sm:text-sm">{v.capacity ? `Up to ${v.capacity} Passengers` : ''}</p>
+                      <div key={idx} className="border border-gray-200 rounded-lg p-3 sm:p-4">
+                        <p className="text-black font-bold text-sm sm:text-base mb-1">
+                          {v.model || v.type || 'Vehicle'} {v.year ? `(${v.year})` : ''}
+                        </p>
+                        {v.capacity && (
+                          <p className="text-gray-500 text-xs sm:text-sm">Up to {v.capacity} Passengers</p>
+                        )}
+                        {v.type && v.type !== v.model && (
+                          <p className="text-gray-500 text-xs sm:text-sm">Type: {v.type}</p>
+                        )}
                       </div>
                     ))
                   ) : (
                     <p className="text-gray-500 text-sm">No vehicles listed</p>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Trip Details Section - Guide Type, Things to Carry, Accessibility */}
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">Trip Details</h2>
+              <div className="border border-gray-200 rounded-lg p-4 sm:p-6 space-y-4">
+                {/* Guide Type */}
+                {product.guideType && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <UserPlus className="w-4 h-4 text-gray-600" />
+                      <h3 className="text-base sm:text-lg font-semibold text-black">Guide Type</h3>
+                    </div>
+                    <p className="text-gray-700 text-sm sm:text-base ml-6">{product.guideType}</p>
+                  </div>
+                )}
+
+                {/* Things to Carry */}
+                {product.thingsToCarry && product.thingsToCarry.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Check className="w-4 h-4 text-gray-600" />
+                      <h3 className="text-base sm:text-lg font-semibold text-black">Things to Carry</h3>
+                    </div>
+                    <ul className="space-y-1 ml-6">
+                      {product.thingsToCarry.map((item, idx) => (
+                        <li key={idx} className="text-gray-700 text-sm sm:text-base">• {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Accessibility */}
+                {product.accessibility && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Check className="w-4 h-4 text-gray-600" />
+                      <h3 className="text-base sm:text-lg font-semibold text-black">Accessibility</h3>
+                    </div>
+                    <div className="ml-6 space-y-2">
+                      {product.accessibility.wheelchair_accessible && (
+                        <p className="text-gray-700 text-sm sm:text-base flex items-center gap-2">
+                          <Check className="w-3 h-3 text-green-600" />
+                          Wheelchair accessible
+                        </p>
+                      )}
+                      {product.accessibility.service_animals_allowed && (
+                        <p className="text-gray-700 text-sm sm:text-base flex items-center gap-2">
+                          <Check className="w-3 h-3 text-green-600" />
+                          Service animals allowed
+                        </p>
+                      )}
+                      {product.accessibility.infant_seat_available && (
+                        <p className="text-gray-700 text-sm sm:text-base flex items-center gap-2">
+                          <Check className="w-3 h-3 text-green-600" />
+                          Infant seat available
+                        </p>
+                      )}
+                      {product.accessibility.stroller_friendly && (
+                        <p className="text-gray-700 text-sm sm:text-base flex items-center gap-2">
+                          <Check className="w-3 h-3 text-green-600" />
+                          Stroller friendly
+                        </p>
+                      )}
+                      {!product.accessibility.wheelchair_accessible && 
+                       !product.accessibility.service_animals_allowed && 
+                       !product.accessibility.infant_seat_available && 
+                       !product.accessibility.stroller_friendly && (
+                        <p className="text-gray-500 text-sm">No accessibility features listed</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -406,25 +554,41 @@ const ProductDetails = () => {
               {/* Tour Details */}
               <div className="mb-4 sm:mb-6">
                 <div className="space-y-2 sm:space-y-3">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <MessageSquareText className="w-4 h-4 text-gray-600" />
-                  <span className="text-black text-sm sm:text-base">English, Japanese</span>
-                  </div>
+                  {/* Languages - from product data */}
+                  {product.languages && product.languages.length > 0 && (
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <MessageSquareText className="w-4 h-4 text-gray-600" />
+                      <span className="text-black text-sm sm:text-base">{product.languages.join(', ')}</span>
+                    </div>
+                  )}
                   
+                  {/* Location */}
                   <div className="flex items-center gap-2 sm:gap-3">
                     <MapPin className="w-4 h-4 text-gray-600" />
-                  <span className="text-black text-sm sm:text-base">{product.location}</span>
+                    <span className="text-black text-sm sm:text-base">{product.location}</span>
                   </div>
                   
+                  {/* Duration */}
                   <div className="flex items-center gap-2 sm:gap-3">
                     <Clock className="w-4 h-4 text-gray-600" />
-                  <span className="text-black text-sm sm:text-base">{product.duration}</span>
+                    <span className="text-black text-sm sm:text-base">{product.duration}</span>
                   </div>
                   
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <Droplet className="w-4 h-4 text-gray-600" />
-                    <span className="text-black text-sm sm:text-base">Customised/Private</span>
-                  </div>
+                  {/* Activity Type - from product data */}
+                  {product.activity_type && (
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Droplet className="w-4 h-4 text-gray-600" />
+                      <span className="text-black text-sm sm:text-base">{product.activity_type}</span>
+                    </div>
+                  )}
+                  
+                  {/* Guide Type - from product data */}
+                  {product.guideType && (
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <UserPlus className="w-4 h-4 text-gray-600" />
+                      <span className="text-black text-sm sm:text-base">Guide: {product.guideType}</span>
+                    </div>
+                  )}
                   
                   <div className="flex items-center gap-2 sm:gap-3">
                     <UserPlus className="w-4 h-4 text-gray-600" />
