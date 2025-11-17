@@ -1,5 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
 from app.core.config import settings
+from app.models.user import User
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,10 @@ async def initiate_database():
 
         await db.client.admin.command("ping")
         logger.info("Successfully connected to MongoDB!")
+        
+        # Initialize Beanie with User model
+        await init_beanie(database=db.database, document_models=[User])
+        logger.info("Beanie initialized with User model!")
 
     except Exception as e:
         logger.error(f"Error connecting to MongoDB: {e}")

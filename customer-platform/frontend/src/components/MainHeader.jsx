@@ -5,12 +5,14 @@ import SettingsModal from './SettingsModal'
 import AttractionsDropdown from './AttractionsDropdown'
 import DestinationsDropdown from './DestinationsDropdown'
 import ExploreTripsAdoraDropdown from './ExploreTripsAdoraDropdown'
-import { getProfile } from '../services/profileService'
+import { getProfileSummary } from '../services/profileService'
+import { useAuth } from '../context/AuthContext'
 
 const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
 const MainHeader = () => {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const profileRef = useRef(null)
   
@@ -21,17 +23,19 @@ const MainHeader = () => {
   const destinationsRef = useRef(null)
   const exploreRef = useRef(null)
   const [isExploreOpen, setIsExploreOpen] = useState(false)
-  // Compute userId synchronously for initial state
-  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
+  
+  // Get userId only if authenticated - don't use default
+  const userId = isAuthenticated ? (localStorage.getItem('customer_profile_user_id') || null) : null
 
-  // Load cached profile immediately on mount (synchronous)
+  // Load cached profile summary immediately on mount (synchronous) - only if authenticated
   const [profileSummary, setProfileSummary] = useState(() => {
+    if (!isAuthenticated || !userId) return null
     try {
-      const cached = localStorage.getItem(`customer_profile_cache_${userId}`);
-      const timestamp = localStorage.getItem(`customer_profile_cache_ts_${userId}`);
+      const cached = localStorage.getItem(`customer_profile_summary_cache_${userId}`);
+      const timestamp = localStorage.getItem(`customer_profile_summary_cache_ts_${userId}`);
       if (cached && timestamp) {
         const age = Date.now() - parseInt(timestamp, 10);
-        if (age < 5 * 60 * 1000) { // 5 minutes
+        if (age < 10 * 60 * 1000) { // 10 minutes for summary
           return JSON.parse(cached);
         }
       }
@@ -43,12 +47,17 @@ const MainHeader = () => {
   const [profileLoading, setProfileLoading] = useState(false)
 
   const fetchProfileSummary = useCallback(async () => {
+    if (!isAuthenticated || !userId) {
+      setProfileSummary(null)
+      return
+    }
     // Only show loading if we don't have cached data
     if (!profileSummary) {
       setProfileLoading(true)
     }
     try {
-      const data = await getProfile(userId, true) // Use cache
+      // Use lightweight summary endpoint for header
+      const data = await getProfileSummary(userId, true) // Use cache
       setProfileSummary(data)
     } catch (_) {
       // Only clear if we don't have cached data
@@ -58,23 +67,29 @@ const MainHeader = () => {
     } finally {
       setProfileLoading(false)
     }
-  }, [userId, profileSummary])
+  }, [userId, profileSummary, isAuthenticated])
 
   useEffect(() => {
-    // If we have cached data, fetch fresh in background
-    if (profileSummary) {
-      fetchProfileSummary() // This will fetch in background
+    if (isAuthenticated && userId) {
+      // If we have cached data, fetch fresh in background
+      if (profileSummary) {
+        fetchProfileSummary() // This will fetch in background
+      } else {
+        // No cache, fetch immediately
+        fetchProfileSummary()
+      }
     } else {
-      // No cache, fetch immediately
-      fetchProfileSummary()
+      setProfileSummary(null)
     }
-  }, []) // Only run once on mount
+  }, [isAuthenticated, userId]) // Run when authentication state or userId changes
 
   useEffect(() => {
-    const handleProfileUpdated = () => fetchProfileSummary()
-    window.addEventListener('customer_profile_updated', handleProfileUpdated)
-    return () => window.removeEventListener('customer_profile_updated', handleProfileUpdated)
-  }, [fetchProfileSummary])
+    if (isAuthenticated && userId) {
+      const handleProfileUpdated = () => fetchProfileSummary()
+      window.addEventListener('customer_profile_updated', handleProfileUpdated)
+      return () => window.removeEventListener('customer_profile_updated', handleProfileUpdated)
+    }
+  }, [fetchProfileSummary, isAuthenticated, userId])
 
   const user = profileSummary?.user
   const languageCode = (user?.language || 'en').toUpperCase()
@@ -92,7 +107,7 @@ const MainHeader = () => {
       if (segments.length === 1) return segments[0][0]?.toUpperCase() || ''
       return (segments[0][0] || '').toUpperCase() + (segments[segments.length - 1][0] || '').toUpperCase()
     }
-    const fallback = user?.email || 'TA'
+    const fallback = user?.email || 'User'
     return fallback.slice(0, 2).toUpperCase()
   }, [displayName, user?.email])
 
@@ -126,31 +141,43 @@ const MainHeader = () => {
                   <span className="text-sm font-medium">{languageCode}</span>
                 </div>
 
-                <button
-                  type="button"
-                  ref={profileRef}
-                  className="flex items-center gap-2 cursor-pointer transition hover:opacity-85"
-                  onClick={() => setIsSettingsOpen(true)}
-                  aria-label="Open profile menu"
-                >
-                  {displayName && (
-                    <span className="hidden sm:block text-sm font-medium text-gray-900 max-w-[120px] truncate">
-                      {displayName}
-                    </span>
-                  )}
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden bg-[#1d236b] text-white text-sm font-semibold"
-                    style={{ opacity: profileLoading ? 0.7 : 1 }}
+                {isAuthenticated ? (
+                  <button
+                    type="button"
+                    ref={profileRef}
+                    className="flex items-center gap-2 cursor-pointer transition hover:opacity-85"
+                    onClick={() => setIsSettingsOpen(true)}
+                    aria-label="Open profile menu"
                   >
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt={displayName || 'Profile avatar'} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-xs font-semibold tracking-wide" title={displayName || 'Profile'}>
-                        {initials}
+                    {displayName && (
+                      <span className="hidden sm:block text-sm font-medium text-gray-900 max-w-[120px] truncate">
+                        {displayName}
                       </span>
                     )}
-                  </div>
-                </button>
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden bg-[#1d236b] text-white text-sm font-semibold"
+                      style={{ opacity: profileLoading ? 0.7 : 1 }}
+                    >
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt={displayName || 'Profile avatar'} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-semibold tracking-wide" title={displayName || 'Profile'}>
+                          {initials}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    ref={profileRef}
+                    className="px-4 py-2 text-sm font-medium text-gray-900 hover:text-[#1d236b] transition-colors"
+                    onClick={() => navigate('/login')}
+                    aria-label="Login or Sign up"
+                  >
+                    Login/Sign up
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -166,27 +193,27 @@ const MainHeader = () => {
               <div className="flex items-center space-x-8">
                 <div 
                   ref={attractionsRef}
-                  className="flex items-center text-gray-900 cursor-pointer group"
+                  className="flex items-center text-gray-900 cursor-pointer group transition-colors"
                   onClick={() => setIsAttractionsOpen(!isAttractionsOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:opacity-80">Top Attractions</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
+                  <span className="text-sm font-medium group-hover:text-[#1d236b]">Top Attractions</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:text-[#1d236b]" />
                 </div>
                 <div 
                   ref={destinationsRef}
-                  className="flex items-center text-gray-900 cursor-pointer group"
+                  className="flex items-center text-gray-900 cursor-pointer group transition-colors"
                   onClick={() => setIsDestinationsOpen(!isDestinationsOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:opacity-80">Top Destinations</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
+                  <span className="text-sm font-medium group-hover:text-[#1d236b]">Top Destinations</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:text-[#1d236b]" />
                 </div>
                 <div 
                   ref={exploreRef}
-                  className="flex items-center text-gray-900 cursor-pointer group"
+                  className="flex items-center text-gray-900 cursor-pointer group transition-colors"
                   onClick={() => setIsExploreOpen(!isExploreOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:opacity-80">Explore TripsAdora</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
+                  <span className="text-sm font-medium group-hover:text-[#1d236b]">Explore TripsAdora</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:text-[#1d236b]" />
                 </div>
               </div>
 

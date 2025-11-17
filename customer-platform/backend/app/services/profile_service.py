@@ -43,26 +43,66 @@ class ProfileService:
         return ProfileService._normalise_dates(doc)
 
     @staticmethod
-    async def get_profile(user_id: str) -> Optional[Dict[str, Any]]:
+    def _default_profile(user_id: str) -> Dict[str, Any]:
+        """Create a default profile document for a new user."""
+        now = datetime.utcnow()
+        return {
+            "user_id": user_id,
+            "user": {},
+            "wishlist": [],
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    @staticmethod
+    async def ensure_profile(user_id: str) -> Dict[str, Any]:
+        """Ensure a profile exists for the user, creating one if it doesn't."""
+        collection = ProfileService._collection()
+        doc = await collection.find_one({"user_id": user_id})
+        if doc:
+            return ProfileService._prepare_document(doc)
+        # Create default profile
+        default_doc = ProfileService._default_profile(user_id)
+        try:
+            result = await collection.insert_one(default_doc)
+            default_doc["_id"] = result.inserted_id
+        except (ConnectionError, AutoReconnect, ServerSelectionTimeoutError) as exc:
+            raise DatabaseUnavailableError("Unable to create profile data.") from exc
+        return ProfileService._prepare_document(default_doc)
+
+    @staticmethod
+    async def get_profile(user_id: str, summary_only: bool = False) -> Optional[Dict[str, Any]]:
+        """Get profile data. If summary_only=True, returns only essential user info for header."""
         collection = ProfileService._collection()
         try:
-            # Use projection to fetch only necessary fields for faster queries
-            document = await collection.find_one(
-                {"user_id": user_id},
-                {
-                    "user_id": 1,
-                    "user": 1,
-                    "wishlist": 1,
-                    "created_at": 1,
-                    "updated_at": 1,
-                    # Exclude heavy fields that are computed separately
-                    # "stats": 0,
-                    # "upcoming_trips": 0,
-                    # "recent_activity": 0,
-                    # "travel_preferences": 0,
-                    # "refer_and_earn": 0,
-                }
-            )
+            if summary_only:
+                # Ultra-lightweight query for header - only user info
+                document = await collection.find_one(
+                    {"user_id": user_id},
+                    {
+                        "user_id": 1,
+                        "user": 1,
+                        "_id": 1,
+                    }
+                )
+            else:
+                # Use projection to fetch only necessary fields for faster queries
+                document = await collection.find_one(
+                    {"user_id": user_id},
+                    {
+                        "user_id": 1,
+                        "user": 1,
+                        "wishlist": 1,
+                        "created_at": 1,
+                        "updated_at": 1,
+                        # Exclude heavy fields that are computed separately
+                        # "stats": 0,
+                        # "upcoming_trips": 0,
+                        # "recent_activity": 0,
+                        # "travel_preferences": 0,
+                        # "refer_and_earn": 0,
+                    }
+                )
         except (ConnectionError, AutoReconnect, ServerSelectionTimeoutError) as exc:
             raise DatabaseUnavailableError("Profile data is currently unavailable.") from exc
         if not document:

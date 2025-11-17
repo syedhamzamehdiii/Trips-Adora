@@ -1,26 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FiChevronDown } from 'react-icons/fi'
 import SettingsModal from './SettingsModal'
-import { getProfile } from '../services/profileService'
-
-const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
+import { getProfileSummary } from '../services/profileService'
+import { useAuth } from '../context/AuthContext'
 
 const HeaderLandingPage = () => {
+  const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const profileRef = useRef(null)
   
-  // Compute userId synchronously for initial state
-  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
+  // Get userId only if authenticated - don't use default
+  const userId = isAuthenticated ? (localStorage.getItem('customer_profile_user_id') || null) : null
 
-  // Load cached profile immediately on mount (synchronous)
+  // Load cached profile summary immediately on mount (synchronous) - only if authenticated
   const [profileSummary, setProfileSummary] = useState(() => {
+    if (!isAuthenticated || !userId) return null
     try {
-      const cached = localStorage.getItem(`customer_profile_cache_${userId}`);
-      const timestamp = localStorage.getItem(`customer_profile_cache_ts_${userId}`);
+      const cached = localStorage.getItem(`customer_profile_summary_cache_${userId}`);
+      const timestamp = localStorage.getItem(`customer_profile_summary_cache_ts_${userId}`);
       if (cached && timestamp) {
         const age = Date.now() - parseInt(timestamp, 10);
-        if (age < 5 * 60 * 1000) { // 5 minutes
+        if (age < 10 * 60 * 1000) { // 10 minutes for summary
           return JSON.parse(cached);
         }
       }
@@ -32,12 +34,17 @@ const HeaderLandingPage = () => {
   const [profileLoading, setProfileLoading] = useState(false)
 
   const fetchProfile = useCallback(async () => {
+    if (!isAuthenticated || !userId) {
+      setProfileSummary(null)
+      return
+    }
     // Only show loading if we don't have cached data
     if (!profileSummary) {
       setProfileLoading(true)
     }
     try {
-      const data = await getProfile(userId, true) // Use cache
+      // Use lightweight summary endpoint for header
+      const data = await getProfileSummary(userId, true) // Use cache
       setProfileSummary(data)
     } catch (_) {
       // Only clear if we don't have cached data
@@ -47,23 +54,29 @@ const HeaderLandingPage = () => {
     } finally {
       setProfileLoading(false)
     }
-  }, [userId, profileSummary])
+  }, [userId, profileSummary, isAuthenticated])
 
   useEffect(() => {
-    // If we have cached data, fetch fresh in background
-    if (profileSummary) {
-      fetchProfile() // This will fetch in background
+    if (isAuthenticated && userId) {
+      // If we have cached data, fetch fresh in background
+      if (profileSummary) {
+        fetchProfile() // This will fetch in background
+      } else {
+        // No cache, fetch immediately
+        fetchProfile()
+      }
     } else {
-      // No cache, fetch immediately
-      fetchProfile()
+      setProfileSummary(null)
     }
-  }, []) // Only run once on mount
+  }, [isAuthenticated, userId]) // Run when authentication state or userId changes
 
   useEffect(() => {
-    const handleProfileUpdated = () => fetchProfile()
-    window.addEventListener('customer_profile_updated', handleProfileUpdated)
-    return () => window.removeEventListener('customer_profile_updated', handleProfileUpdated)
-  }, [fetchProfile])
+    if (isAuthenticated && userId) {
+      const handleProfileUpdated = () => fetchProfile()
+      window.addEventListener('customer_profile_updated', handleProfileUpdated)
+      return () => window.removeEventListener('customer_profile_updated', handleProfileUpdated)
+    }
+  }, [fetchProfile, isAuthenticated, userId])
 
   const user = profileSummary?.user
   const languageCode = (user?.language || 'en').toUpperCase()
@@ -114,31 +127,43 @@ const HeaderLandingPage = () => {
                   <FiChevronDown className="text-xs" />
                 </div>
 
-                <button
-                  type="button"
-                  ref={profileRef}
-                  className="flex items-center gap-2 cursor-pointer hover:opacity-85 transition"
-                  onClick={() => setIsSettingsOpen(true)}
-                  aria-label="Open profile menu"
-                >
-                  {displayName && (
-                    <span className="hidden sm:block text-sm font-medium text-white max-w-[120px] truncate">
-                      {displayName}
-                    </span>
-                  )}
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden bg-blue-600 text-white text-sm font-semibold shadow-lg"
-                    style={{ opacity: profileLoading ? 0.7 : 1 }}
+                {isAuthenticated ? (
+                  <button
+                    type="button"
+                    ref={profileRef}
+                    className="flex items-center gap-2 cursor-pointer hover:opacity-85 transition"
+                    onClick={() => setIsSettingsOpen(true)}
+                    aria-label="Open profile menu"
                   >
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt={displayName || 'Profile avatar'} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-xs font-semibold tracking-wide" title={displayName || 'Profile'}>
-                        {initials}
+                    {displayName && (
+                      <span className="hidden sm:block text-sm font-medium text-white max-w-[120px] truncate">
+                        {displayName}
                       </span>
                     )}
-                  </div>
-                </button>
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden bg-blue-600 text-white text-sm font-semibold shadow-lg"
+                      style={{ opacity: profileLoading ? 0.7 : 1 }}
+                    >
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt={displayName || 'Profile avatar'} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-semibold tracking-wide" title={displayName || 'Profile'}>
+                          {initials}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    ref={profileRef}
+                    className="px-4 py-2 text-sm font-medium text-white hover:text-gray-200 transition-colors"
+                    onClick={() => navigate('/login')}
+                    aria-label="Login or Sign up"
+                  >
+                    Login/Sign up
+                  </button>
+                )}
               </div>
             </div>
           </div>
