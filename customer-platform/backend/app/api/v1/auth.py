@@ -367,7 +367,8 @@ async def google_callback(request: GoogleCallbackRequest):
         logger.info(f"Exchanging Google OAuth code. Redirect URI: {redirect_uri}")
         
         try:
-            token_response = requests.post(token_url, data=token_data, timeout=3)
+            # Increased timeout to 10 seconds for OAuth requests
+            token_response = requests.post(token_url, data=token_data, timeout=10)
         except requests.exceptions.Timeout:
             logger.error("Google OAuth token exchange timed out")
             raise HTTPException(

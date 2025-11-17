@@ -193,15 +193,40 @@ class AuthService {
 
   // Google OAuth login with authorization code
   async googleLoginWithCode(code, redirectUri = null) {
+    // Ensure redirect_uri matches exactly what was used in initial OAuth request
+    // Define outside try block so it's available in catch block
+    const finalRedirectUri = redirectUri || window.location.origin + '/auth/google/callback';
+    
     try {
-      // Ensure redirect_uri matches exactly what was used in initial OAuth request
-      const finalRedirectUri = redirectUri || window.location.origin + '/auth/google/callback';
+      // Validate code before making request
+      if (!code || typeof code !== 'string' || !code.trim()) {
+        throw new Error('Invalid authorization code received')
+      }
+      
+      // Trim and clean the code
+      const cleanCode = code.trim();
       
       const response = await api.post('/auth/google/callback', {
-        code: code.trim(),
+        code: cleanCode,
         redirect_uri: finalRedirectUri
+      }, {
+        timeout: 15000, // 15 second timeout for OAuth requests
+        // Prevent automatic retries that could cause duplicate requests
+        validateStatus: (status) => status < 500 // Don't throw on 4xx errors
       })
+      
+      // Check if response indicates error
+      if (response.status >= 400) {
+        const errorDetail = response.data?.detail || 'Authentication failed. Please try again.';
+        throw new Error(errorDetail);
+      }
+      
       const { token, refresh_token, user } = response.data
+
+      // Validate response data
+      if (!token || !user) {
+        throw new Error('Invalid response from authentication server')
+      }
 
       // Store tokens
       localStorage.setItem('access_token', token)
@@ -221,15 +246,26 @@ class AuthService {
     } catch (error) {
       // Log error details for debugging
       const errorDetail = error.response?.data?.detail || error.message || 'Unknown error'
+      
+      // More specific error handling
+      let userFriendlyMessage = errorDetail;
+      if (errorDetail.includes('expired') || errorDetail.includes('already used') || errorDetail.includes('invalid_grant')) {
+        userFriendlyMessage = 'This authorization code has expired or already been used. Please sign in again.';
+      } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        userFriendlyMessage = 'Request timed out. Please try again.';
+      } else if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+        userFriendlyMessage = 'Network error. Please check your connection and try again.';
+      }
+      
       console.error('Google code exchange error:', {
         message: error.message,
         status: error.response?.status,
         detail: errorDetail,
-        redirectUri: finalRedirectUri
+        redirectUri: finalRedirectUri,
+        code: code ? (code.substring(0, 20) + '...') : 'missing'
       })
       
-      // Don't throw - let the callback handle navigation
-      throw new Error(errorDetail)
+      throw new Error(userFriendlyMessage)
     }
   }
 
