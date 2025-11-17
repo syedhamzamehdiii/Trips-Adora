@@ -13,6 +13,7 @@ from app.api.v1 import (
     bookings as bookings_router,
     notifications as notifications_router,
     messages as messages_router,
+    images as images_router,
 )
 
 app = FastAPI(
@@ -41,6 +42,9 @@ async def startup_event():
         loaded = LocalStorageCache.load_from_disk()
         if loaded:
             print(f"📦 Prefetched {loaded} products into local cache from disk snapshot")
+        
+        # Initialize Cloudinary
+        images_router.init_cloudinary()
     except Exception as e:
         print(f"❌ Database initialization failed: {e}")
 
@@ -54,6 +58,7 @@ app.include_router(dashboard_router.router, prefix="/api/v1", tags=["Dashboard"]
 app.include_router(bookings_router.router, prefix="/api/v1", tags=["Bookings"])
 app.include_router(notifications_router.router, prefix="/api/v1", tags=["Notifications"])
 app.include_router(messages_router.router, prefix="/api/v1", tags=["Messages"])
+app.include_router(images_router.router, prefix="/api/v1", tags=["Images"])
 
 @app.get("/")
 async def root():

@@ -14,10 +14,14 @@ class MessageService:
     
     @staticmethod
     def _generate_conversation_id(customer_id: str, supplier_id: str) -> str:
-        """Generate consistent conversation ID"""
+        """Generate consistent conversation ID for a specific customer-supplier pair"""
         # Sort IDs to ensure same conversation_id regardless of order
-        ids = sorted([customer_id, supplier_id])
-        return f"{ids[0]}:{ids[1]}"
+        # This ensures that conversation between customer A and supplier B always has the same ID
+        # regardless of who sends the first message
+        ids = sorted([str(customer_id).strip(), str(supplier_id).strip()])
+        conversation_id = f"{ids[0]}:{ids[1]}"
+        logger.debug(f"Generated conversation_id: {conversation_id} for customer {customer_id} and supplier {supplier_id}")
+        return conversation_id
     
     @staticmethod
     async def send_message(
@@ -65,12 +69,13 @@ class MessageService:
     
     @staticmethod
     async def get_conversations(supplier_id: str) -> List[Dict[str, Any]]:
-        """Get all conversations for a supplier"""
+        """Get all conversations for a supplier - only shows conversations with this specific supplier"""
         try:
             db = get_database()
             collection = db.messages
             
             # Find all conversations where supplier is involved
+            # Ensure we only get conversations where this supplier_id is either sender or recipient
             pipeline = [
                 {
                     "$match": {
@@ -111,12 +116,23 @@ class MessageService:
                 conv_id = group["_id"]
                 last_msg = group["last_message"]
                 
+                # Verify conversation_id contains supplier_id (security check)
+                conv_parts = conv_id.split(":")
+                if len(conv_parts) != 2 or supplier_id not in conv_parts:
+                    logger.warning(f"Skipping conversation {conv_id} - supplier {supplier_id} not part of it")
+                    continue
+                
                 # Determine other party (customer)
                 if last_msg["sender_id"] == supplier_id:
                     other_party_id = last_msg["recipient_id"]
                 else:
                     other_party_id = last_msg["sender_id"]
                 other_party_type = "customer"
+                
+                # Additional security: ensure other_party_id is not the supplier_id
+                if other_party_id == supplier_id:
+                    logger.warning(f"Invalid conversation: other_party_id equals supplier_id for {conv_id}")
+                    continue
                 
                 # Get customer name
                 other_party_name = await MessageService._get_customer_name(other_party_id)
@@ -156,17 +172,34 @@ class MessageService:
     
     @staticmethod
     async def get_messages(conversation_id: str, supplier_id: str) -> List[Dict[str, Any]]:
-        """Get all messages in a conversation"""
+        """Get all messages in a conversation - only for this specific supplier"""
         try:
             db = get_database()
             collection = db.messages
             
             # Verify supplier is part of this conversation
-            conversation = await collection.find_one({"conversation_id": conversation_id})
-            if not conversation:
+            # First, verify the conversation_id contains this supplier_id
+            # conversation_id format: "id1:id2" where ids are sorted
+            conversation_parts = conversation_id.split(":")
+            if len(conversation_parts) != 2:
+                logger.warning(f"Invalid conversation_id format: {conversation_id}")
                 return []
             
-            if conversation["sender_id"] != supplier_id and conversation["recipient_id"] != supplier_id:
+            # Check if supplier_id is part of this conversation
+            if supplier_id not in conversation_parts:
+                logger.warning(f"Supplier {supplier_id} not authorized for conversation {conversation_id}")
+                return []
+            
+            # Additional check: verify at least one message exists where supplier is involved
+            conversation = await collection.find_one({
+                "conversation_id": conversation_id,
+                "$or": [
+                    {"sender_id": supplier_id, "sender_type": "supplier"},
+                    {"recipient_id": supplier_id}
+                ]
+            })
+            if not conversation:
+                logger.warning(f"No messages found for supplier {supplier_id} in conversation {conversation_id}")
                 return []
             
             # Get all messages in conversation

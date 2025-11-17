@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown, FiX } from 'react-icons/fi';
+import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown, FiX, FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import SettingsDropdown from '@/components/common/SettingsDropdown';
@@ -258,6 +258,17 @@ const DashboardLayout = ({ children }) => {
             
             {/* Right side - Profile Section */}
             <div className="flex items-center space-x-4">
+              {/* Chat Icon */}
+              <div className="relative">
+                <button 
+                  onClick={() => navigate('/chat')}
+                  className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
+                  title="Messages"
+                >
+                  <FiMessageSquare className="w-6 h-6" />
+                </button>
+              </div>
+              
               {/* Notification Bell */}
               <div className="relative" ref={notificationRef}>
                 <button 

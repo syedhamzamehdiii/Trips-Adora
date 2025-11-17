@@ -1,20 +1,27 @@
 // supplier-platform/frontend/src/pages/Chat/ChatPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '@/layouts/DashboardLayout';
+import { useNavigate, useLocation } from 'react-router-dom';
+import Header from '@/components/common/Header';
+import Footer from '@/components/common/Footer';
 import { getConversations, getMessages, sendMessage } from '@/services/chatService';
-import { FiMessageSquare, FiSend, FiArrowLeft } from 'react-icons/fi';
+import { FiMessageSquare, FiSend, FiArrowLeft, FiChevronDown } from 'react-icons/fi';
+import CreateProductComponent from '@/components/products/CreateProductComponent';
 
 const ChatPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showListingsDropdown, setShowListingsDropdown] = useState(false);
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const pollIntervalRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     loadConversations();
@@ -37,6 +44,28 @@ const ChatPage = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowListingsDropdown(false);
+      }
+    };
+
+    if (showListingsDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showListingsDropdown]);
+
+  // Determine active pages
+  const isProductsPage = location.pathname.startsWith('/products');
+  const isInsightsPage = location.pathname === '/insights';
+  const isBookingsPage = location.pathname === '/bookings';
 
   const loadConversations = async () => {
     try {
@@ -82,7 +111,12 @@ const ChatPage = () => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll within the messages container, not the page
+    if (messagesContainerRef.current) {
+      setTimeout(() => {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }, 50);
+    }
   };
 
   const formatTime = (dateString) => {
@@ -91,7 +125,107 @@ const ChatPage = () => {
   };
 
   return (
-    <DashboardLayout>
+    <div className="min-h-screen bg-white">
+      <Header activePage="" />
+      
+      {/* Dashboard Navigation */}
+      <div className="bg-gray-50 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8 py-4">
+            <button 
+              onClick={() => navigate('/dashboard')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                !isProductsPage && !isInsightsPage && !isBookingsPage && location.pathname !== '/chat'
+                  ? 'bg-gray-200 text-gray-900' 
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Dashboard
+            </button>
+            <div className="relative" ref={dropdownRef}>
+              <button 
+                onClick={() => setShowListingsDropdown(!showListingsDropdown)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center ${
+                  isProductsPage 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Listings
+                <FiChevronDown className="ml-1" size={14} />
+              </button>
+              
+              {/* Listings Dropdown */}
+              {showListingsDropdown && (
+                <div className="absolute top-full left-0 mt-2 w-56 bg-gray-100 rounded-lg shadow-lg z-50">
+                  <div className="py-2">
+                    <button
+                      onClick={() => {
+                        setShowListingsDropdown(false);
+                        setShowCreateProduct(true);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-900 hover:bg-gray-200 transition-colors rounded-lg mx-2"
+                    >
+                      Create new product
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setShowListingsDropdown(false);
+                        navigate('/products');
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-900 hover:bg-gray-200 transition-colors rounded-lg mx-2"
+                    >
+                      Active Product listing
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button 
+              onClick={() => navigate('/availability')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                location.pathname === '/availability'
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Availability
+            </button>
+            <button 
+              onClick={() => navigate('/bookings')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                isBookingsPage
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Bookings
+            </button>
+            <button 
+              onClick={() => navigate('/insights')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                isInsightsPage
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Insights
+            </button>
+            <button 
+              onClick={() => navigate('/finance')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                location.pathname === '/finance'
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Finance
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
           <button
@@ -105,7 +239,7 @@ const ChatPage = () => {
           <p className="text-gray-600 mt-1">Chat with your customers</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
           {/* Conversations List */}
           <div className="lg:col-span-1 border border-gray-200 rounded-lg overflow-hidden flex flex-col">
             <div className="p-4 border-b border-gray-200 bg-gray-50">
@@ -158,7 +292,7 @@ const ChatPage = () => {
                   )}
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={messagesContainerRef}>
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
@@ -215,7 +349,14 @@ const ChatPage = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+
+      {/* Create Product Component */}
+      {showCreateProduct && (
+        <CreateProductComponent onClose={() => setShowCreateProduct(false)} />
+      )}
+
+      <Footer />
+    </div>
   );
 };
 

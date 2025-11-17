@@ -130,11 +130,7 @@ function AppRoutes() {
         />
         <Route 
           path="/chat" 
-          element={isAuthenticated ? (
-            <DashboardLayout>
-              <ChatPage />
-            </DashboardLayout>
-          ) : <Navigate to="/login" />} 
+          element={isAuthenticated ? <ChatPage /> : <Navigate to="/login" />} 
         />
         <Route 
           path="/insights" 

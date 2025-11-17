@@ -1,4 +1,4 @@
-import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
+import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown, FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -522,6 +522,17 @@ const Dashboard = () => {
             
             {/* Right side - Profile Section */}
             <div className="flex items-center space-x-4">
+              {/* Chat Icon */}
+              <div className="relative">
+                <button 
+                  onClick={() => navigate('/chat')}
+                  className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
+                  title="Messages"
+                >
+                  <FiMessageSquare className="w-6 h-6" />
+                </button>
+              </div>
+              
               {/* Notification Bell */}
               <div className="relative" ref={notificationRef}>
                 <button 

@@ -4,7 +4,8 @@ from typing import Optional
 from app.schemas.message import MessageCreate, MessageResponse, ConversationListResponse, ConversationResponse
 from app.services.message_service import MessageService
 from app.models.message import MessageType
-from app.api.v1.auth import get_current_user
+from app.core.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
 
@@ -12,13 +13,13 @@ router = APIRouter(prefix="/messages", tags=["Messages"])
 @router.post("/send", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 async def send_message(
     payload: MessageCreate,
-    current_user: dict = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Send a message from supplier to customer.
     """
     try:
-        supplier_id = str(current_user["id"])
+        supplier_id = str(current_user.id)
         
         message = await MessageService.send_message(
             supplier_id=supplier_id,
@@ -38,13 +39,13 @@ async def send_message(
 
 @router.get("/conversations", response_model=ConversationListResponse)
 async def get_conversations(
-    current_user: dict = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get all conversations for a supplier.
     """
     try:
-        supplier_id = str(current_user["id"])
+        supplier_id = str(current_user.id)
         conversations = await MessageService.get_conversations(supplier_id)
         
         conversation_responses = []
@@ -90,13 +91,13 @@ async def get_conversations(
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageResponse])
 async def get_messages(
     conversation_id: str = Path(..., description="Conversation ID"),
-    current_user: dict = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get all messages in a conversation.
     """
     try:
-        supplier_id = str(current_user["id"])
+        supplier_id = str(current_user.id)
         messages = await MessageService.get_messages(conversation_id, supplier_id)
         
         return [MessageResponse(**msg) for msg in messages]

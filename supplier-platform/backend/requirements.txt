@@ -25,6 +25,7 @@ fastapi-mail==1.4.1
 # File Upload & Processing
 aiofiles==23.2.1
 Pillow==10.1.0
+cloudinary==1.36.0
 
 # CORS
 fastapi-cors==0.0.6

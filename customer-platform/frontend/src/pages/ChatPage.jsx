@@ -15,6 +15,7 @@ const ChatPage = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
   const customerId = localStorage.getItem('customer_profile_user_id') || 'default-customer';
@@ -85,7 +86,12 @@ const ChatPage = () => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll within the messages container, not the page
+    if (messagesContainerRef.current) {
+      setTimeout(() => {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }, 50);
+    }
   };
 
   const formatTime = (dateString) => {
@@ -162,7 +168,7 @@ const ChatPage = () => {
                   )}
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={messagesContainerRef}>
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
