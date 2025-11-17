@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     MONGODB_URL: str = "mongodb+srv://mehihamza1:mehihamza1@clusterr.st9ycu2.mongodb.net/TripsAdora"
     DATABASE_NAME: str = "TripsAdora"  # Same database
     
+    # Security
+    SECRET_KEY: str = "your-secret-key-here-change-in-production"
+    JWT_SECRET_KEY: str = "your-jwt-secret-key-here-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
     # CORS
     CORS_ORIGINS: list = [
         "http://localhost:3000",
@@ -23,6 +30,23 @@ class Settings(BaseSettings):
         "http://localhost:5178",
         "http://localhost:5179",
         "*"  # Allow all origins for development
+    ]
+    
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = "353190546831-i9oc4kvu61gs3po363k3u646jnbt0mv4.apps.googleusercontent.com"
+    GOOGLE_CLIENT_SECRET: str = "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"
+    GOOGLE_REDIRECT_URIS: list = [
+        "http://localhost:3000",
+        "http://localhost:3000/auth/google/callback",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://localhost:5173/auth/google/callback",
+        "http://localhost:5174",
+        "http://localhost:5174/auth/google/callback",
+        "http://localhost:5177",
+        "http://localhost:5177/auth/google/callback",
+        "https://yourdomain.com",
+        "https://yourdomain.com/auth/google/callback"
     ]
     
     class Config:

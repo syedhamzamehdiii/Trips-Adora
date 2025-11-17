@@ -26,27 +26,27 @@ const BottomNavigationBar = () => {
               <div className="flex items-center space-x-8">
                 <div 
                   ref={attractionsRef}
-                  className="flex items-center text-gray-400 cursor-pointer group"
+                  className="flex items-center text-gray-400 cursor-pointer group transition-colors"
                   onClick={() => setIsAttractionsOpen(!isAttractionsOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:text-gray-600">Top Attractions</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:text-gray-600" />
+                  <span className="text-sm font-medium group-hover:text-white">Top Attractions</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:text-white" />
                 </div>
                 <div 
                   ref={destinationsRef}
-                  className="flex items-center text-gray-400 cursor-pointer group"
+                  className="flex items-center text-gray-400 cursor-pointer group transition-colors"
                   onClick={() => setIsDestinationsOpen(!isDestinationsOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:text-gray-600">Top Destinations</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:text-gray-600" />
+                  <span className="text-sm font-medium group-hover:text-white">Top Destinations</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:text-white" />
                 </div>
                 <div 
                   ref={exploreRef}
-                  className="flex items-center text-gray-400 cursor-pointer group"
+                  className="flex items-center text-gray-400 cursor-pointer group transition-colors"
                   onClick={() => setIsExploreOpen(!isExploreOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:text-gray-600">Explore TripsAdora</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:text-gray-600" />
+                  <span className="text-sm font-medium group-hover:text-white">Explore TripsAdora</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:text-white" />
                 </div>
               </div>
 
