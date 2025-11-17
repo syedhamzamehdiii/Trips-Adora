@@ -16,21 +16,43 @@ from pymongo.errors import AutoReconnect, ServerSelectionTimeoutError
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
 
+@router.get("/{user_id}/summary")
+async def get_profile_summary(
+    user_id: str = Path(..., description="Customer identifier"),
+):
+    """Lightweight endpoint for header/profile summary - only returns essential user info"""
+    try:
+        # Use summary_only=True for ultra-fast header fetching
+        profile = await ProfileService.get_profile(user_id, summary_only=True)
+        if not profile:
+            profile = await ProfileService.ensure_profile(user_id)
+    except DatabaseUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to reach the database. Please try again shortly.",
+        )
+    
+    # Return only essential fields for header display
+    return {
+        "user": profile.get("user", {}),
+        "id": profile.get("id"),
+        "user_id": profile.get("user_id"),
+    }
+
+
 @router.get("/{user_id}", response_model=ProfileResponse)
 async def get_profile(
     user_id: str = Path(..., description="Customer identifier, e.g. email slug"),
 ):
     try:
         profile = await ProfileService.get_profile(user_id)
+        # Auto-create profile if it doesn't exist (like wallet service)
+        if not profile:
+            profile = await ProfileService.ensure_profile(user_id)
     except DatabaseUnavailableError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to reach the database. Please try again shortly.",
-        )
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found",
         )
     try:
         bookings = await BookingService.get_bookings_for_user(user_id, limit=50)  # Limit to 50 for faster fetching

@@ -12,6 +12,7 @@ from app.api.v1 import (
     dashboard as dashboard_router,
     bookings as bookings_router,
     notifications as notifications_router,
+    messages as messages_router,
 )
 
 app = FastAPI(
@@ -52,6 +53,7 @@ app.include_router(vehicles_router.router, prefix="/api/v1", tags=["Vehicles"])
 app.include_router(dashboard_router.router, prefix="/api/v1", tags=["Dashboard"])
 app.include_router(bookings_router.router, prefix="/api/v1", tags=["Bookings"])
 app.include_router(notifications_router.router, prefix="/api/v1", tags=["Notifications"])
+app.include_router(messages_router.router, prefix="/api/v1", tags=["Messages"])
 
 @app.get("/")
 async def root():

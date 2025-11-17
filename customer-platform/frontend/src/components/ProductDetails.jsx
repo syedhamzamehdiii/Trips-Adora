@@ -2,21 +2,14 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight } from 'lucide-react'
 import Itinerary from "../components/Itinerary"
-import maine from "../../assests/main.png";
-import heroimage  from "../../assests/hero-image-side.png";
-import heroimage2 from "../../assests/hero-image-side2.png";
-import heroimage3 from "../../assests/hero-image-side3.png";
 import share from "../../assests/share.png";
 import branch from "../../assests/middle.png";
 import Footer from './Footer'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MainHeader from './MainHeader'
-import helicopter from "../../assests/helicopter.jpg";
-import sunshine from "../../assests/sun-shine.jpg";
-import house from "../../assests/house.jpg";
-import mountfuj from "../../assests/mount-fuj.jpg";
 import TourCard from './TourCard'
 import ClimateWidget from './ClimateWidget'
+import SupplierChatModal from './SupplierChatModal'
 import { getPublishedProducts, transformProductForFrontend, addRecentlyViewed, recordProductClick, getProductClicks, getProductById, getCachedPublishedProductsSync } from '../services/productService'
 
 const ProductDetails = () => {
@@ -41,24 +34,39 @@ const ProductDetails = () => {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isClimateOpen, setIsClimateOpen] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [imageErrors, setImageErrors] = useState(new Set())
+  const [imagesLoaded, setImagesLoaded] = useState(new Set())
 
   const images = useMemo(() => {
     if (!product) return []
+    // Only use images from product data - no fallback images
     const imgs = Array.isArray(product.images) ? product.images : []
     const main = product.image ? [product.image] : []
     // de-dup main
     const others = imgs.filter(src => src !== product.image)
-    return [...main, ...others]
+    const allImages = [...main, ...others].filter(img => img && img.trim() !== '')
+    return allImages
   }, [product])
 
   const openGalleryAt = (index) => { setCurrentIndex(index); setIsGalleryOpen(true) }
   const closeGallery = () => setIsGalleryOpen(false)
 
+  // Reset image errors when product changes
+  useEffect(() => {
+    setImageErrors(new Set())
+    setImagesLoaded(new Set())
+  }, [product?.id])
+
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       try {
-        setLoading(true)
+        // Only show loading if we don't have cached product
+        if (!product) {
+          setLoading(true)
+        }
+        
         if (!identifier) {
           if (!cancelled) setProduct(null)
           return
@@ -215,16 +223,6 @@ const ProductDetails = () => {
             <div className="mb-6">
               <p className="text-gray-500 text-xs sm:text-sm mb-2">Product ID: {product.id}</p>
               
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2 mb-3">
-                <span className="bg-[#77FF90AD] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
-                  Best Seller
-                </span>
-                <span className="bg-[#C42121] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
-                  Live
-                </span>
-              </div>
-              
               {/* Main Title */}
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-3">{product.name}</h1>
               
@@ -263,57 +261,96 @@ const ProductDetails = () => {
               </div>
             </div>
             
-            {/* Image Gallery */}
-            <div className="mb-6 sm:mb-8">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-4">
-                <div className="sm:col-span-3">
-                  <img 
-                    src={images[0] || maine} 
-                    alt="Mount Fuji tour main image"
-                    className="w-full h-48 sm:h-64 lg:h-80 object-cover rounded-lg cursor-pointer"
-                    onClick={() => openGalleryAt(0)}
-                  />
-                </div>
-                <div className="sm:col-span-1 grid grid-cols-3 sm:grid-cols-1 gap-2">
-                  <img 
-                    src={images[1] || heroimage}
-                    alt="Mount Fuji tour thumbnail 1"
-                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg cursor-pointer"
-                    onClick={() => openGalleryAt(1)}
-                  />
-                  <img 
-                    src={images[2] || heroimage2}
-                    alt="Mount Fuji tour thumbnail 2"
-                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg cursor-pointer"
-                    onClick={() => openGalleryAt(2)}
-                  />
-                  <img 
-                    src={images[3] || heroimage3}
-                    alt="Mount Fuji tour thumbnail 3"
-                    className="w-full h-16 sm:h-20 lg:h-24 object-cover rounded-lg cursor-pointer"
-                    onClick={() => openGalleryAt(3)}
-                  />
+            {/* Image Gallery - Only show supplier images */}
+            {images.length > 0 && (
+              <div className="mb-6 sm:mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-0 overflow-hidden rounded-lg">
+                  <div className="sm:col-span-3">
+                    {images[0] && !imageErrors.has(images[0]) && (
+                      <img 
+                        src={images[0]} 
+                        alt={product.name || "Product image"}
+                        className="w-full h-48 sm:h-64 lg:h-80 object-cover cursor-pointer"
+                        onClick={() => openGalleryAt(0)}
+                        onError={(e) => {
+                          setImageErrors(prev => new Set([...prev, images[0]]))
+                          e.target.style.display = 'none'
+                        }}
+                        onLoad={() => setImagesLoaded(prev => new Set([...prev, images[0]]))}
+                        loading="eager"
+                      />
+                    )}
+                  </div>
+                  <div className="sm:col-span-1 grid grid-cols-3 sm:grid-cols-1 gap-0">
+                    {images[1] && !imageErrors.has(images[1]) && (
+                      <img 
+                        src={images[1]}
+                        alt={`${product.name || "Product"} thumbnail 1`}
+                        className="w-full h-16 sm:h-20 lg:h-24 object-cover cursor-pointer"
+                        onClick={() => openGalleryAt(1)}
+                        onError={(e) => {
+                          setImageErrors(prev => new Set([...prev, images[1]]))
+                          e.target.style.display = 'none'
+                        }}
+                        onLoad={() => setImagesLoaded(prev => new Set([...prev, images[1]]))}
+                        loading="lazy"
+                      />
+                    )}
+                    {images[2] && !imageErrors.has(images[2]) && (
+                      <img 
+                        src={images[2]}
+                        alt={`${product.name || "Product"} thumbnail 2`}
+                        className="w-full h-16 sm:h-20 lg:h-24 object-cover cursor-pointer"
+                        onClick={() => openGalleryAt(2)}
+                        onError={(e) => {
+                          setImageErrors(prev => new Set([...prev, images[2]]))
+                          e.target.style.display = 'none'
+                        }}
+                        onLoad={() => setImagesLoaded(prev => new Set([...prev, images[2]]))}
+                        loading="lazy"
+                      />
+                    )}
+                    {images[3] && !imageErrors.has(images[3]) && (
+                      <img 
+                        src={images[3]}
+                        alt={`${product.name || "Product"} thumbnail 3`}
+                        className="w-full h-16 sm:h-20 lg:h-24 object-cover cursor-pointer"
+                        onClick={() => openGalleryAt(3)}
+                        onError={(e) => {
+                          setImageErrors(prev => new Set([...prev, images[3]]))
+                          e.target.style.display = 'none'
+                        }}
+                        onLoad={() => setImagesLoaded(prev => new Set([...prev, images[3]]))}
+                        loading="lazy"
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Gallery Modal */}
-            {isGalleryOpen && (
+            {/* Gallery Modal - Only show if images exist */}
+            {isGalleryOpen && images.length > 0 && images[currentIndex] && (
               <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4" onClick={closeGallery}>
                 <div className="relative w-full max-w-5xl" onClick={(e)=>e.stopPropagation()}>
                   <div className="relative rounded-lg overflow-hidden">
-                    <img src={images[currentIndex]} alt="gallery" className="w-full max-h-[70vh] object-contain" />
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 px-2 py-2">
-                      {images.map((src, idx)=> (
+                    <img src={images[currentIndex]} alt={`${product.name || "Product"} gallery image ${currentIndex + 1}`} className="w-full max-h-[70vh] object-contain" />
+                    {images.length > 1 && (
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 px-2 py-2">
+                    {images.map((src, idx)=> (
                         <img
                           key={idx}
                           src={src}
                           alt={`thumb-${idx}`}
                           onClick={()=> setCurrentIndex(idx)}
+                          onError={(e) => {
+                            e.target.style.display = 'none'
+                          }}
                           className={`h-12 w-16 object-cover rounded-md cursor-pointer border ${currentIndex===idx? 'border-[#284078] ring-2 ring-[#E1E3FF]':'border-white'} `}
                         />
                       ))}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -518,7 +555,10 @@ const ProductDetails = () => {
                   <button className="bg-[#C5FFD0] text-black px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
                     Following
                   </button>
-                  <button className="bg-white border border-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                  <button 
+                    onClick={() => setIsChatOpen(true)}
+                    className="bg-white border border-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm hover:bg-gray-50 transition-colors"
+                  >
                     Chat
                   </button>
                   <button
@@ -1005,6 +1045,20 @@ const ProductDetails = () => {
       </div>
 
       <Footer />
+
+      {/* Supplier Chat Modal */}
+      <SupplierChatModal
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        supplierName={product?.supplierBusinessName || product?.supplier_business_name}
+        supplierId={product?.supplierId || product?.supplier_id}
+        supplierRating={product?.rating || 4.8}
+        supplierReviews={product?.reviewsCount || 342}
+        supplierFollowers={2840}
+        supplierVerified={true}
+        productId={product?.id}
+        customerId={localStorage.getItem('customer_profile_user_id') || 'default-customer'}
+      />
     </div>
   )
 }

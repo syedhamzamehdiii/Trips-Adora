@@ -29,6 +29,7 @@ import TermsOfService from './pages/TermsOfService'
 import SafetyGuidelinesPage from './pages/SafetyGuidelinesPage'
 import DashboardLayout from './layouts/DashboardLayout'
 import GlobalCacheSync from './components/GlobalCacheSync'
+import ChatPage from './pages/Chat/ChatPage'
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth()
@@ -124,6 +125,14 @@ function AppRoutes() {
           element={isAuthenticated ? (
             <DashboardLayout>
               <BookingsPage />
+            </DashboardLayout>
+          ) : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/chat" 
+          element={isAuthenticated ? (
+            <DashboardLayout>
+              <ChatPage />
             </DashboardLayout>
           ) : <Navigate to="/login" />} 
         />

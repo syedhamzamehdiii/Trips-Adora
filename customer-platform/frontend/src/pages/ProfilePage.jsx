@@ -130,7 +130,7 @@ const ProfilePage = () => {
 
   const fetchProfile = useCallback(async () => {
     // Only show loading if we don't have cached data
-    if (!initialProfile) {
+    if (!initialProfile && !hasLoadedOnceRef.current) {
       setLoading(true)
     }
     setError(null)
@@ -151,7 +151,7 @@ const ProfilePage = () => {
       hasLoadedOnceRef.current = true
     } catch (err) {
       // Only show error if we don't have cached data
-      if (!initialProfile) {
+      if (!initialProfile && !hasLoadedOnceRef.current) {
         setError(err?.message || 'Unable to load profile information.')
       }
     } finally {
@@ -345,7 +345,8 @@ const ProfilePage = () => {
         email: formValues.email?.trim() || profile.user.email,
         phone: formValues.phone?.trim() || '',
         location: formValues.location?.trim() || '',
-        membership_tier: formValues.membership_tier?.trim() || profile.user.membership_tier || '',
+        // membership_tier is set by admin, not editable by customer
+        membership_tier: profile.user.membership_tier || '',
         loyalty_tier: profile.user.loyalty_tier,
         member_since: defaultMemberSince,
         avatar_url: formValues.avatar_url || profile.user.avatar_url || ''

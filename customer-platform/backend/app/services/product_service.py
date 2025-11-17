@@ -32,9 +32,9 @@ class ProductService:
         "created_at": 1
     }
     
-    # Full projection for detail view
+    # Full projection for detail view - include supplier_id for chat functionality
     DETAIL_PROJECTION = {
-        "supplier_id": 0  # Hide supplier_id from customers
+        # Include all fields, including supplier_id (needed for fetching supplier info)
     }
     
     @staticmethod

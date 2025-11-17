@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import initiate_database
-from app.api.v1 import products, profile, bookings, wallet, reviews
+from app.api.v1 import products, profile, bookings, wallet, reviews, messages, auth
 
 app = FastAPI(
     title="TripsAdora Customer Platform API",
@@ -11,10 +11,12 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Filter out "*" from origins if credentials are enabled (FastAPI requirement)
+cors_origins = [origin for origin in settings.CORS_ORIGINS if origin != "*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_origins=cors_origins if cors_origins else ["*"],  # Use explicit origins or allow all
+    allow_credentials=True if cors_origins else False,  # Only enable credentials with explicit origins
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -28,11 +30,13 @@ async def startup_event():
         print(f"❌ Database initialization failed: {e}")
 
 # Include routers
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(products.router, prefix="/api/v1", tags=["Products"])
 app.include_router(profile.router, prefix="/api/v1")
 app.include_router(bookings.router, prefix="/api/v1")
 app.include_router(wallet.router, prefix="/api/v1")
 app.include_router(reviews.router, prefix="/api/v1")
+app.include_router(messages.router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

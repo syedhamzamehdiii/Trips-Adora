@@ -1,6 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
 //Maham Saeeed
 import LandingPage from './pages/LandingPage'
+import Login from './pages/Auth/Login'
+import Register from './pages/Auth/Register'
+import GoogleCallback from './pages/Auth/GoogleCallback'
 import SupplierRegistrationPage from './pages/SupplierRegistrationPage'
 import AboutUsPage from './pages/AboutUsPage'
 import ProductDetails from './components/ProductDetails'
@@ -36,13 +40,18 @@ import CustomerFAQPage from './pages/CustomerFAQPage'
 import CustomerSupportPage from './pages/CustomerSupportPage'
 import CustomerPrivacyPolicy from './pages/CustomerPrivacyPolicy'
 import ContactUsPage from './pages/ContactUsPage'
+import ChatPage from './pages/ChatPage'
 
 function App() {
   return (
-    <div className="App">
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<LandingPage />} />
+    <AuthProvider>
+      <div className="App">
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/auth/google/callback" element={<GoogleCallback />} />
         <Route path="/wishlist" element={<WishlistPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/search" element={<SearchResultsPage />} />
@@ -50,6 +59,7 @@ function App() {
         <Route path="/profile/wallet" element={<ProfileWallet />} />
         <Route path="/profile/settings" element={<ProfileSettings />} />
         <Route path="/profile/reviews" element={<ProfileReviews />} />
+        <Route path="/chat" element={<ChatPage />} />
         <Route path="/profile/wallet/settings" element={<ProfileWalletSettings />} />
         <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/booking-details" element={<BookingDetailsPage />} />
@@ -83,8 +93,9 @@ function App() {
         <Route path="/faq" element={<CustomerFAQPage />} />
         <Route path="/support" element={<CustomerSupportPage />} />
         <Route path="/privacy" element={<CustomerPrivacyPolicy />} />
-      </Routes>
-    </div>
+        </Routes>
+      </div>
+    </AuthProvider>
   )
 }
 

@@ -43,6 +43,63 @@ const setCachedProfile = (userId, data) => {
   }
 };
 
+// Lightweight summary for header (only user info)
+const SUMMARY_CACHE_KEY_PREFIX = 'customer_profile_summary_cache_';
+const SUMMARY_CACHE_TIMESTAMP_PREFIX = 'customer_profile_summary_cache_ts_';
+const SUMMARY_CACHE_TTL = 10 * 60 * 1000; // 10 minutes for summary
+
+const getCachedSummary = (userId) => {
+  try {
+    const cached = localStorage.getItem(`${SUMMARY_CACHE_KEY_PREFIX}${userId}`);
+    const timestamp = localStorage.getItem(`${SUMMARY_CACHE_TIMESTAMP_PREFIX}${userId}`);
+    if (cached && timestamp) {
+      const age = Date.now() - parseInt(timestamp, 10);
+      if (age < SUMMARY_CACHE_TTL) {
+        return JSON.parse(cached);
+      }
+    }
+  } catch (_) {
+    // Ignore cache errors
+  }
+  return null;
+};
+
+const setCachedSummary = (userId, data) => {
+  try {
+    localStorage.setItem(`${SUMMARY_CACHE_KEY_PREFIX}${userId}`, JSON.stringify(data));
+    localStorage.setItem(`${SUMMARY_CACHE_TIMESTAMP_PREFIX}${userId}`, Date.now().toString());
+  } catch (_) {
+    // Ignore cache errors
+  }
+};
+
+export const getProfileSummary = async (userId, useCache = true) => {
+  if (!userId) {
+    throw new Error('userId is required to fetch profile summary');
+  }
+  
+  // Return cached summary immediately if available
+  if (useCache) {
+    const cached = getCachedSummary(userId);
+    if (cached) {
+      // Fetch fresh summary in background
+      fetch(`${API_BASE_URL}/profile/${encodeURIComponent(userId)}/summary`)
+        .then(handleResponse)
+        .then(data => setCachedSummary(userId, data))
+        .catch(() => {
+          // Ignore background fetch errors
+        });
+      return cached;
+    }
+  }
+  
+  // Fetch fresh summary
+  const response = await fetch(`${API_BASE_URL}/profile/${encodeURIComponent(userId)}/summary`);
+  const data = await handleResponse(response);
+  setCachedSummary(userId, data);
+  return data;
+};
+
 export const getProfile = async (userId, useCache = true) => {
   if (!userId) {
     throw new Error('userId is required to fetch profile data');
@@ -104,8 +161,10 @@ export const upsertProfile = async (userId, payload) => {
 
 export default {
   getProfile,
+  getProfileSummary,
   updateProfile,
-  upsertProfile
+  upsertProfile,
+  getCachedProfileSync
 };
 
 
