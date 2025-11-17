@@ -7,7 +7,7 @@ import asyncio
 from beanie import PydanticObjectId
 
 from app.core.database import get_database
-from app.models.product import Product, ProductStatus
+from app.models.product import ProductStatus
 
 
 ACTIVE_BOOKING_STATUSES = {"pending", "customized", "confirmed", "completed"}
@@ -46,53 +46,106 @@ class SupplierDashboardService:
             return 0.0
 
     @staticmethod
-    async def _fetch_products(supplier_id: str) -> List[Product]:
-        return await Product.find(Product.supplier_id == supplier_id).to_list()
+    async def _fetch_products(supplier_id: str) -> List[Dict[str, Any]]:
+        """Fetch lightweight product summaries for a supplier with timeout handling"""
+        try:
+            db = get_database()
+            projection = {
+                "_id": 1,
+                "title": 1,
+                "status": 1,
+                "rating": 1,
+                "reviews_count": 1,
+                "price": 1,
+                "currency": 1,
+                "published_at": 1,
+                "created_at": 1,
+                "updated_at": 1,
+            }
+            cursor = db["products"].find({"supplier_id": supplier_id}, projection).limit(500)
+
+            # Add timeout to prevent hanging (30 seconds)
+            docs = await asyncio.wait_for(cursor.to_list(length=None), timeout=30.0)
+            normalized = []
+            for doc in docs:
+                normalized.append({
+                    "id": str(doc.get("_id")),
+                    "title": doc.get("title"),
+                    "status": doc.get("status"),
+                    "rating": doc.get("rating"),
+                    "price": doc.get("price"),
+                    "currency": doc.get("currency"),
+                    "reviews_count": doc.get("reviews_count"),
+                    "created_at": doc.get("created_at"),
+                    "updated_at": doc.get("updated_at"),
+                    "published_at": doc.get("published_at"),
+                })
+            return normalized
+        except asyncio.TimeoutError:
+            # Return empty list if query times out
+            print(f"⚠️ MongoDB query timeout for supplier {supplier_id} - returning empty list")
+            return []
+        except Exception as e:
+            # Log other errors and return empty list
+            print(f"⚠️ Error fetching products for supplier {supplier_id}: {e}")
+            return []
 
     @staticmethod
     async def _fetch_bookings(product_ids: Iterable[str], supplier_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        product_ids = list(product_ids)
-        db = get_database()
-        
-        # Optimize: If supplier_id is provided, query by supplier_id directly (faster)
-        if supplier_id:
-            query = {"supplier_id": supplier_id}
-            # Use projection to fetch only needed fields for better performance
-            cursor = db["customer_bookings"].find(query, {
-                "product_id": 1,
-                "status": 1,
-                "start_date": 1,
-                "created_at": 1,
-                "updated_at": 1,
-                "total_amount": 1,
-                "amount": 1,
-                "price": 1,
-                "currency": 1,
-                "payout_status": 1,
-                "customer_name": 1,
-                "customer_email": 1,
-                "reference_code": 1,
-                "title": 1,
-                "tour_name": 1,
-                "travel_date": 1,
-                "tour_date": 1,
-                "net_amount": 1,
-                "supplier_id": 1,
-            }).limit(500)  # Limit to prevent huge queries
-        elif product_ids:
-            query = {"product_id": {"$in": product_ids}}
-            cursor = db["customer_bookings"].find(query).limit(500)
-        else:
+        """Fetch bookings with timeout handling"""
+        try:
+            product_ids = list(product_ids)
+            db = get_database()
+            
+            # Optimize: If supplier_id is provided, query by supplier_id directly (faster)
+            if supplier_id:
+                query = {"supplier_id": supplier_id}
+                # Use projection to fetch only needed fields for better performance
+                cursor = db["customer_bookings"].find(query, {
+                    "product_id": 1,
+                    "status": 1,
+                    "start_date": 1,
+                    "created_at": 1,
+                    "updated_at": 1,
+                    "total_amount": 1,
+                    "amount": 1,
+                    "price": 1,
+                    "currency": 1,
+                    "payout_status": 1,
+                    "customer_name": 1,
+                    "customer_email": 1,
+                    "reference_code": 1,
+                    "title": 1,
+                    "tour_name": 1,
+                    "travel_date": 1,
+                    "tour_date": 1,
+                    "net_amount": 1,
+                    "supplier_id": 1,
+                }).limit(500)  # Limit to prevent huge queries
+            elif product_ids:
+                query = {"product_id": {"$in": product_ids}}
+                cursor = db["customer_bookings"].find(query).limit(500)
+            else:
+                return []
+            
+            # Add timeout to prevent hanging (30 seconds)
+            bookings = await asyncio.wait_for(
+                cursor.to_list(length=None),
+                timeout=30.0
+            )
+            return bookings
+        except asyncio.TimeoutError:
+            print(f"⚠️ MongoDB bookings query timeout - returning empty list")
             return []
-        
-        bookings = await cursor.to_list(length=None)
-        return bookings
+        except Exception as e:
+            print(f"⚠️ Error fetching bookings: {e}")
+            return []
 
     @staticmethod
-    def _serialize_booking(document: Dict[str, Any], product_lookup: Dict[str, Product]) -> Dict[str, Any]:
+    def _serialize_booking(document: Dict[str, Any], product_lookup: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         booking_id = SupplierDashboardService._ensure_object_id(document.get("_id") or document.get("id"))
         product_id = str(document.get("product_id") or "")
-        product = product_lookup.get(product_id)
+        product = product_lookup.get(product_id, {})
 
         start_date = SupplierDashboardService._parse_datetime(
             document.get("start_date") or document.get("travel_date") or document.get("tour_date")
@@ -110,7 +163,7 @@ class SupplierDashboardService:
         return {
             "id": booking_id,
             "product_id": product_id,
-            "product_title": document.get("title") or document.get("tour_name") or (product.title if product else ""),
+            "product_title": document.get("title") or document.get("tour_name") or product.get("title", ""),
             "status": status or "pending",
             "status_label": status.title() if status else "Pending",
             "start_date": start_date.isoformat() if start_date else None,
@@ -195,11 +248,15 @@ class SupplierDashboardService:
         }
 
     @staticmethod
-    def _derive_activity_metrics(products: List[Product]) -> Dict[str, Any]:
+    def _derive_activity_metrics(products: List[Dict[str, Any]]) -> Dict[str, Any]:
         total = max(len(products), 1)
-        published = sum(1 for product in products if product.status == ProductStatus.PUBLISHED)
-        drafts = sum(1 for product in products if product.status == ProductStatus.DRAFT)
-        under_review = sum(1 for product in products if product.status == ProductStatus.PENDING_REVIEW)
+        def get_status(product):
+            status = product.get("status") if isinstance(product, dict) else getattr(product, "status", None)
+            return ProductStatus(status) if status and not isinstance(status, ProductStatus) else status
+
+        published = sum(1 for product in products if get_status(product) == ProductStatus.PUBLISHED)
+        drafts = sum(1 for product in products if get_status(product) == ProductStatus.DRAFT)
+        under_review = sum(1 for product in products if get_status(product) == ProductStatus.PENDING_REVIEW)
 
         return {
             "counts": {
@@ -216,18 +273,25 @@ class SupplierDashboardService:
         }
 
     @staticmethod
-    def _derive_product_metrics(products: List[Product], bookings: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _derive_product_metrics(products: List[Dict[str, Any]], bookings: List[Dict[str, Any]]) -> Dict[str, Any]:
         total_products = len(products)
-        published = sum(1 for product in products if product.status == ProductStatus.PUBLISHED)
-        drafts = sum(1 for product in products if product.status == ProductStatus.DRAFT)
-        under_review = sum(1 for product in products if product.status == ProductStatus.PENDING_REVIEW)
+        def get_status(product):
+            status = product.get("status") if isinstance(product, dict) else getattr(product, "status", None)
+            return ProductStatus(status) if status and not isinstance(status, ProductStatus) else status
+
+        published = sum(1 for product in products if get_status(product) == ProductStatus.PUBLISHED)
+        drafts = sum(1 for product in products if get_status(product) == ProductStatus.DRAFT)
+        under_review = sum(1 for product in products if get_status(product) == ProductStatus.PENDING_REVIEW)
 
         cancellations = sum(
             1 for booking in bookings if (booking.get("status") or "").lower() in CANCELLED_BOOKING_STATUSES
         )
         cancellation_rate = round((cancellations / len(bookings)) * 100, 2) if bookings else 0.0
 
-        ratings = [product.rating for product in products if product.rating is not None]
+        def get_rating(product):
+            return product.get("rating") if isinstance(product, dict) else getattr(product, "rating", None)
+
+        ratings = [get_rating(product) for product in products if get_rating(product) is not None]
         average_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0.0
 
         return {
@@ -262,7 +326,7 @@ class SupplierDashboardService:
     async def get_overview(supplier_id: str) -> Dict[str, Any]:
         # Fetch products first (needed for product_map)
         products = await SupplierDashboardService._fetch_products(supplier_id)
-        product_map = {str(product.id): product for product in products}
+        product_map = {str(product.get("id")): product for product in products}
         
         # Fetch bookings by supplier_id directly (much faster than product_ids)
         bookings_raw = await SupplierDashboardService._fetch_bookings(product_map.keys(), supplier_id=supplier_id)

@@ -348,7 +348,11 @@ class GoogleCallbackRequest(BaseModel):
 @router.post("/google/callback", response_model=dict)
 async def google_callback(request: GoogleCallbackRequest):
     """Handle Google OAuth callback with authorization code"""
+    import asyncio
+    
     try:
+        logger.info("Starting Google OAuth callback")
+        
         # Exchange authorization code for tokens
         token_url = "https://oauth2.googleapis.com/token"
         token_data = {
@@ -359,15 +363,40 @@ async def google_callback(request: GoogleCallbackRequest):
             "grant_type": "authorization_code"
         }
         
-        token_response = requests.post(token_url, data=token_data)
+        logger.info("Exchanging authorization code with Google...")
+        # Add timeout to prevent hanging (8 seconds - faster than frontend timeout)
+        try:
+            token_response = await asyncio.wait_for(
+                asyncio.to_thread(requests.post, token_url, data=token_data, timeout=8),
+                timeout=8.0
+            )
+        except asyncio.TimeoutError:
+            logger.error("Google OAuth token exchange timed out")
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Google OAuth token exchange timed out. Please try again."
+            )
+        
+        # Check if request was successful
+        if not token_response.ok:
+            error_msg = f"Google OAuth token exchange failed: {token_response.status_code} - {token_response.text}"
+            logger.error(error_msg)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
+        
         token_json = token_response.json()
         
         if "error" in token_json:
             error_msg = token_json.get('error_description', token_json.get('error', 'Unknown error'))
+            logger.error(f"Google OAuth error: {error_msg}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Google OAuth error: {error_msg}"
             )
+        
+        logger.info("Token exchange successful, decoding ID token...")
         
         # Get user info from Google
         id_token = token_json.get("id_token")
@@ -376,6 +405,7 @@ async def google_callback(request: GoogleCallbackRequest):
         try:
             decoded_token = jwt.decode(id_token, options={"verify_signature": False})
         except Exception as e:
+            logger.error(f"Failed to decode ID token: {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to decode ID token: {str(e)}"
@@ -385,15 +415,29 @@ async def google_callback(request: GoogleCallbackRequest):
         name = decoded_token.get("name")
         
         if not email:
+            logger.error("No email found in Google token")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No email found in Google token"
             )
         
-        # Check if user already exists
-        user = await User.find_one(User.email == email)
+        logger.info(f"Looking up user with email: {email}")
+        
+        # Check if user already exists with timeout
+        try:
+            user = await asyncio.wait_for(
+                User.find_one(User.email == email),
+                timeout=5.0
+            )
+        except asyncio.TimeoutError:
+            logger.error("MongoDB query timed out while looking up user")
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Database query timed out. Please try again."
+            )
         
         if not user:
+            logger.info(f"Creating new user for email: {email}")
             # Create new user from Google data
             supplier_code = await _generate_supplier_code()
             user = User(
@@ -406,14 +450,29 @@ async def google_callback(request: GoogleCallbackRequest):
                 hashed_password="",  # No password for Google users
                 supplier_code=supplier_code,
             )
-            await user.insert()
-            await _sync_supplier_code_to_settings(str(user.id), supplier_code)
+            try:
+                await asyncio.wait_for(user.insert(), timeout=5.0)
+                await asyncio.wait_for(_sync_supplier_code_to_settings(str(user.id), supplier_code), timeout=3.0)
+            except asyncio.TimeoutError:
+                logger.error("MongoDB insert timed out")
+                raise HTTPException(
+                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                    detail="Database operation timed out. Please try again."
+                )
+            logger.info(f"New user created: {user.id}")
         else:
-            await _ensure_supplier_code(user)
+            logger.info(f"Existing user found: {user.id}")
+            try:
+                await asyncio.wait_for(_ensure_supplier_code(user), timeout=3.0)
+            except asyncio.TimeoutError:
+                logger.warning("Supplier code sync timed out, continuing...")
         
+        logger.info("Creating JWT tokens...")
         # Create tokens
         access_token = create_access_token(data={"sub": str(user.id)})
         refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        
+        logger.info("Google OAuth callback completed successfully")
         
         return {
             "token": access_token,
@@ -424,6 +483,7 @@ async def google_callback(request: GoogleCallbackRequest):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Google callback failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Google callback failed: {str(e)}"

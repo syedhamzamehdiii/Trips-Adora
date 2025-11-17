@@ -23,14 +23,27 @@ app = FastAPI(
 )
 
 # CORS middleware
-# Filter out "*" from origins if credentials are enabled (FastAPI requirement)
-cors_origins = [origin for origin in settings.CORS_ORIGINS if origin != "*"]
+# Explicitly allow localhost:5173 and other development origins
+cors_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
+# Also include any from settings that aren't "*"
+for origin in settings.CORS_ORIGINS:
+    if origin != "*" and origin not in cors_origins:
+        cors_origins.append(origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins if cors_origins else ["*"],  # Use explicit origins or allow all
-    allow_credentials=True if cors_origins else False,  # Only enable credentials with explicit origins
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=cors_origins,  # Explicit list of allowed origins
+    allow_credentials=True,  # Allow cookies/auth headers
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],  # All HTTP methods
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],  # Expose all headers
 )
 
 @app.on_event("startup")

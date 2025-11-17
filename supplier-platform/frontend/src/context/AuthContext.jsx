@@ -23,15 +23,36 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const initializeAuth = async () => {
+    // Set a maximum timeout to ensure loading always resolves
+    const maxTimeout = setTimeout(() => {
+      console.warn('Auth initialization timeout - forcing loading to false')
+      setLoading(false)
+    }, 5000) // 5 second maximum timeout
+
     try {
-      // Initialize Google Auth
-      await googleAuthService.initGoogleAuth()
+      // Initialize Google Auth with timeout (non-blocking)
+      // Don't wait for it if it takes too long - it's not critical for initial load
+      const googleAuthPromise = googleAuthService.initGoogleAuth().catch(err => {
+        console.warn('Google Auth initialization failed or timed out:', err)
+        // Continue without Google Auth - it's not critical for initial load
+      })
+      
+      // Wait max 3 seconds for Google Auth, then continue
+      const googleAuthTimeout = new Promise((resolve) => setTimeout(resolve, 3000))
+      await Promise.race([googleAuthPromise, googleAuthTimeout])
       
       // Check if user is already authenticated
       const token = localStorage.getItem('access_token')
       if (token && authService.isAuthenticated()) {
         try {
-          const userData = await authService.getCurrentUser()
+          // Add timeout to API call to prevent hanging
+          const userDataPromise = authService.getCurrentUser()
+          const apiTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('API request timeout')), 3000)
+          )
+          
+          const userData = await Promise.race([userDataPromise, apiTimeout])
+          
           if (userData) {
             persistSupplierId(userData?.supplier_code)
             setUser(userData)
@@ -43,7 +64,7 @@ export const AuthProvider = ({ children }) => {
           }
         } catch (error) {
           console.error('Failed to get current user:', error)
-          // Token might be invalid, clear it
+          // Token might be invalid or backend is down, clear it
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
           setUser(null)
@@ -56,6 +77,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Auth initialization error:', error)
       setUser(null)
     } finally {
+      clearTimeout(maxTimeout)
       setLoading(false)
     }
   }
