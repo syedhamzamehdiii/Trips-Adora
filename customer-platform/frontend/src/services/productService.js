@@ -429,10 +429,28 @@ export const transformProductForFrontend = (product) => {
     image = typeof firstPhoto === 'string' ? firstPhoto : (firstPhoto.url || firstPhoto);
   }
   
-  // Fallback to default image
-  if (!image) {
-    image = '/assests/bg.jpg'; // Fallback
+  // Process images array to ensure all URLs are strings
+  let processedImages = [];
+  if (product.images && Array.isArray(product.images)) {
+    processedImages = product.images.map(img => {
+      if (typeof img === 'string') return img;
+      if (img && typeof img === 'object') return img.url || img.src || img;
+      return null;
+    }).filter(Boolean);
+  } else if (product.uploadedPhotos && Array.isArray(product.uploadedPhotos)) {
+    processedImages = product.uploadedPhotos.map(photo => {
+      if (typeof photo === 'string') return photo;
+      if (photo && typeof photo === 'object') return photo.url || photo.src || photo;
+      return null;
+    }).filter(Boolean);
   }
+  
+  // If we have processed images but no main image, use first processed image
+  if (!image && processedImages.length > 0) {
+    image = processedImages[0];
+  }
+  
+  // Don't use fallback image - let component handle missing images gracefully
   
   const price = product.price ? `$${product.price}${product.price_unit === 'Per Person' ? '/person' : ''}` : (product.revenue ? `$${product.revenue}` : '$0');
   const oldPrice = product.price ? `$${Math.round(product.price * 1.2)}` : (product.revenue ? `$${Math.round(product.revenue * 1.2)}` : '$250');
@@ -464,7 +482,7 @@ export const transformProductForFrontend = (product) => {
     id: product.id,
     name: product.name || product.title || product.productTitle || 'Untitled Product',
     image: image,
-    images: product.images || product.uploadedPhotos || [],
+    images: processedImages.length > 0 ? processedImages : (product.images || product.uploadedPhotos || []),
     rating: product.rating || 4.8,
     reviews: reviewsText,
     reviewsCount: reviewsCount,
@@ -497,7 +515,10 @@ export const transformProductForFrontend = (product) => {
     excludedItems: product.included_excluded?.excluded || 
                    (product.excludedItems ? (Array.isArray(product.excludedItems) ? product.excludedItems : [product.excludedItems]) : []),
     availableDays: availableDays,
-    availableTimeSlots: availableTimeSlots
+    availableTimeSlots: availableTimeSlots,
+    // Supplier information
+    supplierBusinessName: product.supplier_business_name || product.supplierBusinessName,
+    supplierId: product.supplier_id || product.supplierId
   };
   
   // DEBUG: Log transformed product
