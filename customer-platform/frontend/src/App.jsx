@@ -36,6 +36,7 @@ import CustomerFAQPage from './pages/CustomerFAQPage'
 import CustomerSupportPage from './pages/CustomerSupportPage'
 import CustomerPrivacyPolicy from './pages/CustomerPrivacyPolicy'
 import ContactUsPage from './pages/ContactUsPage'
+import ChatPage from './pages/ChatPage'
 
 function App() {
   return (
@@ -50,6 +51,7 @@ function App() {
         <Route path="/profile/wallet" element={<ProfileWallet />} />
         <Route path="/profile/settings" element={<ProfileSettings />} />
         <Route path="/profile/reviews" element={<ProfileReviews />} />
+        <Route path="/chat" element={<ChatPage />} />
         <Route path="/profile/wallet/settings" element={<ProfileWalletSettings />} />
         <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/booking-details" element={<BookingDetailsPage />} />

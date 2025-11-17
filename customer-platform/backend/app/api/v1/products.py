@@ -322,6 +322,38 @@ async def get_product(product_id: str):
             else None
         )
         
+        # Fetch supplier information (business_name)
+        supplier_id = product.get("supplier_id")
+        supplier_business_name = None
+        if supplier_id:
+            try:
+                from app.core.database import get_database
+                from bson import ObjectId
+                db = get_database()
+                # Try to find supplier in users collection
+                try:
+                    supplier_user = await db.users.find_one(
+                        {"_id": ObjectId(supplier_id) if ObjectId.is_valid(supplier_id) else supplier_id},
+                        {"business_name": 1}
+                    )
+                    if supplier_user:
+                        supplier_business_name = supplier_user.get("business_name")
+                        logger.info(f"🔍 [DEBUG] Found supplier business_name: {supplier_business_name}")
+                except:
+                    pass
+                
+                # Try suppliers collection as fallback
+                if not supplier_business_name:
+                    supplier = await db.suppliers.find_one(
+                        {"user_id": str(supplier_id)},
+                        {"business_name": 1}
+                    )
+                    if supplier:
+                        supplier_business_name = supplier.get("business_name")
+                        logger.info(f"🔍 [DEBUG] Found supplier business_name from suppliers collection: {supplier_business_name}")
+            except Exception as e:
+                logger.warning(f"Could not fetch supplier information: {e}")
+        
         # Create response
         response = ProductResponse(
             id=product.get("id", ""),
@@ -358,7 +390,9 @@ async def get_product(product_id: str):
             accessibility=accessibility,
             faqs=faqs,
             selling_points=selling_points,
-            style_theme=style_theme
+            style_theme=style_theme,
+            supplier_business_name=supplier_business_name,
+            supplier_id=str(supplier_id) if supplier_id else None
         )
         
         # DEBUG: Log response data

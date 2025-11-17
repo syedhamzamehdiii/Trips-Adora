@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiX, FiCheck, FiTrash2 } from 'react-icons/fi';
+import { FiX, FiCheck, FiTrash2, FiMessageSquare } from 'react-icons/fi';
 import { useSettings } from '@/context/SettingsContext';
 import notificationService from '@/services/notificationService';
 
@@ -300,6 +300,17 @@ const Header = ({ activePage = '' }) => {
           
           {/* Right side - User Info Section */}
           <div className="flex items-center space-x-6">
+            {/* Chat Icon */}
+            <div className="relative">
+              <button 
+                onClick={() => navigate('/chat')}
+                className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
+                title="Messages"
+              >
+                <FiMessageSquare className="w-6 h-6" />
+              </button>
+            </div>
+            
             {/* Notification Bell */}
             <div className="relative" ref={notificationRef}>
               <button 

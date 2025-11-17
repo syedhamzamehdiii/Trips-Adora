@@ -97,6 +97,10 @@ class ProductResponse(BaseModel):
     selling_points: List[str] = []
     style_theme: Optional[str] = None
     
+    # Supplier information
+    supplier_business_name: Optional[str] = None
+    supplier_id: Optional[str] = None  # Include for chat functionality
+    
     class Config:
         from_attributes = True
         json_encoders = {
