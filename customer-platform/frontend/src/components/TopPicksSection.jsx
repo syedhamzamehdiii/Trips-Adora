@@ -1,24 +1,47 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiStar } from 'react-icons/fi'
 import TourCard from './TourCard'
-import { getTopPicks, transformProductForFrontend, recordProductClick, addRecentlyViewed } from '../services/productService'
+import { getTopPicks, transformProductForFrontend, recordProductClick, addRecentlyViewed, getCachedPublishedProductsSync } from '../services/productService'
 
 const TopPicksSection = () => {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
+  // Load from cache immediately (synchronous)
+  const initialProducts = (() => {
+    try {
+      const cached = getCachedPublishedProductsSync()
+      if (cached && cached.length > 0) {
+        return cached.slice(0, 4).map(transformProductForFrontend)
+      }
+    } catch (_) {}
+    return []
+  })()
+  
+  const [products, setProducts] = useState(initialProducts)
+  const hasLoadedOnceRef = useRef(false)
+  const [loading, setLoading] = useState(initialProducts.length === 0)
   const navigate = useNavigate()
 
   useEffect(() => {
+    // If we have cached data, set loaded state immediately
+    if (initialProducts.length > 0) {
+      hasLoadedOnceRef.current = true
+      setLoading(false)
+    }
+    
     let cancelled = false
     const fetchTopPicks = async () => {
       try {
-        setLoading(true)
-        const data = await getTopPicks(4)
+        // Only show loading if we don't have cached data
+        if (initialProducts.length === 0 && !hasLoadedOnceRef.current) {
+          setLoading(true)
+        }
+        
+        const data = await getTopPicks(4, true) // Use cache
         if (!cancelled) {
           if (data && Array.isArray(data)) {
             const transformed = data.map(transformProductForFrontend)
             setProducts(transformed)
+            hasLoadedOnceRef.current = true
           } else {
             setProducts([])
           }
@@ -26,18 +49,23 @@ const TopPicksSection = () => {
       } catch (error) {
         if (!cancelled) {
           console.error('Error fetching top picks:', error)
-          setProducts([])
+          if (initialProducts.length === 0) {
+            setProducts([])
+          }
         }
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
 
-    fetchTopPicks()
-    // Revalidate only when tab becomes visible for a smoother feel
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchTopPicks() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible) }
+    // If we have cached data, fetch fresh in background
+    if (initialProducts.length > 0) {
+      fetchTopPicks() // Background refresh
+    } else {
+      fetchTopPicks() // Immediate fetch
+    }
+    
+    return () => { cancelled = true }
   }, [])
 
   return (

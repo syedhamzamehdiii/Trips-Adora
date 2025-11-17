@@ -9,10 +9,20 @@ const GoogleCallback = () => {
 
   useEffect(() => {
       let isHandled = false;
+      let timeoutId = null;
       
       const handleCallback = async () => {
         if (isHandled) return;
         isHandled = true;
+        
+        // Set a timeout to prevent hanging
+        timeoutId = setTimeout(() => {
+          if (!isHandled) {
+            console.log('Google authentication timeout');
+            navigate('/login', { replace: true });
+          }
+        }, 10000); // 10 second timeout
+        
         try {
           // Get the code from URL
           const urlParams = new URLSearchParams(window.location.search);
@@ -20,38 +30,52 @@ const GoogleCallback = () => {
           const error = urlParams.get('error');
 
         if (error) {
-          alert('Google authentication was cancelled');
-          navigate('/login');
+          // Silent error handling - just navigate to login
+          console.log('Google authentication was cancelled');
+          clearTimeout(timeoutId);
+          navigate('/login', { replace: true });
           return;
         }
 
         if (!code) {
-          alert('No authorization code received');
-          navigate('/login');
+          // Silent error handling - just navigate to login
+          console.log('No authorization code received');
+          clearTimeout(timeoutId);
+          navigate('/login', { replace: true });
           return;
         }
 
         // Exchange code for token via backend
-        const response = await authService.googleLoginWithCode(code, 'http://localhost:5174/auth/google/callback');
+        // Use the exact redirect URI that was used in the initial OAuth request
+        const redirectUri = window.location.origin + '/auth/google/callback';
+        const response = await authService.googleLoginWithCode(code, redirectUri);
+        
+        clearTimeout(timeoutId);
         
         if (response.success) {
           updateUser(response.user);
-          alert('Successfully signed in with Google!');
-          navigate('/dashboard');
+          // Success - navigate to dashboard (no alert)
+          navigate('/dashboard', { replace: true });
         } else {
-          alert('Google authentication failed');
-          navigate('/login');
+          // Silent error handling
+          console.log('Google authentication failed');
+          navigate('/login', { replace: true });
         }
       } catch (error) {
+        clearTimeout(timeoutId);
+        // Silent error handling - log but don't show alert
         console.error('Google callback error:', error);
-        const errorMessage = error.response?.data?.detail || error.message || 'Google authentication failed';
-        alert(errorMessage);
-        navigate('/login');
+        // Navigate to login without showing error dialog
+        navigate('/login', { replace: true });
       }
     };
 
     handleCallback();
-  }, []); // Empty dependency array to run only once
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [navigate, updateUser]); // Include dependencies
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">

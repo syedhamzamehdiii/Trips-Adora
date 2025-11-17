@@ -1,6 +1,6 @@
 
-import React, { useEffect, useMemo, useState } from 'react'
-import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight } from 'lucide-react'
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import Itinerary from "../components/Itinerary"
 import share from "../../assests/share.png";
 import branch from "../../assests/middle.png";
@@ -29,7 +29,8 @@ const ProductDetails = () => {
     }
   })()
   const [product, setProduct] = useState(initialFromCache)
-  const [loading, setLoading] = useState(true)
+  const hasLoadedOnceRef = useRef(false)
+  const [loading, setLoading] = useState(!initialFromCache) // Only show loading if no cached data
   const [recommended, setRecommended] = useState([])
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -37,6 +38,7 @@ const ProductDetails = () => {
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [imageErrors, setImageErrors] = useState(new Set())
   const [imagesLoaded, setImagesLoaded] = useState(new Set())
+  const [showAllImages, setShowAllImages] = useState(false)
 
   const images = useMemo(() => {
     if (!product) return []
@@ -58,126 +60,98 @@ const ProductDetails = () => {
     setImagesLoaded(new Set())
   }, [product?.id])
 
-  useEffect(() => {
+  const fetchProduct = useCallback(async () => {
     let cancelled = false
-    const load = async () => {
-      try {
-        // Only show loading if we don't have cached product
-        if (!product) {
-          setLoading(true)
+    try {
+      // Only show loading if we don't have cached product and haven't loaded once
+      if (!initialFromCache && !hasLoadedOnceRef.current) {
+        setLoading(true)
+      }
+      
+      if (!identifier) {
+        if (!cancelled) setProduct(null)
+        return
+      }
+      
+      // IMPORTANT: Always fetch full product details by ID for detail page
+      // The /published endpoint uses LIST_PROJECTION which excludes detail fields
+      // We need to use /products/{id} endpoint to get all fields
+      let found = null;
+      
+      // First, try to fetch by ID directly (this gets ALL fields)
+      // Check if identifier looks like an ObjectId (24 hex characters)
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(String(identifier));
+      
+      if (isObjectId) {
+        // It's an ID, fetch directly (use cache)
+        const byId = await getProductById(String(identifier), true);
+        if (byId) {
+          found = transformProductForFrontend(byId);
         }
+      } else {
+        // It's a slug, try to find in list first to get ID, then fetch full details
+        const data = await getPublishedProducts({ page: 1, page_size: 50 }, true); // Use cache
+        const list = (data.products || []).map(transformProductForFrontend);
+        const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-');
         
-        if (!identifier) {
-          if (!cancelled) setProduct(null)
-          return
-        }
+        // Find by slug
+        const listProduct = list.find(p => normalize(p.name) === String(identifier).toLowerCase());
         
-        // IMPORTANT: Always fetch full product details by ID for detail page
-        // The /published endpoint uses LIST_PROJECTION which excludes detail fields
-        // We need to use /products/{id} endpoint to get all fields
-        console.log('🔍 [DEBUG] ProductDetails - Fetching full product details for:', identifier);
-        
-        let found = null;
-        
-        // First, try to fetch by ID directly (this gets ALL fields)
-        // Check if identifier looks like an ObjectId (24 hex characters)
-        const isObjectId = /^[0-9a-fA-F]{24}$/.test(String(identifier));
-        
-        if (isObjectId) {
-          // It's an ID, fetch directly
-          console.log('🔍 [DEBUG] ProductDetails - Identifier is ObjectId, fetching by ID');
-          const byId = await getProductById(String(identifier));
+        if (listProduct && listProduct.id) {
+          // Found in list, now fetch full details by ID (use cache)
+          const byId = await getProductById(String(listProduct.id), true);
           if (byId) {
             found = transformProductForFrontend(byId);
-            console.log('🔍 [DEBUG] ProductDetails - Fetched by ID, has full data:', {
-              guideType: found?.guideType,
-              thingsToCarry: found?.thingsToCarry?.length,
-              languages: found?.languages?.length,
-              includedItems: found?.includedItems?.length,
-              excludedItems: found?.excludedItems?.length,
-              vehicles: found?.vehicles?.length,
-              accessibility: found?.accessibility ? 'yes' : 'no'
-            });
-          }
-        } else {
-          // It's a slug, try to find in list first to get ID, then fetch full details
-          console.log('🔍 [DEBUG] ProductDetails - Identifier is slug, searching in list first');
-          const data = await getPublishedProducts({ page: 1, page_size: 50 });
-          const list = (data.products || []).map(transformProductForFrontend);
-          const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-');
-          
-          // Find by slug
-          const listProduct = list.find(p => normalize(p.name) === String(identifier).toLowerCase());
-          
-          if (listProduct && listProduct.id) {
-            // Found in list, now fetch full details by ID
-            console.log('🔍 [DEBUG] ProductDetails - Found in list, fetching full details by ID:', listProduct.id);
-            const byId = await getProductById(String(listProduct.id));
-            if (byId) {
-              found = transformProductForFrontend(byId);
-              console.log('🔍 [DEBUG] ProductDetails - Fetched full details, has data:', {
-                guideType: found?.guideType,
-                thingsToCarry: found?.thingsToCarry?.length,
-                languages: found?.languages?.length,
-                includedItems: found?.includedItems?.length,
-                excludedItems: found?.excludedItems?.length,
-                vehicles: found?.vehicles?.length,
-                accessibility: found?.accessibility ? 'yes' : 'no'
-              });
-            } else {
-              // Fallback to list product if API fails
-              found = listProduct;
-              console.log('🔍 [DEBUG] ProductDetails - API fetch failed, using list product (limited data)');
-            }
           } else {
-            // Not found in list, try direct fetch anyway
-            console.log('🔍 [DEBUG] ProductDetails - Not found in list, trying direct fetch');
-            const byId = await getProductById(String(identifier));
-            if (byId) found = transformProductForFrontend(byId);
+            // Fallback to list product if API fails
+            found = listProduct;
           }
-        }
-        
-        // DEBUG: Log final found product
-        if (found) {
-          console.log('🔍 [DEBUG] ProductDetails - Final product data:', {
-            id: found.id,
-            name: found.name,
-            guideType: found.guideType,
-            thingsToCarry: found.thingsToCarry,
-            languages: found.languages,
-            includedItems: found.includedItems,
-            excludedItems: found.excludedItems,
-            vehicles: found.vehicles,
-            accessibility: found.accessibility,
-            highlights: found.highlights,
-            itineraries: found.itineraries
-          });
         } else {
-          console.log('🔍 [DEBUG] ProductDetails - Product not found for identifier:', identifier);
+          // Not found in list, try direct fetch anyway (use cache)
+          const byId = await getProductById(String(identifier), true);
+          if (byId) found = transformProductForFrontend(byId);
         }
-        
-        if (!cancelled) {
-          setProduct(found || null)
-          if (found) addRecentlyViewed(found)
-        }
-        // Recommended from explore (most clicked) - use list for recommendations
-        const data = await getPublishedProducts({ page: 1, page_size: 50 })
-        const list = (data.products || []).map(transformProductForFrontend)
-        const clicks = getProductClicks()
-        const sorted = list
-          .map(p => ({ ...p, clicks: clicks[p.id] || 0 }))
-          .filter(p => !found || p.id !== found.id)
-          .sort((a,b) => b.clicks - a.clicks)
-          .slice(0,4)
-        if (!cancelled) setRecommended(sorted)
-      } finally {
-        if (!cancelled) setLoading(false)
+      }
+      
+      if (!cancelled) {
+        setProduct(found || null)
+        if (found) addRecentlyViewed(found)
+        hasLoadedOnceRef.current = true
+      }
+      
+      // Recommended from explore (most clicked) - use list for recommendations
+      const data = await getPublishedProducts({ page: 1, page_size: 50 })
+      const list = (data.products || []).map(transformProductForFrontend)
+      const clicks = getProductClicks()
+      const sorted = list
+        .map(p => ({ ...p, clicks: clicks[p.id] || 0 }))
+        .filter(p => !found || p.id !== found.id)
+        .sort((a,b) => b.clicks - a.clicks)
+        .slice(0,4)
+      if (!cancelled) setRecommended(sorted)
+    } catch (error) {
+      console.error('Error fetching product:', error)
+      if (!cancelled && !initialFromCache) {
+        setProduct(null)
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false)
       }
     }
-    load()
-    // Reduced network chatter: no visibility or global refresh listeners here
-    return () => { cancelled = true }
-  }, [identifier])
+  }, [identifier, initialFromCache])
+
+  useEffect(() => {
+    // If we have cached data, fetch fresh in background
+    if (initialFromCache) {
+      hasLoadedOnceRef.current = true
+      setLoading(false)
+      fetchProduct() // Fetch fresh data in background
+    } else {
+      // No cache, fetch immediately
+      fetchProduct()
+    }
+  }, [identifier, fetchProduct]) // Include fetchProduct in dependencies
 
   
   // Ratings data for the Customer Reviews block
@@ -191,7 +165,7 @@ const ProductDetails = () => {
     { stars: 1, percentage: 0, count: 0 },
   ]
 
-  if (loading && !product) {
+  if (loading && !product && !hasLoadedOnceRef.current) {
     return (
       <div className="min-h-screen bg-white font-poppins">
         <MainHeader />
@@ -261,94 +235,173 @@ const ProductDetails = () => {
               </div>
             </div>
             
-            {/* Image Gallery - Only show supplier images */}
+            {/* Image Gallery - Improved layout with better spacing */}
             {images.length > 0 && (
               <div className="mb-6 sm:mb-8">
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-0 overflow-hidden rounded-lg">
-                  <div className="sm:col-span-3">
-                    {images[0] && !imageErrors.has(images[0]) && (
-                      <img 
-                        src={images[0]} 
-                        alt={product.name || "Product image"}
-                        className="w-full h-48 sm:h-64 lg:h-80 object-cover cursor-pointer"
-                        onClick={() => openGalleryAt(0)}
-                        onError={(e) => {
-                          setImageErrors(prev => new Set([...prev, images[0]]))
-                          e.target.style.display = 'none'
-                        }}
-                        onLoad={() => setImagesLoaded(prev => new Set([...prev, images[0]]))}
-                        loading="eager"
-                      />
-                    )}
+                {!showAllImages ? (
+                  // Compact view: Main image + 3 thumbnails with minimal gap and bottom alignment
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-1 sm:gap-1.5 overflow-hidden rounded-lg">
+                    <div className="sm:col-span-3 h-48 sm:h-64 lg:h-80 xl:h-96">
+                      {images[0] && !imageErrors.has(images[0]) && (
+                        <img 
+                          src={images[0]} 
+                          alt={product.name || "Product image"}
+                          className="w-full h-full object-cover cursor-pointer rounded-lg hover:opacity-95 transition-opacity"
+                          onClick={() => openGalleryAt(0)}
+                          onError={(e) => {
+                            setImageErrors(prev => new Set([...prev, images[0]]))
+                            e.target.style.display = 'none'
+                          }}
+                          onLoad={() => setImagesLoaded(prev => new Set([...prev, images[0]]))}
+                          loading="eager"
+                        />
+                      )}
+                    </div>
+                    <div className="sm:col-span-1 h-48 sm:h-64 lg:h-80 xl:h-96 flex flex-col justify-end gap-1 sm:gap-1.5">
+                      {images.slice(1, 4).map((img, idx) => {
+                        // Calculate thumbnail height to fill space evenly
+                        const thumbnailCount = images.length > 4 ? 3 : images.slice(1, 4).length
+                        const gapCount = thumbnailCount - 1
+                        const totalGaps = gapCount * 4 // gap-1 = 4px, gap-1.5 = 6px (using 4px for calculation)
+                        // For responsive, we'll use flex-1 to distribute space
+                        return (
+                          img && !imageErrors.has(img) && (
+                            <img 
+                              key={idx + 1}
+                              src={img}
+                              alt={`${product.name || "Product"} thumbnail ${idx + 1}`}
+                              className="w-full flex-1 object-cover cursor-pointer rounded-lg hover:opacity-90 transition-opacity min-h-0"
+                              onClick={() => openGalleryAt(idx + 1)}
+                              onError={(e) => {
+                                setImageErrors(prev => new Set([...prev, img]))
+                                e.target.style.display = 'none'
+                              }}
+                              onLoad={() => setImagesLoaded(prev => new Set([...prev, img]))}
+                              loading="lazy"
+                            />
+                          )
+                        )
+                      })}
+                      {images.length > 4 && (
+                        <button
+                          onClick={() => setShowAllImages(true)}
+                          className="w-full flex-1 bg-gray-900/60 hover:bg-gray-900/80 text-white rounded-lg flex items-center justify-center text-sm sm:text-base font-semibold transition-colors min-h-0"
+                        >
+                          +{images.length - 4} More
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="sm:col-span-1 grid grid-cols-3 sm:grid-cols-1 gap-0">
-                    {images[1] && !imageErrors.has(images[1]) && (
-                      <img 
-                        src={images[1]}
-                        alt={`${product.name || "Product"} thumbnail 1`}
-                        className="w-full h-16 sm:h-20 lg:h-24 object-cover cursor-pointer"
-                        onClick={() => openGalleryAt(1)}
-                        onError={(e) => {
-                          setImageErrors(prev => new Set([...prev, images[1]]))
-                          e.target.style.display = 'none'
-                        }}
-                        onLoad={() => setImagesLoaded(prev => new Set([...prev, images[1]]))}
-                        loading="lazy"
-                      />
-                    )}
-                    {images[2] && !imageErrors.has(images[2]) && (
-                      <img 
-                        src={images[2]}
-                        alt={`${product.name || "Product"} thumbnail 2`}
-                        className="w-full h-16 sm:h-20 lg:h-24 object-cover cursor-pointer"
-                        onClick={() => openGalleryAt(2)}
-                        onError={(e) => {
-                          setImageErrors(prev => new Set([...prev, images[2]]))
-                          e.target.style.display = 'none'
-                        }}
-                        onLoad={() => setImagesLoaded(prev => new Set([...prev, images[2]]))}
-                        loading="lazy"
-                      />
-                    )}
-                    {images[3] && !imageErrors.has(images[3]) && (
-                      <img 
-                        src={images[3]}
-                        alt={`${product.name || "Product"} thumbnail 3`}
-                        className="w-full h-16 sm:h-20 lg:h-24 object-cover cursor-pointer"
-                        onClick={() => openGalleryAt(3)}
-                        onError={(e) => {
-                          setImageErrors(prev => new Set([...prev, images[3]]))
-                          e.target.style.display = 'none'
-                        }}
-                        onLoad={() => setImagesLoaded(prev => new Set([...prev, images[3]]))}
-                        loading="lazy"
-                      />
-                    )}
+                ) : (
+                  // Expanded view: Grid of all images
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg sm:text-xl font-bold text-black">All Photos ({images.length})</h3>
+                      <button
+                        onClick={() => setShowAllImages(false)}
+                        className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+                      >
+                        Show Less
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                      {images.map((img, idx) => (
+                        img && !imageErrors.has(img) && (
+                          <div key={idx} className="relative aspect-square rounded-lg overflow-hidden group">
+                            <img 
+                              src={img}
+                              alt={`${product.name || "Product"} image ${idx + 1}`}
+                              className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300"
+                              onClick={() => openGalleryAt(idx)}
+                              onError={(e) => {
+                                setImageErrors(prev => new Set([...prev, img]))
+                                e.target.style.display = 'none'
+                              }}
+                              onLoad={() => setImagesLoaded(prev => new Set([...prev, img]))}
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+                          </div>
+                        )
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
             {/* Gallery Modal - Only show if images exist */}
             {isGalleryOpen && images.length > 0 && images[currentIndex] && (
-              <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4" onClick={closeGallery}>
-                <div className="relative w-full max-w-5xl" onClick={(e)=>e.stopPropagation()}>
-                  <div className="relative rounded-lg overflow-hidden">
-                    <img src={images[currentIndex]} alt={`${product.name || "Product"} gallery image ${currentIndex + 1}`} className="w-full max-h-[70vh] object-contain" />
+              <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center p-4" onClick={closeGallery}>
+                <div className="relative w-full max-w-6xl" onClick={(e)=>e.stopPropagation()}>
+                  {/* Close button */}
+                  <button
+                    onClick={closeGallery}
+                    className="absolute top-4 right-4 z-10 bg-white/90 hover:bg-white text-gray-900 w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-lg"
+                    aria-label="Close gallery"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                  
+                  {/* Navigation arrows */}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+                        }}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white text-gray-900 w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg"
+                        aria-label="Previous image"
+                      >
+                        <ChevronLeft className="w-6 h-6" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+                        }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white text-gray-900 w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow-lg"
+                        aria-label="Next image"
+                      >
+                        <ChevronRight className="w-6 h-6" />
+                      </button>
+                    </>
+                  )}
+                  
+                  <div className="relative rounded-lg overflow-hidden bg-black">
+                    <img 
+                      src={images[currentIndex]} 
+                      alt={`${product.name || "Product"} gallery image ${currentIndex + 1}`} 
+                      className="w-full max-h-[80vh] object-contain mx-auto" 
+                    />
                     {images.length > 1 && (
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 px-2 py-2">
-                    {images.map((src, idx)=> (
-                        <img
-                          key={idx}
-                          src={src}
-                          alt={`thumb-${idx}`}
-                          onClick={()=> setCurrentIndex(idx)}
-                          onError={(e) => {
-                            e.target.style.display = 'none'
-                          }}
-                          className={`h-12 w-16 object-cover rounded-md cursor-pointer border ${currentIndex===idx? 'border-[#284078] ring-2 ring-[#E1E3FF]':'border-white'} `}
-                        />
-                      ))}
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-sm rounded-lg">
+                        {images.map((src, idx)=> (
+                          <img
+                            key={idx}
+                            src={src}
+                            alt={`thumb-${idx}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setCurrentIndex(idx)
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                            }}
+                            className={`h-14 w-20 object-cover rounded-md cursor-pointer border-2 transition-all ${
+                              currentIndex === idx 
+                                ? 'border-[#284078] ring-2 ring-[#E1E3FF] scale-110' 
+                                : 'border-white/50 hover:border-white'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {/* Image counter */}
+                    {images.length > 1 && (
+                      <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm font-medium">
+                        {currentIndex + 1} / {images.length}
                       </div>
                     )}
                   </div>

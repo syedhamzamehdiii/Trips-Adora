@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import TourCard from '../components/TourCard'
 import { FiFilter } from 'react-icons/fi'
-import { getPublishedProducts, transformProductForFrontend } from '../services/productService'
+import { getPublishedProducts, transformProductForFrontend, getCachedPublishedProductsSync } from '../services/productService'
 
 const SearchResultsPage = () => {
   const navigate = useNavigate()
@@ -18,15 +18,74 @@ const SearchResultsPage = () => {
   const [minimumRating, setMinimumRating] = useState('Any Rating')
   const [itemsPerPage, setItemsPerPage] = useState('9')
   const [sortBy, setSortBy] = useState('Recommended')
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [totalProducts, setTotalProducts] = useState(0)
+  
+  // Load from cache immediately (synchronous) - only if no search term
+  const searchParams = new URLSearchParams(location.search)
+  const searchTerm = searchParams.get('q') || ''
+  const initialProducts = (() => {
+    if (!searchTerm) {
+      try {
+        const cached = getCachedPublishedProductsSync()
+        if (cached && cached.length > 0) {
+          return cached.map(transformProductForFrontend)
+        }
+      } catch (_) {}
+    }
+    return []
+  })()
+  
+  const [products, setProducts] = useState(initialProducts)
+  const hasLoadedOnceRef = useRef(false)
+  const [loading, setLoading] = useState(initialProducts.length === 0)
+  const [totalProducts, setTotalProducts] = useState(initialProducts.length)
+
+  // Background fetch function for refreshing cache
+  const fetchAllProductsInBackground = async () => {
+    try {
+      const pageSize = 100
+      let currentPage = 1
+      let hasMore = true
+      let allProducts = []
+      
+      while (hasMore) {
+        const params = { page: currentPage, page_size: pageSize }
+        const data = await getPublishedProducts(params, true) // Use cache
+        
+        if (data && data.products && Array.isArray(data.products)) {
+          if (data.products.length > 0) {
+            allProducts = [...allProducts, ...data.products]
+            if (data.total_pages && currentPage < data.total_pages) {
+              currentPage++
+            } else {
+              hasMore = false
+            }
+          } else {
+            hasMore = false
+          }
+        } else {
+          hasMore = false
+        }
+      }
+      
+      if (allProducts.length > 0) {
+        const transformed = allProducts.map(transformProductForFrontend).filter(p => p !== null)
+        setProducts(transformed)
+        setTotalProducts(transformed.length)
+      }
+    } catch (error) {
+      console.error('Background fetch error:', error)
+    }
+  }
 
   // Fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        setLoading(true)
+        // Only show loading if we don't have cached data
+        if (initialProducts.length === 0 && !hasLoadedOnceRef.current) {
+          setLoading(true)
+        }
+        
         const searchParams = new URLSearchParams(location.search)
         const searchTerm = searchParams.get('q') || ''
         
@@ -40,13 +99,27 @@ const SearchResultsPage = () => {
             page_size: parseInt(itemsPerPage) || 9,
             search: searchTerm.trim()
           }
-          const data = await getPublishedProducts(params)
+          const data = await getPublishedProducts(params, false) // Don't use cache for search
           if (data && data.products && Array.isArray(data.products)) {
             allProducts = data.products
             total = data.total || 0
           }
         } else {
-          // No search term - fetch ALL products by getting all pages
+          // No search term - use cached data if available, otherwise fetch
+          if (initialProducts.length > 0) {
+            allProducts = initialProducts
+            total = initialProducts.length
+            hasLoadedOnceRef.current = true
+            setLoading(false)
+            // Set products immediately from cache
+            setProducts(allProducts)
+            setTotalProducts(total)
+            // Fetch fresh in background (async, don't await)
+            fetchAllProductsInBackground().catch(() => {})
+            return
+          }
+          
+          // No cache, fetch ALL products by getting all pages
           const pageSize = 100 // Max allowed by API
           let currentPage = 1
           let hasMore = true

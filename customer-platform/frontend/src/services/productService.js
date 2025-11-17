@@ -1,6 +1,46 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/v1';
 const SUPPLIER_API_BASE_URL = 'http://localhost:8000/api/v1';
 
+// Cache configuration
+const CACHE_KEYS = {
+  PRODUCTS: 'published_products_cache',
+  PRODUCTS_TIMESTAMP: 'published_products_cache_ts',
+  TOP_PICKS: 'top_picks_cache',
+  TOP_PICKS_TIMESTAMP: 'top_picks_cache_ts',
+  PRODUCT_DETAIL: 'product_detail_cache_',
+  PRODUCT_DETAIL_TIMESTAMP: 'product_detail_cache_ts_',
+};
+
+const CACHE_TTL = {
+  PRODUCTS: 10 * 60 * 1000, // 10 minutes
+  TOP_PICKS: 5 * 60 * 1000, // 5 minutes
+  PRODUCT_DETAIL: 15 * 60 * 1000, // 15 minutes
+};
+
+// Helper functions for cache management
+const getCachedData = (key, timestampKey) => {
+  try {
+    const cached = localStorage.getItem(key);
+    const timestamp = localStorage.getItem(timestampKey);
+    if (cached && timestamp) {
+      const age = Date.now() - parseInt(timestamp, 10);
+      return { data: JSON.parse(cached), age, timestamp: parseInt(timestamp, 10) };
+    }
+  } catch (_) {}
+  return null;
+};
+
+const setCachedData = (key, timestampKey, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    localStorage.setItem(timestampKey, Date.now().toString());
+  } catch (_) {}
+};
+
+const isCacheValid = (cacheInfo, ttl) => {
+  return cacheInfo && cacheInfo.age < ttl;
+};
+
 /**
  * Get products from supplier platform backend cache (since localStorage can't be shared across origins)
  */
@@ -107,61 +147,85 @@ const getSupplierLocalStorageProducts = async () => {
 };
 
 /**
- * Fetch published products from backend, with localStorage fallback
+ * Fetch published products from backend, with smart caching
+ * Returns cached data immediately, refreshes in background if stale
  */
-export const getPublishedProducts = async (params = {}, retries = 3) => {
-  // Try API first
-  for (let i = 0; i < retries; i++) {
-    try {
-      const queryParams = new URLSearchParams();
+export const getPublishedProducts = async (params = {}, useCache = true) => {
+  // Check cache first (only for page 1, no search, no filters)
+  const isSimpleQuery = !params.search && !params.category && !params.destination && (params.page === 1 || !params.page);
+  
+  if (useCache && isSimpleQuery) {
+    const cached = getCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP);
+    if (cached && isCacheValid(cached, CACHE_TTL.PRODUCTS)) {
+      // Return cached data immediately
+      const allProducts = cached.data;
       
-      if (params.page) queryParams.append('page', params.page);
-      if (params.page_size) queryParams.append('page_size', params.page_size);
-      if (params.category) queryParams.append('category', params.category);
-      if (params.destination) queryParams.append('destination', params.destination);
-      if (params.search) queryParams.append('search', params.search);
+      // Apply pagination to cached data
+      const page = params.page || 1;
+      const pageSize = params.page_size || 20;
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      const paginated = allProducts.slice(start, end);
       
-      const url = `${API_BASE_URL}/products/published${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Always return API data if response is OK, even if products array is empty
-        // This allows pagination to work correctly (empty array means no more pages)
-        if (data && data.products && Array.isArray(data.products)) {
-          if (data.products.length > 0) {
-            console.log('✅ Using API data:', data.products.length, 'products');
-            try { localStorage.setItem('published_products_cache', JSON.stringify(data.products)); } catch {}
-          } else {
-            console.log('📭 API returned empty products array (end of pagination)');
-          }
-          return data;
-        } else {
-          console.log('⚠️ API returned invalid data structure, using localStorage fallback...');
-          break; // Exit retry loop and use localStorage
-        }
+      // Refresh in background if cache is getting old (> 50% of TTL)
+      if (cached.age > CACHE_TTL.PRODUCTS * 0.5) {
+        fetchFreshProducts(params).catch(() => {}); // Silent background refresh
       }
-    } catch (error) {
-      if (i === retries - 1) {
-        console.log('API failed, using localStorage fallback...');
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-      }
+      
+      return {
+        products: paginated,
+        total: allProducts.length,
+        page: page,
+        page_size: pageSize,
+        total_pages: Math.ceil(allProducts.length / pageSize)
+      };
     }
   }
   
+  // No valid cache, fetch fresh data
+  return await fetchFreshProducts(params);
+};
+
+/**
+ * Fetch fresh products from API
+ */
+const fetchFreshProducts = async (params = {}) => {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    if (params.page) queryParams.append('page', params.page);
+    if (params.page_size) queryParams.append('page_size', params.page_size);
+    if (params.category) queryParams.append('category', params.category);
+    if (params.destination) queryParams.append('destination', params.destination);
+    if (params.search) queryParams.append('search', params.search);
+    
+    const url = `${API_BASE_URL}/products/published${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.products && Array.isArray(data.products)) {
+        // Cache all products (for page 1, no filters)
+        const isSimpleQuery = !params.search && !params.category && !params.destination && (params.page === 1 || !params.page);
+        if (isSimpleQuery && data.products.length > 0) {
+          setCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP, data.products);
+        }
+        return data;
+      }
+    }
+  } catch (error) {
+    console.log('API fetch failed, using fallback...', error);
+  }
+  
   // Fallback to supplier backend cache
-  console.log('Using supplier backend cache as fallback...');
   const localStorageProducts = await getSupplierLocalStorageProducts();
   
-  // Ensure it's an array
   if (!Array.isArray(localStorageProducts)) {
-    console.error('⚠️ localStorageProducts is not an array:', typeof localStorageProducts);
     return { products: [], total: 0, page: 1, page_size: 20, total_pages: 0 };
   }
   
@@ -176,9 +240,7 @@ export const getPublishedProducts = async (params = {}, retries = 3) => {
     );
   }
   
-  // Ensure filtered is still an array
   if (!Array.isArray(filtered)) {
-    console.error('⚠️ Filtered result is not an array');
     filtered = [];
   }
   
@@ -188,7 +250,12 @@ export const getPublishedProducts = async (params = {}, retries = 3) => {
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
   const paginated = filtered.slice(start, end);
-  try { localStorage.setItem('published_products_cache', JSON.stringify(filtered)); } catch {}
+  
+  // Cache all products if simple query
+  const isSimpleQuery = !params.search && !params.category && !params.destination && (params.page === 1 || !params.page);
+  if (isSimpleQuery) {
+    setCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP, filtered);
+  }
   
   return {
     products: paginated,
@@ -201,6 +268,11 @@ export const getPublishedProducts = async (params = {}, retries = 3) => {
 
 // Return last seen published products synchronously from localStorage (for instant rendering)
 export const getCachedPublishedProductsSync = () => {
+  const cached = getCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP);
+  if (cached && Array.isArray(cached.data)) {
+    return cached.data;
+  }
+  // Fallback to old cache key for backward compatibility
   try {
     const raw = localStorage.getItem('published_products_cache');
     const arr = raw ? JSON.parse(raw) : [];
@@ -211,101 +283,127 @@ export const getCachedPublishedProductsSync = () => {
 };
 
 /**
- * Fetch top picks products, with localStorage fallback
+ * Fetch top picks products, with smart caching
+ * Returns cached data immediately, refreshes in background if stale
  */
-export const getTopPicks = async (limit = 4, retries = 3) => {
-  // Try API first
-  for (let i = 0; i < retries; i++) {
-    try {
-      const url = `${API_BASE_URL}/products/top-picks?limit=${limit}`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+export const getTopPicks = async (limit = 4, useCache = true) => {
+  // Check cache first
+  if (useCache) {
+    const cached = getCachedData(CACHE_KEYS.TOP_PICKS, CACHE_KEYS.TOP_PICKS_TIMESTAMP);
+    if (cached && isCacheValid(cached, CACHE_TTL.TOP_PICKS)) {
+      const products = Array.isArray(cached.data) ? cached.data.slice(0, limit) : [];
       
-      if (response.ok) {
-        const data = await response.json();
-        // Only use API data if it has products, otherwise fallback to localStorage
-        if (data && Array.isArray(data) && data.length > 0) {
-          console.log('✅ Using API top picks:', data.length, 'products');
-          return data;
-        } else {
-          console.log('⚠️ API returned empty top picks, using localStorage fallback...');
-          break; // Exit retry loop and use localStorage
-        }
+      // Refresh in background if cache is getting old
+      if (cached.age > CACHE_TTL.TOP_PICKS * 0.5) {
+        fetchFreshTopPicks(limit).catch(() => {}); // Silent background refresh
       }
-    } catch (error) {
-      if (i === retries - 1) {
-        console.log('API failed, using localStorage fallback...');
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-      }
+      
+      return products;
     }
   }
   
+  // No valid cache, fetch fresh data
+  return await fetchFreshTopPicks(limit);
+};
+
+/**
+ * Fetch fresh top picks from API
+ */
+const fetchFreshTopPicks = async (limit = 4) => {
+  try {
+    const url = `${API_BASE_URL}/products/top-picks?limit=${limit}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data && Array.isArray(data) && data.length > 0) {
+        setCachedData(CACHE_KEYS.TOP_PICKS, CACHE_KEYS.TOP_PICKS_TIMESTAMP, data);
+        return data;
+      }
+    }
+  } catch (error) {
+    console.log('API failed, using fallback...', error);
+  }
+  
   // Fallback to supplier backend cache
-  console.log('Using supplier backend cache as fallback...');
   const localStorageProducts = await getSupplierLocalStorageProducts();
   
-  // Ensure it's an array
   if (!Array.isArray(localStorageProducts)) {
-    console.error('⚠️ localStorageProducts is not an array:', typeof localStorageProducts);
     return [];
   }
   
   const publishedProducts = localStorageProducts.slice(0, limit);
+  setCachedData(CACHE_KEYS.TOP_PICKS, CACHE_KEYS.TOP_PICKS_TIMESTAMP, publishedProducts);
   
   return publishedProducts;
 };
 
 /**
  * Fetch a single product by ID - Gets FULL product details with all fields
+ * Returns cached data immediately, refreshes in background if stale
  */
-export const getProductById = async (productId) => {
+export const getProductById = async (productId, useCache = true) => {
   // Validate productId
   if (!productId || productId === 'undefined' || productId === 'null') {
     console.error('❌ Invalid product ID:', productId);
     return null;
   }
   
-  // Try API first - This endpoint returns FULL product details
+  // Check cache first
+  if (useCache) {
+    const cacheKey = CACHE_KEYS.PRODUCT_DETAIL + productId;
+    const timestampKey = CACHE_KEYS.PRODUCT_DETAIL_TIMESTAMP + productId;
+    const cached = getCachedData(cacheKey, timestampKey);
+    
+    if (cached && isCacheValid(cached, CACHE_TTL.PRODUCT_DETAIL)) {
+      // Refresh in background if cache is getting old
+      if (cached.age > CACHE_TTL.PRODUCT_DETAIL * 0.5) {
+        fetchFreshProductById(productId).catch(() => {}); // Silent background refresh
+      }
+      return cached.data;
+    }
+  }
+  
+  // No valid cache, fetch fresh data
+  return await fetchFreshProductById(productId);
+};
+
+/**
+ * Fetch fresh product by ID from API
+ */
+const fetchFreshProductById = async (productId) => {
   try {
     const url = `${API_BASE_URL}/products/${productId}`;
-    console.log('📡 [DEBUG] getProductById - Fetching FULL product details from API:', url);
     const response = await fetch(url);
     
     if (response.ok) {
       const data = await response.json();
-      console.log('✅ [DEBUG] getProductById - Product fetched from API:', {
-        id: data.id,
-        title: data.title,
-        hasGuideType: !!data.guide_type,
-        hasThingsToCarry: Array.isArray(data.things_to_carry) && data.things_to_carry.length > 0,
-        hasLanguages: Array.isArray(data.languages) && data.languages.length > 0,
-        hasIncludedExcluded: !!data.included_excluded,
-        hasVehicleDetails: !!data.vehicle_details,
-        hasAccessibility: !!data.accessibility,
-        highlightsCount: Array.isArray(data.highlights) ? data.highlights.length : 0,
-        itineraryCount: Array.isArray(data.itinerary) ? data.itinerary.length : 0
-      });
+      // Cache the product
+      const cacheKey = CACHE_KEYS.PRODUCT_DETAIL + productId;
+      const timestampKey = CACHE_KEYS.PRODUCT_DETAIL_TIMESTAMP + productId;
+      setCachedData(cacheKey, timestampKey, data);
       return data;
-    } else {
-      console.log(`⚠️ [DEBUG] getProductById - API returned ${response.status}, trying localStorage fallback...`);
-      const errorText = await response.text();
-      console.log(`⚠️ [DEBUG] getProductById - Error response:`, errorText);
     }
   } catch (error) {
-    console.log('❌ [DEBUG] getProductById - API failed, trying localStorage fallback...', error);
+    console.log('API failed, trying fallback...', error);
   }
   
   // Fallback to supplier backend cache
   const localStorageProducts = await getSupplierLocalStorageProducts();
   const product = localStorageProducts.find(p => p.id === productId || p.id === String(productId));
+  
   if (product) {
-    console.log('⚠️ [DEBUG] getProductById - Using localStorage fallback (may have limited data)');
+    // Cache the fallback product too
+    const cacheKey = CACHE_KEYS.PRODUCT_DETAIL + productId;
+    const timestampKey = CACHE_KEYS.PRODUCT_DETAIL_TIMESTAMP + productId;
+    setCachedData(cacheKey, timestampKey, product);
   }
+  
   return product || null;
 };
 

@@ -194,9 +194,12 @@ class AuthService {
   // Google OAuth login with authorization code
   async googleLoginWithCode(code, redirectUri = null) {
     try {
+      // Ensure redirect_uri matches exactly what was used in initial OAuth request
+      const finalRedirectUri = redirectUri || window.location.origin + '/auth/google/callback';
+      
       const response = await api.post('/auth/google/callback', {
-        code,
-        redirect_uri: redirectUri || window.location.origin + '/auth/google/callback'
+        code: code.trim(),
+        redirect_uri: finalRedirectUri
       })
       const { token, refresh_token, user } = response.data
 
@@ -216,11 +219,17 @@ class AuthService {
         token
       }
     } catch (error) {
-      console.error('Google code exchange error:', error)
-      throw new Error(
-        error.response?.data?.detail || 
-        'Google authentication failed. Please try again.'
-      )
+      // Log error details for debugging
+      const errorDetail = error.response?.data?.detail || error.message || 'Unknown error'
+      console.error('Google code exchange error:', {
+        message: error.message,
+        status: error.response?.status,
+        detail: errorDetail,
+        redirectUri: finalRedirectUri
+      })
+      
+      // Don't throw - let the callback handle navigation
+      throw new Error(errorDetail)
     }
   }
 

@@ -275,11 +275,36 @@ async def google_login(google_data: GoogleLogin):
                 hashed_password="",
             )
             await user.insert()
+        else:
+            # Update existing user's name if Google provides it and it's different
+            if name and name.strip() and user.full_name != name:
+                user.full_name = name
+                await user.save()
         
         # Auto-create profile and wallet for new/existing user
         user_id_str = str(user.id)
         try:
-            await ProfileService.ensure_profile(user_id_str)
+            profile = await ProfileService.ensure_profile(user_id_str)
+            
+            # Update profile with Google name if available
+            if name and name.strip():
+                # Extract first and last name from Google name
+                name_parts = name.strip().split(' ', 1)
+                first_name = name_parts[0] if len(name_parts) > 0 else name
+                last_name = name_parts[1] if len(name_parts) > 1 else ''
+                
+                # Update profile user info with Google data
+                profile_user = profile.get("user", {})
+                profile_user.update({
+                    "name": name,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": email,
+                })
+                
+                # Update profile in database
+                await ProfileService.update_profile(user_id_str, {"user": profile_user})
+            
             await WalletService.ensure_wallet(user_id_str)
         except Exception as e:
             logger.warning(f"Failed to auto-create profile/wallet for user {user_id_str}: {e}")
@@ -311,36 +336,101 @@ async def google_login(google_data: GoogleLogin):
 async def google_callback(request: GoogleCallbackRequest):
     """Handle Google OAuth callback with authorization code"""
     try:
+        # Validate inputs
+        if not request.code or not request.code.strip():
+            logger.error("Google callback: Missing authorization code")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Authentication failed. Please try again."
+            )
+        
+        if not request.redirect_uri or not request.redirect_uri.strip():
+            logger.error("Google callback: Missing redirect_uri")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Authentication failed. Please try again."
+            )
+        
+        # Use redirect_uri exactly as provided (must match initial OAuth request exactly)
+        redirect_uri = request.redirect_uri.strip()
+        
         # Exchange authorization code for tokens
         token_url = "https://oauth2.googleapis.com/token"
         token_data = {
-            "code": request.code,
+            "code": request.code.strip(),
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
-            "redirect_uri": request.redirect_uri,
+            "redirect_uri": redirect_uri,
             "grant_type": "authorization_code"
         }
         
-        token_response = requests.post(token_url, data=token_data)
-        token_json = token_response.json()
+        logger.info(f"Exchanging Google OAuth code. Redirect URI: {redirect_uri}")
         
-        if "error" in token_json:
+        try:
+            token_response = requests.post(token_url, data=token_data, timeout=3)
+        except requests.exceptions.Timeout:
+            logger.error("Google OAuth token exchange timed out")
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Authentication timed out. Please try again."
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error during Google OAuth token exchange: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication failed. Please try again."
+            )
+        
+        # Parse response
+        try:
+            token_json = token_response.json()
+        except:
+            logger.error(f"Failed to parse Google response: {token_response.text}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication failed. Please try again."
+            )
+        
+        if not token_response.ok or "error" in token_json:
+            # Log detailed error for debugging
             error_msg = token_json.get('error_description', token_json.get('error', 'Unknown error'))
+            error_type = token_json.get('error', 'unknown')
+            logger.error(f"Google OAuth error: {error_type} - {error_msg}")
+            logger.error(f"Redirect URI used: {redirect_uri}")
+            logger.error(f"Status code: {token_response.status_code}")
+            
+            # Provide helpful error message based on error type
+            if error_type == 'invalid_grant':
+                detail = "Authorization code expired or already used. Please try signing in again."
+            elif error_type == 'redirect_uri_mismatch':
+                detail = f"Redirect URI mismatch. Please ensure '{redirect_uri}' is registered in Google Cloud Console."
+            else:
+                detail = "Authentication failed. Please try again."
+            
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Google OAuth error: {error_msg}"
+                detail=detail
             )
         
         # Get user info from Google
         id_token = token_json.get("id_token")
         
+        if not id_token:
+            logger.error("Google OAuth: Missing id_token in response")
+            logger.error(f"Token response keys: {list(token_json.keys())}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Authentication failed. Please try again."
+            )
+        
         # Decode the ID token (contains user info)
         try:
             decoded_token = jwt.decode(id_token, options={"verify_signature": False})
         except Exception as e:
+            logger.error(f"Failed to decode ID token: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to decode ID token: {str(e)}"
+                detail="Authentication failed. Please try again."
             )
         
         email = decoded_token.get("email")
@@ -366,11 +456,36 @@ async def google_callback(request: GoogleCallbackRequest):
                 hashed_password="",  # No password for Google users
             )
             await user.insert()
+        else:
+            # Update existing user's name if Google provides it and it's different
+            if name and name.strip() and user.full_name != name:
+                user.full_name = name
+                await user.save()
         
         # Auto-create profile and wallet for new/existing user
         user_id_str = str(user.id)
         try:
-            await ProfileService.ensure_profile(user_id_str)
+            profile = await ProfileService.ensure_profile(user_id_str)
+            
+            # Update profile with Google name if available
+            if name and name.strip():
+                # Extract first and last name from Google name
+                name_parts = name.strip().split(' ', 1)
+                first_name = name_parts[0] if len(name_parts) > 0 else name
+                last_name = name_parts[1] if len(name_parts) > 1 else ''
+                
+                # Update profile user info with Google data
+                profile_user = profile.get("user", {})
+                profile_user.update({
+                    "name": name,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": email,
+                })
+                
+                # Update profile in database
+                await ProfileService.update_profile(user_id_str, {"user": profile_user})
+            
             await WalletService.ensure_wallet(user_id_str)
         except Exception as e:
             logger.warning(f"Failed to auto-create profile/wallet for user {user_id_str}: {e}")
