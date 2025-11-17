@@ -1,5 +1,5 @@
 // Frontend/src/pages/Auth/Register.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -37,6 +37,11 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
+  const [showHeaderLabel, setShowHeaderLabel] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowHeaderLabel(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
   const { register: authRegister, googleLogin } = useAuth();
 
   const {
@@ -113,6 +118,15 @@ const Register = () => {
             alt="TripsAdora Logo" 
             className="h-12 w-auto"
           />
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span
+            className={`text-lg sm:text-2xl font-bold tracking-wide text-gray-900 transition-all duration-700 ease-out ${
+              showHeaderLabel ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-95'
+            }`}
+          >
+            Supplier
+          </span>
         </div>
       </div>
 

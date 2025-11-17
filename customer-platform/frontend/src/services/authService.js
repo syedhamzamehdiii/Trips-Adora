@@ -11,7 +11,18 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 5000
 })
+
+const persistCustomerId = (user) => {
+  if (!user) return
+  try {
+    const userId = user.id || user.email?.replace('@', '-').replace('.', '-') || 'customer-user'
+    localStorage.setItem('customer_profile_user_id', userId)
+  } catch (error) {
+    console.warn('Failed to persist customer profile id', error)
+  }
+}
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -91,15 +102,9 @@ class AuthService {
       const response = await api.post('/auth/register', backendData)
       const { token, refresh_token, user } = response.data
 
-      // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
-      
-      // Store user ID for profile
-      if (user?.id || user?.email) {
-        const userId = user.id || user.email?.replace('@', '-').replace('.', '-') || 'customer-user'
-        localStorage.setItem('customer_profile_user_id', userId)
-      }
+      persistCustomerId(user)
 
       return {
         success: true,
@@ -135,15 +140,9 @@ class AuthService {
       const response = await api.post('/auth/login', credentials)
       const { token, refresh_token, user } = response.data
 
-      // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
-      
-      // Store user ID for profile
-      if (user?.id || user?.email) {
-        const userId = user.id || user.email?.replace('@', '-').replace('.', '-') || 'customer-user'
-        localStorage.setItem('customer_profile_user_id', userId)
-      }
+      persistCustomerId(user)
 
       return {
         success: true,
@@ -167,15 +166,9 @@ class AuthService {
       })
       const { token, refresh_token, user } = response.data
 
-      // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
-      
-      // Store user ID for profile
-      if (user?.id || user?.email) {
-        const userId = user.id || user.email?.replace('@', '-').replace('.', '-') || 'customer-user'
-        localStorage.setItem('customer_profile_user_id', userId)
-      }
+      persistCustomerId(user)
 
       return {
         success: true,
@@ -193,79 +186,39 @@ class AuthService {
 
   // Google OAuth login with authorization code
   async googleLoginWithCode(code, redirectUri = null) {
-    // Ensure redirect_uri matches exactly what was used in initial OAuth request
-    // Define outside try block so it's available in catch block
-    const finalRedirectUri = redirectUri || window.location.origin + '/auth/google/callback';
-    
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      throw new Error('Invalid authorization code received')
+    }
     try {
-      // Validate code before making request
-      if (!code || typeof code !== 'string' || !code.trim()) {
-        throw new Error('Invalid authorization code received')
-      }
-      
-      // Trim and clean the code
-      const cleanCode = code.trim();
-      
       const response = await api.post('/auth/google/callback', {
-        code: cleanCode,
-        redirect_uri: finalRedirectUri
+        code: code.trim(),
+        redirect_uri: redirectUri || window.location.origin + '/auth/google/callback'
       }, {
-        timeout: 15000, // 15 second timeout for OAuth requests
-        // Prevent automatic retries that could cause duplicate requests
-        validateStatus: (status) => status < 500 // Don't throw on 4xx errors
+        timeout: 45000
       })
-      
-      // Check if response indicates error
-      if (response.status >= 400) {
-        const errorDetail = response.data?.detail || 'Authentication failed. Please try again.';
-        throw new Error(errorDetail);
-      }
-      
       const { token, refresh_token, user } = response.data
-
-      // Validate response data
       if (!token || !user) {
         throw new Error('Invalid response from authentication server')
       }
-
-      // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
-      
-      // Store user ID for profile
-      if (user?.id || user?.email) {
-        const userId = user.id || user.email?.replace('@', '-').replace('.', '-') || 'customer-user'
-        localStorage.setItem('customer_profile_user_id', userId)
-      }
-
+      persistCustomerId(user)
       return {
         success: true,
         user,
         token
       }
     } catch (error) {
-      // Log error details for debugging
-      const errorDetail = error.response?.data?.detail || error.message || 'Unknown error'
-      
-      // More specific error handling
-      let userFriendlyMessage = errorDetail;
-      if (errorDetail.includes('expired') || errorDetail.includes('already used') || errorDetail.includes('invalid_grant')) {
-        userFriendlyMessage = 'This authorization code has expired or already been used. Please sign in again.';
-      } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-        userFriendlyMessage = 'Request timed out. Please try again.';
-      } else if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
-        userFriendlyMessage = 'Network error. Please check your connection and try again.';
+      console.error('Google code exchange error:', error)
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        throw new Error('Request timed out. Please check if the backend server is running and try again.')
       }
-      
-      console.error('Google code exchange error:', {
-        message: error.message,
-        status: error.response?.status,
-        detail: errorDetail,
-        redirectUri: finalRedirectUri,
-        code: code ? (code.substring(0, 20) + '...') : 'missing'
-      })
-      
-      throw new Error(userFriendlyMessage)
+      if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+        throw new Error('Network error. Please ensure the backend is running at ' + API_BASE_URL)
+      }
+      throw new Error(
+        error.response?.data?.detail || error.message || 'Google authentication failed. Please try again.'
+      )
     }
   }
 

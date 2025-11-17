@@ -4,6 +4,7 @@ from typing import Optional
 import jwt
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status
+import asyncio
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 
@@ -21,6 +22,13 @@ from app.services.profile_service import ProfileService
 from app.services.wallet_service import WalletService
 
 logger = logging.getLogger(__name__)
+
+def _log_google_event(message: str) -> None:
+    try:
+        logger.info(message)
+    except Exception:
+        pass
+logger.setLevel(logging.INFO)
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -338,6 +346,7 @@ async def google_callback(request: GoogleCallbackRequest):
     try:
         # Validate inputs
         if not request.code or not request.code.strip():
+            _log_google_event("Missing authorization code")
             logger.error("Google callback: Missing authorization code")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -345,6 +354,7 @@ async def google_callback(request: GoogleCallbackRequest):
             )
         
         if not request.redirect_uri or not request.redirect_uri.strip():
+            _log_google_event("Missing redirect URI")
             logger.error("Google callback: Missing redirect_uri")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -353,6 +363,7 @@ async def google_callback(request: GoogleCallbackRequest):
         
         # Use redirect_uri exactly as provided (must match initial OAuth request exactly)
         redirect_uri = request.redirect_uri.strip()
+        _log_google_event(f"Received code with redirect={redirect_uri}")
         
         # Exchange authorization code for tokens
         token_url = "https://oauth2.googleapis.com/token"
@@ -364,18 +375,30 @@ async def google_callback(request: GoogleCallbackRequest):
             "grant_type": "authorization_code"
         }
         
-        logger.info(f"Exchanging Google OAuth code. Redirect URI: {redirect_uri}")
+        debug_msg = f"[GoogleOAuth] Exchanging code (redirect={redirect_uri})"
+        logger.info(debug_msg)
+        print(debug_msg)
+        logger.info("Calling Google token endpoint...")
+        print("[GoogleOAuth] Calling Google token endpoint…")
+        _log_google_event("Calling Google token endpoint")
         
         try:
-            # Increased timeout to 10 seconds for OAuth requests
-            token_response = requests.post(token_url, data=token_data, timeout=10)
-        except requests.exceptions.Timeout:
+            token_response = await asyncio.wait_for(
+                asyncio.to_thread(requests.post, token_url, data=token_data, timeout=8),
+                timeout=8.0
+            )
+            logger.info(f"Google token response status: {token_response.status_code}")
+            print(f"[GoogleOAuth] Token response status: {token_response.status_code}")
+            _log_google_event(f"Google token response status: {token_response.status_code}")
+        except asyncio.TimeoutError:
+            _log_google_event("Google token exchange timed out")
             logger.error("Google OAuth token exchange timed out")
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail="Authentication timed out. Please try again."
             )
         except requests.exceptions.RequestException as e:
+            _log_google_event(f"Google token exchange network error: {e}")
             logger.error(f"Network error during Google OAuth token exchange: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -385,7 +408,8 @@ async def google_callback(request: GoogleCallbackRequest):
         # Parse response
         try:
             token_json = token_response.json()
-        except:
+        except Exception as parse_exc:
+            _log_google_event(f"Failed to parse Google response: {parse_exc}")
             logger.error(f"Failed to parse Google response: {token_response.text}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -413,10 +437,14 @@ async def google_callback(request: GoogleCallbackRequest):
                 detail=detail
             )
         
+        print("[GoogleOAuth] Parsing token response…")
+        _log_google_event("Parsing Google token response")
+
         # Get user info from Google
         id_token = token_json.get("id_token")
         
         if not id_token:
+            _log_google_event("Missing id_token in Google response")
             logger.error("Google OAuth: Missing id_token in response")
             logger.error(f"Token response keys: {list(token_json.keys())}")
             raise HTTPException(
@@ -424,10 +452,13 @@ async def google_callback(request: GoogleCallbackRequest):
                 detail="Authentication failed. Please try again."
             )
         
+        print("[GoogleOAuth] Decoding ID token…")
+
         # Decode the ID token (contains user info)
         try:
             decoded_token = jwt.decode(id_token, options={"verify_signature": False})
         except Exception as e:
+            _log_google_event(f"Failed to decode ID token: {e}")
             logger.error(f"Failed to decode ID token: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -436,6 +467,9 @@ async def google_callback(request: GoogleCallbackRequest):
         
         email = decoded_token.get("email")
         name = decoded_token.get("name")
+
+        print(f"[GoogleOAuth] Decoded user email={email}, name={name}")
+        _log_google_event(f"Decoded ID token: email={email}, name={name}")
         
         if not email:
             raise HTTPException(
@@ -443,59 +477,110 @@ async def google_callback(request: GoogleCallbackRequest):
                 detail="No email found in Google token"
             )
         
-        # Check if user already exists
-        user = await User.find_one(User.email == email)
+        print("[GoogleOAuth] Looking up user in database…")
+        _log_google_event("Looking up user in database")
+
+        try:
+            # Check if user already exists
+            user = await User.find_one(User.email == email)
+            
+            if not user:
+                # Create new user from Google data
+                user = User(
+                    email=email,
+                    full_name=name or email.split('@')[0],
+                    role=UserRole.CUSTOMER,
+                    is_active=True,
+                    is_verified=True,
+                    hashed_password="",  # No password for Google users
+                )
+                await user.insert()
+            else:
+                # Update existing user's name if Google provides it and it's different
+                if name and name.strip() and user.full_name != name:
+                    user.full_name = name
+                    await user.save()
+        except Exception as exc:
+            logger.exception("Failed ensuring user during Google OAuth for %s", email)
+            _log_google_event(f"Failed ensuring user for {email}: {exc}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google callback failed while ensuring user"
+            ) from exc
         
-        if not user:
-            # Create new user from Google data
-            user = User(
-                email=email,
-                full_name=name or email.split('@')[0],
-                role=UserRole.CUSTOMER,
-                is_active=True,
-                is_verified=True,
-                hashed_password="",  # No password for Google users
-            )
-            await user.insert()
-        else:
-            # Update existing user's name if Google provides it and it's different
-            if name and name.strip() and user.full_name != name:
-                user.full_name = name
-                await user.save()
-        
+        print("[GoogleOAuth] Ensuring profile and wallet…")
+        _log_google_event("Scheduling background profile/wallet work")
+
         # Auto-create profile and wallet for new/existing user
         user_id_str = str(user.id)
-        try:
-            profile = await ProfileService.ensure_profile(user_id_str)
+        async def setup_profile_and_wallet():
+            _log_google_event(f"Background profile/wallet setup started for {user_id_str}")
+            profile = None
+            try:
+                profile = await asyncio.wait_for(ProfileService.ensure_profile(user_id_str), timeout=5)
+            except asyncio.TimeoutError:
+                _log_google_event(f"Profile creation timed out for {user_id_str}")
+                logger.warning(f"Profile creation timed out for user {user_id_str}")
+            except Exception as e:
+                _log_google_event(f"Failed to ensure profile for {user_id_str}: {e}")
+                logger.warning(f"Failed to ensure profile for user {user_id_str}: {e}")
             
-            # Update profile with Google name if available
-            if name and name.strip():
-                # Extract first and last name from Google name
-                name_parts = name.strip().split(' ', 1)
-                first_name = name_parts[0] if len(name_parts) > 0 else name
-                last_name = name_parts[1] if len(name_parts) > 1 else ''
+            if profile:
+                profile_user = profile.get("user", {}) or {}
+                trimmed_name = (name or "").strip()
+                update_payload = {}
+                updated_user_section = dict(profile_user)
                 
-                # Update profile user info with Google data
-                profile_user = profile.get("user", {})
-                profile_user.update({
-                    "name": name,
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "email": email,
-                })
-                
-                # Update profile in database
-                await ProfileService.update_profile(user_id_str, {"user": profile_user})
+                if trimmed_name:
+                    if not (profile_user.get("name") or "").strip():
+                        updated_user_section["name"] = trimmed_name
+                    name_parts = trimmed_name.split(' ', 1)
+                    first_name = name_parts[0] if len(name_parts) > 0 else trimmed_name
+                    last_name = name_parts[1] if len(name_parts) > 1 else ''
+                    if first_name and not (profile_user.get("first_name") or "").strip():
+                        updated_user_section["first_name"] = first_name
+                    if last_name and not (profile_user.get("last_name") or "").strip():
+                        updated_user_section["last_name"] = last_name
+                if email and not (profile_user.get("email") or "").strip():
+                    updated_user_section["email"] = email
+
+                if updated_user_section != profile_user:
+                    update_payload["user"] = updated_user_section
+
+                if update_payload:
+                    try:
+                        await asyncio.wait_for(
+                            ProfileService.update_profile(user_id_str, update_payload),
+                            timeout=5
+                        )
+                    except asyncio.TimeoutError:
+                        _log_google_event(f"Profile update timed out for {user_id_str}")
+                        logger.warning(f"Profile update timed out for user {user_id_str}")
+                    except Exception as e:
+                        _log_google_event(f"Failed to update profile for {user_id_str}: {e}")
+                        logger.warning(f"Failed to update profile for user {user_id_str}: {e}")
             
-            await WalletService.ensure_wallet(user_id_str)
-        except Exception as e:
-            logger.warning(f"Failed to auto-create profile/wallet for user {user_id_str}: {e}")
-            # Don't fail login if profile/wallet creation fails
+            try:
+                await asyncio.wait_for(WalletService.ensure_wallet(user_id_str), timeout=5)
+            except asyncio.TimeoutError:
+                _log_google_event(f"Wallet creation timed out for {user_id_str}")
+                logger.warning(f"Wallet creation timed out for user {user_id_str}")
+            except Exception as e:
+                _log_google_event(f"Failed to ensure wallet for {user_id_str}: {e}")
+                logger.warning(f"Failed to ensure wallet for user {user_id_str}: {e}")
+
+        asyncio.create_task(setup_profile_and_wallet())
         
+        print("[GoogleOAuth] Creating tokens and preparing response…")
+        _log_google_event("Creating tokens and preparing response")
+
         # Create tokens
         access_token = create_access_token(data={"sub": user_id_str})
         refresh_token = create_refresh_token(data={"sub": user_id_str})
         
+        print("[GoogleOAuth] Returning success response.")
+        _log_google_event("Returning success response")
+
         return {
             "token": access_token,
             "refresh_token": refresh_token,
