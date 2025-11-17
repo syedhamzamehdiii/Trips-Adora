@@ -5,7 +5,6 @@ const initialForm = {
   email: '',
   phone: '',
   location: '',
-  membership_tier: '',
   avatar_url: ''
 }
 
@@ -25,7 +24,6 @@ const EditProfileModal = ({ open, onClose, onSave, profileUser, saving }) => {
         email: profileUser.email || '',
         phone: profileUser.phone || '',
         location: profileUser.location || '',
-        membership_tier: profileUser.membership_tier || '',
         avatar_url: profileUser.avatar_url || ''
       })
     }
@@ -150,20 +148,6 @@ const EditProfileModal = ({ open, onClose, onSave, profileUser, saving }) => {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="New York, USA"
               />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1 uppercase tracking-wide">Membership Tier</label>
-              <select
-                value={form.membership_tier}
-                onChange={(e) => handleChange('membership_tier', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="">Select tier</option>
-                <option value="Standard Member">Standard Member</option>
-                <option value="Gold Member">Gold Member</option>
-                <option value="Premium Member">Premium Member</option>
-                <option value="Elite Member">Elite Member</option>
-              </select>
             </div>
           </div>
 
