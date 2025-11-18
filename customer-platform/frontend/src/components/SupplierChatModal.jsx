@@ -26,7 +26,7 @@ const SupplierChatModal = ({ isOpen, onClose, supplierName, supplierId, supplier
     setSuccess(false);
 
     try {
-      await sendMessage(customerIdToUse, supplierId, message.trim(), productId);
+      await sendMessage(customerIdToUse, supplierId, message.trim(), { productId: productId });
       setSuccess(true);
       setMessage('');
       

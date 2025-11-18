@@ -78,6 +78,7 @@ class MessageService:
                 {"title": 1, "name": 1, "productTitle": 1, "supplier_id": 1},
             )
             if not product:
+                logger.warning("Product not found for product_id: %s", product_id)
                 return (None, None)
             supplier_id = product.get("supplier_id")
             if isinstance(supplier_id, ObjectId):
@@ -85,9 +86,12 @@ class MessageService:
             title = product.get("title") or product.get("name") or product.get("productTitle")
             if title:
                 title = str(title)
+                logger.info("Fetched product title '%s' for product_id: %s", title, product_id)
+            else:
+                logger.warning("No title found for product_id: %s (available fields: %s)", product_id, list(product.keys()))
             return (title, str(supplier_id) if supplier_id else None)
         except Exception as exc:
-            logger.warning("Unable to fetch product metadata for %s: %s", product_id, exc)
+            logger.error("Unable to fetch product metadata for %s: %s", product_id, exc, exc_info=True)
             return (None, None)
 
     @staticmethod
@@ -147,7 +151,7 @@ class MessageService:
                 "sender_id": customer_id,
                 "recipient_id": supplier_id,
                 "product_id": product_id,
-                 "product_title": product_title,
+                "product_title": product_title,  # Store product title for context
                 "message": message,
                 "message_type": message_type.value,
                 "reply_to_message_id": reply_id,
@@ -156,6 +160,15 @@ class MessageService:
                 "attachments": [],
                 "created_at": datetime.utcnow()
             }
+            
+            # Log for debugging
+            if product_id:
+                logger.info(
+                    "Sending message with product_id=%s, product_title=%s, supplier_id=%s",
+                    product_id,
+                    product_title,
+                    supplier_id
+                )
             
             # Save to database
             result = await collection.insert_one(message_doc)
@@ -276,6 +289,12 @@ class MessageService:
                         "id": str(last_msg.get("_id", "")),
                         "message": last_msg.get("message", ""),
                         "sender_type": last_msg.get("sender_type", "customer"),
+                        "sender_id": last_msg.get("sender_id", ""),
+                        "product_id": product_id,
+                        "product_title": product_title,
+                        "message_type": last_msg.get("message_type", "general"),
+                        "reply_to_message_id": last_msg.get("reply_to_message_id"),
+                        "reply_preview": last_msg.get("reply_preview"),
                         "created_at": last_msg.get("created_at", datetime.utcnow())
                     },
                     "unread_count": group.get("unread_count", 0),

@@ -280,6 +280,12 @@ class MessageService:
                         "id": str(last_msg["_id"]),
                         "message": last_msg["message"],
                         "sender_type": last_msg["sender_type"],
+                        "sender_id": last_msg.get("sender_id", ""),
+                        "product_id": last_msg.get("product_id"),
+                        "product_title": product_title,
+                        "message_type": last_msg.get("message_type", "general"),
+                        "reply_to_message_id": last_msg.get("reply_to_message_id"),
+                        "reply_preview": last_msg.get("reply_preview"),
                         "created_at": last_msg["created_at"]
                     },
                     "unread_count": group["unread_count"],
@@ -325,19 +331,36 @@ class MessageService:
             async for msg in collection.find(
                 {"conversation_id": conversation_id}
             ).sort("created_at", 1):
+                # Get product title - use stored value or fetch if missing
+                product_title = msg.get("product_title")
+                product_id = msg.get("product_id")
+                if not product_title and product_id:
+                    try:
+                        product_query_id = product_id
+                        if ObjectId.is_valid(product_query_id):
+                            product_query_id = ObjectId(product_query_id)
+                        product = await db.products.find_one(
+                            {"_id": product_query_id},
+                            {"title": 1, "name": 1, "productTitle": 1}
+                        )
+                        if product:
+                            product_title = product.get("title") or product.get("name") or product.get("productTitle")
+                    except Exception as e:
+                        logger.warning("Could not fetch product title for product_id %s: %s", product_id, e)
+                
                 messages.append({
                     "id": str(msg["_id"]),
                     "conversation_id": msg["conversation_id"],
                     "sender_type": msg["sender_type"],
                     "sender_id": msg["sender_id"],
                     "recipient_id": msg["recipient_id"],
-                    "product_id": msg.get("product_id"),
-                    "product_title": msg.get("product_title"),
+                    "product_id": product_id,
+                    "product_title": product_title,
                     "message": msg["message"],
-                    "message_type": msg["message_type"],
+                    "message_type": msg.get("message_type", "general"),
                     "reply_to_message_id": msg.get("reply_to_message_id"),
                     "reply_preview": msg.get("reply_preview"),
-                    "is_read": msg["is_read"],
+                    "is_read": msg.get("is_read", False),
                     "created_at": msg["created_at"]
                 })
             
