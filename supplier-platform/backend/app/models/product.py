@@ -43,6 +43,18 @@ class FAQ(BaseModel):
     answer: str
 
 
+class CancellationTier(BaseModel):
+    label: str
+    percentage: float
+    note: Optional[str] = None
+
+
+class CancellationPolicy(BaseModel):
+    free_cancellation_text: Optional[str] = None
+    schedule: List[CancellationTier] = []
+    notes: List[str] = []
+
+
 class VehicleDetails(BaseModel):
     vehicle_type: str  # van, car, bus, train
     vehicle_model: str
@@ -115,6 +127,7 @@ class Product(Document):
     
     # FAQ
     faqs: List[FAQ] = Field(default_factory=list)
+    cancellation_policy: Optional[CancellationPolicy] = None
     
     # Location & Breadcrumb
     destination: Optional[str] = Field(None, description="e.g., Tokyo, Japan")

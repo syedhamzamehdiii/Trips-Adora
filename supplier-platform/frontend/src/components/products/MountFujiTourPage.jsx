@@ -28,6 +28,8 @@ import {
   FiArrowLeft,
   FiChevronLeft,
   FiChevronRight,
+  FiPlus,
+  FiMinus,
   FiX
 } from 'react-icons/fi';
 import PublishProductModal from './PublishProductModal';
@@ -141,6 +143,11 @@ const buildImagePayload = async (sources = [], limit = MAX_IMAGE_COUNT) => {
 };
 
 const FALLBACK_SUPPLIER_ID = 'N/A';
+const buildEmptyCancellationPolicy = () => ({
+  freeCancellationText: '',
+  schedule: [],
+  notes: []
+});
 
 const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) => {
   const navigate = useNavigate();
@@ -160,6 +167,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     photo: null,
     balance: null
   });
+  const [expandedFaqIndex, setExpandedFaqIndex] = useState(null);
 
   useEffect(() => {
     const loadProfileFromStorage = () => {
@@ -366,6 +374,30 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         : [];
       const primaryVehicle = selectedVehicleForTour || existingVehicles[0] || null;
 
+      const normalizedFaqs = Array.isArray(productData?.faqs)
+        ? productData.faqs
+            .filter(faq => faq?.question?.trim() && faq?.answer?.trim())
+            .map(faq => ({
+              question: faq.question.trim(),
+              answer: faq.answer.trim()
+            }))
+        : [];
+      const normalizedCancellationPolicy = productData?.cancellationPolicy && Array.isArray(productData.cancellationPolicy.schedule)
+        ? {
+            free_cancellation_text: productData.cancellationPolicy.freeCancellationText || '',
+            schedule: productData.cancellationPolicy.schedule
+              .filter(entry => entry?.label?.trim())
+              .map(entry => ({
+                label: entry.label.trim(),
+                percentage: Number(entry.percentage) || 0,
+                note: entry.note || ''
+              })),
+            notes: Array.isArray(productData.cancellationPolicy.notes)
+              ? productData.cancellationPolicy.notes.filter(note => note && note.trim())
+              : []
+          }
+        : null;
+
       // Prepare product data for API (matching ProductCreate schema)
       const apiProductData = {
         title: normalizedTitle || 'Untitled Product',
@@ -415,6 +447,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
             ? Object.values(productData.timeSlots).flat().filter(Boolean)
             : []
         },
+        cancellation_policy: normalizedCancellationPolicy,
+        faqs: normalizedFaqs,
         price: (() => {
           // Try multiple sources for price
           if (primaryVehicle?.amount != null && !isNaN(primaryVehicle.amount) && parseFloat(primaryVehicle.amount) > 0) {
@@ -434,8 +468,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         destination: productData?.destination || '',
         breadcrumb: normalizedBreadcrumb,
         selling_points: normalizedSellingPoints,
-        style_theme: productData?.styleTheme || '',
-        faqs: []
+        style_theme: productData?.styleTheme || ''
       };
 
       const possiblePhotos = Array.isArray(uploadedPhotos) && uploadedPhotos.length
@@ -543,6 +576,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         selectedWeekDay: productData?.weekDay || '',
         selectedDate: productData?.selectedDate || '',
         itineraries: productData?.itineraries || [],
+        faqs: productData?.faqs || [],
+        cancellationPolicy: productData?.cancellationPolicy || buildEmptyCancellationPolicy(),
         vehicleTimeAllocations: existingVehicleAllocations,
         lastModified: new Date().toISOString()
       };
@@ -667,6 +702,30 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       }
 
       // Helper to map photo objects/strings to URL strings
+      const normalizedFaqs = Array.isArray(productData?.faqs)
+        ? productData.faqs
+            .filter(faq => faq?.question?.trim() && faq?.answer?.trim())
+            .map(faq => ({
+              question: faq.question.trim(),
+              answer: faq.answer.trim()
+            }))
+        : [];
+      const normalizedCancellationPolicy = productData?.cancellationPolicy && Array.isArray(productData.cancellationPolicy.schedule)
+        ? {
+            free_cancellation_text: productData.cancellationPolicy.freeCancellationText || '',
+            schedule: productData.cancellationPolicy.schedule
+              .filter(entry => entry?.label?.trim())
+              .map(entry => ({
+                label: entry.label.trim(),
+                percentage: Number(entry.percentage) || 0,
+                note: entry.note || ''
+              })),
+            notes: Array.isArray(productData.cancellationPolicy.notes)
+              ? productData.cancellationPolicy.notes.filter(note => note && note.trim())
+              : []
+          }
+        : null;
+
       // Prepare product data for API (matching ProductCreate schema)
       const apiProductData = {
         title: publishTitle || 'Untitled Product',
@@ -717,6 +776,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
             ? Object.values(productData.timeSlots).flat().filter(Boolean)
             : []
         },
+        cancellation_policy: normalizedCancellationPolicy,
+        faqs: normalizedFaqs,
         price: (() => {
           // Try multiple sources for price, prioritizing valid numbers > 0
           const vehicleAmount = productData?.vehicles?.[0]?.amount;
@@ -782,8 +843,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         destination: (productData?.destination || '').toString(),
         breadcrumb: Array.isArray(productData?.breadcrumb) ? productData.breadcrumb : [],
         selling_points: Array.isArray(productData?.sellingPoints) ? productData.sellingPoints : (productData?.sellingPoints ? [productData.sellingPoints] : []),
-        style_theme: productData?.styleTheme || '',
-        faqs: []
+        style_theme: productData?.styleTheme || ''
       };
 
       console.log('apiProductData ->', apiProductData);
@@ -1099,24 +1159,23 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     'Additional activities not mentioned'
   ];
 
-  const faqs = [
-    {
-      question: 'What happens if Mount Fuji is not visible due to weather?',
-      answer: 'We provide alternative viewpoints and cultural experiences. Weather conditions are monitored, and we adjust the itinerary accordingly.'
-    },
-    {
-      question: 'Can the itinerary be customized?',
-      answer: 'Yes, this is a private tour with flexible scheduling. We can accommodate special requests within the tour duration.'
-    },
-    {
-      question: 'Is this tour suitable for elderly travelers?',
-      answer: 'Absolutely. Our vehicle is wheelchair accessible and we can adjust the pace and activities based on your needs.'
-    },
-    {
-      question: 'What\'s the cancellation policy?',
-      answer: 'Free cancellation up to 24 hours before the tour. Full refund for weather-related cancellations.'
-    }
+  // FAQs will be loaded from product data, no dummy data
+  const faqs = productData?.faqs || [];
+  const cancellationPolicyPreview = productData?.cancellationPolicy;
+  const hasCancellationPolicyPreview =
+    cancellationPolicyPreview &&
+    Array.isArray(cancellationPolicyPreview.schedule) &&
+    cancellationPolicyPreview.schedule.length > 0;
+  const previewPolicyColors = [
+    { bg: 'bg-green-100', border: 'border-green-200', accent: 'text-green-700' },
+    { bg: 'bg-blue-100', border: 'border-blue-200', accent: 'text-blue-700' },
+    { bg: 'bg-yellow-100', border: 'border-yellow-200', accent: 'text-yellow-700' },
+    { bg: 'bg-red-100', border: 'border-red-200', accent: 'text-red-700' }
   ];
+
+  const toggleFaq = (index) => {
+    setExpandedFaqIndex((prev) => (prev === index ? null : index));
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -1416,6 +1475,67 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
               </div>
             </div>
 
+            {hasCancellationPolicyPreview && (
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                  <div>
+                    <div className="text-sm uppercase tracking-wide text-gray-500 font-semibold">Policies</div>
+                    <h3 className="text-2xl font-bold text-gray-900">Cancellation & Refund Policy</h3>
+                    <p className="text-gray-600 text-sm">
+                      Guests will see this policy on your public listing.
+                    </p>
+                  </div>
+                </div>
+
+                {cancellationPolicyPreview?.freeCancellationText && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 text-sm text-blue-800 flex items-center gap-2">
+                    <FiCheckCircle className="w-4 h-4 text-blue-500" />
+                    <span className="font-medium">{cancellationPolicyPreview.freeCancellationText}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  {cancellationPolicyPreview.schedule.map((tier, index) => {
+                    const colors = previewPolicyColors[index % previewPolicyColors.length];
+                    return (
+                      <div
+                        key={`${tier.label}-${index}`}
+                        className={`${colors.bg} border ${colors.border} rounded-xl p-5 text-center`}
+                      >
+                        <div className={`text-4xl font-bold ${colors.accent} mb-2`}>
+                          {typeof tier.percentage === 'number' ? `${tier.percentage}%` : tier.percentage}
+                        </div>
+                        <div className={`font-semibold ${colors.accent} mb-2`}>
+                          {parseInt(tier.percentage, 10) === 100
+                            ? 'Full Refund'
+                            : parseInt(tier.percentage, 10) === 0
+                            ? 'No Refund'
+                            : 'Partial Refund'}
+                        </div>
+                        <div className="text-sm text-gray-700 whitespace-pre-line">
+                          {tier.note || tier.label}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {Array.isArray(cancellationPolicyPreview.notes) && cancellationPolicyPreview.notes.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3">Important Notes</h4>
+                    <ul className="space-y-2">
+                      {cancellationPolicyPreview.notes.map((note, idx) => (
+                        <li key={`preview-note-${idx}`} className="flex items-start gap-3 text-sm text-gray-700">
+                          <FiCheckCircle className="w-4 h-4 text-blue-500 mt-0.5" />
+                          <span>{note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Vehicle & Pricing */}
             <div className="bg-white p-6 rounded-lg border border-gray-200">
               <div className="flex items-center space-x-2 mb-6">
@@ -1604,12 +1724,31 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 <h3 className="text-xl font-bold text-gray-900">Frequently Asked Questions</h3>
               </div>
               <div className="space-y-4">
-                {faqs.map((faq, index) => (
-                  <div key={index} className="border-b border-gray-200 pb-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">{faq.question}</h4>
-                    <p className="text-gray-600">{faq.answer}</p>
-                  </div>
-                ))}
+                {faqs.length > 0 ? (
+                  faqs.map((faq, index) => (
+                    <div key={index} className="border-b border-gray-200 pb-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleFaq(index)}
+                        className="w-full flex items-center justify-between text-left"
+                      >
+                        <h4 className="font-semibold text-gray-900">
+                          {faq.question?.trim() || `FAQ ${index + 1}`}
+                        </h4>
+                        {expandedFaqIndex === index ? (
+                          <FiMinus className="text-blue-600" size={18} />
+                        ) : (
+                          <FiPlus className="text-blue-600" size={18} />
+                        )}
+                      </button>
+                      {expandedFaqIndex === index && faq.answer?.trim() && (
+                        <p className="text-gray-600 mt-3">{faq.answer}</p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">No FAQs added yet.</p>
+                )}
               </div>
             </div>
           </div>
