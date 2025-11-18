@@ -1,6 +1,6 @@
 
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight, X, Plus, Minus } from 'lucide-react'
+import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import Itinerary from "../components/Itinerary"
 import share from "../../assests/share.png";
 import branch from "../../assests/middle.png";
@@ -10,7 +10,6 @@ import MainHeader from './MainHeader'
 import TourCard from './TourCard'
 import ClimateWidget from './ClimateWidget'
 import SupplierChatModal from './SupplierChatModal'
-import CancellationPolicyModal from './CancellationPolicyModal'
 import { getPublishedProducts, transformProductForFrontend, addRecentlyViewed, recordProductClick, getProductClicks, getProductById, getCachedPublishedProductsSync } from '../services/productService'
 
 const ProductDetails = () => {
@@ -41,19 +40,6 @@ const ProductDetails = () => {
   const [imageErrors, setImageErrors] = useState(new Set())
   const [imagesLoaded, setImagesLoaded] = useState(new Set())
   const [showAllImages, setShowAllImages] = useState(false)
-  const [showVerifiedTooltip, setShowVerifiedTooltip] = useState(false)
-  const [expandedFaqIndex, setExpandedFaqIndex] = useState(null)
-  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false)
-  const quickDetailRef = useRef(null)
-
-  const handleScrollToQuickDetail = useCallback(() => {
-    if (quickDetailRef.current) {
-      quickDetailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      if (typeof quickDetailRef.current.focus === 'function') {
-        quickDetailRef.current.focus()
-      }
-    }
-  }, [])
 
   const images = useMemo(() => {
     if (!product) return []
@@ -73,7 +59,6 @@ const ProductDetails = () => {
   useEffect(() => {
     setImageErrors(new Set())
     setImagesLoaded(new Set())
-    setIsPolicyModalOpen(false)
   }, [product?.id])
 
   const fetchProduct = useCallback(async () => {
@@ -98,20 +83,14 @@ const ProductDetails = () => {
       // Check if identifier looks like an ObjectId (24 hex characters)
       const isObjectId = /^[0-9a-fA-F]{24}$/.test(String(identifier));
       
-      const fetchById = async (targetId) => {
-        if (!targetId) return null
-        // Always prefer fresh data so new fields (like cancellation policy) appear immediately
-        const fresh = await getProductById(String(targetId), false)
-        if (fresh) return fresh
-        return await getProductById(String(targetId), true)
-      }
-
       if (isObjectId) {
-        const byId = await fetchById(identifier)
+        // It's an ID, fetch directly (use cache)
+        const byId = await getProductById(String(identifier), true);
         if (byId) {
-          found = transformProductForFrontend(byId)
+          found = transformProductForFrontend(byId);
         }
       } else {
+        // It's a slug, try to find in list first to get ID, then fetch full details
         const data = await getPublishedProducts({ page: 1, page_size: 50 }, true); // Use cache
         const list = (data.products || []).map(transformProductForFrontend);
         const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-');
@@ -120,7 +99,8 @@ const ProductDetails = () => {
         const listProduct = list.find(p => normalize(p.name) === String(identifier).toLowerCase());
         
         if (listProduct && listProduct.id) {
-          const byId = await fetchById(listProduct.id)
+          // Found in list, now fetch full details by ID (use cache)
+          const byId = await getProductById(String(listProduct.id), true);
           if (byId) {
             found = transformProductForFrontend(byId);
           } else {
@@ -128,7 +108,8 @@ const ProductDetails = () => {
             found = listProduct;
           }
         } else {
-          const byId = await fetchById(identifier)
+          // Not found in list, try direct fetch anyway (use cache)
+          const byId = await getProductById(String(identifier), true);
           if (byId) found = transformProductForFrontend(byId);
         }
       }
@@ -391,16 +372,6 @@ const ProductDetails = () => {
     return { ...item, percentage: Math.min(100, percentage) }
   })
   const reviewList = reviewBundle.reviews
-  const supplierName = product?.supplierBusinessName || product?.supplier_business_name || product?.host || 'TripsAdora'
-  const cancellationPolicy = product?.cancellationPolicy || product?.cancellation_policy
-  const scheduleEntries = Array.isArray(cancellationPolicy?.schedule) ? cancellationPolicy.schedule : []
-  const noteEntries = Array.isArray(cancellationPolicy?.notes) ? cancellationPolicy.notes : []
-  const rawFreeCancellationText = (cancellationPolicy?.freeCancellationText || cancellationPolicy?.free_cancellation_text || '').trim()
-  const freeCancellationText = rawFreeCancellationText || 'Free cancellation up to 24 hours'
-  const hasCancellationPolicy = Boolean(
-    cancellationPolicy && (scheduleEntries.length > 0 || noteEntries.length > 0 || rawFreeCancellationText)
-  )
-  const hasFaqs = Array.isArray(product?.faqs) && product.faqs.length > 0
 
   if (loading && !product && !hasLoadedOnceRef.current) {
     return (
@@ -425,12 +396,6 @@ const ProductDetails = () => {
   return (
     <div className="min-h-screen bg-white font-poppins">
       <MainHeader />
-      {isPolicyModalOpen && hasCancellationPolicy && (
-        <CancellationPolicyModal
-          policy={cancellationPolicy}
-          onClose={() => setIsPolicyModalOpen(false)}
-        />
-      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
@@ -831,25 +796,11 @@ const ProductDetails = () => {
               {/* Tour Provider */}
               <div className="mb-4 sm:mb-6 bg-[#F0F4FE] p-3 sm:p-4 rounded-xl shadow-md">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base sm:text-lg font-bold text-black">{supplierName}</h3>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onMouseEnter={() => setShowVerifiedTooltip(true)}
-                      onMouseLeave={() => setShowVerifiedTooltip(false)}
-                      onFocus={() => setShowVerifiedTooltip(true)}
-                      onBlur={() => setShowVerifiedTooltip(false)}
-                      className="bg-[#00A63E] text-white px-2 py-1 rounded-full text-xs flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#00A63E]"
-                    >
-                      <Check className="w-3 h-3" />
-                      Verified
-                    </button>
-                    {showVerifiedTooltip && (
-                      <div className="absolute right-0 top-full mt-2 bg-gray-900 text-white text-xs font-medium rounded-lg px-3 py-1 shadow-lg whitespace-nowrap">
-                        This supplier is verified by admin
-                      </div>
-                    )}
-                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-black">{product.host || 'TripsAdora'}</h3>
+                  <span className="bg-[#00A63E] text-white px-2 py-1 rounded-full text-xs flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    Verified
+                  </span>
                 </div>
                 
                 <div className="flex items-center gap-2 mb-2">
@@ -857,10 +808,14 @@ const ProductDetails = () => {
                   <span className="text-black font-bold text-sm sm:text-base">4.8</span>
                 </div>
                 
+                <p className="text-gray-600 text-xs sm:text-sm mb-1">2,840 followers</p>
                 <p className="text-gray-600 text-xs sm:text-sm mb-4">156 Tours completed</p>
                 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2 mb-4">
+                  <button className="bg-[#C5FFD0] text-black px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                    Following
+                  </button>
                   <button 
                     onClick={() => setIsChatOpen(true)}
                     className="bg-white border border-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm hover:bg-gray-50 transition-colors"
@@ -936,22 +891,9 @@ const ProductDetails = () => {
                     </div>
                   )}
                   
-                  <div className="w-full">
-                    <button
-                      type="button"
-                      disabled={!hasCancellationPolicy}
-                      onClick={() => hasCancellationPolicy && setIsPolicyModalOpen(true)}
-                      className={`flex items-center gap-2 sm:gap-3 text-left rounded-full px-2 py-1 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#34A853] ${
-                        hasCancellationPolicy
-                          ? 'hover:bg-[#e5f5eb]'
-                          : 'opacity-60 cursor-not-allowed bg-transparent'
-                      }`}
-                    >
-                      <UserPlus className="w-4 h-4 text-gray-600" />
-                      <span className="text-[#34A853] text-sm sm:text-base font-bold">
-                        Cancellation Policy
-                      </span>
-                    </button>
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <UserPlus className="w-4 h-4 text-gray-600" />
+                    <span className="text-[#34A853] text-sm sm:text-base font-bold">Free cancellation</span>
                   </div>
                   
                   <div className="pt-2">
@@ -1005,7 +947,7 @@ const ProductDetails = () => {
                       rating: product.rating,
                       reviews: String(product.reviewsCount || '0'),
                       tags: product.tags || [],
-                      host: supplierName,
+                      host: product.host || 'TripsAdora',
                       duration: product.duration,
                       groupSize: product.groupSize || 'Up to 12',
                       location: product.location
@@ -1030,11 +972,7 @@ const ProductDetails = () => {
               </div>
               
               {/* Quick Detail */}
-              <div
-                ref={quickDetailRef}
-                tabIndex={-1}
-                className="border border-gray-200 rounded-xl p-4 sm:p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#34A853]"
-              >
+              <div className="border border-gray-200 rounded-xl p-4 sm:p-5">
                 <h4 className="text-base sm:text-lg font-bold text-black mb-2 sm:mb-3">
                   Quick Detail
                 </h4>
@@ -1044,7 +982,7 @@ const ProductDetails = () => {
                       <Check className="w-2 h-2 text-[#34A853]" />
                     </div>
                     <span className="text-black text-xs sm:text-sm font-bold">
-                      {freeCancellationText || 'Free cancellation up to 24 hours'}
+                      Free cancellation up to 24 hours
                     </span>
                   </li>
                   <li className="flex items-start gap-2 sm:gap-3">
@@ -1258,46 +1196,6 @@ const ProductDetails = () => {
                 <div className="flex-1">
                   <h3 className="text-xl sm:text-2xl font-bold text-black">Finished - Return</h3>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* FAQs */}
-        {hasFaqs && (
-          <div className="mt-12">
-            <div className="bg-white rounded-2xl border-2 border-gray-200/80 px-6 sm:px-8 py-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <MessageCircle className="w-5 h-5 text-[#3B69E2]" />
-                <h2 className="text-xl font-semibold text-gray-900">Frequently Asked Questions</h2>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {product.faqs.map((faq, index) => {
-                  const question = faq?.question || `Question ${index + 1}`
-                  const answer = faq?.answer || ''
-                  const isExpanded = expandedFaqIndex === index
-                  return (
-                    <div key={`${question}-${index}`} className="py-4">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedFaqIndex(isExpanded ? null : index)}
-                        className="w-full flex items-center justify-between text-left gap-4"
-                      >
-                        <span className="text-sm sm:text-base font-semibold text-gray-900">
-                          {question}
-                        </span>
-                        {isExpanded ? (
-                          <Minus className="w-5 h-5 text-[#3B69E2]" />
-                        ) : (
-                          <Plus className="w-5 h-5 text-[#3B69E2]" />
-                        )}
-                      </button>
-                      {isExpanded && answer && (
-                        <p className="mt-3 text-sm sm:text-base text-gray-600">{answer}</p>
-                      )}
-                    </div>
-                  )
-                })}
               </div>
             </div>
           </div>

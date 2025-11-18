@@ -1,46 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin, FiClock, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin, FiClock } from 'react-icons/fi';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import AddItineraryComponent from './AddItineraryComponent';
 import productService from '@/services/productService';
 import vehicleService from '@/services/vehicleService';
 import { imageService } from '@/services/imageService';
-
-const createScheduleEntry = (overrides = {}) => ({
-  id: `policy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-  label: overrides.label || '',
-  percentage: overrides.percentage ?? 0,
-  note: overrides.note || ''
-});
-
-const buildDefaultCancellationPolicy = () => ({
-  freeCancellationText: '',
-  schedule: [
-    createScheduleEntry({ label: '7+ Days', percentage: 100, note: 'Full refund before 7 days' }),
-    createScheduleEntry({ label: '3-6 Days', percentage: 50, note: 'Partial refund before 3 days' }),
-    createScheduleEntry({ label: '24 Hours', percentage: 25, note: 'Small refund within 24 hours' }),
-    createScheduleEntry({ label: 'Less than 24 Hours', percentage: 0, note: 'No refund within 24 hours' })
-  ],
-  notes: []
-});
-
-const normalizeCancellationPolicyForEditor = (policy) => {
-  if (!policy) return buildDefaultCancellationPolicy();
-  const schedule = Array.isArray(policy.schedule) && policy.schedule.length > 0
-    ? policy.schedule.map((entry) => ({
-        id: entry.id || `policy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        label: entry.label || '',
-        percentage: entry.percentage ?? 0,
-        note: entry.note || ''
-      }))
-    : [createScheduleEntry()];
-
-  return {
-    freeCancellationText: policy.freeCancellationText || policy.free_cancellation_text || '',
-    schedule,
-    notes: Array.isArray(policy.notes) ? policy.notes : []
-  };
-};
 
 const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [step, setStep] = useState(1);
@@ -61,7 +25,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   
   // Step 2 - Description & Highlights
   const [description, setDescription] = useState('');
-  const [cancellationPolicy, setCancellationPolicy] = useState(() => buildDefaultCancellationPolicy());
   
   // Photo Management
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
@@ -221,9 +184,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [showThingsToCarryDropdown, setShowThingsToCarryDropdown] = useState(false);
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   
-  // FAQ Management
-  const [faqs, setFaqs] = useState([]);
-  
   // Step navigation hover menu (return to step 1 from step 2)
   const [showStep1Menu, setShowStep1Menu] = useState(false);
   const [topMenuStep, setTopMenuStep] = useState(null); // 1 or 2 when hovering top circles
@@ -241,7 +201,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const accessibilityRef = React.useRef(null);
   const thingsToCarryRef = React.useRef(null);
   const includedExcludedRef = React.useRef(null);
-  const faqRef = React.useRef(null);
   const vehicleTitleRef = React.useRef(null);
   const transportationRef = React.useRef(null);
   const durationRef = React.useRef(null);
@@ -258,227 +217,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     // Use setTimeout to ensure the step has rendered before scrolling
     setTimeout(() => scrollToRef(ref), 100);
   };
-
-  const handleScheduleChange = (id, field, value) => {
-    setCancellationPolicy(prev => ({
-      ...prev,
-      schedule: prev.schedule.map(entry =>
-        entry.id === id
-          ? {
-              ...entry,
-              [field]:
-                field === 'percentage'
-                  ? Math.max(0, Math.min(100, Number(value) || 0))
-                  : value
-            }
-          : entry
-      )
-    }));
-  };
-
-  const addScheduleEntry = () => {
-    setCancellationPolicy(prev => ({
-      ...prev,
-      schedule: [...prev.schedule, createScheduleEntry()]
-    }));
-  };
-
-  const removeScheduleEntry = (id) => {
-    setCancellationPolicy(prev => {
-      if (prev.schedule.length === 1) return prev;
-      return {
-        ...prev,
-        schedule: prev.schedule.filter(entry => entry.id !== id)
-      };
-    });
-  };
-
-  const handlePolicyNoteChange = (index, value) => {
-    setCancellationPolicy(prev => {
-      const updated = [...prev.notes];
-      updated[index] = value;
-      return { ...prev, notes: updated };
-    });
-  };
-
-  const addPolicyNote = () => {
-    setCancellationPolicy(prev => ({
-      ...prev,
-      notes: [...prev.notes, '']
-    }));
-  };
-
-  const removePolicyNote = (index) => {
-    setCancellationPolicy(prev => {
-      const updated = prev.notes.filter((_, i) => i !== index);
-      return { ...prev, notes: updated };
-    });
-  };
-
-  const handleFreeCancellationTextChange = (value) => {
-    setCancellationPolicy(prev => ({
-      ...prev,
-      freeCancellationText: value
-    }));
-  };
-
-  const renderCancellationPolicySection = () => (
-    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900">Cancellation & Refund Policy</h3>
-          <p className="text-gray-600 mt-1 text-sm sm:text-base">
-            Add your refund schedule and optional guest guidelines. This policy will be shown on the customer page.
-          </p>
-        </div>
-        <span className="text-xs uppercase tracking-wide bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold">
-          Optional but recommended
-        </span>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-sm text-blue-800">
-        Create multiple refund tiers (for example 100% refund for 7+ days, 50% for 3-6 days, etc.) and outline any important notes or deadlines.
-      </div>
-
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-lg font-semibold text-gray-900">Refund Schedule</h4>
-          <button
-            type="button"
-            onClick={addScheduleEntry}
-            className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
-          >
-            <FiPlus className="w-4 h-4" />
-            Add New Tier
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {cancellationPolicy.schedule.map((entry, index) => (
-            <div
-              key={entry.id}
-              className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,auto] gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4"
-            >
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
-                  Time Range
-                </label>
-                <input
-                  type="text"
-                  value={entry.label}
-                  onChange={(e) => handleScheduleChange(entry.id, 'label', e.target.value)}
-                  placeholder="e.g., 7+ Days"
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
-                  Refund (%)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={entry.percentage}
-                  onChange={(e) => handleScheduleChange(entry.id, 'percentage', e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
-                  Display Note
-                </label>
-                <input
-                  type="text"
-                  value={entry.note}
-                  onChange={(e) => handleScheduleChange(entry.id, 'note', e.target.value)}
-                  placeholder="e.g., Before 12:00 PM, Sep 14"
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex items-end justify-end">
-                <button
-                  type="button"
-                  onClick={() => removeScheduleEntry(entry.id)}
-                  className={`inline-flex items-center justify-center w-full md:w-10 h-10 rounded-lg border ${
-                    cancellationPolicy.schedule.length === 1
-                      ? 'border-gray-200 text-gray-300 cursor-not-allowed'
-                      : 'border-red-200 text-red-500 hover:bg-red-50'
-                  }`}
-                  disabled={cancellationPolicy.schedule.length === 1}
-                >
-                  <FiTrash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <label className="block text-sm font-semibold text-gray-900 mb-2">
-          Free Cancellation Message
-        </label>
-        <input
-          type="text"
-          value={cancellationPolicy.freeCancellationText}
-          onChange={(e) => handleFreeCancellationTextChange(e.target.value)}
-          placeholder="e.g., Free cancellation until 12:00 PM, 2 days before the tour"
-          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <p className="text-xs text-gray-500 mt-1">
-          This appears in a banner above your refund schedule on the customer page.
-        </p>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h4 className="text-lg font-semibold text-gray-900">Important Notes</h4>
-            <p className="text-gray-600 text-sm">
-              Optional bullet points that will display below the schedule (e.g., policy reminders or effective dates).
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={addPolicyNote}
-            className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
-          >
-            <FiPlus className="w-4 h-4" />
-            Add Note
-          </button>
-        </div>
-
-        {cancellationPolicy.notes.length === 0 ? (
-          <p className="text-sm text-gray-500">No notes added yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {cancellationPolicy.notes.map((note, index) => (
-              <div key={`note-${index}`} className="flex items-start gap-3">
-                <textarea
-                  value={note}
-                  onChange={(e) => handlePolicyNoteChange(index, e.target.value)}
-                  placeholder="Write a note that will be displayed to travelers"
-                  className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={2}
-                />
-                <button
-                  type="button"
-                  onClick={() => removePolicyNote(index)}
-                  className="mt-1 inline-flex items-center justify-center w-10 h-10 rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
-                >
-                  <FiTrash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
   
   // Helper function to count words
   const countWords = (text) => {
@@ -632,8 +370,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           if (draftData.includedItems) setIncludedItems(draftData.includedItems);
           if (draftData.excludedItems) setExcludedItems(draftData.excludedItems);
           if (draftData.accessibilityToggles) setAccessibilityToggles(draftData.accessibilityToggles);
-          if (draftData.cancellationPolicy) setCancellationPolicy(normalizeCancellationPolicyForEditor(draftData.cancellationPolicy));
-          if (draftData.faqs && Array.isArray(draftData.faqs)) setFaqs(draftData.faqs);
           
           // Load Step 5 data (Vehicles)
           if (draftData.vehicleTitle) setVehicleTitle(draftData.vehicleTitle);
@@ -790,8 +526,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           includedItems,
           excludedItems,
           accessibilityToggles,
-          faqs,
-          cancellationPolicy,
           
           // Step 5 data
           vehicles,
@@ -1821,7 +1555,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               </div>
             </div>
           </div>
-
         );
       case 2:
         return (
@@ -1935,8 +1668,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 </div>
               </div>
             </div>
-
-            {renderCancellationPolicySection()}
           </div>
         );
       case 3:
@@ -2543,67 +2274,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 </div>
               </div>
             </div>
-
-            {/* FAQ Section */}
-            <div ref={faqRef} className="mt-6">
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm">
-                <h3 className="text-xl font-bold text-gray-900 mb-3">Frequently Asked Questions</h3>
-                <p className="text-gray-600 mb-4 text-sm">Add frequently asked questions about your product that will be shown to customers. (optional)</p>
-                
-                <div className="space-y-4">
-                  {faqs.map((faq, index) => (
-                    <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="text-sm font-semibold text-gray-700">FAQ {index + 1}</h4>
-                        <button
-                          onClick={() => setFaqs(faqs.filter((_, i) => i !== index))}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <FiX size={18} />
-                        </button>
-                      </div>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Question</label>
-                          <input
-                            type="text"
-                            value={faq.question || ''}
-                            onChange={(e) => {
-                              const updatedFaqs = [...faqs];
-                              updatedFaqs[index] = { ...updatedFaqs[index], question: e.target.value };
-                              setFaqs(updatedFaqs);
-                            }}
-                            placeholder="Enter your question"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Answer</label>
-                          <textarea
-                            value={faq.answer || ''}
-                            onChange={(e) => {
-                              const updatedFaqs = [...faqs];
-                              updatedFaqs[index] = { ...updatedFaqs[index], answer: e.target.value };
-                              setFaqs(updatedFaqs);
-                            }}
-                            placeholder="Enter your answer"
-                            rows="3"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  <button
-                    onClick={() => setFaqs([...faqs, { question: '', answer: '' }])}
-                    className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors font-medium"
-                  >
-                    + Add FAQ
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         );
        case 6:
@@ -2656,8 +2326,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                            <button onClick={() => navigateToSection(4, thingsToCarryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Things to carry</button>
                            <div className="border-t border-gray-100" />
                            <button onClick={() => navigateToSection(4, includedExcludedRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Included & excluded</button>
-                           <div className="border-t border-gray-100" />
-                           <button onClick={() => navigateToSection(4, faqRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">FAQ</button>
                          </div>
                        )}
                        {topMenuStep === 5 && s === 5 && step > 5 && (
@@ -3505,6 +3173,55 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                     </p>
                      </div>
                 )}
+                
+                {Array.isArray(itineraries) && itineraries.length > 0 && (
+                  <div className="mt-10 border-t border-gray-200 pt-8">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Saved Itinerary Stops</h3>
+                    <div className="space-y-4">
+                      {itineraries.map((stop, index) => (
+                        <div
+                          key={stop.id || index}
+                          className="flex items-start space-x-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                        >
+                          <div className="flex-shrink-0">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-semibold">
+                              {(stop.time && String(stop.time).trim()) || `#${index + 1}`}
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-base font-bold text-gray-900">
+                                {stop.title || stop.placeName || stop.location || `Stop ${index + 1}`}
+                              </h4>
+                              {stop.isFree !== undefined && (
+                                <span className={`ml-3 rounded-full px-3 py-1 text-xs font-semibold ${stop.isFree ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                  {stop.isFree ? 'Free' : 'Paid'}
+                                </span>
+                              )}
+                            </div>
+                            {stop.description && (
+                              <p className="mt-2 text-sm text-gray-600 line-clamp-3">{stop.description}</p>
+                            )}
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                              {stop.timeSpent && (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1">
+                                  <FiClock className="mr-1" size={12} />
+                                  {stop.timeSpent}
+                                </span>
+                              )}
+                              {stop.attractionType && (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1">
+                                  <FiMapPin className="mr-1" size={12} />
+                                  {stop.attractionType}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                </div>
              </div>
 
@@ -3714,8 +3431,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                           <button onClick={() => navigateToSection(4, thingsToCarryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Things to carry</button>
                           <div className="border-t border-gray-100" />
                           <button onClick={() => navigateToSection(4, includedExcludedRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Included & excluded</button>
-                          <div className="border-t border-gray-100" />
-                          <button onClick={() => navigateToSection(4, faqRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">FAQ</button>
                         </div>
                       )}
                     </div>
@@ -4405,8 +4120,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             includedItems: includedItems,
             excludedItems: excludedItems,
             accessibility: accessibilityToggles,
-            faqs: faqs.filter(faq => faq.question && faq.answer && faq.question.trim() && faq.answer.trim()),
-            cancellationPolicy,
             // Vehicle data - pass only the selected vehicle as an array
             vehicles: selectedVehicleForTour ? [selectedVehicleForTour] : vehicles,
             // Vehicle form fields (for price extraction)

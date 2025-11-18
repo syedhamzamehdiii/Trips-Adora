@@ -11,8 +11,7 @@ from app.models.product import (
     FAQ,
     VehicleDetails,
     PickupDropoff,
-    Accessibility,
-    CancellationPolicy
+    Accessibility
 )
 
 
@@ -41,7 +40,6 @@ class ProductBase(BaseModel):
     price_unit: str = "Per Group"
     commission_rate: Optional[float] = 20.0
     faqs: List[FAQ] = []
-    cancellation_policy: Optional[CancellationPolicy] = None
     destination: Optional[str] = None
     breadcrumb: List[str] = []
     selling_points: List[str] = []
@@ -79,7 +77,6 @@ class ProductUpdate(BaseModel):
     price_unit: Optional[str] = None
     commission_rate: Optional[float] = None
     faqs: Optional[List[FAQ]] = None
-    cancellation_policy: Optional[CancellationPolicy] = None
     destination: Optional[str] = None
     breadcrumb: Optional[List[str]] = None
     selling_points: Optional[List[str]] = None

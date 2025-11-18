@@ -475,8 +475,6 @@ export const transformProductForFrontend = (product) => {
                    (product.excludedItems ? (Array.isArray(product.excludedItems) ? product.excludedItems : [product.excludedItems]) : []),
     availableDays: availableDays,
     availableTimeSlots: availableTimeSlots,
-    cancellationPolicy: product.cancellation_policy || product.cancellationPolicy || null,
-    faqs: Array.isArray(product.faqs) ? product.faqs : [],
     // Supplier information
     supplierBusinessName: product.supplier_business_name || product.supplierBusinessName,
     supplierId: product.supplier_id || product.supplierId

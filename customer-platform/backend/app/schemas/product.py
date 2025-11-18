@@ -56,18 +56,6 @@ class FAQ(BaseModel):
     answer: str
 
 
-class CancellationTier(BaseModel):
-    label: Optional[str] = None
-    percentage: Optional[float] = None
-    note: Optional[str] = None
-
-
-class CancellationPolicy(BaseModel):
-    free_cancellation_text: Optional[str] = None
-    schedule: List[CancellationTier] = Field(default_factory=list)
-    notes: List[str] = Field(default_factory=list)
-
-
 class ProductResponse(BaseModel):
     """Schema for product response to customer frontend"""
     id: str
@@ -108,7 +96,6 @@ class ProductResponse(BaseModel):
     faqs: List[FAQ] = []
     selling_points: List[str] = []
     style_theme: Optional[str] = None
-    cancellation_policy: Optional[CancellationPolicy] = None
     
     # Supplier information
     supplier_business_name: Optional[str] = None

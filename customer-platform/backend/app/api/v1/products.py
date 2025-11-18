@@ -3,19 +3,7 @@ from typing import Any, List, Optional
 import math
 from datetime import datetime
 
-from app.schemas.product import (
-    ProductResponse,
-    ProductListResponse,
-    Highlight,
-    IncludedExcluded,
-    ItineraryItem,
-    PickupDropoff,
-    VehicleDetails,
-    Accessibility,
-    FAQ,
-    CancellationPolicy,
-    CancellationTier,
-)
+from app.schemas.product import ProductResponse, ProductListResponse
 from app.services.product_service import ProductService
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -159,6 +147,12 @@ async def get_product(product_id: str):
         logger.info(f"   - itinerary: {len(product.get('itinerary', []))} items")
         logger.info(f"   - pickup_dropoff: {product.get('pickup_dropoff')}")
         
+        # Import schemas
+        from app.schemas.product import (
+            Highlight, IncludedExcluded, ItineraryItem, PickupDropoff,
+            VehicleDetails, Accessibility, FAQ
+        )
+        
         # Format highlights
         highlights = []
         if product.get("highlights"):
@@ -223,38 +217,6 @@ async def get_product(product_id: str):
             for f in product.get("faqs", []):
                 if isinstance(f, dict):
                     faqs.append(FAQ(question=f.get("question", ""), answer=f.get("answer", "")))
-
-        # Cancellation policy
-        cancellation_policy = None
-        raw_policy = product.get("cancellation_policy")
-        if isinstance(raw_policy, dict):
-            schedule = []
-            for tier in raw_policy.get("schedule", []):
-                if isinstance(tier, dict):
-                    schedule.append(
-                        CancellationTier(
-                            label=tier.get("label"),
-                            percentage=tier.get("percentage"),
-                            note=tier.get("note")
-                        )
-                    )
-                elif isinstance(tier, (str, int, float)):
-                    schedule.append(
-                        CancellationTier(
-                            label=str(tier),
-                            percentage=None,
-                            note=None
-                        )
-                    )
-            notes = []
-            raw_notes = raw_policy.get("notes")
-            if isinstance(raw_notes, list):
-                notes = [note for note in raw_notes if isinstance(note, str) and note.strip()]
-            cancellation_policy = CancellationPolicy(
-                free_cancellation_text=raw_policy.get("free_cancellation_text") or raw_policy.get("freeCancellationText"),
-                schedule=schedule,
-                notes=notes
-            )
         
         # Extract selling_points and style_theme
         selling_points = product.get("selling_points", [])
@@ -427,7 +389,6 @@ async def get_product(product_id: str):
             vehicle_details=vehicle_details,
             accessibility=accessibility,
             faqs=faqs,
-            cancellation_policy=cancellation_policy,
             selling_points=selling_points,
             style_theme=style_theme,
             supplier_business_name=supplier_business_name,
