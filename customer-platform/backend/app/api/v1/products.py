@@ -362,7 +362,11 @@ async def get_product(product_id: str):
         
         # Fetch supplier information (business_name)
         supplier_id = product.get("supplier_id")
-        supplier_business_name = None
+        supplier_business_name = (
+            product.get("supplier_business_name")
+            or product.get("business_name")
+            or product.get("supplier_name")
+        )
         if supplier_id:
             try:
                 from app.core.database import get_database
@@ -372,10 +376,15 @@ async def get_product(product_id: str):
                 try:
                     supplier_user = await db.users.find_one(
                         {"_id": ObjectId(supplier_id) if ObjectId.is_valid(supplier_id) else supplier_id},
-                        {"business_name": 1}
+                        {"business_name": 1, "legal_name": 1, "company_name": 1}
                     )
                     if supplier_user:
-                        supplier_business_name = supplier_user.get("business_name")
+                        supplier_business_name = (
+                            supplier_user.get("business_name")
+                            or supplier_user.get("legal_name")
+                            or supplier_user.get("company_name")
+                            or supplier_business_name
+                        )
                         logger.info(f"🔍 [DEBUG] Found supplier business_name: {supplier_business_name}")
                 except:
                     pass
@@ -384,10 +393,15 @@ async def get_product(product_id: str):
                 if not supplier_business_name:
                     supplier = await db.suppliers.find_one(
                         {"user_id": str(supplier_id)},
-                        {"business_name": 1}
+                        {"business_name": 1, "legal_name": 1, "company_name": 1}
                     )
                     if supplier:
-                        supplier_business_name = supplier.get("business_name")
+                        supplier_business_name = (
+                            supplier.get("business_name")
+                            or supplier.get("legal_name")
+                            or supplier.get("company_name")
+                            or supplier_business_name
+                        )
                         logger.info(f"🔍 [DEBUG] Found supplier business_name from suppliers collection: {supplier_business_name}")
             except Exception as e:
                 logger.warning(f"Could not fetch supplier information: {e}")

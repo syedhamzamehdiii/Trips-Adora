@@ -41,10 +41,6 @@ const normalizeImageSource = (source) => {
 };
 
 async function fetchJsonWithFallback(path, options = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  const requestOptions = { ...options, signal: controller.signal };
-
   const endpoints = [
     API_BASE_URL ? `${API_BASE_URL}${path}` : null,
     FALLBACK_API_BASE_URL ? `${FALLBACK_API_BASE_URL}${path}` : null,
@@ -52,21 +48,24 @@ async function fetchJsonWithFallback(path, options = {}) {
 
   let lastError;
   for (const url of endpoints) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const requestOptions = { ...options, signal: controller.signal };
     try {
       const response = await fetch(url, requestOptions);
       if (!response.ok) {
         throw new Error(`Request to ${url} failed with status ${response.status}`);
       }
       const data = await response.json();
-      clearTimeout(timeout);
       return data;
     } catch (error) {
       lastError = error;
       console.warn(`[API] Request failed (${url}): ${error?.message || error}`);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
-  clearTimeout(timeout);
   throw lastError || new Error('All API endpoints failed');
 }
 
@@ -437,6 +436,16 @@ export const transformProductForFrontend = (product) => {
   const availableDays = pickupDropoff.available_days || product.availableDays || [];
   const availableTimeSlots = pickupDropoff.available_time_slots || product.availableTimeSlots || [];
 
+  const supplierBusinessName =
+    product.supplier_business_name ||
+    product.supplierBusinessName ||
+    product.business_name ||
+    product.businessName ||
+    product?.supplier?.business_name ||
+    product?.supplier?.businessName ||
+    product.host ||
+    null;
+
   const transformed = {
     id: product.id,
     name: product.name || product.title || product.productTitle || 'Untitled Product',
@@ -451,7 +460,7 @@ export const transformProductForFrontend = (product) => {
     oldPrice: oldPrice,
     location: (product.location && product.location.trim()) || (product.destination && product.destination.trim()) || 'Tokyo Japan',
     tags: ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
-    host: 'Karvaan Tours',
+    host: supplierBusinessName || 'TripsAdora Partner',
     isPrivate: product.activity_type?.includes('Private') || true,
     isTripadurasChoice: true,
     category: product.category,
@@ -478,7 +487,7 @@ export const transformProductForFrontend = (product) => {
     cancellationPolicy: product.cancellation_policy || product.cancellationPolicy || null,
     faqs: Array.isArray(product.faqs) ? product.faqs : [],
     // Supplier information
-    supplierBusinessName: product.supplier_business_name || product.supplierBusinessName,
+    supplierBusinessName: supplierBusinessName,
     supplierId: product.supplier_id || product.supplierId
   };
   
