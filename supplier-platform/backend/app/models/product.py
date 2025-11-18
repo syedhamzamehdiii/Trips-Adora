@@ -25,6 +25,7 @@ class ItineraryItem(BaseModel):
     title: str
     description: str
     icon: str  # pickup, sightseeing, dining, highlight, travel, dropoff
+    photo: Optional[str] = None  # Cloudinary URL for itinerary highlight image
 
 
 class Highlight(BaseModel):

@@ -6,6 +6,7 @@ import Button from '@/components/common/Button';
 import Input from '@/components/common/Input';
 import { settingsService } from '@/services/settingsService';
 import { useSettings } from '@/context/SettingsContext';
+import { imageService } from '@/services/imageService';
 
 const AccountSettings = () => {
   const { settings: contextSettings, updateSettings } = useSettings();
@@ -43,6 +44,10 @@ const AccountSettings = () => {
   const [liabilityInsurancePreview, setLiabilityInsurancePreview] = useState(null);
   const [logo, setLogo] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [profilePhotoPublicId, setProfilePhotoPublicId] = useState(null);
+  const [businessLicensePublicId, setBusinessLicensePublicId] = useState(null);
+  const [liabilityInsurancePublicId, setLiabilityInsurancePublicId] = useState(null);
+  const [logoPublicId, setLogoPublicId] = useState(null);
 
   // Global user photo state for all instances
   const [globalUserPhoto, setGlobalUserPhoto] = useState(null);
@@ -53,8 +58,66 @@ const AccountSettings = () => {
   const [crop, setCrop] = useState({ unit: '%', width: 80, aspect: 1 });
   const [completedCrop, setCompletedCrop] = useState(null);
   const imgRef = useRef(null);
+  const [uploadStatuses, setUploadStatuses] = useState({
+    profile: { uploading: false, progress: 0 },
+    businessLicense: { uploading: false, progress: 0 },
+    liabilityInsurance: { uploading: false, progress: 0 },
+    logo: { uploading: false, progress: 0 }
+  });
   // hydration flag to avoid overwriting saved data with defaults on first mount
   const [isHydrated, setIsHydrated] = useState(false);
+
+  const setUploadStatus = useCallback((type, patch) => {
+    setUploadStatuses((prev) => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        ...patch
+      }
+    }));
+  }, []);
+
+  const validateImageFile = useCallback((file, label = 'file', maxSizeMb = 5) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error(`Please upload a JPG or PNG ${label}.`);
+    }
+    if (file.size > maxSizeMb * 1024 * 1024) {
+      throw new Error(`${label} must be smaller than ${maxSizeMb}MB.`);
+    }
+  }, []);
+
+  const uploadFileToCloud = useCallback(
+    async (file, type, folder) => {
+      setUploadStatus(type, { uploading: true, progress: 0 });
+      try {
+        const response = await imageService.uploadImage(file, {
+          folder,
+          onUploadProgress: (progress) => setUploadStatus(type, { progress })
+        });
+        if (!response?.url) {
+          throw new Error(response?.detail || 'Upload failed');
+        }
+        return response;
+      } finally {
+        setUploadStatus(type, { uploading: false, progress: 0 });
+      }
+    },
+    [setUploadStatus]
+  );
+
+  const dataUrlToFile = (dataUrl, filename = `upload-${Date.now()}.jpg`) => {
+    const arr = dataUrl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  };
 
   const saveTimeoutRef = useRef(null);
   const latestSettingsRef = useRef(null);
@@ -75,6 +138,10 @@ const AccountSettings = () => {
         businessLicensePreview,
         liabilityInsurancePreview,
         logoPreview,
+        profilePhotoPublicId,
+        businessLicensePublicId,
+        liabilityInsurancePublicId,
+        logoPublicId,
         hasAddedUser,
         addedUserEmail,
         userAccess,
@@ -220,6 +287,18 @@ const AccountSettings = () => {
     }
     if ('logoPreview' in data) {
       setLogoPreview(data.logoPreview || null);
+    }
+    if ('profilePhotoPublicId' in data) {
+      setProfilePhotoPublicId(data.profilePhotoPublicId || null);
+    }
+    if ('businessLicensePublicId' in data) {
+      setBusinessLicensePublicId(data.businessLicensePublicId || null);
+    }
+    if ('liabilityInsurancePublicId' in data) {
+      setLiabilityInsurancePublicId(data.liabilityInsurancePublicId || null);
+    }
+    if ('logoPublicId' in data) {
+      setLogoPublicId(data.logoPublicId || null);
     }
     if ('hasAddedUser' in data) {
       setHasAddedUser(Boolean(data.hasAddedUser));
@@ -393,52 +472,88 @@ const AccountSettings = () => {
     // do not persist per keystroke for large text fields; debounce by using confirm button
   };
 
-  const handleFileUpload = (type, event) => {
-    const file = event.target.files[0];
+  const handleFileUpload = async (type, event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-    if (!allowedTypes.includes(file.type)) {
-      alert('Please upload a JPG or PNG file.');
+    try {
+      validateImageFile(file, type === 'profile' ? 'profile photo' : `${type} document`);
+    } catch (error) {
+      alert(error.message);
+      if (event?.target) event.target.value = '';
       return;
     }
 
-    // Validate file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB.');
+    if (type === 'profile') {
+      setProfilePhoto(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImageToCrop(e.target.result);
+        setShowCropModal(true);
+      };
+      reader.readAsDataURL(file);
       return;
     }
 
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      switch (type) {
-        case 'profile':
-          setProfilePhoto(file);
-          setImageToCrop(e.target.result);
-          setShowCropModal(true);
-          break;
-        case 'businessLicense':
-          setBusinessLicense(file);
-          setBusinessLicensePreview(e.target.result);
-          persistSettings({ businessLicensePreview: e.target.result });
-          break;
-        case 'liabilityInsurance':
-          setLiabilityInsurance(file);
-          setLiabilityInsurancePreview(e.target.result);
-          persistSettings({ liabilityInsurancePreview: e.target.result });
-          break;
-        case 'logo':
-          setLogo(file);
-          setLogoPreview(e.target.result);
-          persistSettings({ logoPreview: e.target.result });
-          break;
-        default:
-          break;
+    const configMap = {
+      businessLicense: {
+        label: 'business license',
+        folder: 'account/business-license',
+        setFile: setBusinessLicense,
+        setPreview: setBusinessLicensePreview,
+        currentPublicId: businessLicensePublicId,
+        setPublicId: setBusinessLicensePublicId,
+        persist: (upload) => ({
+          businessLicensePreview: upload.url,
+          businessLicensePublicId: upload.public_id
+        })
+      },
+      liabilityInsurance: {
+        label: 'liability insurance',
+        folder: 'account/liability-insurance',
+        setFile: setLiabilityInsurance,
+        setPreview: setLiabilityInsurancePreview,
+        currentPublicId: liabilityInsurancePublicId,
+        setPublicId: setLiabilityInsurancePublicId,
+        persist: (upload) => ({
+          liabilityInsurancePreview: upload.url,
+          liabilityInsurancePublicId: upload.public_id
+        })
+      },
+      logo: {
+        label: 'logo',
+        folder: 'account/logo',
+        setFile: setLogo,
+        setPreview: setLogoPreview,
+        currentPublicId: logoPublicId,
+        setPublicId: setLogoPublicId,
+        persist: (upload) => ({
+          logoPreview: upload.url,
+          logoPublicId: upload.public_id
+        })
       }
     };
-    reader.readAsDataURL(file);
+
+    const config = configMap[type];
+    if (!config) return;
+
+    try {
+      if (config.currentPublicId) {
+        imageService.deleteImage(config.currentPublicId).catch(() => {});
+      }
+      const upload = await uploadFileToCloud(file, type, config.folder);
+      config.setFile(file);
+      config.setPreview(upload.url);
+      config.setPublicId(upload.public_id);
+      persistSettings(config.persist(upload), { immediate: true });
+    } catch (error) {
+      console.error(`Failed to upload ${config.label}`, error);
+      alert(`Failed to upload ${config.label}. Please try again.`);
+    } finally {
+      if (event?.target) {
+        event.target.value = '';
+      }
+    }
   };
 
   // Crop helpers
@@ -465,11 +580,31 @@ const AccountSettings = () => {
     return canvas.toDataURL('image/jpeg', 0.99);
   };
 
-  const applyCrop = () => {
-    if (completedCrop && imgRef.current) {
-      const cropped = getCroppedImg(imgRef.current, completedCrop);
-      setProfilePhotoPreview(cropped);
-      setGlobalUserPhoto(cropped);
+  const applyCrop = async () => {
+    if (!imgRef.current) return;
+    const cropToUse = completedCrop || crop;
+    const cropped = getCroppedImg(imgRef.current, cropToUse);
+    if (!cropped) return;
+
+    try {
+      const file = dataUrlToFile(cropped, `profile-${Date.now()}.jpg`);
+      if (profilePhotoPublicId) {
+        imageService.deleteImage(profilePhotoPublicId).catch(() => {});
+      }
+      const upload = await uploadFileToCloud(file, 'profile', 'account/profile-photo');
+      setProfilePhoto(file);
+      setProfilePhotoPreview(upload.url);
+      setGlobalUserPhoto(upload.url);
+      setProfilePhotoPublicId(upload.public_id);
+      persistSettings({
+        profilePhotoPreview: upload.url,
+        globalUserPhoto: upload.url,
+        profilePhotoPublicId: upload.public_id
+      }, { immediate: true });
+    } catch (error) {
+      console.error('Failed to upload profile photo', error);
+      alert('Failed to upload profile photo. Please try again.');
+    } finally {
       setShowCropModal(false);
       setImageToCrop(null);
     }
@@ -689,6 +824,11 @@ const AccountSettings = () => {
             <p className="text-xs text-gray-500">
               JPG or PNG, max 5MB
             </p>
+            {uploadStatuses.profile.uploading && (
+              <p className="text-xs text-blue-500 mt-1">
+                Uploading profile photo… {uploadStatuses.profile.progress}%
+              </p>
+            )}
           </div>
 
           {/* Right: Action Buttons */}
@@ -932,6 +1072,11 @@ const AccountSettings = () => {
                 <FiUpload size={16} className="mr-2" />
                 Upload new photo
               </label>
+              {uploadStatuses.businessLicense.uploading && (
+                <p className="text-xs text-blue-500 mt-1">
+                  Uploading license… {uploadStatuses.businessLicense.progress}%
+                </p>
+              )}
               {businessLicensePreview ? (
                 <div className="mt-2 flex items-center space-x-3">
                   <img src={businessLicensePreview} alt="Business License" className="w-16 h-16 object-cover rounded border" />
@@ -956,6 +1101,11 @@ const AccountSettings = () => {
                 <FiUpload size={16} className="mr-2" />
                 Upload new photo
               </label>
+              {uploadStatuses.liabilityInsurance.uploading && (
+                <p className="text-xs text-blue-500 mt-1">
+                  Uploading insurance… {uploadStatuses.liabilityInsurance.progress}%
+                </p>
+              )}
               {liabilityInsurancePreview ? (
                 <div className="mt-2 flex items-center space-x-3">
                   <img src={liabilityInsurancePreview} alt="Liability" className="w-16 h-16 object-cover rounded border" />
@@ -980,6 +1130,11 @@ const AccountSettings = () => {
                 <FiUpload size={16} className="mr-2" />
                 Upload new photo
               </label>
+              {uploadStatuses.logo.uploading && (
+                <p className="text-xs text-blue-500 mt-1">
+                  Uploading logo… {uploadStatuses.logo.progress}%
+                </p>
+              )}
               {logoPreview ? (
                 <div className="mt-2 flex items-center space-x-3">
                   <img src={logoPreview} alt="Logo" className="w-16 h-16 object-cover rounded border" />

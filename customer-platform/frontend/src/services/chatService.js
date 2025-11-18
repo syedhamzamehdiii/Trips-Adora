@@ -4,7 +4,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001
 /**
  * Send a message to a supplier
  */
-export const sendMessage = async (customerId, supplierId, message, productId = null) => {
+export const sendMessage = async (
+  customerId,
+  supplierId,
+  message,
+  { productId = null, replyToMessageId = null } = {}
+) => {
   try {
     const response = await fetch(`${API_BASE_URL}/messages/send?customer_id=${customerId}`, {
       method: 'POST',
@@ -15,7 +20,8 @@ export const sendMessage = async (customerId, supplierId, message, productId = n
         recipient_id: supplierId,
         product_id: productId,
         message: message,
-        message_type: 'general'
+        message_type: 'general',
+        reply_to_message_id: replyToMessageId
       })
     });
 
@@ -66,6 +72,35 @@ export const getMessages = async (conversationId, customerId) => {
   } catch (error) {
     console.error('Error fetching messages:', error);
     return [];
+  }
+};
+
+export const deleteConversation = async (conversationId, customerId) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/messages/conversations/${conversationId}?customer_id=${customerId}`,
+      { method: 'DELETE' }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to delete conversation');
+    }
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    throw error;
+  }
+};
+
+export const getUnreadCount = async (customerId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/messages/unread-count?customer_id=${customerId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch unread count');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching unread count:', error);
+    return { unread_count: 0 };
   }
 };
 

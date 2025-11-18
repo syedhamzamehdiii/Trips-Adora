@@ -3,6 +3,7 @@ import { FiClock, FiMapPin, FiRotateCcw, FiPlus, FiX, FiCheckCircle, FiChevronDo
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import MountFujiTourPage from './MountFujiTourPage';
+import { imageService } from '@/services/imageService';
 
 const DEFAULT_CROP = { unit: '%', width: 80, height: 80, x: 10, y: 10, aspect: 1 };
 
@@ -35,6 +36,19 @@ const areItinerariesEqual = (a, b) => {
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
 const MIN_DIMENSION_PX = 720;
 
+const dataUrlToFile = (dataUrl, filename = `itinerary-${Date.now()}.jpg`) => {
+  const arr = dataUrl.split(',');
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
+
 const AddItineraryComponent = ({
   onClose,
   onBack,
@@ -63,6 +77,27 @@ const AddItineraryComponent = ({
   const [uploadedPhoto, setUploadedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [croppedPhoto, setCroppedPhoto] = useState(null);
+  const [photoPublicId, setPhotoPublicId] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState(0);
+
+  const uploadPhotoToCloud = async (file, folder = 'products/itinerary') => {
+    setPhotoUploading(true);
+    setPhotoUploadProgress(0);
+    try {
+      const response = await imageService.uploadImage(file, {
+        folder,
+        onUploadProgress: (progress) => setPhotoUploadProgress(progress)
+      });
+      if (!response?.url) {
+        throw new Error(response?.detail || 'Upload failed');
+      }
+      return response;
+    } finally {
+      setPhotoUploading(false);
+      setPhotoUploadProgress(0);
+    }
+  };
   const [showCropModal, setShowCropModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState(null);
   const [crop, setCrop] = useState(DEFAULT_CROP);
@@ -238,14 +273,27 @@ const AddItineraryComponent = ({
     setCompletedCrop(sanitizeCrop(rawCrop));
   };
 
-  const applyCrop = () => {
+  const applyCrop = async () => {
     const cropToUse = sanitizeCrop(completedCrop || crop);
-    if (imgRef.current) {
-      const croppedImageUrl = getCroppedImg(imgRef.current, cropToUse);
-      setPhotoPreview(croppedImageUrl);
-      setCroppedPhoto(croppedImageUrl);
+    if (!imgRef.current) return;
+
+    const croppedImageUrl = getCroppedImg(imgRef.current, cropToUse);
+    try {
+      const file = dataUrlToFile(croppedImageUrl);
+      if (photoPublicId) {
+        imageService.deleteImage(photoPublicId).catch(() => {});
+      }
+      const upload = await uploadPhotoToCloud(file);
+      setUploadedPhoto(file);
+      setPhotoPreview(upload.url);
+      setCroppedPhoto(upload.url);
+      setPhotoPublicId(upload.public_id);
+      console.log('✅ Photo cropped & uploaded successfully');
+    } catch (error) {
+      console.error('Failed to upload cropped photo', error);
+      alert('Failed to upload cropped photo. Please try again.');
+    } finally {
       setShowCropModal(false);
-      console.log('✅ Photo cropped successfully');
     }
   };
 
@@ -261,9 +309,15 @@ const AddItineraryComponent = ({
   };
 
   const handleRemovePhoto = () => {
+    if (photoPublicId) {
+      imageService.deleteImage(photoPublicId).catch(() => {});
+    }
     setUploadedPhoto(null);
     setPhotoPreview(null);
     setCroppedPhoto(null);
+    setPhotoPublicId(null);
+    setPhotoUploading(false);
+    setPhotoUploadProgress(0);
     setCrop(DEFAULT_CROP);
     setCompletedCrop(DEFAULT_CROP);
     if (photoInputRef.current) {
@@ -296,8 +350,9 @@ const AddItineraryComponent = ({
       attractionType: selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
       timeSpent: `${hours}h ${minutes}min`,
       isFree: entryIsFree,
-      hasPhoto: uploadedPhoto !== null || photoPreview !== null,
+      hasPhoto: Boolean(photoPreview),
       photo: photoPreview,
+      photoPublicId: photoPublicId || null,
       time: inferredTime,
       ticket: entryIsFree ? 'Free' : 'Paid',
       activities: [
@@ -348,6 +403,9 @@ const AddItineraryComponent = ({
     setUploadedPhoto(null);
     setPhotoPreview(null);
     setCroppedPhoto(null);
+    setPhotoPublicId(null);
+    setPhotoUploading(false);
+    setPhotoUploadProgress(0);
     setImageToCrop(null);
     setCrop({ unit: '%', width: 100, aspect: 1 });
     setCompletedCrop(null);
@@ -375,9 +433,11 @@ const AddItineraryComponent = ({
     if (entry.photo) {
       setPhotoPreview(entry.photo);
       setCroppedPhoto(entry.photo);
+      setPhotoPublicId(entry.photoPublicId || null);
     } else {
       setPhotoPreview(null);
       setCroppedPhoto(null);
+      setPhotoPublicId(null);
     }
     setShowAddItineraryModal(true);
   };
@@ -465,6 +525,10 @@ const AddItineraryComponent = ({
   };
 
   const handleDeleteEntry = (id) => {
+    const target = itineraryEntries.find(entry => entry.id === id);
+    if (target?.photoPublicId) {
+      imageService.deleteImage(target.photoPublicId).catch(() => {});
+    }
     const updatedEntries = itineraryEntries.filter(entry => entry.id !== id);
     setItineraryEntries(updatedEntries);
     setHasSavedItinerary(updatedEntries.length > 0);
@@ -1162,6 +1226,11 @@ const AddItineraryComponent = ({
                       <p className="text-xs text-gray-400 mt-1">Max size: 2GB</p>
                     </div>
                   </div>
+                )}
+                {photoUploading && (
+                  <p className="text-xs text-blue-500 mt-3 text-center">
+                    Uploading photo… {photoUploadProgress}%
+                  </p>
                 )}
                 {/* Hidden file input */}
                 <input

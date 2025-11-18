@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiX, FiCheck, FiTrash2, FiMessageSquare } from 'react-icons/fi';
+import { getUnreadCount as getChatUnreadCount } from '@/services/chatService';
 import { useSettings } from '@/context/SettingsContext';
 import notificationService from '@/services/notificationService';
 
@@ -51,6 +52,27 @@ const Header = ({ activePage = '' }) => {
   // ----- Notifications (Real-time from API + localStorage cache) -----
   const [unreadCount, setUnreadCount] = useState(0);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadUnread = async () => {
+      try {
+        const data = await getChatUnreadCount();
+        if (isMounted) {
+          setChatUnreadCount(data?.unread_count || 0);
+        }
+      } catch (_) {
+        if (isMounted) setChatUnreadCount(0);
+      }
+    };
+    loadUnread();
+    const interval = setInterval(loadUnread, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const fetchNotifications = useCallback(async () => {
     const token = localStorage.getItem('access_token');
@@ -304,10 +326,15 @@ const Header = ({ activePage = '' }) => {
             <div className="relative">
               <button 
                 onClick={() => navigate('/chat')}
-                className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
+                    className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
                 title="Messages"
               >
-                <FiMessageSquare className="w-6 h-6" />
+                    <FiMessageSquare className="w-6 h-6" />
+                    {chatUnreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold w-4 h-4 rounded-full flex items-center justify-center">
+                        {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
+                      </span>
+                    )}
               </button>
             </div>
             

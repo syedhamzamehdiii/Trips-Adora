@@ -1,8 +1,9 @@
 // Frontend/src/pages/Settings/CompanyProfile.jsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { FiInfo, FiUpload, FiArrowUp, FiX, FiCheck, FiArrowRight, FiArrowLeft } from 'react-icons/fi';
 import Button from '@/components/common/Button';
 import Input from '@/components/common/Input';
+import { imageService } from '@/services/imageService';
 
 const CompanyProfile = () => {
   const [activeTab, setActiveTab] = useState('company-details');
@@ -26,6 +27,7 @@ const CompanyProfile = () => {
   // Logo upload state
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [logoPublicId, setLogoPublicId] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -39,6 +41,7 @@ const CompanyProfile = () => {
   const [legalFormData, setLegalFormData] = useState({
     coiFile: null,
     coiPreview: null,
+    coiPublicId: null,
     coiUploadStatus: 'not-uploaded', // 'not-uploaded', 'uploading', 'uploaded', 'under-review', 'approved', 'rejected'
     coiRejectionReason: '',
     termsAccepted: false,
@@ -53,6 +56,7 @@ const CompanyProfile = () => {
       activeTab,
       formData,
       logoPreview,
+      logoPublicId,
       verificationStatus,
       legalStep,
       legalFormData,
@@ -85,9 +89,15 @@ const CompanyProfile = () => {
         if (data.activeTab) setActiveTab(data.activeTab);
         if (data.formData) setFormData(data.formData);
         if (data.logoPreview) setLogoPreview(data.logoPreview);
+        if (data.logoPublicId) setLogoPublicId(data.logoPublicId);
         if (data.verificationStatus) setVerificationStatus(data.verificationStatus);
         if (typeof data.legalStep === 'number') setLegalStep(data.legalStep);
-        if (data.legalFormData) setLegalFormData(data.legalFormData);
+        if (data.legalFormData) {
+          setLegalFormData(prev => ({
+            ...prev,
+            ...data.legalFormData
+          }));
+        }
       }
     } catch (_) {}
     isHydratedRef.current = true;
@@ -118,32 +128,60 @@ const CompanyProfile = () => {
     return value && value.trim() !== '' ? '' : 'text-red-600';
   };
 
-  const handleLogoUpload = (event) => {
-    const file = event.target.files[0];
+  const uploadImageToCloud = useCallback(
+    async (file, folder) => {
+      setIsUploading(true);
+      setUploadProgress(0);
+      try {
+        const response = await imageService.uploadImage(file, {
+          folder,
+          onUploadProgress: (progress) => setUploadProgress(progress)
+        });
+        if (!response?.url) {
+          throw new Error(response?.detail || 'Upload failed');
+        }
+        return response;
+      } finally {
+        setIsUploading(false);
+        setUploadProgress(0);
+      }
+    },
+    []
+  );
+
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
     if (!validTypes.includes(file.type)) {
       alert('Please upload a valid image file (JPEG, PNG, or GIF)');
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('File size must be less than 5MB');
       return;
     }
 
-    setLogoFile(file);
+    try {
+      if (logoPublicId) {
+        imageService.deleteImage(logoPublicId).catch(() => {});
+      }
 
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setLogoPreview(e.target.result);
-      persist({ logoPreview: e.target.result });
-    };
-    reader.readAsDataURL(file);
+      const upload = await uploadImageToCloud(file, 'company/logo');
+      setLogoFile(file);
+      setLogoPreview(upload.url);
+      setLogoPublicId(upload.public_id);
+      persist({ logoPreview: upload.url, logoPublicId: upload.public_id });
+    } catch (error) {
+      console.error('Failed to upload logo', error);
+      alert('Failed to upload logo. Please try again.');
+    } finally {
+      if (event?.target) {
+        event.target.value = '';
+      }
+    }
   };
 
   const simulateUpload = async () => {
@@ -167,9 +205,14 @@ const CompanyProfile = () => {
   };
 
   const removeLogo = () => {
+    if (logoPublicId) {
+      imageService.deleteImage(logoPublicId).catch(() => {});
+    }
     setLogoFile(null);
     setLogoPreview(null);
+    setLogoPublicId(null);
     setUploadProgress(0);
+    persist({ logoPreview: null, logoPublicId: null });
   };
 
   const validateCompanyDetails = () => {
@@ -304,7 +347,7 @@ const CompanyProfile = () => {
     }
   };
 
-  const handleCOIUpload = (event) => {
+  const handleCOIUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -327,17 +370,33 @@ const CompanyProfile = () => {
       coiUploadStatus: 'uploading'
     }));
 
-    // Create preview for images
     if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
+      try {
+        if (legalFormData.coiPublicId) {
+          imageService.deleteImage(legalFormData.coiPublicId).catch(() => {});
+        }
+        const upload = await uploadImageToCloud(file, 'company/coi');
+        let nextData = null;
+        setLegalFormData(prev => {
+          nextData = {
+            ...prev,
+            coiPreview: upload.url,
+            coiPublicId: upload.public_id
+          };
+          return nextData;
+        });
+        if (nextData) {
+          persist({ legalFormData: nextData });
+        }
+      } catch (error) {
+        console.error('Failed to upload COI image', error);
+        alert('Failed to upload COI image. Please try again.');
         setLegalFormData(prev => ({
           ...prev,
-          coiPreview: e.target.result
+          coiUploadStatus: 'not-uploaded'
         }));
-        persist({ legalFormData: { ...legalFormData, coiPreview: e.target.result } });
-      };
-      reader.readAsDataURL(file);
+        return;
+      }
     }
 
     // Simulate upload process
@@ -362,13 +421,21 @@ const CompanyProfile = () => {
   };
 
   const removeCOI = () => {
-    setLegalFormData(prev => ({
-      ...prev,
-      coiFile: null,
-      coiPreview: null,
-      coiUploadStatus: 'not-uploaded',
-      coiRejectionReason: ''
-    }));
+    if (legalFormData.coiPublicId) {
+      imageService.deleteImage(legalFormData.coiPublicId).catch(() => {});
+    }
+    setLegalFormData(prev => {
+      const next = {
+        ...prev,
+        coiFile: null,
+        coiPreview: null,
+        coiPublicId: null,
+        coiUploadStatus: 'not-uploaded',
+        coiRejectionReason: ''
+      };
+      persist({ legalFormData: next });
+      return next;
+    });
   };
 
   const getCOIStatusText = () => {

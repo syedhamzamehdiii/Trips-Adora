@@ -10,6 +10,76 @@ from app.core.database import get_database
 class ProductService:
     """Service layer for product operations"""
     
+    CLOUDINARY_HOST = "res.cloudinary.com"
+    CLOUDINARY_PREFIXES = ("https://res.cloudinary.com/", "http://res.cloudinary.com/")
+    
+    @staticmethod
+    def _validate_cloudinary_url(value: Optional[str], field_name: str) -> Optional[str]:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError(f"{field_name} must be a Cloudinary URL string")
+        
+        trimmed = value.strip()
+        if not trimmed:
+            return None
+        
+        lowered = trimmed.lower()
+        if lowered.startswith("data:") or lowered.startswith("blob:"):
+            raise ValueError(f"{field_name} must reference a Cloudinary URL, not base64/blob data")
+        
+        if not trimmed.startswith(("http://", "https://")):
+            raise ValueError(f"{field_name} must be a Cloudinary URL starting with http or https")
+        
+        if ProductService.CLOUDINARY_HOST not in trimmed:
+            raise ValueError(f"{field_name} must point to {ProductService.CLOUDINARY_HOST}")
+        
+        return trimmed
+    
+    @staticmethod
+    def _enforce_cloudinary_media(payload: dict) -> None:
+        """
+        Ensure all media fields contain Cloudinary URLs.
+        Mutates payload (filters lists) or raises ValueError.
+        """
+        if payload is None:
+            return
+        
+        def process_list(key: str):
+            if key not in payload or payload[key] is None:
+                return
+            values = payload[key]
+            if not isinstance(values, list):
+                raise ValueError(f"{key} must be a list of Cloudinary URLs")
+            cleaned = []
+            for item in values:
+                url = ProductService._validate_cloudinary_url(item, key)
+                if url:
+                    cleaned.append(url)
+            payload[key] = cleaned
+        
+        process_list("images")
+        process_list("gallery_images")
+        
+        if "hero_image" in payload:
+            payload["hero_image"] = ProductService._validate_cloudinary_url(payload.get("hero_image"), "hero_image")
+
+        # Validate itinerary photos
+        if "itinerary" in payload and payload["itinerary"] is not None:
+            if not isinstance(payload["itinerary"], list):
+                raise ValueError("itinerary must be a list")
+            cleaned_itinerary = []
+            for idx, item in enumerate(payload["itinerary"]):
+                if not isinstance(item, dict):
+                    raise ValueError("Each itinerary entry must be an object")
+                if "photo" in item:
+                    item["photo"] = ProductService._validate_cloudinary_url(
+                        item.get("photo"), f"itinerary[{idx}].photo"
+                    )
+                cleaned_itinerary.append(item)
+            payload["itinerary"] = cleaned_itinerary
+    
+    
     @staticmethod
     async def create_product(product_data: ProductCreate, supplier_id: str) -> Product:
         """
@@ -20,6 +90,8 @@ class ProductService:
         """
         product_dict = product_data.model_dump()
         product_dict["supplier_id"] = supplier_id
+        
+        ProductService._enforce_cloudinary_media(product_dict)
         
         # TODO: ADMIN APPROVAL FLOW (to be uncommented when admin panel is ready)
         # When admin panel is implemented, products should be created as PENDING_REVIEW
@@ -172,6 +244,7 @@ class ProductService:
         
         update_data = product_update.model_dump(exclude_unset=True)
         update_data["updated_at"] = datetime.utcnow()
+        ProductService._enforce_cloudinary_media(update_data)
         
         for field, value in update_data.items():
             setattr(product, field, value)

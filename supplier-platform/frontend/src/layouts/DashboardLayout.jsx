@@ -9,6 +9,7 @@ import FromSupplierModal from '@/components/modals/FromSupplierModal';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
 import dashboardService from '@/services/dashboardService';
 import notificationService from '@/services/notificationService';
+import { getUnreadCount as getChatUnreadCount } from '@/services/chatService';
 
 const DashboardLayout = ({ children }) => {
   const { user } = useAuth();
@@ -21,6 +22,7 @@ const DashboardLayout = ({ children }) => {
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [isVibrating, setIsVibrating] = useState(false);
   const [previousUnreadCount, setPreviousUnreadCount] = useState(0);
   const [showTravellerSectionModal, setShowTravellerSectionModal] = useState(false);
@@ -60,6 +62,26 @@ const DashboardLayout = ({ children }) => {
       }
     };
     fetchBalance();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadUnread = async () => {
+      try {
+        const data = await getChatUnreadCount();
+        if (isMounted) {
+          setChatUnreadCount(data?.unread_count || 0);
+        }
+      } catch (_) {
+        if (isMounted) setChatUnreadCount(0);
+      }
+    };
+    loadUnread();
+    const interval = setInterval(loadUnread, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const profileSummary = useMemo(() => ({
@@ -266,6 +288,11 @@ const DashboardLayout = ({ children }) => {
                   title="Messages"
                 >
                   <FiMessageSquare className="w-6 h-6" />
+                  {chatUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold w-4 h-4 rounded-full flex items-center justify-center">
+                      {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
+                    </span>
+                  )}
                 </button>
               </div>
               
