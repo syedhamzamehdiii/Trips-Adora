@@ -1,5 +1,5 @@
 // Frontend/src/pages/Auth/Login.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -23,6 +23,7 @@ const loginSchema = yup.object().shape({
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [showHeaderLabel, setShowHeaderLabel] = useState(false);
   const { login, googleLogin } = useAuth();
 
   const {
@@ -45,6 +46,11 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowHeaderLabel(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleGoogleLogin = async () => {
     try {
@@ -73,12 +79,20 @@ const Login = () => {
       {/* Header - Navbar with Logo */}
       <div className="relative z-10 h-20 flex items-center px-6 bg-white">
         <div className="flex items-center">
-          {/* TripsAdora Logo */}
           <img 
             src="/assets/logo.jpg" 
             alt="TripsAdora Logo" 
             className="h-12 w-auto"
           />
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span
+            className={`text-lg sm:text-2xl font-bold tracking-wide text-gray-900 transition-all duration-700 ease-out ${
+              showHeaderLabel ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-95'
+            }`}
+          >
+            Supplier
+          </span>
         </div>
       </div>
 

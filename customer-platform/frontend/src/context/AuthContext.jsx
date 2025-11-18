@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import authService from '../services/authService'
 import googleAuthService from '../services/googleAuthService'
+import profileService from '../services/profileService'
 
 const AuthContext = createContext()
 
@@ -21,44 +22,78 @@ export const AuthProvider = ({ children }) => {
     initializeAuth()
   }, [])
 
-  const initializeAuth = async () => {
+  const warmProfileCaches = async (userId) => {
+    if (!userId) return
+    
     try {
-      // Initialize Google Auth
-      await googleAuthService.initGoogleAuth()
-      
-      // Check if user is already authenticated
+      await Promise.allSettled([
+        profileService.getProfileSummary(userId, false),
+        profileService.getProfile(userId, false)
+      ])
+    } catch (error) {
+      console.warn('Profile prefetch failed:', error)
+    }
+  }
+
+  const resolveUserId = (userData) => {
+    return (
+      userData?.id ||
+      userData?.email?.replace('@', '-').replace('.', '-') ||
+      localStorage.getItem('customer_profile_user_id') ||
+      'customer-user'
+    )
+  }
+
+  const initializeAuth = async () => {
+    const maxTimeout = setTimeout(() => {
+      setLoading(false)
+    }, 5000)
+
+    try {
+      const googleInitPromise = googleAuthService.initGoogleAuth().catch(err => {
+        console.warn('Google Auth initialization failed:', err)
+      })
+      const googleInitTimeout = new Promise(resolve => setTimeout(resolve, 3000))
+      await Promise.race([googleInitPromise, googleInitTimeout])
+
       const token = localStorage.getItem('access_token')
       if (token && authService.isAuthenticated()) {
         try {
-          const userData = await authService.getCurrentUser()
+          const userDataPromise = authService.getCurrentUser()
+          const apiTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('API request timeout')), 3000)
+          )
+          const userData = await Promise.race([userDataPromise, apiTimeout]).catch(err => {
+            console.warn('Current user request failed:', err)
+            return null
+          })
+
           if (userData) {
-            // Store user ID for profile if not exists
-            if (!localStorage.getItem('customer_profile_user_id')) {
-              const userId = userData.id || userData.email?.replace('@', '-').replace('.', '-') || 'customer-user'
-              localStorage.setItem('customer_profile_user_id', userId)
-            }
+            const userId = resolveUserId(userData)
+            localStorage.setItem('customer_profile_user_id', userId)
             setUser(userData)
+            warmProfileCaches(userId)
           } else {
-            // No user data returned, clear tokens
             localStorage.removeItem('access_token')
             localStorage.removeItem('refresh_token')
+            localStorage.removeItem('customer_profile_user_id')
             setUser(null)
           }
         } catch (error) {
           console.error('Failed to get current user:', error)
-          // Token might be invalid, clear it
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
+          localStorage.removeItem('customer_profile_user_id')
           setUser(null)
         }
       } else {
-        // No token, set user to null
         setUser(null)
       }
     } catch (error) {
       console.error('Auth initialization error:', error)
       setUser(null)
     } finally {
+      clearTimeout(maxTimeout)
       setLoading(false)
     }
   }
@@ -66,15 +101,13 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       setLoading(true)
-      const result = await authService.login(credentials)
+      const response = await authService.login(credentials)
       
-      if (result.success) {
-        // Store user ID for profile
-        if (result.user?.id || result.user?.email) {
-          const userId = result.user.id || result.user.email?.replace('@', '-').replace('.', '-') || 'customer-user'
-          localStorage.setItem('customer_profile_user_id', userId)
-        }
-        setUser(result.user)
+      if (response.success) {
+        const userId = resolveUserId(response.user)
+        localStorage.setItem('customer_profile_user_id', userId)
+        setUser(response.user)
+        warmProfileCaches(userId)
         return { success: true }
       }
       
@@ -90,15 +123,13 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setLoading(true)
-      const result = await authService.register(userData)
+      const response = await authService.register(userData)
       
-      if (result.success) {
-        // Store user ID for profile
-        if (result.user?.id || result.user?.email) {
-          const userId = result.user.id || result.user.email?.replace('@', '-').replace('.', '-') || 'customer-user'
-          localStorage.setItem('customer_profile_user_id', userId)
-        }
-        setUser(result.user)
+      if (response.success) {
+        const userId = resolveUserId(response.user)
+        localStorage.setItem('customer_profile_user_id', userId)
+        setUser(response.user)
+        warmProfileCaches(userId)
         return { success: true }
       }
       
@@ -131,8 +162,12 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true)
       await authService.logout()
+      googleAuthService.signOut()
       setUser(null)
       localStorage.removeItem('customer_profile_user_id')
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      sessionStorage.clear()
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
@@ -152,7 +187,8 @@ export const AuthProvider = ({ children }) => {
     googleLogin,
     logout,
     updateUser,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
+    prefetchProfileData: warmProfileCaches
   }
 
   return (

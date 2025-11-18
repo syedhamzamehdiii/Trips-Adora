@@ -154,16 +154,217 @@ const ProductDetails = () => {
   }, [identifier, fetchProduct]) // Include fetchProduct in dependencies
 
   
-  // Ratings data for the Customer Reviews block
-  const averageRating = 4.9
-  const totalReviews = 347
-  const ratingData = [
-    { stars: 5, percentage: 75, count: 287 },
-    { stars: 4, percentage: 40, count: 142 },
-    { stars: 3, percentage: 33, count: 42 },
-    { stars: 2, percentage: 16, count: 8 },
-    { stars: 1, percentage: 0, count: 0 },
-  ]
+  // Ratings data for the Customer Reviews block (deterministic per product)
+  const reviewBundles = useMemo(() => ([
+    {
+      averageRating: 4.9,
+      totalReviews: 412,
+      ratingBreakdown: [
+        { stars: 5, count: 310 },
+        { stars: 4, count: 82 },
+        { stars: 3, count: 16 },
+        { stars: 2, count: 4 },
+        { stars: 1, count: 0 }
+      ],
+      reviews: [
+        {
+          name: 'Ava Carter',
+          initials: 'AC',
+          date: 'September 2025',
+          rating: 5,
+          text: 'The sunrise trek was unforgettable. Our guide Kenta knew every hidden corner and adjusted the pace for our group. A perfect mix of challenge and serenity.'
+        },
+        {
+          name: 'Miguel Alvarez',
+          initials: 'MA',
+          date: 'August 2025',
+          rating: 4,
+          text: 'Loved the foodie tour! Every stop was delicious and authentic. Only wish we had a bit more time at the local market.'
+        },
+        {
+          name: 'Priya Mehta',
+          initials: 'PM',
+          date: 'July 2025',
+          rating: 5,
+          text: 'Traveling with parents can be tricky but the crew handled every detail. Comfortable transport, thoughtful stories and the views were unreal.'
+        },
+        {
+          name: 'Leo Martin',
+          initials: 'LM',
+          date: 'June 2025',
+          rating: 5,
+          text: 'As a solo traveler, I appreciated how inclusive the group felt. Met great people and learned so much about local culture.'
+        },
+        {
+          name: 'Sakura Watanabe',
+          initials: 'SW',
+          date: 'May 2025',
+          rating: 4,
+          text: 'Cherry blossom picnic was dreamy. Weather shifted a bit but the team had blankets and hot tea ready. Would do it again.'
+        }
+      ]
+    },
+    {
+      averageRating: 4.7,
+      totalReviews: 278,
+      ratingBreakdown: [
+        { stars: 5, count: 190 },
+        { stars: 4, count: 62 },
+        { stars: 3, count: 20 },
+        { stars: 2, count: 5 },
+        { stars: 1, count: 1 }
+      ],
+      reviews: [
+        {
+          name: 'Hannah Brooks',
+          initials: 'HB',
+          date: 'October 2025',
+          rating: 5,
+          text: 'Best cycling route I have ever taken. Scenic stops, support van nearby and the coffee break was a treat.'
+        },
+        {
+          name: 'Jonas Richter',
+          initials: 'JR',
+          date: 'September 2025',
+          rating: 4,
+          text: 'Kayaking session was smooth and beginner friendly. Slight delay at check-in but staff kept us informed.'
+        },
+        {
+          name: 'Valentina Rossi',
+          initials: 'VR',
+          date: 'August 2025',
+          rating: 5,
+          text: 'Loved the storytelling element. Hearing legends while sailing past the cliffs gave the trip a magical feel.'
+        },
+        {
+          name: 'Omar Hassan',
+          initials: 'OH',
+          date: 'July 2025',
+          rating: 4,
+          text: 'Family friendly and well organized. Kids loved the interactive workshop at the end.'
+        },
+        {
+          name: 'Nora Lee',
+          initials: 'NL',
+          date: 'June 2025',
+          rating: 5,
+          text: 'Luxury but still down-to-earth. Chef-prepared lunch on the deck was sublime.'
+        }
+      ]
+    },
+    {
+      averageRating: 4.8,
+      totalReviews: 333,
+      ratingBreakdown: [
+        { stars: 5, count: 260 },
+        { stars: 4, count: 54 },
+        { stars: 3, count: 14 },
+        { stars: 2, count: 4 },
+        { stars: 1, count: 1 }
+      ],
+      reviews: [
+        {
+          name: 'Isabella Chen',
+          initials: 'IC',
+          date: 'September 2025',
+          rating: 5,
+          text: 'Photography coach on board was a genius. Learned how to shoot night skies and came home with stunning shots.'
+        },
+        {
+          name: 'Marcus Green',
+          initials: 'MG',
+          date: 'August 2025',
+          rating: 5,
+          text: 'Zip-line and cave tour was beyond expectations. Safety briefing was thorough and the guides were hilarious.'
+        },
+        {
+          name: 'Sofia Dimitri',
+          initials: 'SD',
+          date: 'July 2025',
+          rating: 4,
+          text: 'Great wine tasting, though the cellar portion felt a little rushed. Still highly recommend.'
+        },
+        {
+          name: 'Benicio Torres',
+          initials: 'BT',
+          date: 'June 2025',
+          rating: 5,
+          text: 'Even my picky teen loved the VR history segment. Smart blend of tech and tradition.'
+        },
+        {
+          name: 'Lena Krauss',
+          initials: 'LK',
+          date: 'May 2025',
+          rating: 5,
+          text: 'Sunset yacht cruise delivered drama in the sky and impeccable service. Blanket, music, everything on point.'
+        }
+      ]
+    },
+    {
+      averageRating: 4.6,
+      totalReviews: 298,
+      ratingBreakdown: [
+        { stars: 5, count: 180 },
+        { stars: 4, count: 78 },
+        { stars: 3, count: 28 },
+        { stars: 2, count: 9 },
+        { stars: 1, count: 3 }
+      ],
+      reviews: [
+        {
+          name: 'Emily Rhodes',
+          initials: 'ER',
+          date: 'October 2025',
+          rating: 4,
+          text: 'Hot air balloon had a slight wait due to weather but the crew kept spirits high. Floating above the valley was surreal.'
+        },
+        {
+          name: 'Kazuo Mori',
+          initials: 'KM',
+          date: 'September 2025',
+          rating: 5,
+          text: 'Cultural immersion day was heartfelt. Cooking with the host family felt like visiting old friends.'
+        },
+        {
+          name: 'Theresa Holt',
+          initials: 'TH',
+          date: 'August 2025',
+          rating: 4,
+          text: 'Whale watching delivered multiple sightings! Bring layers—the sea breeze is strong.'
+        },
+        {
+          name: 'Diego Campos',
+          initials: 'DC',
+          date: 'July 2025',
+          rating: 5,
+          text: 'Mountain biking trails were well maintained. Loved the picnic with local cheeses afterward.'
+        },
+        {
+          name: 'Mila Novak',
+          initials: 'MN',
+          date: 'June 2025',
+          rating: 4,
+          text: 'Temple lantern walk was peaceful and informative. Could use clearer signage at meeting point.'
+        }
+      ]
+    }
+  ]), [])
+
+  const reviewBundle = useMemo(() => {
+    if (!product) return reviewBundles[0]
+    const key = String(product.id || product.name || '').trim()
+    if (!key) return reviewBundles[0]
+    const hash = Array.from(key).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+    return reviewBundles[hash % reviewBundles.length]
+  }, [product?.id, product?.name, reviewBundles])
+
+  const averageRating = reviewBundle.averageRating
+  const totalReviews = reviewBundle.totalReviews
+  const ratingData = reviewBundle.ratingBreakdown.map((item) => {
+    const percentage = totalReviews ? Math.round((item.count / totalReviews) * 100) : 0
+    return { ...item, percentage: Math.min(100, percentage) }
+  })
+  const reviewList = reviewBundle.reviews
 
   if (loading && !product && !hasLoadedOnceRef.current) {
     return (
@@ -1051,27 +1252,32 @@ const ProductDetails = () => {
 
             {/* Individual Reviews */}
             <div className="space-y-6 mt-8">
-              {[1, 2, 3, 4, 5].map((review) => (
-                <div key={review} className="flex gap-4 bg-white shadow-md rounded-lg p-4">
+              {reviewList.map((review, idx) => (
+                <div key={`${review.name}-${idx}`} className="flex gap-4 bg-white shadow-md rounded-lg p-4">
                   <div className="w-10 h-10 rounded-full bg-[#D9D9D9] flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-semibold text-[#3B69E2]">S</span>
+                    <span className="text-sm font-semibold text-[#3B69E2]">
+                      {review.initials || review.name?.[0] || 'G'}
+                    </span>
                   </div>
 
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h4 className="text-sm font-semibold text-gray-900">Sarah Jhonson</h4>
-                        <p className="text-xs text-gray-500">August 2025</p>
+                        <h4 className="text-sm font-semibold text-gray-900">{review.name}</h4>
+                        <p className="text-xs text-gray-500">{review.date}</p>
                       </div>
                       <div className="flex gap-1">
-                        {[1, 2, 3, 4].map((s) => (
-                          <Star key={s} className="w-4 h-4 text-yellow-400" fill="currentColor" />
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`w-4 h-4 ${s <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                            fill={s <= review.rating ? 'currentColor' : 'none'}
+                          />
                         ))}
-                        <Star className="w-4 h-4 text-gray-900" fill="none" />
                       </div>
                     </div>
                     <p className="text-sm text-gray-700 leading-relaxed">
-                      Absolutely incredible experience! Our guide Maria was knowledgeable and the sunset views were breathtaking. The small group size made it feel very personal and intimate.
+                      {review.text}
                     </p>
                   </div>
                 </div>

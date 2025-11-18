@@ -40,7 +40,26 @@ class ProfileService:
 
         doc = dict(document)
         doc["id"] = str(doc.pop("_id"))
-        return ProfileService._normalise_dates(doc)
+        normalised = ProfileService._normalise_dates(doc)
+
+        # Ensure key timestamp fields are always strings for schema validation
+        def ensure_str(val):
+            from datetime import datetime
+            if isinstance(val, datetime):
+                return val.isoformat()
+            return val
+
+        for field in ("last_synced_at", "created_at", "updated_at"):
+            if field in normalised:
+                normalised[field] = ensure_str(normalised[field])
+
+        user_section = normalised.get("user")
+        if isinstance(user_section, dict):
+            for field in ("member_since", "date_of_birth"):
+                if field in user_section:
+                    user_section[field] = ensure_str(user_section[field])
+
+        return normalised
 
     @staticmethod
     def _default_profile(user_id: str) -> Dict[str, Any]:

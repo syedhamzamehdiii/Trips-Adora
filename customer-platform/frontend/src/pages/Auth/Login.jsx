@@ -1,5 +1,5 @@
 // Frontend/src/pages/Auth/Login.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -21,7 +21,7 @@ const loginSchema = yup.object().shape({
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login, googleLogin } = useAuth();
+  const { login, googleLogin, user } = useAuth();
   const navigate = useNavigate();
 
   const {
@@ -31,6 +31,12 @@ const Login = () => {
   } = useForm({
     resolver: yupResolver(loginSchema),
   });
+
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   const onSubmit = async (data) => {
     setIsLoading(true);
@@ -45,9 +51,9 @@ const Login = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
     try {
-      await googleLogin();
+      googleLogin();
     } catch (error) {
       console.error('Google login error:', error);
       alert(error.message || 'Google login failed. Please try again.');
