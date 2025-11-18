@@ -91,7 +91,22 @@ export const syncLocalStorageProductsToDatabase = async () => {
           selling_points: Array.isArray(productData.sellingPoints) ? productData.sellingPoints : 
                          (productData.sellingPoints ? [productData.sellingPoints] : []),
           style_theme: productData.styleTheme || '',
-          faqs: []
+          faqs: Array.isArray(productData.faqs) ? productData.faqs.filter(faq => faq.question && faq.answer && faq.question.trim() && faq.answer.trim()) : [],
+          cancellation_policy: productData.cancellationPolicy && Array.isArray(productData.cancellationPolicy.schedule)
+            ? {
+                free_cancellation_text: productData.cancellationPolicy.freeCancellationText || '',
+                schedule: productData.cancellationPolicy.schedule
+                  .filter(entry => entry?.label?.trim())
+                  .map(entry => ({
+                    label: entry.label.trim(),
+                    percentage: Number(entry.percentage) || 0,
+                    note: entry.note || ''
+                  })),
+                notes: Array.isArray(productData.cancellationPolicy.notes)
+                  ? productData.cancellationPolicy.notes.filter(note => note && note.trim())
+                  : []
+              }
+            : null
         };
 
         // Create product in database
