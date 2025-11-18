@@ -11,7 +11,11 @@ const getAuthToken = () => {
 /**
  * Send a message to a customer
  */
-export const sendMessage = async (customerId, message, productId = null) => {
+export const sendMessage = async (
+  customerId,
+  message,
+  { productId = null, replyToMessageId = null } = {}
+) => {
   try {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/messages/send`, {
@@ -24,7 +28,8 @@ export const sendMessage = async (customerId, message, productId = null) => {
         recipient_id: customerId,
         product_id: productId,
         message: message,
-        message_type: 'general'
+        message_type: 'general',
+        reply_to_message_id: replyToMessageId
       })
     });
 
@@ -86,6 +91,45 @@ export const getMessages = async (conversationId) => {
   } catch (error) {
     console.error('Error fetching messages:', error);
     return [];
+  }
+};
+
+export const deleteConversation = async (conversationId) => {
+  try {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/messages/conversations/${conversationId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete conversation');
+    }
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    throw error;
+  }
+};
+
+export const getUnreadCount = async () => {
+  try {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/messages/unread-count`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch unread count');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching unread count:', error);
+    return { unread_count: 0 };
   }
 };
 

@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { getUnreadCount as getChatUnreadCount } from '@/services/chatService';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
 import SettingsDropdown from '@/components/common/SettingsDropdown';
 import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
@@ -27,6 +28,7 @@ const Dashboard = () => {
   const [isRefundPolicyOpen, setIsRefundPolicyOpen] = useState(false);
   const [draftProducts, setDraftProducts] = useState([]);
   const [popularActivities, setPopularActivities] = useState([]);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
@@ -374,6 +376,26 @@ const Dashboard = () => {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadUnread = async () => {
+      try {
+        const data = await getChatUnreadCount();
+        if (isMounted) {
+          setChatUnreadCount(data?.unread_count || 0);
+        }
+      } catch (_) {
+        if (isMounted) setChatUnreadCount(0);
+      }
+    };
+    loadUnread();
+    const interval = setInterval(loadUnread, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   const handleSupplierModeToggle = () => {
     const newMode = !supplierMode;
     setSupplierMode(newMode);
@@ -530,6 +552,11 @@ const Dashboard = () => {
                   title="Messages"
                 >
                   <FiMessageSquare className="w-6 h-6" />
+                  {chatUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold w-4 h-4 rounded-full flex items-center justify-center">
+                      {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
+                    </span>
+                  )}
                 </button>
               </div>
               

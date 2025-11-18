@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '@/components/common/Header';
 import Footer from '@/components/common/Footer';
-import { getConversations, getMessages, sendMessage } from '@/services/chatService';
+import { getConversations, getMessages, sendMessage, deleteConversation } from '@/services/chatService';
 import { FiMessageSquare, FiSend, FiArrowLeft, FiChevronDown } from 'react-icons/fi';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
 
@@ -22,6 +22,8 @@ const ChatPage = () => {
   const messagesContainerRef = useRef(null);
   const pollIntervalRef = useRef(null);
   const dropdownRef = useRef(null);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadConversations();
@@ -44,6 +46,10 @@ const ChatPage = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    setReplyingTo(null);
+  }, [selectedConversation?.conversation_id]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -97,8 +103,16 @@ const ChatPage = () => {
 
     setSending(true);
     try {
-      await sendMessage(selectedConversation.other_party_id, newMessage.trim(), selectedConversation.product_id);
+      await sendMessage(
+        selectedConversation.other_party_id,
+        newMessage.trim(),
+        {
+          productId: selectedConversation.product_id,
+          replyToMessageId: replyingTo?.id
+        }
+      );
       setNewMessage('');
+      setReplyingTo(null);
       // Reload messages
       await loadMessages(selectedConversation.conversation_id);
       await loadConversations();
@@ -107,6 +121,25 @@ const ChatPage = () => {
       alert('Failed to send message. Please try again.');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!selectedConversation || deleting) return;
+    const confirmDelete = window.confirm('Delete this conversation? This action cannot be undone.');
+    if (!confirmDelete) return;
+
+    setDeleting(true);
+    try {
+      await deleteConversation(selectedConversation.conversation_id);
+      setSelectedConversation(null);
+      setMessages([]);
+      await loadConversations();
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      alert('Failed to delete conversation. Please try again.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -125,7 +158,7 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#f5f5f5]">
       <Header activePage="" />
       
       {/* Dashboard Navigation */}
@@ -282,14 +315,23 @@ const ChatPage = () => {
           </div>
 
           {/* Messages Area */}
-          <div className="lg:col-span-2 border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+          <div className="lg:col-span-2 border border-gray-200 rounded-lg overflow-hidden flex flex-col bg-[#e6e7eb]">
             {selectedConversation ? (
               <>
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
-                  <h2 className="font-semibold text-gray-900">{selectedConversation.other_party_name}</h2>
-                  {selectedConversation.product_title && (
-                    <p className="text-sm text-gray-600">{selectedConversation.product_title}</p>
-                  )}
+                <div className="p-4 border-b border-gray-200 bg-gray-100 flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold text-gray-900">{selectedConversation.other_party_name}</h2>
+                    {selectedConversation.product_title && (
+                      <p className="text-sm text-gray-600">{selectedConversation.product_title}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleDeleteConversation}
+                    disabled={deleting}
+                    className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting…' : 'Delete chat'}
+                  </button>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={messagesContainerRef}>
@@ -299,18 +341,42 @@ const ChatPage = () => {
                       className={`flex ${msg.sender_type === 'supplier' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow ${
                           msg.sender_type === 'supplier'
                             ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 text-gray-900'
+                            : 'bg-white text-gray-900'
                         }`}
                       >
-                        <p className="text-sm">{msg.message}</p>
-                        <p className={`text-xs mt-1 ${
-                          msg.sender_type === 'supplier' ? 'text-blue-100' : 'text-gray-500'
-                        }`}>
-                          {formatTime(msg.created_at)}
-                        </p>
+                        {msg.product_title && (
+                          <p className={`text-[11px] uppercase tracking-wide mb-1 ${
+                            msg.sender_type === 'supplier' ? 'text-blue-100' : 'text-gray-500'
+                          }`}>
+                            {msg.product_title}
+                          </p>
+                        )}
+                        {msg.reply_preview && (
+                          <div className={`text-xs mb-1 border-l-2 pl-2 ${
+                            msg.sender_type === 'supplier' ? 'border-blue-200 text-blue-100' : 'border-gray-200 text-gray-500'
+                          }`}>
+                            Replying to: {msg.reply_preview}
+                          </div>
+                        )}
+                        <p className="text-sm whitespace-pre-line break-words">{msg.message}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className={`text-xs ${
+                            msg.sender_type === 'supplier' ? 'text-blue-100' : 'text-gray-500'
+                          }`}>
+                            {formatTime(msg.created_at)}
+                          </p>
+                          <button
+                            onClick={() => setReplyingTo(msg)}
+                            className={`text-[11px] underline ${
+                              msg.sender_type === 'supplier' ? 'text-blue-100 hover:text-white' : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                          >
+                            Reply
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -318,6 +384,20 @@ const ChatPage = () => {
                 </div>
 
                 <div className="p-4 border-t border-gray-200">
+                  {replyingTo && (
+                    <div className="mb-3 p-3 bg-white rounded-lg border border-gray-200 flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Replying to</p>
+                        <p className="text-sm text-gray-900 line-clamp-2">{replyingTo.message}</p>
+                      </div>
+                      <button
+                        onClick={() => setReplyingTo(null)}
+                        className="text-xs text-gray-500 hover:text-gray-900"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <input
                       type="text"

@@ -11,17 +11,118 @@ logger = logging.getLogger(__name__)
 
 class MessageService:
     """Service layer for message/chat operations"""
-    
+
+    CUSTOMER_PREFIX = "cust:"
+    SUPPLIER_PREFIX = "sup:"
+    TOKEN_SEPARATOR = "|"
+
+    @staticmethod
+    def _format_customer_token(customer_id: str) -> str:
+        return f"{MessageService.CUSTOMER_PREFIX}{str(customer_id).strip()}"
+
+    @staticmethod
+    def _format_supplier_token(supplier_id: str) -> str:
+        return f"{MessageService.SUPPLIER_PREFIX}{str(supplier_id).strip()}"
+
     @staticmethod
     def _generate_conversation_id(customer_id: str, supplier_id: str) -> str:
-        """Generate consistent conversation ID for a specific customer-supplier pair"""
-        # Sort IDs to ensure same conversation_id regardless of order
-        # This ensures that conversation between customer A and supplier B always has the same ID
-        # regardless of who sends the first message
-        ids = sorted([str(customer_id).strip(), str(supplier_id).strip()])
-        conversation_id = f"{ids[0]}:{ids[1]}"
-        logger.debug(f"Generated conversation_id: {conversation_id} for customer {customer_id} and supplier {supplier_id}")
+        """Generate consistent conversation ID for a specific customer-supplier pair."""
+        customer_token = MessageService._format_customer_token(customer_id)
+        supplier_token = MessageService._format_supplier_token(supplier_id)
+        conversation_id = f"{customer_token}{MessageService.TOKEN_SEPARATOR}{supplier_token}"
+        logger.debug(
+            "Generated conversation_id: %s for customer %s and supplier %s",
+            conversation_id,
+            customer_id,
+            supplier_id,
+        )
         return conversation_id
+
+    @staticmethod
+    def _conversation_contains_user(conversation_id: str, role: str, user_id: str) -> bool:
+        """Check whether the given conversation_id includes the specific user in the specified role."""
+        if not conversation_id:
+            return False
+
+        tokens: list[str]
+        if MessageService.TOKEN_SEPARATOR in conversation_id:
+            tokens = conversation_id.split(MessageService.TOKEN_SEPARATOR)
+        else:
+            # Legacy format used ":" only
+            tokens = conversation_id.split(":")
+
+        normalized_id = str(user_id).strip()
+
+        for token in tokens:
+            token = token.strip()
+            if role == "customer":
+                if token.startswith(MessageService.CUSTOMER_PREFIX) and token[len(MessageService.CUSTOMER_PREFIX):] == normalized_id:
+                    return True
+            elif role == "supplier":
+                if token.startswith(MessageService.SUPPLIER_PREFIX) and token[len(MessageService.SUPPLIER_PREFIX):] == normalized_id:
+                    return True
+
+            # Legacy fallback (token is raw user_id)
+            if token == normalized_id:
+                return True
+
+        return False
+
+    @staticmethod
+    async def _get_product_metadata(product_id: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+        """Fetch product title and supplier id for context."""
+        if not product_id:
+            return (None, None)
+
+        try:
+            db = get_database()
+            query_id = ObjectId(product_id) if ObjectId.is_valid(product_id) else product_id
+            product = await db.products.find_one(
+                {"_id": query_id},
+                {"title": 1, "name": 1, "productTitle": 1, "supplier_id": 1},
+            )
+            if not product:
+                return (None, None)
+
+            supplier_id = product.get("supplier_id")
+            if isinstance(supplier_id, ObjectId):
+                supplier_id = str(supplier_id)
+
+            title = product.get("title") or product.get("name") or product.get("productTitle")
+            if title:
+                title = str(title)
+            return (title, str(supplier_id) if supplier_id else None)
+        except Exception as exc:
+            logger.warning("Unable to fetch product metadata for %s: %s", product_id, exc)
+            return (None, None)
+
+    @staticmethod
+    async def _build_reply_metadata(message_id: Optional[str], conversation_id: str) -> tuple[Optional[str], Optional[str]]:
+        """Return reply_to_message_id and preview text if valid."""
+        if not message_id:
+            return (None, None)
+
+        try:
+            db = get_database()
+            query_id = ObjectId(message_id) if ObjectId.is_valid(message_id) else message_id
+            original = await db.messages.find_one({"_id": query_id})
+            if not original:
+                return (None, None)
+            if original.get("conversation_id") != conversation_id:
+                logger.warning(
+                    "Reply message %s does not belong to conversation %s",
+                    message_id,
+                    conversation_id,
+                )
+                return (None, None)
+            full_text = original.get("message", "")
+            preview = (full_text or "")[:140]
+            if full_text and len(full_text) > 140:
+                preview += "…"
+            return (str(original.get("_id")), preview)
+        except Exception as exc:
+            logger.warning("Unable to build reply metadata for %s: %s", message_id, exc)
+            return (None, None)
     
     @staticmethod
     async def send_message(
@@ -29,11 +130,25 @@ class MessageService:
         customer_id: str,
         message: str,
         product_id: Optional[str] = None,
-        message_type: MessageType = MessageType.GENERAL
+        message_type: MessageType = MessageType.GENERAL,
+        reply_to_message_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send a message from supplier to customer"""
         try:
             conversation_id = MessageService._generate_conversation_id(customer_id, supplier_id)
+
+            product_title, product_supplier_id = await MessageService._get_product_metadata(product_id)
+            if product_supplier_id and str(product_supplier_id) != str(supplier_id):
+                logger.warning(
+                    "Supplier %s attempted to send message for product %s owned by %s",
+                    supplier_id,
+                    product_id,
+                    product_supplier_id,
+                )
+
+            reply_id, reply_preview = await MessageService._build_reply_metadata(
+                reply_to_message_id, conversation_id
+            )
             
             # Create message document
             message_doc = Message(
@@ -42,8 +157,11 @@ class MessageService:
                 sender_id=supplier_id,
                 recipient_id=customer_id,
                 product_id=product_id,
+                product_title=product_title,
                 message=message,
                 message_type=message_type,
+                reply_to_message_id=reply_id,
+                reply_preview=reply_preview,
                 is_read=False
             )
             
@@ -58,8 +176,11 @@ class MessageService:
                 "sender_id": message_doc.sender_id,
                 "recipient_id": message_doc.recipient_id,
                 "product_id": message_doc.product_id,
+                "product_title": message_doc.product_title,
                 "message": message_doc.message,
                 "message_type": message_doc.message_type.value,
+                "reply_to_message_id": message_doc.reply_to_message_id,
+                "reply_preview": message_doc.reply_preview,
                 "is_read": message_doc.is_read,
                 "created_at": message_doc.created_at
             }
@@ -115,11 +236,14 @@ class MessageService:
             async for group in collection.aggregate(pipeline):
                 conv_id = group["_id"]
                 last_msg = group["last_message"]
-                
-                # Verify conversation_id contains supplier_id (security check)
-                conv_parts = conv_id.split(":")
-                if len(conv_parts) != 2 or supplier_id not in conv_parts:
-                    logger.warning(f"Skipping conversation {conv_id} - supplier {supplier_id} not part of it")
+
+                # Verify conversation_id contains supplier role for this user (security check)
+                if not MessageService._conversation_contains_user(conv_id, "supplier", supplier_id):
+                    logger.debug(
+                        "Skipping conversation %s - supplier %s not part of it",
+                        conv_id,
+                        supplier_id,
+                    )
                     continue
                 
                 # Determine other party (customer)
@@ -129,19 +253,17 @@ class MessageService:
                     other_party_id = last_msg["sender_id"]
                 other_party_type = "customer"
                 
-                # Additional security: ensure other_party_id is not the supplier_id
-                if other_party_id == supplier_id:
-                    logger.warning(f"Invalid conversation: other_party_id equals supplier_id for {conv_id}")
-                    continue
-                
                 # Get customer name
                 other_party_name = await MessageService._get_customer_name(other_party_id)
                 
                 # Get product info if exists
-                product_title = None
-                if last_msg.get("product_id"):
+                product_title = last_msg.get("product_title")
+                if not product_title and last_msg.get("product_id"):
+                    product_query_id = last_msg["product_id"]
+                    if ObjectId.is_valid(product_query_id):
+                        product_query_id = ObjectId(product_query_id)
                     product = await db.products.find_one(
-                        {"_id": ObjectId(last_msg["product_id"])},
+                        {"_id": product_query_id},
                         {"title": 1}
                     )
                     if product:
@@ -178,16 +300,12 @@ class MessageService:
             collection = db.messages
             
             # Verify supplier is part of this conversation
-            # First, verify the conversation_id contains this supplier_id
-            # conversation_id format: "id1:id2" where ids are sorted
-            conversation_parts = conversation_id.split(":")
-            if len(conversation_parts) != 2:
-                logger.warning(f"Invalid conversation_id format: {conversation_id}")
-                return []
-            
-            # Check if supplier_id is part of this conversation
-            if supplier_id not in conversation_parts:
-                logger.warning(f"Supplier {supplier_id} not authorized for conversation {conversation_id}")
+            if not MessageService._conversation_contains_user(conversation_id, "supplier", supplier_id):
+                logger.warning(
+                    "Supplier %s not authorized for conversation %s",
+                    supplier_id,
+                    conversation_id,
+                )
                 return []
             
             # Additional check: verify at least one message exists where supplier is involved
@@ -214,8 +332,11 @@ class MessageService:
                     "sender_id": msg["sender_id"],
                     "recipient_id": msg["recipient_id"],
                     "product_id": msg.get("product_id"),
+                    "product_title": msg.get("product_title"),
                     "message": msg["message"],
                     "message_type": msg["message_type"],
+                    "reply_to_message_id": msg.get("reply_to_message_id"),
+                    "reply_preview": msg.get("reply_preview"),
                     "is_read": msg["is_read"],
                     "created_at": msg["created_at"]
                 })
@@ -254,4 +375,29 @@ class MessageService:
             return "Customer"
         except:
             return "Customer"
+
+    @staticmethod
+    async def delete_conversation(conversation_id: str, supplier_id: str) -> bool:
+        """Delete an entire conversation for a supplier."""
+        try:
+            if not MessageService._conversation_contains_user(conversation_id, "supplier", supplier_id):
+                logger.warning("Supplier %s unauthorized to delete conversation %s", supplier_id, conversation_id)
+                return False
+
+            db = get_database()
+            await db.messages.delete_many({"conversation_id": conversation_id})
+            return True
+        except Exception as exc:
+            logger.error("Error deleting conversation %s for supplier %s: %s", conversation_id, supplier_id, exc)
+            return False
+
+    @staticmethod
+    async def get_unread_count(supplier_id: str) -> int:
+        """Return total unread messages for supplier."""
+        try:
+            db = get_database()
+            return await db.messages.count_documents({"recipient_id": supplier_id, "is_read": False})
+        except Exception as exc:
+            logger.error("Error getting unread count for supplier %s: %s", supplier_id, exc)
+            return 0
 

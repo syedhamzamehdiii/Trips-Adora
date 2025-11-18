@@ -383,7 +383,10 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
           time: item.time || '',
           title: item.title || '',
           description: item.description || '',
-          icon: item.icon || 'sightseeing'
+          icon: item.icon || 'sightseeing',
+          photo: typeof item.photo === 'string' && item.photo.startsWith('http')
+            ? item.photo
+            : (item.photo?.url || item.croppedPhoto || item.photoPreview || null)
         })) : [],
         duration: productData?.duration || '',
         guide_type: productData?.guideType || '',
@@ -684,7 +687,10 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
               time: (it?.time && String(it.time).trim()) ? it.time : '09:00',
               title: (it?.title && String(it.title).trim()) ? it.title : 'Experience highlight',
               description: (it?.description || '').toString(),
-              icon: (it?.lineIcon || it?.icon || 'sightseeing')
+              icon: (it?.lineIcon || it?.icon || 'sightseeing'),
+              photo: typeof it?.photo === 'string' && it.photo.startsWith('http')
+                ? it.photo
+                : (it?.photo?.url || it?.croppedPhoto || it?.photoPreview || null)
             }))
           : [],
         duration: productData?.duration || '',

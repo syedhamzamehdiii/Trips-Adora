@@ -1,5 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/v1';
-const SUPPLIER_API_BASE_URL = 'http://localhost:8000/api/v1';
+const FALLBACK_API_BASE_URL = import.meta.env.VITE_SUPPLIER_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 // Cache configuration
 const CACHE_KEYS = {
@@ -16,6 +16,59 @@ const CACHE_TTL = {
   TOP_PICKS: 5 * 60 * 1000, // 5 minutes
   PRODUCT_DETAIL: 15 * 60 * 1000, // 15 minutes
 };
+
+const normalizeImageSource = (source) => {
+  if (!source) return null;
+
+  const normalizeString = (value) => {
+    if (!value || typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (!trimmed.startsWith('http')) return null;
+    if (!trimmed.includes('res.cloudinary.com')) return null;
+    return trimmed;
+  };
+
+  if (typeof source === 'string') {
+    return normalizeString(source);
+  }
+
+  if (typeof source === 'object') {
+    return normalizeImageSource(source.url || source.src || source.href || null);
+  }
+
+  return null;
+};
+
+async function fetchJsonWithFallback(path, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  const requestOptions = { ...options, signal: controller.signal };
+
+  const endpoints = [
+    API_BASE_URL ? `${API_BASE_URL}${path}` : null,
+    FALLBACK_API_BASE_URL ? `${FALLBACK_API_BASE_URL}${path}` : null,
+  ].filter(Boolean);
+
+  let lastError;
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url, requestOptions);
+      if (!response.ok) {
+        throw new Error(`Request to ${url} failed with status ${response.status}`);
+      }
+      const data = await response.json();
+      clearTimeout(timeout);
+      return data;
+    } catch (error) {
+      lastError = error;
+      console.warn(`[API] Request failed (${url}): ${error?.message || error}`);
+    }
+  }
+
+  clearTimeout(timeout);
+  throw lastError || new Error('All API endpoints failed');
+}
 
 // Helper functions for cache management
 const getCachedData = (key, timestampKey) => {
@@ -41,110 +94,6 @@ const isCacheValid = (cacheInfo, ttl) => {
   return cacheInfo && cacheInfo.age < ttl;
 };
 
-/**
- * Get products from supplier platform backend cache (since localStorage can't be shared across origins)
- */
-const getSupplierLocalStorageProducts = async () => {
-  try {
-    // Fetch from supplier platform's backend cache
-    const response = await fetch(`${SUPPLIER_API_BASE_URL}/products/localstorage`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      const products = data.products || [];
-      console.log('📦 Found products in supplier backend cache:', products.length);
-      
-      // Process products to include full data
-      const processedProducts = products.map(p => {
-        const fullData = p._full_data || {};
-        
-        // Extract images from full data
-        let coverImage = null;
-        if (fullData.coverImage) {
-          if (typeof fullData.coverImage === 'string') {
-            // If it's already a string (base64 or URL), use it directly
-            coverImage = fullData.coverImage;
-          } else if (fullData.coverImage && typeof fullData.coverImage === 'object') {
-            // If it's an object with url property, extract the URL
-            if (fullData.coverImage.url) {
-              coverImage = fullData.coverImage.url;
-            } else if (fullData.coverImage.src) {
-              coverImage = fullData.coverImage.src;
-            } else {
-              // Try to use the object itself (might be a string-like object)
-              coverImage = fullData.coverImage;
-            }
-          } else {
-            coverImage = fullData.coverImage;
-          }
-        }
-        
-        // Compute uploaded photos before logging (avoid referencing before init)
-        const uploadedPhotos = Array.isArray(fullData.uploadedPhotos) 
-          ? fullData.uploadedPhotos.map(photo => {
-              if (typeof photo === 'string') return photo;
-              return photo.url || photo;
-            }).filter(Boolean)
-          : [];
-
-        // Debug logging for cover image extraction
-        console.log('📸 Processing product images:', {
-          productName: p.name,
-          hasCoverImageInFullData: !!fullData.coverImage,
-          coverImageType: fullData.coverImage ? typeof fullData.coverImage : 'null',
-          coverImageIsString: typeof fullData.coverImage === 'string',
-          coverImageIsObject: typeof fullData.coverImage === 'object',
-          coverImageHasUrl: fullData.coverImage?.url ? true : false,
-          extractedCoverImage: (typeof coverImage === 'string') ? (coverImage.substring(0, 50) + '...') : (coverImage ? 'object' : 'null'),
-          uploadedPhotosCount: uploadedPhotos.length
-        });
-        
-        const allImages = coverImage ? [coverImage, ...uploadedPhotos] : uploadedPhotos;
-        
-        return {
-          ...p,
-          productTitle: fullData.productTitle || p.name,
-          description: fullData.description || '',
-          tagline: fullData.tagline || '',
-          category: fullData.productCategory || 'tour',
-          highlights: fullData.highlights || [],
-          price: p.revenue || 0,
-          images: allImages,
-          hero_image: coverImage,
-          gallery_images: uploadedPhotos,
-          coverImage: coverImage,
-          uploadedPhotos: uploadedPhotos,
-          destination: fullData.destination || '',
-          duration: fullData.duration || '8 hours',
-          itineraries: fullData.itineraries || [],
-          sellingPoints: fullData.sellingPoints || [],
-          includedItems: fullData.includedItems || '',
-          excludedItems: fullData.excludedItems || '',
-          vehicles: Array.isArray(fullData.vehicles) ? fullData.vehicles : (Array.isArray(fullData.selectedVehicleForTour) ? fullData.selectedVehicleForTour : []),
-          // meeting points / pickup info
-          pickupLocations: Array.isArray(fullData.selectedPickupLocations) ? fullData.selectedPickupLocations : [],
-          dropoffLocations: Array.isArray(fullData.selectedDropoffLocations) ? fullData.selectedDropoffLocations : [],
-          pickupTime: fullData.pickupTime || '',
-          availableDays: fullData.selectedWeekDay ? [fullData.selectedWeekDay] : [],
-          availableTimeSlots: fullData.timeSlots ? Object.keys(fullData.timeSlots) : []
-        };
-      });
-      
-      console.log('✅ Processed products from supplier cache:', processedProducts.length);
-      return processedProducts;
-    } else {
-      console.log('⚠️ Could not fetch from supplier backend cache');
-    }
-  } catch (error) {
-    console.log('⚠️ Error fetching from supplier backend cache:', error.message);
-  }
-  return [];
-};
 
 /**
  * Fetch published products from backend, with smart caching
@@ -199,70 +148,31 @@ const fetchFreshProducts = async (params = {}) => {
     if (params.destination) queryParams.append('destination', params.destination);
     if (params.search) queryParams.append('search', params.search);
     
-    const url = `${API_BASE_URL}/products/published${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    const response = await fetch(url, {
+    const query = `/products/published${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const data = await fetchJsonWithFallback(query, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.products && Array.isArray(data.products)) {
-        // Cache all products (for page 1, no filters)
-        const isSimpleQuery = !params.search && !params.category && !params.destination && (params.page === 1 || !params.page);
-        if (isSimpleQuery && data.products.length > 0) {
-          setCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP, data.products);
-        }
-        return data;
+
+    if (data && data.products && Array.isArray(data.products)) {
+      const isSimpleQuery = !params.search && !params.category && !params.destination && (params.page === 1 || !params.page);
+      if (isSimpleQuery && data.products.length > 0) {
+        setCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP, data.products);
       }
+      return data;
     }
   } catch (error) {
-    console.log('API fetch failed, using fallback...', error);
-  }
-  
-  // Fallback to supplier backend cache
-  const localStorageProducts = await getSupplierLocalStorageProducts();
-  
-  if (!Array.isArray(localStorageProducts)) {
-    return { products: [], total: 0, page: 1, page_size: 20, total_pages: 0 };
-  }
-  
-  // Apply search filter if provided
-  let filtered = localStorageProducts;
-  if (params.search) {
-    const searchTerm = params.search.toLowerCase();
-    filtered = localStorageProducts.filter(p => 
-      (p.name || '').toLowerCase().includes(searchTerm) ||
-      (p.productTitle || '').toLowerCase().includes(searchTerm) ||
-      (p.description || '').toLowerCase().includes(searchTerm)
-    );
-  }
-  
-  if (!Array.isArray(filtered)) {
-    filtered = [];
-  }
-  
-  // Apply pagination
-  const page = params.page || 1;
-  const pageSize = params.page_size || 20;
-  const start = (page - 1) * pageSize;
-  const end = start + pageSize;
-  const paginated = filtered.slice(start, end);
-  
-  // Cache all products if simple query
-  const isSimpleQuery = !params.search && !params.category && !params.destination && (params.page === 1 || !params.page);
-  if (isSimpleQuery) {
-    setCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP, filtered);
+    console.error('Failed to fetch published products', error);
   }
   
   return {
-    products: paginated,
-    total: filtered.length,
-    page: page,
-    page_size: pageSize,
-    total_pages: Math.ceil(filtered.length / pageSize)
+    products: [],
+    total: 0,
+    page: params.page || 1,
+    page_size: params.page_size || 20,
+    total_pages: 0
   };
 };
 
@@ -311,36 +221,22 @@ export const getTopPicks = async (limit = 4, useCache = true) => {
  */
 const fetchFreshTopPicks = async (limit = 4) => {
   try {
-    const url = `${API_BASE_URL}/products/top-picks?limit=${limit}`;
-    const response = await fetch(url, {
+    const data = await fetchJsonWithFallback(`/products/top-picks?limit=${limit}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
     
-    if (response.ok) {
-      const data = await response.json();
-      if (data && Array.isArray(data) && data.length > 0) {
-        setCachedData(CACHE_KEYS.TOP_PICKS, CACHE_KEYS.TOP_PICKS_TIMESTAMP, data);
-        return data;
-      }
+    if (data && Array.isArray(data) && data.length > 0) {
+      setCachedData(CACHE_KEYS.TOP_PICKS, CACHE_KEYS.TOP_PICKS_TIMESTAMP, data);
+      return data;
     }
   } catch (error) {
-    console.log('API failed, using fallback...', error);
+    console.error('Failed to fetch top picks', error);
   }
   
-  // Fallback to supplier backend cache
-  const localStorageProducts = await getSupplierLocalStorageProducts();
-  
-  if (!Array.isArray(localStorageProducts)) {
-    return [];
-  }
-  
-  const publishedProducts = localStorageProducts.slice(0, limit);
-  setCachedData(CACHE_KEYS.TOP_PICKS, CACHE_KEYS.TOP_PICKS_TIMESTAMP, publishedProducts);
-  
-  return publishedProducts;
+  return [];
 };
 
 /**
@@ -378,33 +274,18 @@ export const getProductById = async (productId, useCache = true) => {
  */
 const fetchFreshProductById = async (productId) => {
   try {
-    const url = `${API_BASE_URL}/products/${productId}`;
-    const response = await fetch(url);
-    
-    if (response.ok) {
-      const data = await response.json();
-      // Cache the product
+    const data = await fetchJsonWithFallback(`/products/${productId}`);
+    if (data) {
       const cacheKey = CACHE_KEYS.PRODUCT_DETAIL + productId;
       const timestampKey = CACHE_KEYS.PRODUCT_DETAIL_TIMESTAMP + productId;
       setCachedData(cacheKey, timestampKey, data);
       return data;
     }
   } catch (error) {
-    console.log('API failed, trying fallback...', error);
+    console.error(`Failed to fetch product ${productId}`, error);
   }
   
-  // Fallback to supplier backend cache
-  const localStorageProducts = await getSupplierLocalStorageProducts();
-  const product = localStorageProducts.find(p => p.id === productId || p.id === String(productId));
-  
-  if (product) {
-    // Cache the fallback product too
-    const cacheKey = CACHE_KEYS.PRODUCT_DETAIL + productId;
-    const timestampKey = CACHE_KEYS.PRODUCT_DETAIL_TIMESTAMP + productId;
-    setCachedData(cacheKey, timestampKey, product);
-  }
-  
-  return product || null;
+  return null;
 };
 
 // Click tracking (local, with optional backend in future)
@@ -484,63 +365,43 @@ export const emitRealtimeUpdate = () => {
  * Transform product from API or localStorage to frontend format
  */
 export const transformProductForFrontend = (product) => {
-  // DEBUG: Log incoming product data
-  console.log('🔍 [DEBUG] transformProductForFrontend - Raw product:', {
-    id: product.id,
-    guide_type: product.guide_type,
-    things_to_carry: product.things_to_carry,
-    languages: product.languages,
-    included_excluded: product.included_excluded,
-    vehicle_details: product.vehicle_details,
-    accessibility: product.accessibility,
-    highlights: product.highlights,
-    itinerary: product.itinerary,
-    pickup_dropoff: product.pickup_dropoff
-  });
-  
   // Handle both API format and localStorage format
   // Get image from various sources - prioritize coverImage/hero_image
   let image = null;
   
   // First try hero_image or coverImage (directly)
-  if (product.hero_image) {
-    image = typeof product.hero_image === 'string' ? product.hero_image : product.hero_image.url || product.hero_image;
-  } else if (product.coverImage) {
-    if (typeof product.coverImage === 'string') {
-      image = product.coverImage;
-    } else if (product.coverImage.url) {
-      image = product.coverImage.url;
-    } else {
-      image = product.coverImage;
-    }
+  if (product.hero_image_url) {
+    image = normalizeImageSource(product.hero_image_url);
+  }
+  if (!image && product.hero_image) {
+    image = normalizeImageSource(product.hero_image);
+  }
+  if (!image && product.coverImage) {
+    image = normalizeImageSource(product.coverImage);
   }
   
   // If no cover image, try images array
   if (!image && product.images && product.images.length > 0) {
     const firstImg = product.images[0];
-    image = typeof firstImg === 'string' ? firstImg : (firstImg.url || firstImg);
+    image = normalizeImageSource(firstImg);
   }
   
   // If still no image, try uploadedPhotos
   if (!image && product.uploadedPhotos && product.uploadedPhotos.length > 0) {
     const firstPhoto = product.uploadedPhotos[0];
-    image = typeof firstPhoto === 'string' ? firstPhoto : (firstPhoto.url || firstPhoto);
+    image = normalizeImageSource(firstPhoto);
   }
   
   // Process images array to ensure all URLs are strings
   let processedImages = [];
   if (product.images && Array.isArray(product.images)) {
-    processedImages = product.images.map(img => {
-      if (typeof img === 'string') return img;
-      if (img && typeof img === 'object') return img.url || img.src || img;
-      return null;
-    }).filter(Boolean);
+    processedImages = product.images
+      .map(img => normalizeImageSource(img))
+      .filter(Boolean);
   } else if (product.uploadedPhotos && Array.isArray(product.uploadedPhotos)) {
-    processedImages = product.uploadedPhotos.map(photo => {
-      if (typeof photo === 'string') return photo;
-      if (photo && typeof photo === 'object') return photo.url || photo.src || photo;
-      return null;
-    }).filter(Boolean);
+    processedImages = product.uploadedPhotos
+      .map(photo => normalizeImageSource(photo))
+      .filter(Boolean);
   }
   
   // If we have processed images but no main image, use first processed image
@@ -618,19 +479,6 @@ export const transformProductForFrontend = (product) => {
     supplierBusinessName: product.supplier_business_name || product.supplierBusinessName,
     supplierId: product.supplier_id || product.supplierId
   };
-  
-  // DEBUG: Log transformed product
-  console.log('🔍 [DEBUG] transformProductForFrontend - Transformed product:', {
-    guideType: transformed.guideType,
-    thingsToCarry: transformed.thingsToCarry,
-    languages: transformed.languages,
-    includedItems: transformed.includedItems,
-    excludedItems: transformed.excludedItems,
-    vehicles: transformed.vehicles,
-    accessibility: transformed.accessibility,
-    highlights: transformed.highlights,
-    itineraries: transformed.itineraries
-  });
   
   return transformed;
 };

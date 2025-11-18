@@ -10,6 +10,7 @@ class MessageCreate(BaseModel):
     product_id: Optional[str] = None
     message: str = Field(..., min_length=1, max_length=5000)
     message_type: MessageType = MessageType.GENERAL
+    reply_to_message_id: Optional[str] = None
 
 
 class MessageResponse(BaseModel):
@@ -19,9 +20,12 @@ class MessageResponse(BaseModel):
     sender_id: str
     recipient_id: str
     product_id: Optional[str] = None
+    product_title: Optional[str] = None
     subject: Optional[str] = None
     message: str
     message_type: MessageType
+    reply_to_message_id: Optional[str] = None
+    reply_preview: Optional[str] = None
     is_read: bool
     attachments: List[str] = []
     created_at: datetime
@@ -49,4 +53,8 @@ class ConversationResponse(BaseModel):
 class ConversationListResponse(BaseModel):
     conversations: List[ConversationResponse]
     total: int
+
+
+class UnreadCountResponse(BaseModel):
+    unread_count: int = 0
 

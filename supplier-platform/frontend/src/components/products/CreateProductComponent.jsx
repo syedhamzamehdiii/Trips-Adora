@@ -4,6 +4,7 @@ import { GoogleMap, Marker } from '@react-google-maps/api';
 import AddItineraryComponent from './AddItineraryComponent';
 import productService from '@/services/productService';
 import vehicleService from '@/services/vehicleService';
+import { imageService } from '@/services/imageService';
 
 const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [step, setStep] = useState(1);
@@ -29,6 +30,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
   const [coverImage, setCoverImage] = useState(null);
   const fileInputRef = React.useRef(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
   
   // Highlights Management
   const [highlights, setHighlights] = useState([
@@ -456,11 +459,19 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     if (!photo) return null;
     const url = photo.url || photo.preview || '';
     if (!url) return null;
-    return {
+    const serialized = {
       id: photo.id || Date.now() + Math.random(),
       url,
       name: photo.name || 'Uploaded photo',
     };
+    if (photo.publicId || photo.public_id) {
+      serialized.publicId = photo.publicId || photo.public_id;
+    }
+    if (photo.width) serialized.width = photo.width;
+    if (photo.height) serialized.height = photo.height;
+    if (photo.bytes) serialized.bytes = photo.bytes;
+    if (photo.folder) serialized.folder = photo.folder;
+    return serialized;
   };
 
   // Auto-save draft data whenever any field changes
@@ -942,94 +953,182 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
   const MIN_DIMENSION_PX = 720;
 
-  const validateImage = (file, onValid) => {
-    if (file.size > MAX_IMAGE_BYTES) {
-      alert(`"${file.name}" is too large. Maximum size is 5MB.`);
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      if (img.width < MIN_DIMENSION_PX || img.height < MIN_DIMENSION_PX) {
-        alert(`"${file.name}" is too small. Minimum resolution is ${MIN_DIMENSION_PX}px on both width and height.`);
-        URL.revokeObjectURL(objectUrl);
+  const validateImage = (file) => {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error('No file provided'));
         return;
       }
-      URL.revokeObjectURL(objectUrl);
-      onValid();
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      alert(`Unable to read "${file.name}". Please try another image.`);
-    };
-    img.src = objectUrl;
-  };
 
-  const handlePhotoUpload = (event) => {
-    const files = Array.from(event.target.files);
-    
-    files.forEach(file => {
-      validateImage(file, () => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setUploadedPhotos(prev => [...prev, {
-            id: Date.now() + Math.random(),
-            url: e.target.result,
-            file: file,
-            name: file.name
-          }]);
-        };
-        reader.readAsDataURL(file);
-      });
-    });
-  };
+      if (file.size > MAX_IMAGE_BYTES) {
+        const message = `"${file.name}" is too large. Maximum size is 5MB.`;
+        alert(message);
+        reject(new Error(message));
+        return;
+      }
 
-  const handleCoverImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    validateImage(file, () => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setCoverImage({
-          id: Date.now(),
-          url: e.target.result,
-          file: file,
-          name: file.name
-        });
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        if (img.width < MIN_DIMENSION_PX || img.height < MIN_DIMENSION_PX) {
+          const message = `"${file.name}" is too small. Minimum resolution is ${MIN_DIMENSION_PX}px on both width and height.`;
+          alert(message);
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error(message));
+          return;
+        }
+        URL.revokeObjectURL(objectUrl);
+        resolve();
       };
-      reader.readAsDataURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        const message = `Unable to read "${file.name}". Please try another image.`;
+        alert(message);
+        reject(new Error(message));
+      };
+      img.src = objectUrl;
     });
+  };
+
+  const normalizeUploadResponse = (file, uploadResult, overrides = {}) => {
+    if (!uploadResult?.url) {
+      throw new Error('Upload result missing URL');
+    }
+
+    return {
+      id: Date.now() + Math.random(),
+      url: uploadResult.url,
+      name: overrides.name || file?.name || uploadResult.public_id || 'Uploaded photo',
+      publicId: uploadResult.public_id,
+      width: uploadResult.width,
+      height: uploadResult.height,
+      bytes: uploadResult.bytes,
+      folder: uploadResult.folder,
+    };
+  };
+
+  const uploadImageToCloudinary = async (file, { folder = 'products' } = {}) => {
+    setIsUploadingImage(true);
+    setImageUploadProgress(0);
+    try {
+      const response = await imageService.uploadImage(file, {
+        folder,
+        onUploadProgress: (progress) => setImageUploadProgress(progress),
+      });
+
+      if (!response?.url) {
+        throw new Error(response?.detail || 'Image upload failed');
+      }
+
+      return normalizeUploadResponse(file, response);
+    } finally {
+      setIsUploadingImage(false);
+      setImageUploadProgress(0);
+    }
+  };
+
+  const handlePhotoUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    for (const file of files) {
+      try {
+        await validateImage(file);
+        const uploaded = await uploadImageToCloudinary(file);
+        setUploadedPhotos((prev) => [...prev, uploaded]);
+        if (!coverImage) {
+          setCoverImage(uploaded);
+        }
+      } catch (error) {
+        console.error('Failed to upload photo:', error);
+        alert(`Failed to upload "${file.name}". ${error?.message || 'Please try again.'}`);
+      }
+    }
+
+    if (event?.target) {
+      event.target.value = '';
+    }
+  };
+
+  const handleCoverImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      await validateImage(file);
+      const uploaded = await uploadImageToCloudinary(file, { folder: 'products/hero' });
+
+      if (coverImage?.publicId) {
+        imageService.deleteImage(coverImage.publicId).catch((err) => {
+          console.warn('Failed to delete previous cover image from Cloudinary', err);
+        });
+      }
+
+      setCoverImage(uploaded);
+    } catch (error) {
+      console.error('Failed to upload cover image:', error);
+      alert(`Failed to upload cover image. ${error?.message || 'Please try again.'}`);
+    } finally {
+      if (event?.target) {
+        event.target.value = '';
+      }
+    }
   };
 
   const removePhoto = (photoId) => {
-    setUploadedPhotos(prev => prev.filter(photo => photo.id !== photoId));
-    // If deleted photo was the cover, clear cover
+    const target = uploadedPhotos.find((photo) => photo.id === photoId);
+    setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
     if (coverImage && coverImage.id === photoId) {
       setCoverImage(null);
+    }
+    if (target?.publicId) {
+      imageService.deleteImage(target.publicId).catch((err) => {
+        console.warn('Failed to delete image from Cloudinary', err);
+      });
     }
   };
 
   const removeCoverImage = () => {
+    if (coverImage?.publicId) {
+      imageService.deleteImage(coverImage.publicId).catch((err) => {
+        console.warn('Failed to delete cover image from Cloudinary', err);
+      });
+    }
     setCoverImage(null);
   };
 
-  const replacePhoto = (index, file) => {
-    validateImage(file, () => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedPhotos(prev => prev.map((photo, idx) => 
-          idx === index ? {
-            id: Date.now() + Math.random(),
-            url: e.target.result,
-            file: file,
-            name: file.name
-          } : photo
-        ));
-      };
-      reader.readAsDataURL(file);
-    });
+  const replacePhoto = async (index, file) => {
+    if (!file) return;
+    let previousPhoto = null;
+
+    try {
+      await validateImage(file);
+      const uploaded = await uploadImageToCloudinary(file);
+
+      setUploadedPhotos((prev) => {
+        const next = prev.map((photo, idx) => {
+          if (idx === index) {
+            previousPhoto = photo;
+            return uploaded;
+          }
+          return photo;
+        });
+        return next;
+      });
+
+      if (previousPhoto?.publicId && previousPhoto.publicId !== uploaded.publicId) {
+        imageService.deleteImage(previousPhoto.publicId).catch((err) => {
+          console.warn('Failed to delete replaced image from Cloudinary', err);
+        });
+      }
+
+      if (coverImage && previousPhoto && coverImage.id === previousPhoto.id) {
+        setCoverImage(uploaded);
+      }
+    } catch (error) {
+      console.error('Failed to replace photo:', error);
+      alert(`Failed to replace photo. ${error?.message || 'Please try again.'}`);
+    }
   };
 
   const setCoverFromUploadedPhoto = (photoIndex) => {
@@ -1835,6 +1934,15 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                     </label>
                   </div>
                 ))}
+                {isUploadingImage && (
+                  <div className="flex items-center text-sm text-blue-600 mt-2">
+                    <svg className="animate-spin h-4 w-4 mr-2 text-blue-500" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span>Uploading image{imageUploadProgress ? ` (${imageUploadProgress}%)` : '...'}</span>
+                  </div>
+                )}
               </div>
             </div>
 

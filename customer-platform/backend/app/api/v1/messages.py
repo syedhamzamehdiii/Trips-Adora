@@ -1,7 +1,12 @@
 # app/api/v1/messages.py
-from fastapi import APIRouter, HTTPException, status, Path, Query
-from typing import Optional
-from app.schemas.message import MessageCreate, MessageResponse, ConversationListResponse, ConversationResponse
+from fastapi import APIRouter, HTTPException, status, Path, Query, Response
+from app.schemas.message import (
+    MessageCreate,
+    MessageResponse,
+    ConversationListResponse,
+    ConversationResponse,
+    UnreadCountResponse,
+)
 from app.services.message_service import MessageService
 from app.models.message import MessageType
 
@@ -17,24 +22,11 @@ async def send_message(
     Send a message from customer to supplier.
     """
     try:
-        # Get supplier_id from product if product_id is provided
         supplier_id = payload.recipient_id
-        
-        if payload.product_id:
-            from app.core.database import get_database
-            from bson import ObjectId
-            db = get_database()
-            product = await db.products.find_one(
-                {"_id": ObjectId(payload.product_id)},
-                {"supplier_id": 1}
-            )
-            if product and product.get("supplier_id"):
-                supplier_id = str(product["supplier_id"])
-        
-        if not supplier_id:
+        if not supplier_id and not payload.product_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Supplier ID is required"
+                detail="Either supplier ID or product ID is required",
             )
         
         message = await MessageService.send_message(
@@ -42,7 +34,8 @@ async def send_message(
             supplier_id=supplier_id,
             message=payload.message,
             product_id=payload.product_id,
-            message_type=payload.message_type
+            message_type=payload.message_type,
+            reply_to_message_id=payload.reply_to_message_id,
         )
         
         return MessageResponse(**message)
@@ -73,8 +66,12 @@ async def get_conversations(
                     sender_type=conv["last_message"]["sender_type"],
                     sender_id=conv["last_message"].get("sender_id", ""),
                     recipient_id="",
+                    product_id=conv["last_message"].get("product_id"),
+                    product_title=conv["last_message"].get("product_title"),
                     message=conv["last_message"]["message"],
-                    message_type=MessageType.GENERAL,
+                    message_type=conv["last_message"].get("message_type", MessageType.GENERAL),
+                    reply_to_message_id=conv["last_message"].get("reply_to_message_id"),
+                    reply_preview=conv["last_message"].get("reply_preview"),
                     is_read=False,
                     created_at=conv["last_message"]["created_at"]
                 )
@@ -120,4 +117,26 @@ async def get_messages(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching messages: {str(e)}"
         )
+
+
+@router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(
+    conversation_id: str,
+    customer_id: str = Query(..., description="Customer ID"),
+) -> Response:
+    success = await MessageService.delete_conversation(conversation_id, customer_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found or access denied",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/unread-count", response_model=UnreadCountResponse)
+async def get_unread_count(
+    customer_id: str = Query(..., description="Customer ID"),
+) -> UnreadCountResponse:
+    count = await MessageService.get_unread_count(customer_id)
+    return UnreadCountResponse(unread_count=count)
 

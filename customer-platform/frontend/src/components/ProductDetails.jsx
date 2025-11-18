@@ -18,8 +18,8 @@ const ProductDetails = () => {
   // Get identifier from either slug (for /tours/:slug) or id (for /product-details/:id)
   const identifier = slug || id
   
-  // Instant render from cached list (no spinner)
-  const initialFromCache = (() => {
+  // Instant render from cached list (no spinner) - memoized to avoid re-calculation every render
+  const initialFromCache = useMemo(() => {
     try {
       const cache = getCachedPublishedProductsSync().map(transformProductForFrontend)
       const normalize = (name) => String(name || '').toLowerCase().replace(/\s+/g,'-')
@@ -27,9 +27,10 @@ const ProductDetails = () => {
     } catch {
       return null
     }
-  })()
+  }, [identifier])
+
   const [product, setProduct] = useState(initialFromCache)
-  const hasLoadedOnceRef = useRef(false)
+  const hasLoadedOnceRef = useRef(!!initialFromCache)
   const [loading, setLoading] = useState(!initialFromCache) // Only show loading if no cached data
   const [recommended, setRecommended] = useState([])
   const [isGalleryOpen, setIsGalleryOpen] = useState(false)
@@ -140,6 +141,12 @@ const ProductDetails = () => {
       }
     }
   }, [identifier, initialFromCache])
+
+  useEffect(() => {
+    setProduct(initialFromCache)
+    setLoading(!initialFromCache)
+    hasLoadedOnceRef.current = !!initialFromCache
+  }, [initialFromCache])
 
   useEffect(() => {
     // If we have cached data, fetch fresh in background
