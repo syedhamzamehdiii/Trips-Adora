@@ -123,6 +123,8 @@ export const transformApiProductToLocal = (apiProduct) => {
     pickupTime,
     availableDays,
     availableTimeSlots,
+    faqs: Array.isArray(apiProduct.faqs) ? apiProduct.faqs : [],
+    cancellationPolicy: apiProduct.cancellation_policy || null,
     // Store additional API data for reference (includes hero_image_url for summaries)
     _apiData: apiProduct
   };
@@ -225,7 +227,22 @@ export const transformLocalProductToApi = (localProduct, fullData = null) => {
     breadcrumb: Array.isArray(productData.breadcrumb) ? productData.breadcrumb : [],
     selling_points: Array.isArray(productData.sellingPoints) ? productData.sellingPoints : (productData.sellingPoints ? [productData.sellingPoints] : []),
     style_theme: productData.styleTheme || '',
-    faqs: [],
+    faqs: Array.isArray(productData.faqs) ? productData.faqs.filter(faq => faq.question && faq.answer && faq.question.trim() && faq.answer.trim()) : [],
+    cancellation_policy: productData.cancellationPolicy && Array.isArray(productData.cancellationPolicy.schedule)
+      ? {
+          free_cancellation_text: productData.cancellationPolicy.freeCancellationText || '',
+          schedule: productData.cancellationPolicy.schedule
+            .filter(entry => entry?.label?.trim())
+            .map(entry => ({
+              label: entry.label.trim(),
+              percentage: Number(entry.percentage) || 0,
+              note: entry.note || ''
+            })),
+          notes: Array.isArray(productData.cancellationPolicy.notes)
+            ? productData.cancellationPolicy.notes.filter(note => note && note.trim())
+            : []
+        }
+      : null,
     custom_fields: customFields
   };
 };
@@ -373,6 +390,8 @@ export const transformApiProductToDraftPayload = (apiProduct) => {
     selectedDate: '',
     timeSlots,
     itineraries: itineraryEntries,
+    faqs: Array.isArray(apiProduct.faqs) ? apiProduct.faqs : [],
+    cancellationPolicy: apiProduct.cancellation_policy || null,
     destination: apiProduct.destination || '',
     duration: apiProduct.duration || '',
     lastModified: new Date().toISOString(),
