@@ -186,9 +186,9 @@ class AuthService {
 
   // Google OAuth login with authorization code
   async googleLoginWithCode(code, redirectUri = null) {
-    if (!code || typeof code !== 'string' || !code.trim()) {
-      throw new Error('Invalid authorization code received')
-    }
+      if (!code || typeof code !== 'string' || !code.trim()) {
+        throw new Error('Invalid authorization code received')
+      }
     try {
       const response = await api.post('/auth/google/callback', {
         code: code.trim(),

@@ -13,7 +13,7 @@ const Feature = ({ title, subtitle }) => (
 
 const ConsultationBanner = () => {
   return (
-    <section className="py-12 bg-gray-200">
+    <section id="consultation" className="py-12 bg-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Fixed inner size to match 1216x384 within the container */}
         <div className="relative w-full rounded-3xl overflow-hidden bg-[#ffb200]">

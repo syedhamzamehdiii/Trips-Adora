@@ -48,7 +48,11 @@ const Login = () => {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowHeaderLabel(true), 50);
+    // Reset and animate on every page load
+    setShowHeaderLabel(false);
+    const timer = setTimeout(() => {
+      setShowHeaderLabel(true);
+    }, 100);
     return () => clearTimeout(timer);
   }, []);
 
@@ -87,12 +91,45 @@ const Login = () => {
         </div>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span
-            className={`text-lg sm:text-2xl font-bold tracking-wide text-gray-900 transition-all duration-700 ease-out ${
-              showHeaderLabel ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-95'
+            className={`text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-bold text-[#1d236b] ${
+              showHeaderLabel ? 'animate-royal-reveal' : 'opacity-0'
             }`}
+            style={{
+              textShadow: showHeaderLabel
+                ? '0 6px 14px rgba(22, 28, 98, 0.35)'
+                : 'none',
+              letterSpacing: '0.05em',
+            }}
           >
             Supplier
           </span>
+          <style>{`
+            @keyframes royalReveal {
+              0% {
+                opacity: 0;
+                transform: translateY(-25px) scale(0.85);
+                letter-spacing: 0.3em;
+              }
+              45% {
+                opacity: 0.8;
+                transform: translateY(6px) scale(1.03);
+                letter-spacing: 0.08em;
+              }
+              75% {
+                opacity: 1;
+                transform: translateY(-2px) scale(0.99);
+                letter-spacing: 0.04em;
+              }
+              100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                letter-spacing: 0.05em;
+              }
+            }
+            .animate-royal-reveal {
+              animation: royalReveal 1s ease-out forwards;
+            }
+          `}</style>
         </div>
       </div>
 
