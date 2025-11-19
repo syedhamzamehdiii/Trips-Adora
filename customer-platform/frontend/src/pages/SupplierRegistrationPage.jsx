@@ -1394,11 +1394,15 @@ const SupplierRegistrationPage = () => {
           {/* Hero Card */}
           <div className="w-full px-6" style={{ paddingRight: 'calc(320px + 2rem)', paddingLeft: '1.5rem' }}>
             <div
-              className="rounded-[32px] overflow-hidden shadow-2xl relative min-h-[460px] w-full"
+              className="rounded-[32px] overflow-hidden shadow-2xl relative w-full"
               style={{
                 backgroundImage: `url(${heroImage})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
+                backgroundSize: '80% auto',
+                backgroundPosition: 'left center',
+                backgroundRepeat: 'no-repeat',
+                minHeight: '460px',
+                height: 'calc(100vh - 400px)',
+                maxHeight: '800px'
               }}
             >
               <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px]" />
@@ -1448,7 +1452,7 @@ const SupplierRegistrationPage = () => {
           className="absolute right-0 top-0 w-80 bg-[#14255c] text-white shadow-2xl flex flex-col z-50" 
           style={{
             top: '0px',
-            bottom: '600px',
+            bottom: '0px',
             borderLeft: '1px solid rgba(20, 37, 92, 0.5)'
           }}
         >
