@@ -12,14 +12,33 @@ const productService = {
       const response = await api.post('/products/', productData);
       return response.data;
     } catch (error) {
-      console.error('Error creating product:', error);
+      const { response } = error || {};
+      const details = response?.data?.detail ?? response?.data ?? error?.message;
+
+      let friendlyMessage = '';
+      if (Array.isArray(details)) {
+        friendlyMessage = details
+          .map((item) => item?.msg || item?.detail || item?.message || JSON.stringify(item))
+          .join(', ');
+      } else if (typeof details === 'string') {
+        friendlyMessage = details;
+      } else if (details && typeof details === 'object') {
+        friendlyMessage = details.message || details.error || JSON.stringify(details);
+      }
+
+      if (friendlyMessage) {
+        error.friendlyMessage = friendlyMessage;
+      }
+
+      console.error('Error creating product:', details);
       throw error;
     }
   },
 
   /**
    * Get all products for the current supplier
-   * @param {Object} params - Query parameters (status, page, page_size)
+   * @param {Object} params - Query parameters (status, page, page_size, summary)
+   * @param {boolean} params.summary - If true, returns lightweight summary (excludes images) for faster loading
    * @returns {Promise} API response with products list
    */
   getMyProducts: async (params = {}) => {
@@ -137,6 +156,32 @@ const productService = {
       return response.data;
     } catch (error) {
       console.error('Error searching products:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Sync products to backend cache for customer platform access
+   */
+  syncToBackendCache: async (products) => {
+    try {
+      const response = await api.post('/products/localstorage/sync', products);
+      return response.data;
+    } catch (error) {
+      console.error('Error syncing to backend cache:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Sync full product data (including images) to backend cache
+   */
+  syncFullProductData: async (productId, fullData) => {
+    try {
+      const response = await api.post(`/products/localstorage/sync-full/${productId}`, fullData);
+      return response.data;
+    } catch (error) {
+      console.error('Error syncing full product data:', error);
       throw error;
     }
   }

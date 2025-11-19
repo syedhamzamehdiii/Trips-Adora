@@ -1,5 +1,5 @@
 // Frontend/src/pages/Auth/Login.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -23,6 +23,7 @@ const loginSchema = yup.object().shape({
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [showHeaderLabel, setShowHeaderLabel] = useState(false);
   const { login, googleLogin } = useAuth();
 
   const {
@@ -45,6 +46,15 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Reset and animate on every page load
+    setShowHeaderLabel(false);
+    const timer = setTimeout(() => {
+      setShowHeaderLabel(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleGoogleLogin = async () => {
     try {
@@ -73,12 +83,53 @@ const Login = () => {
       {/* Header - Navbar with Logo */}
       <div className="relative z-10 h-20 flex items-center px-6 bg-white">
         <div className="flex items-center">
-          {/* TripsAdora Logo */}
           <img 
             src="/assets/logo.jpg" 
             alt="TripsAdora Logo" 
             className="h-12 w-auto"
           />
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span
+            className={`text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-bold text-[#1d236b] ${
+              showHeaderLabel ? 'animate-royal-reveal' : 'opacity-0'
+            }`}
+            style={{
+              textShadow: showHeaderLabel
+                ? '0 6px 14px rgba(22, 28, 98, 0.35)'
+                : 'none',
+              letterSpacing: '0.05em',
+            }}
+          >
+            Supplier
+          </span>
+          <style>{`
+            @keyframes royalReveal {
+              0% {
+                opacity: 0;
+                transform: translateY(-25px) scale(0.85);
+                letter-spacing: 0.3em;
+              }
+              45% {
+                opacity: 0.8;
+                transform: translateY(6px) scale(1.03);
+                letter-spacing: 0.08em;
+              }
+              75% {
+                opacity: 1;
+                transform: translateY(-2px) scale(0.99);
+                letter-spacing: 0.04em;
+              }
+              100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                letter-spacing: 0.05em;
+              }
+            }
+            .animate-royal-reveal {
+              animation: royalReveal 1s ease-out forwards;
+            }
+          `}</style>
         </div>
       </div>
 

@@ -25,6 +25,7 @@ class ItineraryItem(BaseModel):
     title: str
     description: str
     icon: str  # pickup, sightseeing, dining, highlight, travel, dropoff
+    photo: Optional[str] = None  # Cloudinary URL for itinerary highlight image
 
 
 class Highlight(BaseModel):
@@ -40,6 +41,18 @@ class IncludedExcluded(BaseModel):
 class FAQ(BaseModel):
     question: str
     answer: str
+
+
+class CancellationTier(BaseModel):
+    label: str
+    percentage: float
+    note: Optional[str] = None
+
+
+class CancellationPolicy(BaseModel):
+    free_cancellation_text: Optional[str] = None
+    schedule: List[CancellationTier] = []
+    notes: List[str] = []
 
 
 class VehicleDetails(BaseModel):
@@ -114,6 +127,7 @@ class Product(Document):
     
     # FAQ
     faqs: List[FAQ] = Field(default_factory=list)
+    cancellation_policy: Optional[CancellationPolicy] = None
     
     # Location & Breadcrumb
     destination: Optional[str] = Field(None, description="e.g., Tokyo, Japan")

@@ -1,50 +1,75 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { FiStar } from 'react-icons/fi'
 import TourCard from './TourCard'
+import { getTopPicks, transformProductForFrontend, recordProductClick, addRecentlyViewed, getCachedPublishedProductsSync } from '../services/productService'
 
 const TopPicksSection = () => {
-  const destinations = [
-    {
-      id: 1,
-      name: "Mount Fuji, Japan",
-      image: "/assests/bg.jpg", // Using bg.jpg as placeholder
-      rating: 4.5,
-      reviews: "1.2k reviews",
-      price: "$120/person",
-      isNew: true
-    },
-    {
-      id: 2,
-      name: "Arashiyama Bamboo Forest, Japan",
-      image: "/assests/bg.jpg",
-      rating: 4.8,
-      reviews: "856 reviews",
-      price: "$95/person",
-      isNew: false
-    },
-    {
-      id: 3,
-      name: "Santorini, Greece",
-      image: "/assests/bg.jpg",
-      rating: 4.7,
-      reviews: "2.1k reviews",
-      price: "$180/person",
-      isNew: true
-    },
-    {
-      id: 4,
-      name: "Bali, Indonesia",
-      image: "/assests/bg.jpg",
-      rating: 4.6,
-      reviews: "1.8k reviews",
-      price: "$150/person",
-      isNew: false
+  // Load from cache immediately (synchronous)
+  const initialProducts = (() => {
+    try {
+      const cached = getCachedPublishedProductsSync()
+      if (cached && cached.length > 0) {
+        return cached.slice(0, 4).map(transformProductForFrontend)
+      }
+    } catch (_) {}
+    return []
+  })()
+  
+  const [products, setProducts] = useState(initialProducts)
+  const hasLoadedOnceRef = useRef(false)
+  const [loading, setLoading] = useState(initialProducts.length === 0)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    // If we have cached data, set loaded state immediately
+    if (initialProducts.length > 0) {
+      hasLoadedOnceRef.current = true
+      setLoading(false)
     }
-  ]
+    
+    let cancelled = false
+    const fetchTopPicks = async () => {
+      try {
+        // Only show loading if we don't have cached data
+        if (initialProducts.length === 0 && !hasLoadedOnceRef.current) {
+          setLoading(true)
+        }
+        
+        const data = await getTopPicks(4, true) // Use cache
+        if (!cancelled) {
+          if (data && Array.isArray(data)) {
+            const transformed = data.map(transformProductForFrontend)
+            setProducts(transformed)
+            hasLoadedOnceRef.current = true
+          } else {
+            setProducts([])
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error fetching top picks:', error)
+          if (initialProducts.length === 0) {
+            setProducts([])
+          }
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    // If we have cached data, fetch fresh in background
+    if (initialProducts.length > 0) {
+      fetchTopPicks() // Background refresh
+    } else {
+      fetchTopPicks() // Immediate fetch
+    }
+    
+    return () => { cancelled = true }
+  }, [])
 
   return (
-    <section className="py-16 bg-gray-200">
+    <section id="top-picks" className="py-16 bg-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="flex items-center justify-between mb-12">
@@ -55,16 +80,33 @@ const TopPicksSection = () => {
         </div>
         
         {/* Destinations Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {destinations.map((destination) => (
-            <TourCard key={destination.id} tour={{
-              name: destination.name,
-              image: destination.image,
-              duration: `${destination.reviews}`,
-              price: destination.price
-            }} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white rounded-2xl overflow-hidden shadow animate-pulse">
+                <div className="h-56 bg-gray-300"></div>
+                <div className="p-4 space-y-2">
+                  <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : products.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {products.map((product) => (
+              <TourCard key={product.id} tour={product} onClick={() => {
+                recordProductClick(product.id)
+                addRecentlyViewed(product)
+                navigate(`/tours/${encodeURIComponent(product.name?.toLowerCase().replace(/\s+/g,'-'))}`)
+              }} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            No products available at the moment
+          </div>
+        )}
       </div>
     </section>
   )

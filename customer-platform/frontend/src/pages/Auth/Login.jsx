@@ -1,0 +1,205 @@
+// Frontend/src/pages/Auth/Login.jsx
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { FiMail, FiLock } from 'react-icons/fi';
+import { useAuth } from '../../context/AuthContext';
+
+// Validation schema
+const loginSchema = yup.object().shape({
+  email: yup
+    .string()
+    .email('Invalid email address')
+    .required('Email is required'),
+  password: yup
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .required('Password is required'),
+});
+
+const Login = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const { login, googleLogin, user } = useAuth();
+  const navigate = useNavigate();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: yupResolver(loginSchema),
+  });
+
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
+
+  const onSubmit = async (data) => {
+    setIsLoading(true);
+    try {
+      await login(data);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Login error:', error);
+      alert(error.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = () => {
+    try {
+      googleLogin();
+    } catch (error) {
+      console.error('Google login error:', error);
+      alert(error.message || 'Google login failed. Please try again.');
+    }
+  };
+
+  return (
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Background Image - Japanese Landscape */}
+      <div className="absolute inset-0 z-0">
+        <div 
+          className="w-full h-full bg-cover bg-center"
+          style={{
+            backgroundImage: `url('/assests/7a69a86aa051f23c28e29bda402f67956fba18bf.png')`,
+          }}
+        />
+        {/* Overlay for better text readability */}
+        <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+      </div>
+
+      {/* Header - Navbar with Logo */}
+      <div className="relative z-10 h-20 flex items-center px-6 bg-white">
+        <div className="flex items-center">
+          {/* TripsAdora Logo */}
+          <Link to="/dashboard">
+            <img 
+              src="/assests/logo1.png" 
+              alt="TripsAdora Logo" 
+              className="h-12 w-auto"
+            />
+          </Link>
+        </div>
+      </div>
+
+      {/* Content - Centered Login Card */}
+      <div className="relative z-10 flex items-center justify-center min-h-screen p-4 -mt-20">
+        <div className="w-full max-w-md">
+
+          {/* Login Card */}
+          <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-2xl shadow-xl p-6">
+            <h3 className="text-2xl font-bold text-black mb-2 text-center">Login</h3>
+            <p className="text-gray-700 mb-6 text-center">
+              Sign in to explore amazing travel experiences.
+            </p>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              {/* Email Field */}
+              <div className="relative">
+                <input
+                  type="email"
+                  placeholder="Enter Email"
+                  className="w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  {...register('email')}
+                />
+                <FiMail className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                {errors.email && (
+                  <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+                )}
+              </div>
+
+              {/* Password Field */}
+              <div className="relative">
+                <input
+                  type="password"
+                  placeholder="Enter Password"
+                  className="w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  {...register('password')}
+                />
+                <FiLock className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                {errors.password && (
+                  <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full text-white py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ 
+                  backgroundColor: '#1d236b',
+                }}
+              >
+                {isLoading ? 'Signing in...' : 'Sign in'}
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="relative my-6 flex items-center">
+              <div className="flex-1 border-t border-gray-300"></div>
+              <span className="px-4 text-gray-500 font-medium text-sm">OR</span>
+              <div className="flex-1 border-t border-gray-300"></div>
+            </div>
+
+            {/* Social Login */}
+            <div className="flex justify-center space-x-4 mb-4">
+              {/* Google - Black circle with white G */}
+              <button 
+                onClick={handleGoogleLogin}
+                className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors"
+              >
+                <span className="font-bold text-lg text-white">G</span>
+              </button>
+              {/* Facebook - Black circle with white f */}
+              <button className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors">
+                <span className="font-bold text-lg text-white">f</span>
+              </button>
+              {/* Apple - Black circle with white Apple logo */}
+              <button className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors">
+                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Register Link */}
+            <p className="text-center text-sm text-gray-700">
+              Don't have an account?{' '}
+              <Link
+                to="/register"
+                className="text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Sign up
+              </Link>
+            </p>
+
+            {/* Terms */}
+            <div className="mt-6 flex items-start space-x-2">
+              <input
+                type="checkbox"
+                id="terms"
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
+              />
+              <label htmlFor="terms" className="text-xs text-gray-700 leading-relaxed">
+                By continuing, you agree to the{' '}
+                <a href="#" className="text-blue-600 hover:underline">Terms of use</a>
+                {' '}and{' '}
+                <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+

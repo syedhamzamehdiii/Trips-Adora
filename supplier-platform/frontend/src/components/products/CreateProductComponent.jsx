@@ -1,7 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin, FiClock } from 'react-icons/fi';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin, FiClock, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import AddItineraryComponent from './AddItineraryComponent';
+import productService from '@/services/productService';
+import vehicleService from '@/services/vehicleService';
+import { imageService } from '@/services/imageService';
+
+const createScheduleEntry = (overrides = {}) => ({
+  id: `policy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+  label: overrides.label || '',
+  percentage: overrides.percentage ?? 0,
+  note: overrides.note || ''
+});
+
+const buildDefaultCancellationPolicy = () => ({
+  freeCancellationText: '',
+  schedule: [
+    createScheduleEntry({ label: '7+ Days', percentage: 100, note: 'Full refund before 7 days' }),
+    createScheduleEntry({ label: '3-6 Days', percentage: 50, note: 'Partial refund before 3 days' }),
+    createScheduleEntry({ label: '24 Hours', percentage: 25, note: 'Small refund within 24 hours' }),
+    createScheduleEntry({ label: 'Less than 24 Hours', percentage: 0, note: 'No refund within 24 hours' })
+  ],
+  notes: []
+});
+
+const normalizeCancellationPolicyForEditor = (policy) => {
+  if (!policy) return buildDefaultCancellationPolicy();
+  const schedule = Array.isArray(policy.schedule) && policy.schedule.length > 0
+    ? policy.schedule.map((entry) => ({
+        id: entry.id || `policy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        label: entry.label || '',
+        percentage: entry.percentage ?? 0,
+        note: entry.note || ''
+      }))
+    : [createScheduleEntry()];
+
+  return {
+    freeCancellationText: policy.freeCancellationText || policy.free_cancellation_text || '',
+    schedule,
+    notes: Array.isArray(policy.notes) ? policy.notes : []
+  };
+};
 
 const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [step, setStep] = useState(1);
@@ -11,6 +50,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
   const [selectedVehicleModel, setSelectedVehicleModel] = useState('');
   const [isLoadingDraft, setIsLoadingDraft] = useState(true);
+  const [dbProductId, setDbProductId] = useState(null);
+  const [itineraries, setItineraries] = useState([]);
   
   // Step 1 - Product Information
   const [productTitle, setProductTitle] = useState('');
@@ -20,11 +61,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   
   // Step 2 - Description & Highlights
   const [description, setDescription] = useState('');
+  const [cancellationPolicy, setCancellationPolicy] = useState(() => buildDefaultCancellationPolicy());
   
   // Photo Management
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
   const [coverImage, setCoverImage] = useState(null);
   const fileInputRef = React.useRef(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
   
   // Highlights Management
   const [highlights, setHighlights] = useState([
@@ -33,7 +77,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   
   // Vehicle Management
   const [vehicles, setVehicles] = useState([]);
-  const [editingVehicleIndex, setEditingVehicleIndex] = useState(null);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [vehicleError, setVehicleError] = useState(null);
+  const [vehicleSaving, setVehicleSaving] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState(null);
   
   // Step 5 - Vehicle Form Fields
   const [vehicleTitle, setVehicleTitle] = useState('');
@@ -45,6 +92,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [productAmount, setProductAmount] = useState('');
   const [totalDuration, setTotalDuration] = useState('');
   const [vehicleDescription, setVehicleDescription] = useState('');
+  const editingVehicle = useMemo(
+    () => vehicles.find((vehicle) => vehicle.id === editingVehicleId) || null,
+    [vehicles, editingVehicleId]
+  );
   
   // Step 6 dropdown states
   const [showSelectLocationsDropdown, setShowSelectLocationsDropdown] = useState(false);
@@ -83,7 +134,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [duration, setDuration] = useState('');
-  const [timeSlots, setTimeSlots] = useState({
+  const emptyTimeSlots = useMemo(() => ({
     Monday: [],
     Tuesday: [],
     Wednesday: [],
@@ -91,10 +142,68 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     Friday: [],
     Saturday: [],
     Sunday: []
-  });
+  }), []);
+
+  const normalizeTimeSlots = useCallback((rawSlots) => {
+    if (!rawSlots || typeof rawSlots !== 'object') {
+      return { ...emptyTimeSlots };
+    }
+
+    const normalized = { ...emptyTimeSlots };
+
+    Object.keys(normalized).forEach((day) => {
+      const value = rawSlots[day];
+
+      if (Array.isArray(value)) {
+        normalized[day] = value.filter(Boolean);
+        return;
+      }
+
+      if (typeof value === 'string' && value.trim()) {
+        normalized[day] = [value.trim()];
+        return;
+      }
+
+      if (value && typeof value === 'object') {
+        const collected = Object.values(value).flatMap((entry) => {
+          if (Array.isArray(entry)) return entry.filter(Boolean);
+          if (typeof entry === 'string' && entry.trim()) return [entry.trim()];
+          return [];
+        });
+        normalized[day] = collected;
+      }
+    });
+
+    return normalized;
+  }, [emptyTimeSlots]);
+
+  const [timeSlots, setTimeSlots] = useState(() => ({ ...emptyTimeSlots }));
   
   // Vehicle-Time Allocations (time + vehicle pairings)
   const [vehicleTimeAllocations, setVehicleTimeAllocations] = useState([]);
+
+  const loadVehicles = useCallback(async () => {
+    setVehiclesLoading(true);
+    setVehicleError(null);
+    try {
+      const fetched = await vehicleService.list();
+      const mapped = Array.isArray(fetched) ? fetched : [];
+      setVehicles(mapped);
+      setSelectedVehicleForTour((prevSelected) => {
+        if (prevSelected?.id) {
+          const match = mapped.find((vehicle) => vehicle.id === prevSelected.id);
+          return match || prevSelected;
+        }
+        return prevSelected || (mapped.length ? mapped[0] : null);
+      });
+    } catch (error) {
+      console.error('Failed to load vehicle options:', error);
+      setVehicles([]);
+      setVehicleError(error?.message || 'Failed to load vehicles.');
+    } finally {
+      setVehiclesLoading(false);
+    }
+  }, []);
   
   // Google Maps state
   const [mapCenter, setMapCenter] = useState({ lat: 35.3606, lng: 138.7274 }); // Mount Fuji area
@@ -111,6 +220,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showThingsToCarryDropdown, setShowThingsToCarryDropdown] = useState(false);
   const [showSavedMessage, setShowSavedMessage] = useState(false);
+  
+  // FAQ Management
+  const [faqs, setFaqs] = useState([]);
   
   // Step navigation hover menu (return to step 1 from step 2)
   const [showStep1Menu, setShowStep1Menu] = useState(false);
@@ -129,6 +241,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const accessibilityRef = React.useRef(null);
   const thingsToCarryRef = React.useRef(null);
   const includedExcludedRef = React.useRef(null);
+  const faqRef = React.useRef(null);
   const vehicleTitleRef = React.useRef(null);
   const transportationRef = React.useRef(null);
   const durationRef = React.useRef(null);
@@ -145,6 +258,227 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     // Use setTimeout to ensure the step has rendered before scrolling
     setTimeout(() => scrollToRef(ref), 100);
   };
+
+  const handleScheduleChange = (id, field, value) => {
+    setCancellationPolicy(prev => ({
+      ...prev,
+      schedule: prev.schedule.map(entry =>
+        entry.id === id
+          ? {
+              ...entry,
+              [field]:
+                field === 'percentage'
+                  ? Math.max(0, Math.min(100, Number(value) || 0))
+                  : value
+            }
+          : entry
+      )
+    }));
+  };
+
+  const addScheduleEntry = () => {
+    setCancellationPolicy(prev => ({
+      ...prev,
+      schedule: [...prev.schedule, createScheduleEntry()]
+    }));
+  };
+
+  const removeScheduleEntry = (id) => {
+    setCancellationPolicy(prev => {
+      if (prev.schedule.length === 1) return prev;
+      return {
+        ...prev,
+        schedule: prev.schedule.filter(entry => entry.id !== id)
+      };
+    });
+  };
+
+  const handlePolicyNoteChange = (index, value) => {
+    setCancellationPolicy(prev => {
+      const updated = [...prev.notes];
+      updated[index] = value;
+      return { ...prev, notes: updated };
+    });
+  };
+
+  const addPolicyNote = () => {
+    setCancellationPolicy(prev => ({
+      ...prev,
+      notes: [...prev.notes, '']
+    }));
+  };
+
+  const removePolicyNote = (index) => {
+    setCancellationPolicy(prev => {
+      const updated = prev.notes.filter((_, i) => i !== index);
+      return { ...prev, notes: updated };
+    });
+  };
+
+  const handleFreeCancellationTextChange = (value) => {
+    setCancellationPolicy(prev => ({
+      ...prev,
+      freeCancellationText: value
+    }));
+  };
+
+  const renderCancellationPolicySection = () => (
+    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+          <h3 className="text-2xl font-bold text-gray-900">Cancellation & Refund Policy</h3>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">
+            Add your refund schedule and optional guest guidelines. This policy will be shown on the customer page.
+          </p>
+        </div>
+        <span className="text-xs uppercase tracking-wide bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold">
+          Optional but recommended
+        </span>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-sm text-blue-800">
+        Create multiple refund tiers (for example 100% refund for 7+ days, 50% for 3-6 days, etc.) and outline any important notes or deadlines.
+      </div>
+
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-lg font-semibold text-gray-900">Refund Schedule</h4>
+          <button
+            type="button"
+            onClick={addScheduleEntry}
+            className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+          >
+            <FiPlus className="w-4 h-4" />
+            Add New Tier
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {cancellationPolicy.schedule.map((entry, index) => (
+            <div
+              key={entry.id}
+              className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,auto] gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+                  Time Range
+                </label>
+                <input
+                  type="text"
+                  value={entry.label}
+                  onChange={(e) => handleScheduleChange(entry.id, 'label', e.target.value)}
+                  placeholder="e.g., 7+ Days"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+                  Refund (%)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={entry.percentage}
+                  onChange={(e) => handleScheduleChange(entry.id, 'percentage', e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+                  Display Note
+                </label>
+                <input
+                  type="text"
+                  value={entry.note}
+                  onChange={(e) => handleScheduleChange(entry.id, 'note', e.target.value)}
+                  placeholder="e.g., Before 12:00 PM, Sep 14"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-end justify-end">
+                <button
+                  type="button"
+                  onClick={() => removeScheduleEntry(entry.id)}
+                  className={`inline-flex items-center justify-center w-full md:w-10 h-10 rounded-lg border ${
+                    cancellationPolicy.schedule.length === 1
+                      ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                      : 'border-red-200 text-red-500 hover:bg-red-50'
+                  }`}
+                  disabled={cancellationPolicy.schedule.length === 1}
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-900 mb-2">
+          Free Cancellation Message
+        </label>
+        <input
+          type="text"
+          value={cancellationPolicy.freeCancellationText}
+          onChange={(e) => handleFreeCancellationTextChange(e.target.value)}
+          placeholder="e.g., Free cancellation until 12:00 PM, 2 days before the tour"
+          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          This appears in a banner above your refund schedule on the customer page.
+        </p>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h4 className="text-lg font-semibold text-gray-900">Important Notes</h4>
+            <p className="text-gray-600 text-sm">
+              Optional bullet points that will display below the schedule (e.g., policy reminders or effective dates).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={addPolicyNote}
+            className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+          >
+            <FiPlus className="w-4 h-4" />
+            Add Note
+          </button>
+        </div>
+
+        {cancellationPolicy.notes.length === 0 ? (
+          <p className="text-sm text-gray-500">No notes added yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {cancellationPolicy.notes.map((note, index) => (
+              <div key={`note-${index}`} className="flex items-start gap-3">
+                <textarea
+                  value={note}
+                  onChange={(e) => handlePolicyNoteChange(index, e.target.value)}
+                  placeholder="Write a note that will be displayed to travelers"
+                  className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                />
+                <button
+                  type="button"
+                  onClick={() => removePolicyNote(index)}
+                  className="mt-1 inline-flex items-center justify-center w-10 h-10 rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
   
   // Helper function to count words
   const countWords = (text) => {
@@ -255,6 +589,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           const draftData = JSON.parse(savedDraft);
           console.log('📄 Draft data parsed:', draftData);
           
+          const detectedDbId = draftData.dbProductId || draftData.draftId || (draftId && draftId !== 'current_draft' ? draftId : null);
+          setDbProductId(detectedDbId || null);
+          if (Array.isArray(draftData.itineraries)) setItineraries(draftData.itineraries);
+
           // Load Step 1 data
           if (draftData.productTitle) {
             console.log('✅ Loading title:', draftData.productTitle);
@@ -271,7 +609,15 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           }
           if (draftData.highlights) {
             console.log('✅ Loading highlights:', draftData.highlights.length, 'items');
-            setHighlights(draftData.highlights);
+            // Ensure all highlights have unique IDs
+            const highlightsWithIds = Array.isArray(draftData.highlights)
+              ? draftData.highlights.map((h, idx) => ({
+                  ...h,
+                  id: h.id || Date.now() + idx,
+                  text: h.text || ''
+                }))
+              : [{ id: Date.now(), text: '' }];
+            setHighlights(highlightsWithIds);
           }
           
           // Load photo data (will be empty due to quota fix)
@@ -286,12 +632,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           if (draftData.includedItems) setIncludedItems(draftData.includedItems);
           if (draftData.excludedItems) setExcludedItems(draftData.excludedItems);
           if (draftData.accessibilityToggles) setAccessibilityToggles(draftData.accessibilityToggles);
+          if (draftData.cancellationPolicy) setCancellationPolicy(normalizeCancellationPolicyForEditor(draftData.cancellationPolicy));
+          if (draftData.faqs && Array.isArray(draftData.faqs)) setFaqs(draftData.faqs);
           
           // Load Step 5 data (Vehicles)
-          if (draftData.vehicles) {
-            console.log('✅ Loading vehicles:', draftData.vehicles.length, 'vehicles');
-            setVehicles(draftData.vehicles);
-          }
           if (draftData.vehicleTitle) setVehicleTitle(draftData.vehicleTitle);
           if (draftData.selectedVehicleType) setSelectedVehicleType(draftData.selectedVehicleType);
           if (draftData.selectedVehicleModel) setSelectedVehicleModel(draftData.selectedVehicleModel);
@@ -317,10 +661,32 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           if (draftData.selectedPickupMinute) setSelectedPickupMinute(draftData.selectedPickupMinute);
           if (draftData.selectedWeekDay) setSelectedWeekDay(draftData.selectedWeekDay);
           if (draftData.selectedDate) setSelectedDate(draftData.selectedDate);
-          if (draftData.timeSlots) setTimeSlots(draftData.timeSlots);
+          if (draftData.timeSlots) setTimeSlots(normalizeTimeSlots(draftData.timeSlots));
           if (draftData.vehicleTimeAllocations) {
             console.log('✅ Loading vehicle-time allocations:', draftData.vehicleTimeAllocations.length);
             setVehicleTimeAllocations(draftData.vehicleTimeAllocations);
+          }
+
+          if (draftData.photoStoragePending) {
+            const targetId = detectedDbId || draftId;
+            if (targetId) {
+              (async () => {
+                try {
+                  console.log('🔄 Hydrating images for draft from server:', targetId);
+                  const fullProduct = await productService.getProduct(targetId);
+                  const { transformApiProductToDraftPayload } = await import('@/utils/productTransform');
+                  const hydratedDraft = transformApiProductToDraftPayload(fullProduct);
+                  if (hydratedDraft?.coverImage) {
+                    setCoverImage(hydratedDraft.coverImage);
+                  }
+                  if (Array.isArray(hydratedDraft?.uploadedPhotos) && hydratedDraft.uploadedPhotos.length) {
+                    setUploadedPhotos(hydratedDraft.uploadedPhotos);
+                  }
+                } catch (hydrationError) {
+                  console.warn('Unable to hydrate draft images from backend:', hydrationError);
+                }
+              })();
+            }
           }
           
           // Load current step
@@ -334,6 +700,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         } else {
           console.log('⚠️ No existing draft found for ID:', draftId);
           console.log('💡 Starting fresh - no saved data to load');
+          setDbProductId(draftId && draftId !== 'current_draft' ? draftId : null);
         }
       } catch (error) {
         console.error('❌ Error loading draft data:', error);
@@ -345,7 +712,31 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     };
     
     loadDraftData();
-  }, [draftId]);
+  }, [draftId, normalizeTimeSlots]);
+
+  useEffect(() => {
+    loadVehicles();
+  }, [loadVehicles]);
+
+  // Utility to serialize photos for storage
+  const serializePhoto = (photo) => {
+    if (!photo) return null;
+    const url = photo.url || photo.preview || '';
+    if (!url) return null;
+    const serialized = {
+      id: photo.id || Date.now() + Math.random(),
+      url,
+      name: photo.name || 'Uploaded photo',
+    };
+    if (photo.publicId || photo.public_id) {
+      serialized.publicId = photo.publicId || photo.public_id;
+    }
+    if (photo.width) serialized.width = photo.width;
+    if (photo.height) serialized.height = photo.height;
+    if (photo.bytes) serialized.bytes = photo.bytes;
+    if (photo.folder) serialized.folder = photo.folder;
+    return serialized;
+  };
 
   // Auto-save draft data whenever any field changes
   useEffect(() => {
@@ -356,6 +747,26 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     
     const saveDraftData = () => {
       try {
+        const storageKey = `product_draft_${draftId}`;
+        let preservedCustomFields = undefined;
+
+        try {
+          const existingRaw = localStorage.getItem(storageKey);
+          if (existingRaw) {
+            const existingDraft = JSON.parse(existingRaw);
+            if (existingDraft?.customFields && typeof existingDraft.customFields === 'object') {
+              preservedCustomFields = existingDraft.customFields;
+            }
+          }
+        } catch (parseError) {
+          console.warn('Unable to read existing draft for custom fields preservation:', parseError);
+        }
+
+        const serializedPhotos = uploadedPhotos
+          .map(serializePhoto)
+          .filter(Boolean);
+        const serializedCover = serializePhoto(coverImage);
+
         const draftData = {
           // Step 1 data
           productTitle,
@@ -367,9 +778,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           description,
           highlights,
           
-          // Photo data - EXCLUDED to avoid localStorage quota errors
-          // uploadedPhotos,
-          // coverImage,
+          // Photo data
+          uploadedPhotos: serializedPhotos,
+          coverImage: serializedCover,
           
           // Step 4 data
           selectedGuideType,
@@ -379,6 +790,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           includedItems,
           excludedItems,
           accessibilityToggles,
+          faqs,
+          cancellationPolicy,
           
           // Step 5 data
           vehicles,
@@ -412,11 +825,41 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           
           // Metadata
           lastModified: new Date().toISOString(),
-          draftId: draftId
+          draftId: draftId,
+          dbProductId: dbProductId || (draftId && draftId !== 'current_draft' ? draftId : null),
+          itineraries,
+          customFields: preservedCustomFields
         };
         
-        localStorage.setItem(`product_draft_${draftId}`, JSON.stringify(draftData));
-        console.log('💾 Draft auto-saved to product_draft_' + draftId);
+        const attemptSave = (payload) => {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(payload));
+            return true;
+          } catch (storageError) {
+            if (storageError && storageError.name === 'QuotaExceededError') {
+              return false;
+            }
+            throw storageError;
+          }
+        };
+
+        if (!attemptSave(draftData)) {
+          console.warn('⚠️ Draft save exceeded localStorage quota, retrying without embedded images.');
+          const slimDraft = {
+            ...draftData,
+            uploadedPhotos: [],
+            coverImage: null,
+            photoStoragePending: true
+          };
+
+          if (!attemptSave(slimDraft)) {
+            throw new Error('Draft save failed even after stripping images.');
+          } else {
+            console.log('💾 Draft saved without images due to storage limits.');
+          }
+        } else {
+          console.log('💾 Draft auto-saved to product_draft_' + draftId);
+        }
       } catch (error) {
         console.error('Error saving draft data:', error);
       }
@@ -430,7 +873,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     isLoadingDraft,
     productTitle, productCategory, sellingPoints, tagline,
     description, highlights,
-    // uploadedPhotos, coverImage, - removed from dependencies to avoid quota errors
+    uploadedPhotos, coverImage,
     selectedGuideType, selectedActivityType, selectedLanguages, selectedThingsToCarry,
     includedItems, excludedItems, accessibilityToggles,
     vehicles, vehicleTitle, selectedVehicleType, selectedVehicleModel, vehicleYear,
@@ -438,8 +881,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     totalDuration, vehicleDescription, selectedVehicleForTour,
     selectedPickupLocations, selectedDropoffLocations, activePickupLocations, activeDropoffLocations,
     selectedPickupHour, selectedPickupMinute, selectedWeekDay, selectedDate, timeSlots,
-    vehicleTimeAllocations,
-    step, draftId
+    vehicleTimeAllocations, itineraries,
+    step, draftId, dbProductId
   ]);
 
   // Auto-generate time slots when start/end time, duration, or weekday changes
@@ -746,18 +1189,25 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const removeTimeSlot = (day, timeSlot) => {
     setTimeSlots(prev => ({
       ...prev,
-      [day]: prev[day].filter(slot => slot !== timeSlot)
+      [day]: Array.isArray(prev[day]) ? prev[day].filter(slot => slot !== timeSlot) : []
     }));
   };
 
   // Add a custom time slot to a specific day
   const addCustomTimeSlot = (day, time) => {
-    if (!timeSlots[day].includes(time)) {
-      setTimeSlots(prev => ({
+    setTimeSlots(prev => {
+      const current = Array.isArray(prev[day]) ? prev[day] : [];
+      if (current.includes(time)) {
+        return prev;
+      }
+      const nextDaySlots = [...current, time].sort(
+        (a, b) => parseTime(a.replace(' : ', ':')) - parseTime(b.replace(' : ', ':'))
+      );
+      return {
         ...prev,
-        [day]: [...prev[day], time].sort((a, b) => parseTime(a.replace(' : ', ':')) - parseTime(b.replace(' : ', ':')))
-      }));
-    }
+        [day]: nextDaySlots
+      };
+    });
   };
 
   const handleVehicleTypeChange = (vehicleType) => {
@@ -766,79 +1216,185 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   };
 
   // === PHOTO UPLOAD HANDLERS ===
-  const handlePhotoUpload = (event) => {
-    const files = Array.from(event.target.files);
-    
-    files.forEach(file => {
-      if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
-        alert(`File ${file.name} is too large. Maximum size is 2GB.`);
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+  const MIN_DIMENSION_PX = 720;
+
+  const validateImage = (file) => {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error('No file provided'));
         return;
       }
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedPhotos(prev => [...prev, {
-          id: Date.now() + Math.random(),
-          url: e.target.result,
-          file: file,
-          name: file.name
-        }]);
+
+      if (file.size > MAX_IMAGE_BYTES) {
+        const message = `"${file.name}" is too large. Maximum size is 5MB.`;
+        alert(message);
+        reject(new Error(message));
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        if (img.width < MIN_DIMENSION_PX || img.height < MIN_DIMENSION_PX) {
+          const message = `"${file.name}" is too small. Minimum resolution is ${MIN_DIMENSION_PX}px on both width and height.`;
+          alert(message);
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error(message));
+          return;
+        }
+        URL.revokeObjectURL(objectUrl);
+        resolve();
       };
-      reader.readAsDataURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        const message = `Unable to read "${file.name}". Please try another image.`;
+        alert(message);
+        reject(new Error(message));
+      };
+      img.src = objectUrl;
     });
   };
 
-  const handleCoverImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
-      alert('File is too large. Maximum size is 2GB.');
-      return;
+  const normalizeUploadResponse = (file, uploadResult, overrides = {}) => {
+    if (!uploadResult?.url) {
+      throw new Error('Upload result missing URL');
     }
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setCoverImage({
-        id: Date.now(),
-        url: e.target.result,
-        file: file,
-        name: file.name
-      });
+
+    return {
+      id: Date.now() + Math.random(),
+      url: uploadResult.url,
+      name: overrides.name || file?.name || uploadResult.public_id || 'Uploaded photo',
+      publicId: uploadResult.public_id,
+      width: uploadResult.width,
+      height: uploadResult.height,
+      bytes: uploadResult.bytes,
+      folder: uploadResult.folder,
     };
-    reader.readAsDataURL(file);
+  };
+
+  const uploadImageToCloudinary = async (file, { folder = 'products' } = {}) => {
+    setIsUploadingImage(true);
+    setImageUploadProgress(0);
+    try {
+      const response = await imageService.uploadImage(file, {
+        folder,
+        onUploadProgress: (progress) => setImageUploadProgress(progress),
+      });
+
+      if (!response?.url) {
+        throw new Error(response?.detail || 'Image upload failed');
+      }
+
+      return normalizeUploadResponse(file, response);
+    } finally {
+      setIsUploadingImage(false);
+      setImageUploadProgress(0);
+    }
+  };
+
+  const handlePhotoUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    for (const file of files) {
+      try {
+        await validateImage(file);
+        const uploaded = await uploadImageToCloudinary(file);
+        setUploadedPhotos((prev) => [...prev, uploaded]);
+        if (!coverImage) {
+          setCoverImage(uploaded);
+        }
+      } catch (error) {
+        console.error('Failed to upload photo:', error);
+        alert(`Failed to upload "${file.name}". ${error?.message || 'Please try again.'}`);
+      }
+    }
+
+    if (event?.target) {
+      event.target.value = '';
+    }
+  };
+
+  const handleCoverImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      await validateImage(file);
+      const uploaded = await uploadImageToCloudinary(file, { folder: 'products/hero' });
+
+      if (coverImage?.publicId) {
+        imageService.deleteImage(coverImage.publicId).catch((err) => {
+          console.warn('Failed to delete previous cover image from Cloudinary', err);
+        });
+      }
+
+      setCoverImage(uploaded);
+    } catch (error) {
+      console.error('Failed to upload cover image:', error);
+      alert(`Failed to upload cover image. ${error?.message || 'Please try again.'}`);
+    } finally {
+      if (event?.target) {
+        event.target.value = '';
+      }
+    }
   };
 
   const removePhoto = (photoId) => {
-    setUploadedPhotos(prev => prev.filter(photo => photo.id !== photoId));
-    // If deleted photo was the cover, clear cover
+    const target = uploadedPhotos.find((photo) => photo.id === photoId);
+    setUploadedPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
     if (coverImage && coverImage.id === photoId) {
       setCoverImage(null);
+    }
+    if (target?.publicId) {
+      imageService.deleteImage(target.publicId).catch((err) => {
+        console.warn('Failed to delete image from Cloudinary', err);
+      });
     }
   };
 
   const removeCoverImage = () => {
+    if (coverImage?.publicId) {
+      imageService.deleteImage(coverImage.publicId).catch((err) => {
+        console.warn('Failed to delete cover image from Cloudinary', err);
+      });
+    }
     setCoverImage(null);
   };
 
-  const replacePhoto = (index, file) => {
-    if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
-      alert(`File ${file.name} is too large. Maximum size is 2GB.`);
-      return;
+  const replacePhoto = async (index, file) => {
+    if (!file) return;
+    let previousPhoto = null;
+
+    try {
+      await validateImage(file);
+      const uploaded = await uploadImageToCloudinary(file);
+
+      setUploadedPhotos((prev) => {
+        const next = prev.map((photo, idx) => {
+          if (idx === index) {
+            previousPhoto = photo;
+            return uploaded;
+          }
+          return photo;
+        });
+        return next;
+      });
+
+      if (previousPhoto?.publicId && previousPhoto.publicId !== uploaded.publicId) {
+        imageService.deleteImage(previousPhoto.publicId).catch((err) => {
+          console.warn('Failed to delete replaced image from Cloudinary', err);
+        });
+      }
+
+      if (coverImage && previousPhoto && coverImage.id === previousPhoto.id) {
+        setCoverImage(uploaded);
+      }
+    } catch (error) {
+      console.error('Failed to replace photo:', error);
+      alert(`Failed to replace photo. ${error?.message || 'Please try again.'}`);
     }
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setUploadedPhotos(prev => prev.map((photo, idx) => 
-        idx === index ? {
-          id: Date.now() + Math.random(),
-          url: e.target.result,
-          file: file,
-          name: file.name
-        } : photo
-      ));
-    };
-    reader.readAsDataURL(file);
   };
 
   const setCoverFromUploadedPhoto = (photoIndex) => {
@@ -866,19 +1422,43 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   };
 
   // === VEHICLE HANDLERS (Legacy - for modal selection) ===
-  const deleteVehicle = (index) => {
-    if (window.confirm('Are you sure you want to delete this vehicle?')) {
-      setVehicles(prev => prev.filter((_, idx) => idx !== index));
-      // Also clear edit mode if deleting the vehicle being edited
-      if (editingVehicleIndex === index) {
-        clearVehicleForm();
-        setEditingVehicleIndex(null);
+  const deleteVehicle = async (vehicleId) => {
+    if (!vehicleId) return;
+    if (!window.confirm('Are you sure you want to delete this vehicle?')) {
+      return;
+    }
+
+    try {
+      const wasSelected = selectedVehicleForTour?.id === vehicleId;
+      await vehicleService.remove(vehicleId);
+      // Reload vehicles from database to ensure consistency
+      const fetched = await vehicleService.list();
+      const mapped = Array.isArray(fetched) ? fetched : [];
+      setVehicles(mapped);
+      
+      // Update selected vehicle if the deleted one was selected
+      if (wasSelected) {
+        setSelectedVehicleForTour(mapped.length ? mapped[0] : null);
+      } else {
+        // Preserve current selection if it still exists
+        const currentSelected = mapped.find(v => v.id === selectedVehicleForTour?.id);
+        if (currentSelected) {
+          setSelectedVehicleForTour(currentSelected);
+        }
       }
+      
+      if (editingVehicleId === vehicleId) {
+        clearVehicleForm();
+      }
+      alert('Vehicle deleted successfully!');
+    } catch (error) {
+      console.error('Failed to delete vehicle option:', error);
+      alert(error?.message || 'Failed to delete vehicle.');
     }
   };
 
   // === STEP 5 VEHICLE FORM HANDLERS ===
-  const saveVehicleOption = () => {
+  const saveVehicleOption = async () => {
     // Validate all required fields
     if (!vehicleTitle || !selectedVehicleType || !selectedVehicleModel || 
         !vehicleAttributes || !numTravellers || !currency || 
@@ -887,35 +1467,53 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       return;
     }
 
-    const newVehicle = {
-      id: editingVehicleIndex !== null ? vehicles[editingVehicleIndex].id : Date.now(),
-      title: vehicleTitle,
+    const capacityValue = parseInt(numTravellers, 10);
+    const amountValue = Number(productAmount);
+
+    const payload = {
+      id: editingVehicleId || undefined,
+      title: vehicleTitle.trim(),
       type: selectedVehicleType,
       model: selectedVehicleModel,
       year: vehicleYear,
       attributes: vehicleAttributes,
-      capacity: parseInt(numTravellers),
-      currency: currency,
-      pricingType: pricingType,
-      amount: productAmount,
+      capacity: Number.isFinite(capacityValue) ? capacityValue : null,
+      currency,
+      pricingType,
+      amount: Number.isFinite(amountValue) ? amountValue : 0,
       duration: totalDuration,
-      description: vehicleDescription
+      description: vehicleDescription.trim(),
     };
 
-    if (editingVehicleIndex !== null) {
-      // Update existing vehicle
-      setVehicles(prev => prev.map((v, idx) => 
-        idx === editingVehicleIndex ? newVehicle : v
-      ));
-      setEditingVehicleIndex(null);
-    } else {
-      // Add new vehicle
-      setVehicles(prev => [...prev, newVehicle]);
-    }
+    setVehicleSaving(true);
+    setVehicleError(null);
 
-    // Clear form
-    clearVehicleForm();
-    alert('Vehicle option saved successfully!');
+    try {
+      if (editingVehicleId) {
+        const updated = await vehicleService.update(editingVehicleId, payload);
+        // Reload vehicles from database to ensure consistency
+        await loadVehicles();
+        setSelectedVehicleForTour((prevSelected) => {
+          if (!prevSelected) return updated;
+          return prevSelected.id === updated.id ? updated : prevSelected;
+        });
+        setEditingVehicleId(null);
+        alert('Vehicle option updated successfully!');
+      } else {
+        const created = await vehicleService.create(payload);
+        // Reload vehicles from database to ensure consistency
+        await loadVehicles();
+        setSelectedVehicleForTour((prevSelected) => prevSelected || created);
+        alert('Vehicle option saved successfully!');
+      }
+      clearVehicleForm();
+    } catch (error) {
+      console.error('Failed to save vehicle option:', error);
+      setVehicleError(error?.message || 'Failed to save vehicle.');
+      alert(error?.message || 'Failed to save vehicle.');
+    } finally {
+      setVehicleSaving(false);
+    }
   };
 
   const clearVehicleForm = () => {
@@ -930,22 +1528,31 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     setProductAmount('');
     setTotalDuration('');
     setVehicleDescription('');
+    setEditingVehicleId(null);
   };
 
-  const editVehicleOption = (index) => {
-    const vehicle = vehicles[index];
-    setVehicleTitle(vehicle.title);
-    setSelectedVehicleType(vehicle.type);
-    setSelectedVehicleModel(vehicle.model);
-    setVehicleYear(vehicle.year);
-    setVehicleAttributes(vehicle.attributes);
-    setNumTravellers(vehicle.capacity.toString());
-    setCurrency(vehicle.currency);
-    setPricingType(vehicle.pricingType);
-    setProductAmount(vehicle.amount);
-    setTotalDuration(vehicle.duration);
-    setVehicleDescription(vehicle.description);
-    setEditingVehicleIndex(index);
+  const editVehicleOption = (vehicle) => {
+    if (!vehicle) return;
+    setVehicleTitle(vehicle.title || '');
+    setSelectedVehicleType(vehicle.type || '');
+    setSelectedVehicleModel(vehicle.model || '');
+    setVehicleYear(vehicle.year || '2024');
+    setVehicleAttributes(vehicle.attributes || '');
+    setNumTravellers(
+      typeof vehicle.capacity === 'number' && !Number.isNaN(vehicle.capacity)
+        ? String(vehicle.capacity)
+        : ''
+    );
+    setCurrency(vehicle.currency || '');
+    setPricingType(vehicle.pricingType || '');
+    setProductAmount(
+      typeof vehicle.amount === 'number' && !Number.isNaN(vehicle.amount)
+        ? String(vehicle.amount)
+        : ''
+    );
+    setTotalDuration(vehicle.duration || '');
+    setVehicleDescription(vehicle.description || '');
+    setEditingVehicleId(vehicle.id || null);
     
     // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1125,17 +1732,25 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 <label className="block text-sm font-medium text-gray-900 mb-2">
                   Product Title <span className="text-red-500">*</span>
                 </label>
-                <p className="text-sm text-gray-600 mb-3">Enter a clear and descriptive name for your product or service. (title should be maximum 40 characters)</p>
+                <p className="text-sm text-gray-600 mb-3">Enter a clear, descriptive title. <span className="font-medium">Min 30 characters</span> (max 40).</p>
                 <input
                   type="text"
                   value={productTitle}
                   onChange={(e) => setProductTitle(e.target.value)}
-                  placeholder="e.g., Mount Fuji, Tokyo"
+                  placeholder="e.g., Scenic Full‑Day Private Tour of Mount Fuji and Lake Kawaguchi"
                   required
                   maxLength={40}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-4 py-3 bg-white rounded-lg focus:outline-none focus:ring-2 ${
+                    productTitle.length > 0 && productTitle.length < 30
+                      ? 'border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                 />
-                <p className="text-xs text-gray-500 mt-1">{productTitle.length}/40 characters maximum</p>
+                <div className="mt-1 flex items-center justify-between">
+                  <p className={`${productTitle.length < 30 ? 'text-red-600' : 'text-gray-500' } text-xs`}>
+                    {productTitle.length} / 40 characters · {productTitle.length < 30 ? `${30 - productTitle.length} more needed` : 'Looks good'}
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -1206,6 +1821,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               </div>
             </div>
           </div>
+
         );
       case 2:
         return (
@@ -1284,18 +1900,20 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 <p className="text-gray-600 mb-4">Describe in 3-5 sentences what makes your activity unique and different from others. Highlight the special features or experiences that set it apart, so customers can easily compare and see why yours is the best choice.</p>
                 
                 <div className="space-y-4">
-                  {highlights.map((highlight, index) => (
-                    <div key={highlight.id} className="relative flex items-center gap-2">
+                  {highlights.map((highlight, index) => {
+                    const highlightId = highlight?.id ?? `highlight-${index}`;
+                    return (
+                    <div key={String(highlightId)} className="relative flex items-center gap-2">
                       <input
                         type="text"
-                        value={highlight.text}
-                        onChange={(e) => handleHighlightChange(highlight.id, e.target.value)}
+                        value={highlight?.text || ''}
+                        onChange={(e) => handleHighlightChange(highlightId, e.target.value)}
                         placeholder="e.g., Churelto Pagoda and Lake Kawaguchi"
                         className="flex-1 px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                       {highlights.length > 1 && (
                         <button
-                          onClick={() => removeHighlight(highlight.id)}
+                          onClick={() => removeHighlight(highlightId)}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                           title="Remove highlight"
                         >
@@ -1303,7 +1921,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                         </button>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 <div className="text-right mt-4">
@@ -1316,6 +1935,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 </div>
               </div>
             </div>
+
+            {renderCancellationPolicySection()}
           </div>
         );
       case 3:
@@ -1582,6 +2203,15 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                     </label>
                   </div>
                 ))}
+                {isUploadingImage && (
+                  <div className="flex items-center text-sm text-blue-600 mt-2">
+                    <svg className="animate-spin h-4 w-4 mr-2 text-blue-500" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span>Uploading image{imageUploadProgress ? ` (${imageUploadProgress}%)` : '...'}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1913,6 +2543,67 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 </div>
               </div>
             </div>
+
+            {/* FAQ Section */}
+            <div ref={faqRef} className="mt-6">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm">
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Frequently Asked Questions</h3>
+                <p className="text-gray-600 mb-4 text-sm">Add frequently asked questions about your product that will be shown to customers. (optional)</p>
+                
+                <div className="space-y-4">
+                  {faqs.map((faq, index) => (
+                    <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="text-sm font-semibold text-gray-700">FAQ {index + 1}</h4>
+                        <button
+                          onClick={() => setFaqs(faqs.filter((_, i) => i !== index))}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <FiX size={18} />
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Question</label>
+                          <input
+                            type="text"
+                            value={faq.question || ''}
+                            onChange={(e) => {
+                              const updatedFaqs = [...faqs];
+                              updatedFaqs[index] = { ...updatedFaqs[index], question: e.target.value };
+                              setFaqs(updatedFaqs);
+                            }}
+                            placeholder="Enter your question"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Answer</label>
+                          <textarea
+                            value={faq.answer || ''}
+                            onChange={(e) => {
+                              const updatedFaqs = [...faqs];
+                              updatedFaqs[index] = { ...updatedFaqs[index], answer: e.target.value };
+                              setFaqs(updatedFaqs);
+                            }}
+                            placeholder="Enter your answer"
+                            rows="3"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <button
+                    onClick={() => setFaqs([...faqs, { question: '', answer: '' }])}
+                    className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors font-medium"
+                  >
+                    + Add FAQ
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         );
        case 6:
@@ -1965,6 +2656,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                            <button onClick={() => navigateToSection(4, thingsToCarryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Things to carry</button>
                            <div className="border-t border-gray-100" />
                            <button onClick={() => navigateToSection(4, includedExcludedRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Included & excluded</button>
+                           <div className="border-t border-gray-100" />
+                           <button onClick={() => navigateToSection(4, faqRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">FAQ</button>
                          </div>
                        )}
                        {topMenuStep === 5 && s === 5 && step > 5 && (
@@ -2775,35 +3468,37 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               {/* Time Slots Section - Dynamic for all weekdays */}
               <div className="space-y-6">
                 {Object.keys(timeSlots).map((day) => (
-                  timeSlots[day] && timeSlots[day].length > 0 && (
-                    <div key={day}>
-                      <h4 className="text-sm font-bold text-gray-900 mb-3">{day}</h4>
-                     <div className="grid grid-cols-5 gap-2">
-                        {timeSlots[day].map((time, index) => (
-                         <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
-                           <span className="text-gray-700">{time}</span>
-                            <button 
-                              onClick={() => {
-                                setTimeSlots(prev => ({
-                                  ...prev,
-                                  [day]: prev[day].filter((_, i) => i !== index)
-                                }));
-                              }}
-                              className="text-gray-400 hover:text-red-500"
-                            >
-                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                             </svg>
-                           </button>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                  )
+                  <React.Fragment key={day}>
+                    {Array.isArray(timeSlots[day]) && timeSlots[day].length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-900 mb-3">{day}</h4>
+                       <div className="grid grid-cols-5 gap-2">
+                          {timeSlots[day].map((time, index) => (
+                           <div key={index} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
+                             <span className="text-gray-700">{time}</span>
+                              <button 
+                                onClick={() => {
+                                  setTimeSlots(prev => ({
+                                    ...prev,
+                                    [day]: prev[day].filter((_, i) => i !== index)
+                                  }));
+                                }}
+                                className="text-gray-400 hover:text-red-500"
+                              >
+                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                               </svg>
+                             </button>
+                           </div>
+                          ))}
+                       </div>
+                      </div>
+                    )}
+                  </React.Fragment>
                 ))}
                 
                 {/* Show message if no slots configured yet */}
-                {Object.values(timeSlots).every(slots => !slots || slots.length === 0) && (
+                {Object.values(timeSlots).every(slots => !Array.isArray(slots) || slots.length === 0) && (
                   <div className="text-center py-8">
                     <p className="text-sm text-gray-500 italic">
                       Select a weekday, then set start time, end time, and duration to generate time slots
@@ -2820,7 +3515,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                    {/* Modal Header */}
                    <div className="p-6 border-b border-gray-200 relative sticky top-0 bg-white z-10">
                      <h2 className="text-lg font-semibold text-gray-900">Select Vehicle</h2>
-                     <p className="text-sm text-gray-600 mt-1">Choose a vehicle from your existing vehicles in published products and drafts.</p>
+                     <p className="text-sm text-gray-600 mt-1">Choose a vehicle from your existing vehicles. To edit or delete vehicles, go back to the vehicle form section.</p>
                      
                      {/* Close Button */}
                      <button
@@ -2833,217 +3528,108 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
 
                    {/* Modal Content - List of Saved Vehicles */}
                    <div className="p-6">
-                     {/* Load all existing vehicles from localStorage */}
+                     {/* Load all existing vehicles from database */}
                      {(() => {
-                       // Get all existing vehicles from all products AND drafts in localStorage
-                       try {
-                        // Source vehicles ONLY from:
-                        // 1) Current product form
-                        // 2) Published products in all_products (what you've created and published)
-                        const seenVehicles = new Set();
-                        const collectedVehicles = [];
-
-                        // Helper: validate vehicle has required fields
-                        const isValidVehicle = (v) => {
-                          if (!v) return false;
-                          const hasBasics = (v.title || v.model || '').toString().trim() !== '' && (v.type || '').toString().trim() !== '';
-                          const hasNumbers = Number.isFinite(parseInt(v.capacity)) && (v.amount !== undefined);
-                          return hasBasics && hasNumbers;
-                        };
-
-                        // 1) Current product vehicles
-                        vehicles.forEach(v => {
-                          const vt = (v.title || '').toLowerCase().trim();
-                          const ty = (v.type || '').toLowerCase().trim();
-                          const md = (v.model || '').toLowerCase().trim();
-                          const key = `${vt}|${ty}|${md}`;
-                          if (!seenVehicles.has(key) && isValidVehicle(v)) {
-                            seenVehicles.add(key);
-                            collectedVehicles.push(v);
-                          }
-                        });
-
-                        // 2) Vehicles from published products
-                        try {
-                          const allProductsRaw = localStorage.getItem('all_products');
-                          if (allProductsRaw) {
-                            const allProducts = JSON.parse(allProductsRaw);
-                            allProducts
-                              .filter(p => p && p.status === 'Published' && Array.isArray(p.vehicles))
-                              .forEach(p => {
-                                p.vehicles.forEach(v => {
-                                  const vt = (v.title || '').toLowerCase().trim();
-                                  const ty = (v.type || '').toLowerCase().trim();
-                                  const md = (v.model || '').toLowerCase().trim();
-                                  const key = `${vt}|${ty}|${md}`;
-                                  if (!seenVehicles.has(key) && isValidVehicle(v)) {
-                                    seenVehicles.add(key);
-                                    collectedVehicles.push(v);
-                                  }
-                                });
-                              });
-                          }
-                        } catch (e) {
-                          console.warn('Error reading all_products for vehicles', e);
-                        }
-
-                        const availableVehicles = collectedVehicles;
+                       // Use vehicles loaded from database (same as "Existing Vehicle Options")
+                       const availableVehicles = vehicles;
                          
-                         if (availableVehicles.length === 0) {
-                           return (
-                             <div className="text-center py-12">
-                               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                 </svg>
-                               </div>
-                               <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
-                               <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
-                               <button
-                                 onClick={() => setShowSelectVehicleModal(false)}
-                                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                               >
-                                 Close
-                               </button>
-                             </div>
-                           );
-                         }
-                         
+                       if (vehiclesLoading) {
                          return (
-                           <div className="space-y-3">
-                             {availableVehicles.map((vehicle, index) => {
-                               const isSelected = selectedVehicleForTour?.id === vehicle.id || 
-                                                 (selectedVehicleForTour && selectedVehicleForTour.title === vehicle.title);
-                               return (
-                               <div 
-                                 key={vehicle.id || `${vehicle.title}-${index}`}
-                                 className={`rounded-lg p-4 cursor-pointer transition-all ${
-                                   isSelected 
-                                     ? 'bg-blue-50 border-2 border-blue-600' 
-                                     : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
-                                 }`}
-                                 onClick={() => {
-                                   setSelectedVehicleForTour(vehicle);
-                                 }}
-                               >
-                       <div className="flex justify-between items-start">
-                         <div className="flex-1">
-                           <div className="flex items-baseline mb-1">
-                                     <h3 className="text-lg font-bold text-gray-900">{vehicle.title}</h3>
-                                     {isSelected && (
-                                       <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
-                                         <FiCheckCircle className="mr-1" size={14} />
-                                         Selected
-                                       </span>
-                                     )}
-                           </div>
-                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
-                                     {vehicle.attributes ? (<span className="italic">{vehicle.attributes}</span>) : null}
-                                     {vehicle.year ? (<span>{vehicle.year}</span>) : null}
-                                     {Number.isFinite(parseInt(vehicle.capacity)) ? (
-                                       <span>Best for upto <span className="text-blue-600 font-medium">{parseInt(vehicle.capacity) < 10 ? '0' : ''}{parseInt(vehicle.capacity)}</span></span>
-                                     ) : null}
-                                     {vehicle.duration ? (
-                                       <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
-                                     ) : null}
-                           </div>
-                                   <p className="text-xs text-gray-500 leading-relaxed mb-2">
-                                     {vehicle.description}
-                           </p>
-                                   <div className="flex items-center space-x-2 text-sm">
-                                     <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
-                                     <span className="text-gray-400">•</span>
-                                     <span className="text-gray-600">{vehicle.pricingType}</span>
-                                   </div>
-                         </div>
-                         <div className="text-right ml-4">
-                                   <div className="text-lg font-bold text-blue-600">{vehicle.currency} {vehicle.amount}</div>
-                                   <div className="text-xs text-gray-500">{vehicle.pricingType}</div>
-                           </div>
-                         </div>
-                       </div>
-                               );
-                             })}
-                     </div>
-                         );
-                       } catch (error) {
-                         console.error('Error loading existing vehicles:', error);
-                         // Fallback to current product's vehicles only
-                         if (vehicles.length === 0) {
-                           return (
-                             <div className="text-center py-12">
-                               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                 </svg>
-                               </div>
-                               <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
-                               <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
-                               <button
-                                 onClick={() => setShowSelectVehicleModal(false)}
-                                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                               >
-                                 Close
-                               </button>
+                           <div className="text-center py-12">
+                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                               <svg className="w-8 h-8 text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                               </svg>
                              </div>
-                           );
-                         }
-                         
-                         return (
-                           <div className="space-y-3">
-                             {vehicles.map((vehicle, index) => {
-                               const isSelected = selectedVehicleForTour?.id === vehicle.id;
-                               return (
-                               <div 
-                                 key={vehicle.id}
-                                 className={`rounded-lg p-4 cursor-pointer transition-all ${
-                                   isSelected 
-                                     ? 'bg-blue-50 border-2 border-blue-600' 
-                                     : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
-                                 }`}
-                                 onClick={() => {
-                                   setSelectedVehicleForTour(vehicle);
-                                 }}
-                               >
-                       <div className="flex justify-between items-start">
-                         <div className="flex-1">
-                           <div className="flex items-baseline mb-1">
-                                     <h3 className="text-lg font-bold text-gray-900">{vehicle.title}</h3>
-                                     {isSelected && (
-                                       <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
-                                         <FiCheckCircle className="mr-1" size={14} />
-                                         Selected
-                                       </span>
-                                     )}
+                             <h3 className="text-lg font-medium text-gray-900 mb-2">Loading Vehicles...</h3>
                            </div>
-                           <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
-                                     <span className="italic">{vehicle.attributes}</span>
-                                     <span>{vehicle.year}</span>
-                                     <span>Best for upto <span className="text-blue-600 font-medium">{vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span></span>
-                                     <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
-                           </div>
-                                   <p className="text-xs text-gray-500 leading-relaxed mb-2">
-                                     {vehicle.description}
-                           </p>
-                                   <div className="flex items-center space-x-2 text-sm">
-                                     <span className="font-semibold text-blue-600">{vehicle.currency} {vehicle.amount}</span>
-                                     <span className="text-gray-400">•</span>
-                                     <span className="text-gray-600">{vehicle.pricingType}</span>
-                                   </div>
-                         </div>
-                         <div className="text-right ml-4">
-                                   <div className="text-lg font-bold text-blue-600">{vehicle.currency} {vehicle.amount}</div>
-                                   <div className="text-xs text-gray-500">{vehicle.pricingType}</div>
-                           </div>
-                         </div>
-                       </div>
-                               );
-                             })}
-                     </div>
                          );
                        }
-                     })()}
+
+                       if (availableVehicles.length === 0) {
+                         return (
+                           <div className="text-center py-12">
+                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                               <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                               </svg>
+                             </div>
+                             <h3 className="text-lg font-medium text-gray-900 mb-2">No Vehicles Available</h3>
+                             <p className="text-gray-600 mb-4">You haven't added any vehicles yet. Please add a vehicle option first in the form above.</p>
+                             <button
+                               onClick={() => setShowSelectVehicleModal(false)}
+                               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                             >
+                               Close
+                             </button>
                            </div>
+                         );
+                       }
+                       
+                       return (
+                         <div className="space-y-3">
+                           {availableVehicles.map((vehicle, index) => {
+                             const isSelected = selectedVehicleForTour?.id === vehicle.id || 
+                                               (selectedVehicleForTour && selectedVehicleForTour.title === vehicle.title);
+                             return (
+                               <div 
+                                 key={vehicle.id || `vehicle-${index}`}
+                                 className={`rounded-lg p-4 cursor-pointer transition-all ${
+                                   isSelected 
+                                     ? 'bg-blue-50 border-2 border-blue-600' 
+                                     : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
+                                 }`}
+                                 onClick={() => {
+                                   setSelectedVehicleForTour(vehicle);
+                                   setShowSelectVehicleModal(false);
+                                 }}
+                               >
+                                 <div className="flex justify-between items-start">
+                                   <div className="flex-1">
+                                     <div className="flex items-baseline mb-1">
+                                       <div className="flex items-center">
+                                         <h3 className="text-lg font-bold text-gray-900">{vehicle.title || 'Untitled Vehicle'}</h3>
+                                         {isSelected && (
+                                           <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-600 text-white">
+                                             <FiCheckCircle className="mr-1" size={14} />
+                                             Selected
+                                           </span>
+                                         )}
+                                       </div>
+                                     </div>
+                                     <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
+                                       {vehicle.attributes && <span className="italic">{vehicle.attributes}</span>}
+                                       {vehicle.year && <span>{vehicle.year}</span>}
+                                       {Number.isFinite(parseInt(vehicle.capacity)) && (
+                                         <span>Best for upto <span className="text-blue-600 font-medium">{String(parseInt(vehicle.capacity)).padStart(2, '0')}</span></span>
+                                       )}
+                                       {vehicle.duration && (
+                                         <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
+                                       )}
+                                     </div>
+                                     {vehicle.description && (
+                                       <p className="text-xs text-gray-500 leading-relaxed mb-2">
+                                         {vehicle.description}
+                                       </p>
+                                     )}
+                                     <div className="flex items-center space-x-2 text-sm">
+                                       <span className="font-semibold text-blue-600">{vehicle.currency || '$'} {vehicle.amount || '0'}</span>
+                                       <span className="text-gray-400">•</span>
+                                       <span className="text-gray-600">{vehicle.pricingType || 'Per Group'}</span>
+                                     </div>
+                                   </div>
+                                   <div className="text-right ml-4">
+                                     <div className="text-lg font-bold text-blue-600">{vehicle.currency || '$'} {vehicle.amount || '0'}</div>
+                                     <div className="text-xs text-gray-500">{vehicle.pricingType || 'Per Group'}</div>
+                                   </div>
+                                 </div>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       );
+                     })()}
+                   </div>
 
                    {/* Modal Footer */}
                    <div className="p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0">
@@ -3128,6 +3714,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                           <button onClick={() => navigateToSection(4, thingsToCarryRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Things to carry</button>
                           <div className="border-t border-gray-100" />
                           <button onClick={() => navigateToSection(4, includedExcludedRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">Included & excluded</button>
+                          <div className="border-t border-gray-100" />
+                          <button onClick={() => navigateToSection(4, faqRef)} className="w-full text-center px-3 py-2 hover:bg-gray-50 text-sm text-gray-700">FAQ</button>
                         </div>
                       )}
                     </div>
@@ -3154,7 +3742,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">
                   Title to your Option
-                  {editingVehicleIndex !== null && (
+                  {editingVehicleId && (
                     <span className="ml-3 text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full">Editing</span>
                   )}
                 </h3>
@@ -3428,16 +4016,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                   <div className="flex gap-3 mt-3">
                     <button 
                       onClick={saveVehicleOption}
-                      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                      disabled={vehicleSaving}
+                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${vehicleSaving ? 'bg-blue-300 cursor-not-allowed text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                     >
-                      {editingVehicleIndex !== null ? 'Update' : 'Save'}
+                      {vehicleSaving ? 'Saving...' : editingVehicleId ? 'Update' : 'Save'}
                   </button>
-                    {editingVehicleIndex !== null && (
+                    {editingVehicleId && (
                       <button 
-                        onClick={() => {
-                          clearVehicleForm();
-                          setEditingVehicleIndex(null);
-                        }}
+                        onClick={clearVehicleForm}
                         className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium transition-colors"
                       >
                         Cancel
@@ -3451,12 +4037,22 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               <div className="space-y-4">
                 <h3 className="text-xl font-bold text-gray-900">Existing Vehicle Options</h3>
                 
-                {vehicles.length === 0 ? (
+                {vehicleError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4">
+                    {vehicleError}
+                  </div>
+                )}
+
+                {vehiclesLoading ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center text-gray-500">
+                    Loading vehicles...
+                  </div>
+                ) : vehicles.length === 0 ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
                     <p className="text-gray-500">No vehicles added yet. Click "Select Vehicle" above to add your first vehicle.</p>
-                      </div>
+                  </div>
                 ) : (
-                  vehicles.map((vehicle, index) => (
+                  vehicles.map((vehicle) => (
                     <div key={vehicle.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -3466,7 +4062,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                       <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
                             {vehicle.attributes && <span>{vehicle.attributes}</span>}
                             {vehicle.year && <span>{vehicle.year}</span>}
-                            {vehicle.capacity && <span>Best for upto {vehicle.capacity < 10 ? '0' : ''}{vehicle.capacity}</span>}
+                            {typeof vehicle.capacity === 'number' && !Number.isNaN(vehicle.capacity) && (
+                              <span>Best for upto {vehicle.capacity}</span>
+                            )}
                             {vehicle.duration && <span>Approximate time {vehicle.duration}</span>}
                       </div>
                           {vehicle.description && (
@@ -3484,7 +4082,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                     </div>
                     <div className="flex space-x-2 ml-4">
                           <button 
-                            onClick={() => editVehicleOption(index)}
+                            onClick={() => editVehicleOption(vehicle)}
                             className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
                             title="Edit vehicle"
                           >
@@ -3493,7 +4091,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                         </svg>
                       </button>
                           <button 
-                            onClick={() => deleteVehicle(index)}
+                            onClick={() => deleteVehicle(vehicle.id)}
                             className="p-2 text-gray-400 hover:text-red-600 transition-colors"
                             title="Delete vehicle"
                           >
@@ -3789,6 +4387,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             onClose();
           }}
           onBack={() => setShowItineraryComponent(false)}
+          currentItineraries={itineraries}
+          onItinerariesChange={setItineraries}
           coverImage={coverImage}
           uploadedPhotos={uploadedPhotos}
           productData={{
@@ -3805,8 +4405,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             includedItems: includedItems,
             excludedItems: excludedItems,
             accessibility: accessibilityToggles,
+            faqs: faqs.filter(faq => faq.question && faq.answer && faq.question.trim() && faq.answer.trim()),
+            cancellationPolicy,
             // Vehicle data - pass only the selected vehicle as an array
             vehicles: selectedVehicleForTour ? [selectedVehicleForTour] : vehicles,
+            // Vehicle form fields (for price extraction)
+            productAmount: productAmount,
+            currency: currency,
+            pricingType: pricingType,
             // Location & Time data (now using arrays for multiple locations)
             pickupLocations: selectedPickupLocations,
             dropoffLocations: selectedDropoffLocations,
@@ -3817,8 +4423,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             timeSlots: timeSlots,
             vehicleTimeAllocations: vehicleTimeAllocations,
             applyToAllDays: applyToAllDays,
+            itineraries: itineraries,
             // Provide draftId so AddItineraryComponent can preload existing itineraries
-            draftId: draftId
+            draftId: draftId,
+            dbProductId: dbProductId || (draftId && draftId !== 'current_draft' ? draftId : null)
           }}
         />
       )}

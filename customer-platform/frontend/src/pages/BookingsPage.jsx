@@ -1,15 +1,75 @@
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
-import { Link, useNavigate } from 'react-router-dom'
-import { FiArrowLeft, FiSearch, FiFilter, FiMapPin, FiDownload, FiCalendar, FiDollarSign, FiUsers, FiChevronDown } from 'react-icons/fi'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { FiArrowLeft, FiSearch, FiFilter, FiMapPin, FiDownload, FiCalendar, FiDollarSign, FiUsers, FiChevronDown, FiTrash2 } from 'react-icons/fi'
+import { getBookings, deleteBooking } from '../services/bookingService'
+
+const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
+
+const formatCurrencyValue = (value, currency = 'USD') => {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: currency === 'JPY' ? 0 : 2
+    }).format(value || 0)
+  } catch (err) {
+    const amount = Number(value || 0)
+    if (Number.isNaN(amount)) {
+      return '$0.00'
+    }
+    return `$${amount.toFixed(currency === 'JPY' ? 0 : 2)}`
+  }
+}
+
+const formatDateDisplay = (value) => {
+  if (!value) return ''
+  try {
+    return new Date(value).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  } catch (err) {
+    return value
+  }
+}
+
+const normalizeBooking = (booking = {}) => {
+  const status = (booking.status || '').toLowerCase() || 'pending'
+  const startDate = booking.startDate || booking.start_date
+  return {
+    ...booking,
+    id: booking.id || booking.bookingId || booking.booking_id || '',
+    bookingId: booking.bookingId || booking.booking_id || booking.id || '',
+    tourName: booking.tourName || booking.title || booking.destination || booking.location || 'Upcoming Trip',
+    location: booking.location || booking.destination || '',
+    image: booking.image || booking.heroImage || booking.thumbnail || booking.hero_image || '',
+    tourDate: booking.tourDate || formatDateDisplay(startDate),
+    status,
+    totalAmount: typeof booking.totalAmount === 'number'
+      ? booking.totalAmount
+      : Number(booking.totalAmount || 0),
+    currency: booking.currency || 'USD',
+  }
+}
 
 const BookingsPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
+  const userId = useMemo(
+    () => localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID,
+    []
+  )
   const [allBookings, setAllBookings] = useState([])
   const [filteredBookings, setFilteredBookings] = useState([])
   const [activeFilter, setActiveFilter] = useState('all')
   const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [successMessage, setSuccessMessage] = useState('')
+  const [deletingBookingId, setDeletingBookingId] = useState(null)
   
   const [filterProductName, setFilterProductName] = useState('')
   const [filterTravelDateStart, setFilterTravelDateStart] = useState('')
@@ -19,12 +79,56 @@ const BookingsPage = () => {
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    // Load bookings from localStorage
-    const savedBookings = localStorage.getItem('bookings')
-    if (savedBookings) {
-      setAllBookings(JSON.parse(savedBookings))
+    if (location.state?.cancelledBookingId) {
+      setSuccessMessage('Booking cancelled successfully.')
+      navigate(location.pathname, { replace: true })
     }
-  }, [])
+  }, [location, navigate])
+
+  const fetchBookings = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await getBookings(userId)
+      const normalized = Array.isArray(data) ? data.map(normalizeBooking) : []
+      setAllBookings(normalized)
+    } catch (err) {
+      setError(err?.message || 'Unable to load bookings.')
+      setAllBookings([])
+    } finally {
+      setLoading(false)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    fetchBookings()
+  }, [fetchBookings])
+
+  useEffect(() => {
+    const handleUpdated = () => fetchBookings()
+    window.addEventListener('customer_bookings_updated', handleUpdated)
+    return () => window.removeEventListener('customer_bookings_updated', handleUpdated)
+  }, [fetchBookings])
+
+  const handleDeleteBooking = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to delete this booking? This will remove it from your bookings list, but it will still be visible to the supplier.')) {
+      return
+    }
+
+    setDeletingBookingId(bookingId)
+    try {
+      await deleteBooking(userId, bookingId)
+      setSuccessMessage('Booking deleted successfully.')
+      fetchBookings()
+      window.dispatchEvent(new CustomEvent('customer_bookings_updated'))
+      setTimeout(() => setSuccessMessage(''), 5000)
+    } catch (err) {
+      setError(err?.message || 'Failed to delete booking.')
+      setTimeout(() => setError(null), 5000)
+    } finally {
+      setDeletingBookingId(null)
+    }
+  }
 
   useEffect(() => {
     // Real-time filtering
@@ -61,7 +165,6 @@ const BookingsPage = () => {
     if (filterStatus !== 'all') {
       filtered = filtered.filter(b => b.status === filterStatus)
     }
-
     setFilteredBookings(filtered)
   }, [allBookings, activeFilter, searchQuery, filterProductName, filterBookingId, filterStatus])
 
@@ -80,7 +183,14 @@ const BookingsPage = () => {
 
   const confirmedCount = allBookings.filter(b => b.status === 'confirmed').length
   const canceledCount = allBookings.filter(b => b.status === 'canceled').length
-  const bookingsToDisplay = filteredBookings.length > 0 ? filteredBookings : allBookings
+  const hasFilters = Boolean(
+    activeFilter !== 'all' ||
+    searchQuery.trim() ||
+    filterProductName.trim() ||
+    filterBookingId.trim() ||
+    filterStatus !== 'all'
+  )
+  const bookingsToDisplay = hasFilters ? filteredBookings : allBookings
 
   return (
     <div className="bg-gray-50">
@@ -106,6 +216,18 @@ const BookingsPage = () => {
           </div>
           <div className="w-16"></div> {/* Spacer */}
         </div>
+
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {successMessage}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex items-center justify-between mb-6">
@@ -257,7 +379,11 @@ const BookingsPage = () => {
         </div>
 
         {/* Bookings List */}
-        {bookingsToDisplay.length === 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-gray-500">
+            Loading your bookings...
+          </div>
+        ) : bookingsToDisplay.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
             <div className="mb-6 flex justify-center">
               <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center">
@@ -331,6 +457,15 @@ const BookingsPage = () => {
                           </svg>
                           Share Your Review
                         </button>
+                        <button 
+                          onClick={() => handleDeleteBooking(booking.id || booking.bookingId)}
+                          disabled={deletingBookingId === (booking.id || booking.bookingId)}
+                          className="px-4 py-2 border border-red-300 rounded-lg text-red-700 font-medium hover:bg-red-50 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Delete this booking from your list (supplier will still see it)"
+                        >
+                          <FiTrash2 className="w-4 h-4" />
+                          {deletingBookingId === (booking.id || booking.bookingId) ? 'Deleting...' : 'Delete'}
+                        </button>
                       </div>
                     </div>
 
@@ -343,7 +478,9 @@ const BookingsPage = () => {
                         </div>
                         <div className="flex items-center gap-2 text-gray-900">
                           <FiDollarSign className="w-5 h-5" />
-                          <span className="text-2xl font-bold">{booking.totalAmount || booking.price}</span>
+                          <span className="text-2xl font-bold">
+                            {formatCurrencyValue(booking.totalAmount, booking.currency)}
+                          </span>
                         </div>
                       </div>
                     </div>

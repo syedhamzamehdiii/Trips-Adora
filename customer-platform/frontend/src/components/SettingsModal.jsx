@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiChevronRight } from 'react-icons/fi'
+import { useAuth } from '../context/AuthContext'
+import { config } from '../config'
 
-const SettingsModal = ({ isOpen, onClose, profileRef }) => {
+const SettingsModal = ({ isOpen, onClose, profileRef, profile }) => {
   const navigate = useNavigate()
+  const { isAuthenticated, logout } = useAuth()
   const [supplierMode, setSupplierMode] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
 
@@ -57,13 +60,12 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
     }
   }, [isOpen, profileRef])
 
-  if (!isOpen) return null
-
   const menuItems = [
     { label: 'My Account' },
     { label: 'My Wallet' },
     { label: 'Your opinion' },
     { label: 'Settings' },
+    { label: 'Chat' },
     { label: 'Support' }
   ]
 
@@ -74,7 +76,7 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
     try {
       if (next) {
         localStorage.setItem('tripsadora_mode', 'supplier')
-        const supplierUrl = import.meta?.env?.VITE_SUPPLIER_APP_URL || 'http://localhost:5173'
+        const supplierUrl = config.SUPPLIER_APP_URL || 'http://localhost:5173'
         if (supplierUrl) {
           if (onClose) onClose()
           setTimeout(() => {
@@ -86,6 +88,41 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
       }
     } catch (_) {}
   }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      if (onClose) onClose()
+      navigate('/dashboard')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
+  const user = profile?.user
+  const displayName = useMemo(() => {
+    if (!user) return ''
+    if (user.first_name || user.last_name) {
+      return [user.first_name, user.last_name].filter(Boolean).join(' ').trim()
+    }
+    return user.name || ''
+  }, [user])
+
+  const initials = useMemo(() => {
+    if (displayName) {
+      const parts = displayName.split(/\s+/).filter(Boolean)
+      if (parts.length === 1) return parts[0][0]?.toUpperCase() || 'TA'
+      return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase()
+    }
+    const fallback = user?.email || 'TA'
+    return fallback.slice(0, 2).toUpperCase()
+  }, [displayName, user?.email])
+
+  const avatarUrl = user?.avatar_url
+  const email = user?.email
+  const membership = user?.membership_tier
+
+  if (!isOpen) return null
 
   return (
     <>
@@ -103,30 +140,78 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
         <div className="bg-white rounded-[24px] shadow-xl w-[330px] pointer-events-auto">
           {/* Header */}
           <div className="px-5 pt-6 pb-4">
-            <h2 className="text-[26px] font-bold text-black">Settings</h2>
+            <h2 className="text-[26px] font-bold text-black mb-3">Settings</h2>
+            {isAuthenticated && user && (
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-[#1d236b] text-white flex items-center justify-center overflow-hidden text-sm font-semibold">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName || 'Account avatar'} className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <div>
+                  <div className="text-[16px] font-semibold text-gray-900 leading-snug">
+                    {displayName || 'TripsAdora traveller'}
+                  </div>
+                  {email && <div className="text-xs text-gray-500">{email}</div>}
+                  {membership && (
+                    <div className="text-xs text-blue-600 font-medium mt-1">{membership}</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Menu Items */}
           <div>
             {/* Supplier Mode */}
-            <div className="flex items-center justify-between px-5 py-[14px] border-b border-gray-200/60">
-              <span className="text-[15px] font-medium text-black">Supplier mode</span>
-              <button
-                onClick={handleSupplierToggle}
-                className={`relative inline-flex h-[21px] w-[42px] items-center rounded-full transition-colors ${
-                  supplierMode ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-[17px] w-[17px] transform rounded-full bg-white shadow transition-transform ${
-                    supplierMode ? 'translate-x-[20px]' : 'translate-x-[4px]'
+            {isAuthenticated && (
+              <div className="flex items-center justify-between px-5 py-[14px] border-b border-gray-200/60">
+                <span className="text-[15px] font-medium text-black">Supplier mode</span>
+                <button
+                  onClick={handleSupplierToggle}
+                  className={`relative inline-flex h-[21px] w-[42px] items-center rounded-full transition-colors ${
+                    supplierMode ? 'bg-blue-600' : 'bg-gray-300'
                   }`}
-                />
-              </button>
-            </div>
+                >
+                  <span
+                    className={`inline-block h-[17px] w-[17px] transform rounded-full bg-white shadow transition-transform ${
+                      supplierMode ? 'translate-x-[20px]' : 'translate-x-[4px]'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
 
-            {/* Other Menu Items */}
-            {menuItems.map((item) => (
+            {/* Login/Signup - Only show if NOT authenticated */}
+            {!isAuthenticated && (
+              <>
+                <div
+                  className="flex items-center justify-between px-5 py-[14px] border-b border-gray-200/60 cursor-pointer active:bg-gray-50 transition-colors"
+                  onClick={() => {
+                    if (onClose) onClose()
+                    navigate('/login')
+                  }}
+                >
+                  <span className="text-[15px] font-medium text-black">Login</span>
+                  <FiChevronRight className="text-gray-500 text-[18px]" />
+                </div>
+                <div
+                  className="flex items-center justify-between px-5 py-[14px] border-b border-gray-200/60 cursor-pointer active:bg-gray-50 transition-colors"
+                  onClick={() => {
+                    if (onClose) onClose()
+                    navigate('/register')
+                  }}
+                >
+                  <span className="text-[15px] font-medium text-black">Sign up</span>
+                  <FiChevronRight className="text-gray-500 text-[18px]" />
+                </div>
+              </>
+            )}
+
+            {/* Other Menu Items - Only show if authenticated */}
+            {isAuthenticated && menuItems.map((item) => (
               <div
                 key={item.label}
                 className="flex items-center justify-between px-5 py-[14px] border-b border-gray-200/60 cursor-pointer active:bg-gray-50 transition-colors"
@@ -137,9 +222,18 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
                   } else if (item.label === 'My Wallet') {
                     if (onClose) onClose()
                     navigate('/profile/wallet')
+                  } else if (item.label === 'Your opinion') {
+                    if (onClose) onClose()
+                    navigate('/profile/reviews')
                   } else if (item.label === 'Settings') {
                     if (onClose) onClose()
                     navigate('/profile/settings')
+                  } else if (item.label === 'Chat') {
+                    if (onClose) onClose()
+                    navigate('/chat')
+                  } else if (item.label === 'Support') {
+                    if (onClose) onClose()
+                    navigate('/support')
                   }
                 }}
               >
@@ -151,16 +245,14 @@ const SettingsModal = ({ isOpen, onClose, profileRef }) => {
 
           {/* Sign Out Button */}
           <div className="px-5 pt-4 pb-6">
-            <button
-              onClick={() => {
-                // Handle sign out
-                console.log('Sign out clicked')
-                onClose()
-              }}
-              className="w-full py-3 text-center text-[#EF3C3C] font-semibold text-[16px] active:bg-red-50/30 rounded-lg transition-colors"
-            >
-              Sign out
-            </button>
+            {isAuthenticated ? (
+              <button
+                onClick={handleLogout}
+                className="w-full py-3 text-center text-[#EF3C3C] font-semibold text-[16px] active:bg-red-50/30 rounded-lg transition-colors"
+              >
+                Sign out
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

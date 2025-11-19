@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FiClock, FiEdit3, FiMoreVertical, FiSearch, FiFilter, FiTrendingUp, FiFileText, FiTrash2, FiSave, FiDownload, FiSettings, FiFlag } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
+import productService from '@/services/productService';
 
 const DraftsPage = () => {
   const navigate = useNavigate();
@@ -38,54 +39,69 @@ const DraftsPage = () => {
     };
   }, [showDropdown]);
 
-  // Load draft data and product stats from localStorage
+  // Load draft data and product stats from database (no constant polling)
   useEffect(() => {
-    const loadData = () => {
+    const loadData = async () => {
       try {
-        // Load draft info
+        // Load draft info from localStorage (for current draft being edited)
         const savedDraft = localStorage.getItem('product_draft_current_draft');
         if (savedDraft) {
-          const parsed = JSON.parse(savedDraft);
-          setDraftData(parsed);
+          try {
+            const parsed = JSON.parse(savedDraft);
+            // Check if it's a lightweight reference (has storageKey but no full data)
+            if (parsed.storageKey && !parsed.productTitle) {
+              // It's a reference - load the actual draft from the storage key
+              const actualDraft = localStorage.getItem(parsed.storageKey);
+              if (actualDraft) {
+                const actualParsed = JSON.parse(actualDraft);
+                setDraftData(actualParsed);
+              } else {
+                // Fallback to the reference itself
+                setDraftData(parsed);
+              }
+            } else {
+              // It's the full draft data
+              setDraftData(parsed);
+            }
+          } catch (parseError) {
+            console.warn('Unable to parse current draft data:', parseError);
+          }
         }
         
-        // Load product stats and draft products
-        const allProductsData = localStorage.getItem('all_products');
-        if (allProductsData) {
-          const allProducts = JSON.parse(allProductsData);
-          
-          // Deduplicate by id (primary key) - keep first occurrence only
-          const uniqMap = new Map();
-          allProducts.forEach(p => {
-            // Use id as primary key (should always exist), fallback to referenceCode then name
-            const key = p.id != null ? String(p.id) : (p.referenceCode ?? p.name);
-            // Only keep first occurrence if duplicate
-            if (!uniqMap.has(key)) {
-              uniqMap.set(key, p);
-            }
-          });
-          const deduped = Array.from(uniqMap.values());
+        // Load all products from database using lightweight summary
+        const response = await productService.getMyProducts({ page: 1, page_size: 50, summary: true });
+        const { transformApiProductsList } = await import('@/utils/productTransform');
+        const allProducts = transformApiProductsList(response);
+        
+        // Deduplicate by id (primary key) - keep first occurrence only
+        const uniqMap = new Map();
+        allProducts.forEach(p => {
+          const key = p.id != null ? String(p.id) : (p.referenceCode ?? p.name);
+          if (!uniqMap.has(key)) {
+            uniqMap.set(key, p);
+          }
+        });
+        const deduped = Array.from(uniqMap.values());
 
-          // Calculate stats - only count Published and Draft products (excluding Under Review)
-          const relevantProducts = deduped.filter(p => 
-            p.status === 'Published' || 
-            p.status === 'Draft'
-          );
-          
-          const published = relevantProducts.filter(p => p.status === 'Published').length;
-          const drafts = relevantProducts.filter(p => p.status === 'Draft');
-          const totalRevenue = relevantProducts
-            .filter(p => p.status === 'Published')
-            .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
-          
-          setDraftProducts(drafts);
-          setProductStats({
-            total: relevantProducts.length, // Published + Draft only
-            active: published,
-            draft: drafts.length,
-            revenue: totalRevenue
-          });
-        }
+        // Calculate stats - only count Published and Draft products (excluding Under Review)
+        const relevantProducts = deduped.filter(p => 
+          p.status === 'Published' || 
+          p.status === 'Draft'
+        );
+        
+        const published = relevantProducts.filter(p => p.status === 'Published').length;
+        const drafts = relevantProducts.filter(p => p.status === 'Draft');
+        const totalRevenue = relevantProducts
+          .filter(p => p.status === 'Published')
+          .reduce((sum, p) => sum + (typeof p.revenue === 'number' ? p.revenue : 0), 0);
+        
+        setDraftProducts(drafts);
+        setProductStats({
+          total: relevantProducts.length, // Published + Draft only
+          active: published,
+          draft: drafts.length,
+          revenue: totalRevenue
+        });
       } catch (error) {
         console.error('Error loading data:', error);
       }
@@ -93,9 +109,14 @@ const DraftsPage = () => {
     
     loadData();
     
-    // Refresh data every 5 seconds to show real-time updates (reduced from 2 seconds)
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
+    // Revalidate when tab becomes visible
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   return (
@@ -205,23 +226,29 @@ const DraftsPage = () => {
                         <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                           <div className="py-2">
                             <button 
-                              onClick={() => {
+                              onClick={async () => {
                                 const confirmed = window.confirm(`Are you sure you want to delete "${draft.name}"?`);
                                 if (confirmed) {
-                                  // Remove from all_products
-                                  const updatedProducts = draftProducts.filter(p => p.id !== draft.id);
-                                  const allProductsData = localStorage.getItem('all_products');
-                                  const allProducts = JSON.parse(allProductsData);
-                                  const newAllProducts = allProducts.filter(p => p.id !== draft.id);
-                                  localStorage.setItem('all_products', JSON.stringify(newAllProducts));
-                                  
-                                  // Also remove the full draft data
-                                  localStorage.removeItem(`product_draft_${draft.id}`);
-                                  console.log(`🗑️ Deleted full draft data: product_draft_${draft.id}`);
-                                  
-                                  setDraftProducts(updatedProducts);
-                                  setShowDropdown(null);
-                                  alert('Draft deleted successfully!');
+                                  try {
+                                    // Delete from database
+                                    await productService.deleteProduct(draft.dbProductId || draft.id);
+                                    
+                                    // Remove images from localStorage
+                                    localStorage.removeItem(`product_draft_${draft.id}`);
+                                    
+                                    // Reload drafts from database using lightweight summary
+                                    const response = await productService.getMyProducts({ status: 'draft', page: 1, page_size: 50, summary: true });
+                                    const { transformApiProductsList } = await import('@/utils/productTransform');
+                                    const allProducts = transformApiProductsList(response);
+                                    const drafts = allProducts.filter(p => p.status === 'Draft');
+                                    setDraftProducts(drafts);
+                                    
+                                    setShowDropdown(null);
+                                    alert('Draft deleted successfully!');
+                                  } catch (error) {
+                                    console.error('Error deleting draft:', error);
+                                    alert(`Failed to delete draft: ${error.message}`);
+                                  }
                                 }
                               }}
                               className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 flex items-center space-x-3"

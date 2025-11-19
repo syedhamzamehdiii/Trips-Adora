@@ -11,7 +11,20 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 5000, // 5 second timeout for all requests
 })
+
+const storeSupplierId = (supplierCode) => {
+  if (!supplierCode) {
+    return
+  }
+  try {
+    localStorage.setItem('supplier_id', supplierCode)
+    sessionStorage.setItem('supplier_id', supplierCode)
+  } catch (error) {
+    console.warn('Failed to persist supplier ID', error)
+  }
+}
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -95,6 +108,7 @@ class AuthService {
       // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
+      storeSupplierId(user?.supplier_code)
 
       return {
         success: true,
@@ -133,6 +147,7 @@ class AuthService {
       // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
+      storeSupplierId(user?.supplier_code)
 
       return {
         success: true,
@@ -159,6 +174,7 @@ class AuthService {
       // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
+      storeSupplierId(user?.supplier_code)
 
       return {
         success: true,
@@ -177,15 +193,20 @@ class AuthService {
   // Google OAuth login with authorization code
   async googleLoginWithCode(code, redirectUri = null) {
     try {
+      // Use a longer timeout for Google OAuth callback (15 seconds)
+      // as it may need to communicate with Google's servers
       const response = await api.post('/auth/google/callback', {
         code,
         redirect_uri: redirectUri || window.location.origin + '/auth/google/callback'
+      }, {
+        timeout: 15000 // 15 seconds for OAuth callback
       })
       const { token, refresh_token, user } = response.data
 
       // Store tokens
       localStorage.setItem('access_token', token)
       localStorage.setItem('refresh_token', refresh_token)
+      storeSupplierId(user?.supplier_code)
 
       return {
         success: true,
@@ -194,8 +215,23 @@ class AuthService {
       }
     } catch (error) {
       console.error('Google code exchange error:', error)
+      
+      // Provide more specific error messages
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        throw new Error(
+          'Request timed out. Please check if the backend server is running and try again.'
+        )
+      }
+      
+      if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+        throw new Error(
+          'Network error. Please check if the backend server is running at ' + API_BASE_URL
+        )
+      }
+      
       throw new Error(
         error.response?.data?.detail || 
+        error.message ||
         'Google authentication failed. Please try again.'
       )
     }

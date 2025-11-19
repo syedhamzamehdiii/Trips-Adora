@@ -1,41 +1,32 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FiX, FiCheck, FiTrash2, FiMessageSquare } from 'react-icons/fi';
+import { getUnreadCount as getChatUnreadCount } from '@/services/chatService';
+import { useSettings } from '@/context/SettingsContext';
+import notificationService from '@/services/notificationService';
 
 const Header = ({ activePage = '' }) => {
   const navigate = useNavigate();
+  const { profile } = useSettings(); // Use global settings context
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showAllNotifications, setShowAllNotifications] = useState(false);
+  const [showAllNotificationsModal, setShowAllNotificationsModal] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [isVibrating, setIsVibrating] = useState(false);
+  const [previousUnreadCount, setPreviousUnreadCount] = useState(0);
   const notificationRef = useRef(null);
   const languageRef = useRef(null);
-  
-  // Real-time profile from account settings
-  const [profile, setProfile] = useState({ name: 'Edward William', id: '00032123', photo: null });
 
-  useEffect(() => {
-    const loadProfile = () => {
-      try {
-        const saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
-        if (saved) {
-          const data = JSON.parse(saved);
-          const name = data?.editableInfo?.publicName || 'Edward William';
-          const id = data?.profileData?.contactValue || '00032123';
-          const photo = data?.globalUserPhoto || null;
-          setProfile({ name, id, photo });
-        }
-      } catch (_) {}
-    };
-    loadProfile();
-    // Listen for global updates
-    window.addEventListener('account_settings_updated', loadProfile);
-    window.addEventListener('accountSettingsUpdated', loadProfile);
-    window.addEventListener('storage', loadProfile);
-    return () => {
-      window.removeEventListener('account_settings_updated', loadProfile);
-      window.removeEventListener('accountSettingsUpdated', loadProfile);
-      window.removeEventListener('storage', loadProfile);
-    };
+  const persistNotifications = useCallback((list) => {
+    setNotifications(list);
+    const newUnread = list.filter((n) => !n.read).length;
+    setUnreadCount(newUnread);
+    setPreviousUnreadCount(newUnread);
+    try {
+      localStorage.setItem('notifications', JSON.stringify(list));
+    } catch (_) {
+      // Ignore storage errors (e.g. private mode)
+    }
   }, []);
 
   // Close dropdowns when clicking outside
@@ -43,7 +34,6 @@ const Header = ({ activePage = '' }) => {
     const handleClickOutside = (event) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setShowNotifications(false);
-        setShowAllNotifications(false);
       }
       if (languageRef.current && !languageRef.current.contains(event.target)) {
         setShowLanguageDropdown(false);
@@ -59,57 +49,197 @@ const Header = ({ activePage = '' }) => {
     };
   }, [showNotifications, showLanguageDropdown]);
 
-  // ----- Notifications (Realtime via localStorage + events) -----
+  // ----- Notifications (Real-time from API + localStorage cache) -----
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+
   useEffect(() => {
-    const loadNotifications = () => {
+    let isMounted = true;
+    const loadUnread = async () => {
       try {
-        const raw = localStorage.getItem('notifications') || sessionStorage.getItem('notifications');
-        const list = raw ? JSON.parse(raw) : [];
-        const sorted = list
-          .map(n => ({ ...n }))
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setNotifications(sorted);
+        const data = await getChatUnreadCount();
+        if (isMounted) {
+          setChatUnreadCount(data?.unread_count || 0);
+        }
       } catch (_) {
-        setNotifications([]);
+        if (isMounted) setChatUnreadCount(0);
       }
     };
-
-    // Initialize if missing
-    if (!localStorage.getItem('notifications') && !sessionStorage.getItem('notifications')) {
-      const seed = [];
-      localStorage.setItem('notifications', JSON.stringify(seed));
-    }
-
-    loadNotifications();
-    window.addEventListener('notifications_updated', loadNotifications);
-    window.addEventListener('storage', loadNotifications);
-    // Allow other parts of the app to push via event
-    const handleNew = (e) => {
-      try {
-        const payload = e.detail || {};
-        window.addNotification(payload);
-      } catch(_) {}
-    };
-    window.addEventListener('new_notification', handleNew);
+    loadUnread();
+    const interval = setInterval(loadUnread, 10000);
     return () => {
-      window.removeEventListener('notifications_updated', loadNotifications);
-      window.removeEventListener('storage', loadNotifications);
-      window.removeEventListener('new_notification', handleNew);
+      isMounted = false;
+      clearInterval(interval);
     };
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const fetchNotifications = useCallback(async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      // Fallback to localStorage if not authenticated
+      try {
+        const raw = localStorage.getItem('notifications') || '[]';
+        const list = JSON.parse(raw);
+        persistNotifications(list);
+      } catch (_) {
+        persistNotifications([]);
+      }
+      return;
+    }
 
-  const persistNotifications = (list) => {
-    localStorage.setItem('notifications', JSON.stringify(list));
-    sessionStorage.setItem('notifications', JSON.stringify(list));
-    window.dispatchEvent(new Event('notifications_updated'));
-  };
+    try {
+      setLoadingNotifications(true);
+      const response = await notificationService.getNotifications({ limit: 50 });
+      console.log('📬 Notifications API response:', response);
+      const fetchedNotifications = response?.notifications || [];
+      console.log('📬 Fetched notifications:', fetchedNotifications.length, fetchedNotifications);
+      
+      const newUnreadCount = response?.unread_count || 0;
+      
+      // Trigger vibration animation if new unread notifications arrived
+      if (newUnreadCount > previousUnreadCount) {
+        setIsVibrating(true);
+        setTimeout(() => setIsVibrating(false), 1000); // Stop after 1 second
+      }
+      
+      // Update state + cache
+      persistNotifications(fetchedNotifications);
+    } catch (error) {
+      console.error('❌ Error fetching notifications:', error);
+      // Fallback to cached notifications
+      try {
+        const raw = localStorage.getItem('notifications') || '[]';
+        const list = JSON.parse(raw);
+        persistNotifications(list);
+      } catch (_) {
+        persistNotifications([]);
+      }
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, [persistNotifications, previousUnreadCount]);
 
-  const markAsRead = (id) => {
-    const updated = notifications.map(n => (n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n));
+  useEffect(() => {
+    // Fetch immediately on mount
+    fetchNotifications();
+    
+    // Poll for new notifications every 30 seconds
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 30000); // 30 seconds
+
+    // Listen for manual refresh events
+    const handleRefresh = () => fetchNotifications();
+    window.addEventListener('notifications_refresh', handleRefresh);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('notifications_refresh', handleRefresh);
+    };
+  }, [fetchNotifications]);
+
+  // Initialize previous unread count on mount
+  useEffect(() => {
+    const cached = localStorage.getItem('notifications') || '[]';
+    try {
+      const list = JSON.parse(cached);
+      setPreviousUnreadCount(list.filter(n => !n.read).length);
+    } catch (_) {
+      setPreviousUnreadCount(0);
+    }
+  }, []);
+
+  // Clear notifications cache
+  const clearNotificationsCache = useCallback(async () => {
+    if (window.confirm('Are you sure you want to clear all notifications? This will remove them from your cache.')) {
+      // Clear from localStorage
+      localStorage.removeItem('notifications');
+      
+      // Clear from state
+      persistNotifications([]);
+
+      // Close dropdown and modal
+      setShowNotifications(false);
+      setShowAllNotificationsModal(false);
+      
+      // Also clear from backend if authenticated
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        try {
+          await notificationService.markAllAsRead();
+          await fetchNotifications(); // Refresh to sync with backend
+        } catch (error) {
+          console.error('Error syncing cleared notifications:', error);
+        }
+      }
+    }
+  }, [fetchNotifications, persistNotifications]);
+
+  const markAsRead = useCallback(async (id) => {
+    if (!id) return;
+    const token = localStorage.getItem('access_token');
+
+    const updated = notifications.map((n) =>
+      n.id === id ? { ...n, read: true, read_at: new Date().toISOString() } : n
+    );
     persistNotifications(updated);
-  };
+
+    if (token) {
+      try {
+        await notificationService.markAsRead(id);
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+        fetchNotifications();
+      }
+    }
+  }, [notifications, fetchNotifications, persistNotifications]);
+
+  const handleMarkAllRead = useCallback(async () => {
+    if (!notifications.length) return;
+    const token = localStorage.getItem('access_token');
+    
+    // Clear all notifications (mark as read and remove them)
+    persistNotifications([]);
+
+    if (token) {
+      try {
+        await notificationService.markAllAsRead();
+        // Also delete all notifications from backend
+        for (const notification of notifications) {
+          try {
+            await notificationService.deleteNotification(notification.id);
+          } catch (error) {
+            console.error('Error deleting notification:', error);
+          }
+        }
+      } catch (error) {
+        console.error('Error marking all notifications as read:', error);
+      }
+    }
+    
+    // Close modal after clearing
+    setShowAllNotificationsModal(false);
+    setShowNotifications(false);
+  }, [notifications, persistNotifications]);
+
+  const handleDeleteNotification = useCallback(async (id) => {
+    if (!id) return;
+    if (!window.confirm('Delete this notification?')) return;
+
+    const token = localStorage.getItem('access_token');
+    const updated = notifications.filter((n) => n.id !== id);
+    persistNotifications(updated);
+
+    if (token) {
+      try {
+        await notificationService.deleteNotification(id);
+      } catch (error) {
+        console.error('Error deleting notification:', error);
+        fetchNotifications();
+      }
+    }
+  }, [notifications, persistNotifications, fetchNotifications]);
 
   // Expose a helper for other parts of the app to push notifications
   if (typeof window !== 'undefined' && !window.addNotification) {
@@ -192,11 +322,30 @@ const Header = ({ activePage = '' }) => {
           
           {/* Right side - User Info Section */}
           <div className="flex items-center space-x-6">
+            {/* Chat Icon */}
+            <div className="relative">
+              <button 
+                onClick={() => navigate('/chat')}
+                    className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
+                title="Messages"
+              >
+                    <FiMessageSquare className="w-6 h-6" />
+                    {chatUnreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold w-4 h-4 rounded-full flex items-center justify-center">
+                        {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
+                      </span>
+                    )}
+              </button>
+            </div>
+            
             {/* Notification Bell */}
             <div className="relative" ref={notificationRef}>
               <button 
-                onClick={() => { setShowNotifications(!showNotifications); setShowAllNotifications(false);} }
-                className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
+                onClick={() => { setShowNotifications(!showNotifications); setShowAllNotificationsModal(false);} }
+                className={`relative p-2 text-gray-700 hover:text-gray-900 transition-colors ${isVibrating ? 'animate-vibrate' : ''}`}
+                style={isVibrating ? {
+                  animation: 'vibrate 0.5s ease-in-out infinite'
+                } : {}}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -204,33 +353,73 @@ const Header = ({ activePage = '' }) => {
                 {unreadCount > 0 && (<div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>)}
               </button>
               
-              {/* Notifications Dropdown */}
+              {/* Notifications Dropdown - Show only 3 recent */}
               {showNotifications && (
                 <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                   <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
-                    <div className="space-y-3 max-h-80 overflow-y-auto">
-                      {((showAllNotifications ? notifications : notifications.filter(n => !n.read).slice(0, 5))).length === 0 ? (
-                        <div className="text-center text-sm text-gray-500 py-6">No notifications</div>
-                      ) : (
-                      (showAllNotifications ? notifications : notifications.filter(n => !n.read).slice(0, 5)).map((n) => {
-                        const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
-                        const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
-                        return (
-                          <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''}`} onClick={() => markAsRead(n.id)}>
-                            <div className={`w-2 h-2 ${typeColor} rounded-full mt-2`}></div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                              {n.message && (<p className="text-xs text-gray-600">{n.message}</p>)}
-                              <p className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()}</p>
-                            </div>
-                          </div>
-                        );
-                      }))}
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-gray-900">Notifications</h3>
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkAllRead();
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                        >
+                          <FiCheck className="w-3 h-3" />
+                          Mark as read
+                        </button>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between mt-3">
-                      <button onClick={() => setShowAllNotifications(!showAllNotifications)} className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400" disabled={notifications.length === 0}>
-                        {showAllNotifications ? 'Show recent' : 'View all notifications'}
+                    <div className="space-y-3 max-h-80 overflow-y-auto">
+                      {notifications.slice(0, 3).length === 0 ? (
+                        <div className="text-center text-sm text-gray-500 py-6">No recent notifications</div>
+                      ) : (
+                        notifications.slice(0, 3).map((n) => {
+                          const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
+                          const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
+                          return (
+                            <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} cursor-pointer hover:opacity-90 transition-opacity`} onClick={() => markAsRead(n.id)}>
+                              <div className={`w-2 h-2 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900">{n.title}</p>
+                                {n.message && (<p className="text-xs text-gray-600 mt-1">{n.message}</p>)}
+                                <p className="text-xs text-gray-500 mt-1">{new Date(n.created_at || n.createdAt).toLocaleString()}</p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex items-center gap-3">
+                        {unreadCount > 0 ? (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAllRead();
+                              }}
+                              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              Mark all as read
+                            </button>
+                            <span className="text-xs text-gray-500">Unread: {unreadCount}</span>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-500">All caught up</span>
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setShowNotifications(false);
+                          setShowAllNotificationsModal(true);
+                        }} 
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400" 
+                        disabled={notifications.length === 0}
+                      >
+                        View all notifications
                       </button>
                       {unreadCount > 0 && (
                         <span className="text-xs text-gray-500">Unread: {unreadCount}</span>
@@ -301,6 +490,91 @@ const Header = ({ activePage = '' }) => {
           </div>
         </div>
       </div>
+
+      {/* All Notifications Modal */}
+      {showAllNotificationsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowAllNotificationsModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">All Notifications</h2>
+              <div className="flex items-center gap-3">
+                {notifications.length > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMarkAllRead();
+                    }}
+                    className="inline-flex items-center gap-1 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                  >
+                    <FiCheck className="w-4 h-4" />
+                    Mark as read
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {notifications.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No recent notifications</h3>
+                  <p className="text-sm text-gray-600">You're all caught up!</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notifications.map((n) => {
+                    const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
+                    const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
+                    return (
+                      <div 
+                        key={n.id} 
+                        className={`relative flex items-start space-x-3 p-4 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} transition-opacity border border-gray-100 ${!n.read ? 'cursor-pointer hover:opacity-90' : ''}`}
+                        onClick={() => {
+                          if (!n.read) {
+                            markAsRead(n.id);
+                          }
+                        }}
+                      >
+                        <div className={`w-3 h-3 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">{n.title}</p>
+                          {n.message && (
+                            <p className="text-sm text-gray-600 mt-1">{n.message}</p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-2">
+                            {new Date(n.created_at || n.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        {!n.read && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vibration Animation CSS */}
+      <style>{`
+        @keyframes vibrate {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-3px) rotate(-2deg); }
+          20%, 40%, 60%, 80% { transform: translateX(3px) rotate(2deg); }
+        }
+        .animate-vibrate {
+          animation: vibrate 0.5s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 };

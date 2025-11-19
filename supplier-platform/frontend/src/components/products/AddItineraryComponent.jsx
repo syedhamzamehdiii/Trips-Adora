@@ -3,8 +3,61 @@ import { FiClock, FiMapPin, FiRotateCcw, FiPlus, FiX, FiCheckCircle, FiChevronDo
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import MountFujiTourPage from './MountFujiTourPage';
+import { imageService } from '@/services/imageService';
 
-const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, productData }) => {
+const DEFAULT_CROP = { unit: '%', width: 80, height: 80, x: 10, y: 10, aspect: 1 };
+
+const sanitizeCrop = (candidate = {}) => {
+  const merged = { ...DEFAULT_CROP, ...candidate };
+  const numericKeys = ['width', 'height', 'x', 'y'];
+  numericKeys.forEach((key) => {
+    const value = merged[key];
+    merged[key] = Number.isFinite(value) ? value : DEFAULT_CROP[key];
+  });
+  merged.unit = merged.unit || DEFAULT_CROP.unit;
+  merged.aspect = merged.aspect || DEFAULT_CROP.aspect;
+  return merged;
+};
+
+const areItinerariesEqual = (a, b) => {
+  const arrA = Array.isArray(a) ? a : [];
+  const arrB = Array.isArray(b) ? b : [];
+  if (arrA.length !== arrB.length) return false;
+  for (let i = 0; i < arrA.length; i += 1) {
+    const left = arrA[i] ?? null;
+    const right = arrB[i] ?? null;
+    if (JSON.stringify(left) !== JSON.stringify(right)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+const MIN_DIMENSION_PX = 720;
+
+const dataUrlToFile = (dataUrl, filename = `itinerary-${Date.now()}.jpg`) => {
+  const arr = dataUrl.split(',');
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
+
+const AddItineraryComponent = ({
+  onClose,
+  onBack,
+  coverImage,
+  uploadedPhotos,
+  productData,
+  currentItineraries = [],
+  onItinerariesChange
+}) => {
   const [selectedTourType, setSelectedTourType] = useState('One day Tour');
   const [showAddItineraryModal, setShowAddItineraryModal] = useState(false);
   const [showAttractionsDropdown, setShowAttractionsDropdown] = useState(false);
@@ -13,19 +66,42 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
   const [hours, setHours] = useState('02');
   const [minutes, setMinutes] = useState('30');
   const [hasSavedItinerary, setHasSavedItinerary] = useState(false);
-  const [itineraryEntries, setItineraryEntries] = useState([]);
-  const [showSubmitView, setShowSubmitView] = useState(false);
+  const [itineraryEntries, setItineraryEntries] = useState(Array.isArray(currentItineraries) ? currentItineraries : []);
+  // Initialize showSubmitView to true if there are existing itineraries
+  const [showSubmitView, setShowSubmitView] = useState(Array.isArray(currentItineraries) && currentItineraries.length > 0);
   const [showFinalLook, setShowFinalLook] = useState(false);
+  const [editingItineraryId, setEditingItineraryId] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [placeName, setPlaceName] = useState('');
   const [description, setDescription] = useState('');
   const [uploadedPhoto, setUploadedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [croppedPhoto, setCroppedPhoto] = useState(null);
+  const [photoPublicId, setPhotoPublicId] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState(0);
+
+  const uploadPhotoToCloud = async (file, folder = 'products/itinerary') => {
+    setPhotoUploading(true);
+    setPhotoUploadProgress(0);
+    try {
+      const response = await imageService.uploadImage(file, {
+        folder,
+        onUploadProgress: (progress) => setPhotoUploadProgress(progress)
+      });
+      if (!response?.url) {
+        throw new Error(response?.detail || 'Upload failed');
+      }
+      return response;
+    } finally {
+      setPhotoUploading(false);
+      setPhotoUploadProgress(0);
+    }
+  };
   const [showCropModal, setShowCropModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState(null);
-  const [crop, setCrop] = useState({ unit: '%', width: 100, aspect: 1 });
-  const [completedCrop, setCompletedCrop] = useState(null);
+  const [crop, setCrop] = useState(DEFAULT_CROP);
+  const [completedCrop, setCompletedCrop] = useState(DEFAULT_CROP);
   const photoInputRef = useRef(null);
   const imgRef = useRef(null);
   // Final Look timeline measurements
@@ -33,23 +109,56 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
   const [finalLineTop, setFinalLineTop] = useState(16);
   const [finalLineHeight, setFinalLineHeight] = useState(0);
 
-  // Load existing itineraries from draft when available
   useEffect(() => {
+    if (!Array.isArray(currentItineraries)) return;
+    setItineraryEntries(prev => {
+      if (areItinerariesEqual(prev, currentItineraries)) {
+        return prev;
+      }
+      return currentItineraries;
+    });
+    const hasItineraries = currentItineraries.length > 0;
+    setHasSavedItinerary(hasItineraries);
+    // If there are existing itineraries, automatically show the submit view (management page)
+    if (hasItineraries) {
+      setShowSubmitView(true);
+    }
+  }, [currentItineraries]);
+
+  // Load existing itineraries from draft when available
+  const draftInitializationRef = useRef(false);
+
+  useEffect(() => {
+    if (draftInitializationRef.current) return;
+    const draftId = productData?.draftId;
+    if (!draftId) {
+      draftInitializationRef.current = true;
+      return;
+    }
+
     try {
-      const draftId = productData?.draftId;
-      if (!draftId) return;
       const saved = localStorage.getItem(`product_draft_${draftId}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed.itineraries) && parsed.itineraries.length > 0) {
-          setItineraryEntries(parsed.itineraries);
+          setItineraryEntries(prev => {
+            if (areItinerariesEqual(prev, parsed.itineraries)) {
+              return prev;
+            }
+            return parsed.itineraries;
+          });
           setHasSavedItinerary(true);
+          // Automatically show submit view (management page) if there are existing itineraries
+          setShowSubmitView(true);
+          onItinerariesChange?.(parsed.itineraries);
         }
       }
     } catch (e) {
       console.warn('Unable to load itineraries from draft:', e);
+    } finally {
+      draftInitializationRef.current = true;
     }
-  }, [productData?.draftId]);
+  }, [productData?.draftId, onItinerariesChange]);
 
   const tourTypes = [
     { 
@@ -76,65 +185,115 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
     setSelectedTourType(tourType.name);
   };
 
+  const validatePhotoForItinerary = (file, onValid) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      alert(`File size must be less than 5MB (received ${(file.size / (1024 * 1024)).toFixed(2)}MB).`);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      if (img.width < MIN_DIMENSION_PX || img.height < MIN_DIMENSION_PX) {
+        alert(`Image resolution must be at least ${MIN_DIMENSION_PX}px on both sides.`);
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      URL.revokeObjectURL(objectUrl);
+      onValid();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      alert('Unable to read the image. Please try another file.');
+    };
+    img.src = objectUrl;
+  };
+
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        alert('Please upload an image file');
-        return;
-      }
-      
-      // Validate file size (max 2GB)
-      if (file.size > 2 * 1024 * 1024 * 1024) {
-        alert('File size must be less than 2GB');
-        return;
-      }
-      
+    if (!file) return;
+
+    validatePhotoForItinerary(file, () => {
       setUploadedPhoto(file);
-      
-      // Create preview and show crop modal
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setImageToCrop(reader.result);
+        setCrop(DEFAULT_CROP);
+        setCompletedCrop(DEFAULT_CROP);
         setShowCropModal(true);
       };
       reader.readAsDataURL(file);
-      
+
       console.log('✅ Photo uploaded:', file.name);
-    }
+    });
   };
 
-  const getCroppedImg = (image, crop) => {
+  const getCroppedImg = (image, rawCrop) => {
+    const safeCrop = sanitizeCrop(rawCrop);
     const canvas = document.createElement('canvas');
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
-    canvas.width = crop.width;
-    canvas.height = crop.height;
+    const widthPx = safeCrop.unit === '%'
+      ? (safeCrop.width / 100) * image.naturalWidth
+      : safeCrop.width;
+    const heightPx = safeCrop.unit === '%'
+      ? (safeCrop.height / 100) * image.naturalHeight
+      : safeCrop.height;
+    const xPx = safeCrop.unit === '%'
+      ? (safeCrop.x / 100) * image.naturalWidth
+      : safeCrop.x;
+    const yPx = safeCrop.unit === '%'
+      ? (safeCrop.y / 100) * image.naturalHeight
+      : safeCrop.y;
+
+    canvas.width = widthPx;
+    canvas.height = heightPx;
     const ctx = canvas.getContext('2d');
 
     ctx.drawImage(
       image,
-      crop.x * scaleX,
-      crop.y * scaleY,
-      crop.width * scaleX,
-      crop.height * scaleY,
+      xPx,
+      yPx,
+      widthPx,
+      heightPx,
       0,
       0,
-      crop.width,
-      crop.height
+      widthPx,
+      heightPx
     );
 
-    return canvas.toDataURL('image/jpeg');
+    return canvas.toDataURL('image/jpeg', 0.99);
   };
 
-  const handleCropComplete = () => {
-    if (completedCrop && imgRef.current) {
-      const croppedImageUrl = getCroppedImg(imgRef.current, completedCrop);
-      setPhotoPreview(croppedImageUrl);
-      setCroppedPhoto(croppedImageUrl);
+  const handleCropComplete = (rawCrop) => {
+    setCompletedCrop(sanitizeCrop(rawCrop));
+  };
+
+  const applyCrop = async () => {
+    const cropToUse = sanitizeCrop(completedCrop || crop);
+    if (!imgRef.current) return;
+
+    const croppedImageUrl = getCroppedImg(imgRef.current, cropToUse);
+    try {
+      const file = dataUrlToFile(croppedImageUrl);
+      if (photoPublicId) {
+        imageService.deleteImage(photoPublicId).catch(() => {});
+      }
+      const upload = await uploadPhotoToCloud(file);
+      setUploadedPhoto(file);
+      setPhotoPreview(upload.url);
+      setCroppedPhoto(upload.url);
+      setPhotoPublicId(upload.public_id);
+      console.log('✅ Photo cropped & uploaded successfully');
+    } catch (error) {
+      console.error('Failed to upload cropped photo', error);
+      alert('Failed to upload cropped photo. Please try again.');
+    } finally {
       setShowCropModal(false);
-      console.log('✅ Photo cropped successfully');
     }
   };
 
@@ -142,15 +301,25 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
     setShowCropModal(false);
     setImageToCrop(null);
     setUploadedPhoto(null);
+    setCrop(DEFAULT_CROP);
+    setCompletedCrop(DEFAULT_CROP);
     if (photoInputRef.current) {
       photoInputRef.current.value = '';
     }
   };
 
   const handleRemovePhoto = () => {
+    if (photoPublicId) {
+      imageService.deleteImage(photoPublicId).catch(() => {});
+    }
     setUploadedPhoto(null);
     setPhotoPreview(null);
     setCroppedPhoto(null);
+    setPhotoPublicId(null);
+    setPhotoUploading(false);
+    setPhotoUploadProgress(0);
+    setCrop(DEFAULT_CROP);
+    setCompletedCrop(DEFAULT_CROP);
     if (photoInputRef.current) {
       photoInputRef.current.value = '';
     }
@@ -168,22 +337,48 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
   ];
 
   const handleSaveItinerary = () => {
-    const newEntry = {
-      id: Date.now(),
-      placeName: placeName || 'Fujinimiya',
-      location: `${placeName || 'Fujinimiya'} - Mont. Fuji`,
+    const startHour = 6 + itineraryEntries.length * 2;
+    const inferredTime = `${String(startHour % 24).padStart(2, '0')}:00`;
+
+    const normalizedName = placeName?.trim() || '';
+    const entryData = {
+      id: editingItineraryId || Date.now(),
+      title: normalizedName || 'Itinerary Stop',
+      placeName: normalizedName || 'Fujinimiya',
+      location: normalizedName || 'Fujinimiya',
       description: description || 'Beautiful mountain views and traditional temples',
       attractionType: selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
       timeSpent: `${hours}h ${minutes}min`,
       isFree: entryIsFree,
-      hasPhoto: uploadedPhoto !== null,
-      photo: photoPreview // Store the preview URL
+      hasPhoto: Boolean(photoPreview),
+      photo: photoPreview,
+      photoPublicId: photoPublicId || null,
+      time: inferredTime,
+      ticket: entryIsFree ? 'Free' : 'Paid',
+      activities: [
+        selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
+        'Food & Drink',
+        'Cultural visit'
+      ].filter(Boolean)
     };
+
+    let updatedEntries;
+    if (editingItineraryId) {
+      // Update existing entry
+      updatedEntries = itineraryEntries.map(entry => 
+        entry.id === editingItineraryId ? entryData : entry
+      );
+      setEditingItineraryId(null);
+    } else {
+      // Add new entry
+      updatedEntries = [...itineraryEntries, entryData];
+    }
     
-    setItineraryEntries(prev => [...prev, newEntry]);
+    setItineraryEntries(updatedEntries);
     setShowAddItineraryModal(false);
     setHasSavedItinerary(true);
     setShowSubmitView(true); // Automatically navigate to the submit view
+    onItinerariesChange?.(updatedEntries);
 
     // Persist to draft if available
     try {
@@ -192,9 +387,7 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
         const key = `product_draft_${draftId}`;
         const raw = localStorage.getItem(key);
         const parsed = raw ? JSON.parse(raw) : {};
-        const existing = Array.isArray(parsed.itineraries) ? parsed.itineraries : [];
-        const updated = [...existing, newEntry];
-        localStorage.setItem(key, JSON.stringify({ ...parsed, itineraries: updated, lastModified: new Date().toISOString() }));
+        localStorage.setItem(key, JSON.stringify({ ...parsed, itineraries: updatedEntries, lastModified: new Date().toISOString() }));
       }
     } catch (e) {
       console.warn('Failed to persist itinerary to draft:', e);
@@ -210,12 +403,43 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
     setUploadedPhoto(null);
     setPhotoPreview(null);
     setCroppedPhoto(null);
+    setPhotoPublicId(null);
+    setPhotoUploading(false);
+    setPhotoUploadProgress(0);
     setImageToCrop(null);
     setCrop({ unit: '%', width: 100, aspect: 1 });
     setCompletedCrop(null);
+    setEditingItineraryId(null);
     if (photoInputRef.current) {
       photoInputRef.current.value = '';
     }
+  };
+
+  const handleEditItinerary = (entry) => {
+    setEditingItineraryId(entry.id);
+    setPlaceName(entry.placeName || entry.location || entry.title || '');
+    setDescription(entry.description || '');
+    setSelectedAttraction(entry.attractionType || 'Select Attractions');
+    // Parse timeSpent (e.g., "2h 30min" -> hours: "02", minutes: "30")
+    const timeMatch = (entry.timeSpent || '').match(/(\d+)h\s*(\d+)min/);
+    if (timeMatch) {
+      setHours(String(parseInt(timeMatch[1])).padStart(2, '0'));
+      setMinutes(String(parseInt(timeMatch[2])).padStart(2, '0'));
+    } else {
+      setHours('02');
+      setMinutes('30');
+    }
+    setEntryIsFree(entry.isFree !== false);
+    if (entry.photo) {
+      setPhotoPreview(entry.photo);
+      setCroppedPhoto(entry.photo);
+      setPhotoPublicId(entry.photoPublicId || null);
+    } else {
+      setPhotoPreview(null);
+      setCroppedPhoto(null);
+      setPhotoPublicId(null);
+    }
+    setShowAddItineraryModal(true);
   };
 
   // Persist any changes to itinerary list to draft (e.g., delete)
@@ -230,7 +454,8 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
     } catch (e) {
       // ignore
     }
-  }, [itineraryEntries, productData?.draftId]);
+    onItinerariesChange?.(itineraryEntries);
+  }, [itineraryEntries, productData?.draftId, onItinerariesChange]);
 
   // Measure timeline line to end exactly at drop-off icon center
   useEffect(() => {
@@ -300,10 +525,13 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
   };
 
   const handleDeleteEntry = (id) => {
-    setItineraryEntries(prev => prev.filter(entry => entry.id !== id));
-    if (itineraryEntries.length === 1) {
-      setHasSavedItinerary(false);
+    const target = itineraryEntries.find(entry => entry.id === id);
+    if (target?.photoPublicId) {
+      imageService.deleteImage(target.photoPublicId).catch(() => {});
     }
+    const updatedEntries = itineraryEntries.filter(entry => entry.id !== id);
+    setItineraryEntries(updatedEntries);
+    setHasSavedItinerary(updatedEntries.length > 0);
   };
 
   // Show the preview page if showPreview is true
@@ -491,25 +719,27 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
 
                         {/* Itinerary Entries */}
                         {itineraryEntries.map((entry, index) => (
-                          <div key={entry.id} className="flex items-start mb-8 relative">
+                          <div key={entry.id || index} className="flex items-start mb-8 relative">
                             <div data-timeline-marker className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10 overflow-hidden">
                               {entry.photo ? (
-                                /* Show uploaded photo */
                                 <img 
                                   src={entry.photo} 
-                                  alt={entry.placeName}
+                                  alt={entry.title || entry.placeName || entry.location || `Itinerary stop ${index + 1}`}
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                /* Person torso with head icon */
-                                <div className="w-4 h-4 flex flex-col items-center justify-center">
-                                  <div className="w-0.5 h-0.5 bg-black rounded-full mb-0.5"></div>
-                                  <div className="w-2 h-1.5 bg-black rounded-sm"></div>
+                                <div className="text-sm font-semibold text-gray-800">
+                                  {(entry.title && entry.title[0]) ||
+                                   (entry.placeName && entry.placeName[0]) ||
+                                   (entry.location && entry.location[0]) ||
+                                   String(index + 1)}
                                 </div>
                               )}
                             </div>
                             <div className="flex-1">
-                              <h3 className="text-2xl font-bold text-black mb-2">{entry.location}</h3>
+                              <h3 className="text-2xl font-bold text-black mb-2">
+                                {entry.title || entry.placeName || entry.location || `Itinerary stop ${index + 1}`}
+                              </h3>
                               <p className="text-gray-600 mb-3">{entry.description}</p>
                               
                               {/* Activities Section */}
@@ -608,18 +838,66 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                             </div>
                           </div>
                           <div className="flex-1">
-                            <h3 className="text-2xl font-bold text-black mb-4">Add your first itinerary</h3>
-                      <button
+                            <h3 className="text-2xl font-bold text-black mb-4">
+                              {itineraryEntries.length > 0 ? 'Add another itinerary stop' : 'Add your first itinerary'}
+                            </h3>
+                            <button
                               onClick={() => setShowAddItineraryModal(true)}
                               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors mb-4 text-lg font-medium"
                             >
-                              Create itinerary
+                              {itineraryEntries.length > 0 ? 'Add itinerary stop' : 'Create itinerary'}
                             </button>
                             <p className="text-gray-600 text-base">
                               Add the stopovers or mid-points you'll visit on the way to Mount Fuji.
                             </p>
                           </div>
                         </div>
+
+                        {itineraryEntries.length > 0 && (
+                          <div className="mb-12 flex flex-col items-center text-center">
+                            <h4 className="text-xl font-semibold text-gray-900 mb-4">Saved itinerary stops</h4>
+                            <div className="space-y-6 w-full max-w-3xl">
+                              {itineraryEntries.map((entry, index) => (
+                                <div key={entry.id || index} className="relative flex items-start">
+                                  <div className="w-8 h-8 border-2 border-blue-700 bg-blue-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                                    <FiMapPin className="w-4 h-4 text-blue-700" />
+                                  </div>
+                                  <div className="flex-1 border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div>
+                                        <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Stop {index + 1}</p>
+                                        <h5 className="text-xl font-semibold text-gray-900">
+                                          {entry.title || entry.placeName || entry.location || `Itinerary stop ${index + 1}`}
+                                        </h5>
+                                      </div>
+                                      {(entry.time || entry.timeSpent) && (
+                                        <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                                          <FiClock className="mr-1" size={12} />
+                                          {entry.time || entry.timeSpent}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {entry.description && (
+                                      <p className="mt-3 text-sm text-gray-600">{entry.description}</p>
+                                    )}
+                                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                                      {entry.attractionType && (
+                                        <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
+                                          {entry.attractionType}
+                                        </span>
+                                      )}
+                                      {'isFree' in entry && (
+                                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${entry.isFree ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                          {entry.isFree ? 'Free stop' : 'Paid stop'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Optional Drop-off as last item */}
                         {productData?.dropoffLocations && productData.dropoffLocations.length > 0 && (
@@ -687,15 +965,20 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                             
                             {/* Action Icons - Right aligned */}
                             <div className="flex items-center space-x-1 ml-4">
-                              <button className="p-1 text-gray-500 hover:text-blue-600 transition-colors">
+                              <button 
+                                onClick={() => handleEditItinerary(entry)}
+                                className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                title="Edit itinerary"
+                              >
                                 <FiEdit3 size={16} />
                               </button>
                               <button 
                                 onClick={() => handleDeleteEntry(entry.id)}
                                 className="p-1 text-gray-500 hover:text-red-600 transition-colors"
+                                title="Delete itinerary"
                               >
                                 <FiTrash2 size={16} />
-                      </button>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -759,9 +1042,27 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
           <div className="bg-white rounded-lg shadow-xl w-[600px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-black">Add new Itinerary stop</h2>
+              <h2 className="text-xl font-bold text-black">
+                {editingItineraryId ? 'Edit Itinerary Stop' : 'Add new Itinerary stop'}
+              </h2>
               <button
-                onClick={() => setShowAddItineraryModal(false)}
+                onClick={() => {
+                  setShowAddItineraryModal(false);
+                  setEditingItineraryId(null);
+                  // Reset form when closing
+                  setPlaceName('');
+                  setDescription('');
+                  setSelectedAttraction('Select Attractions');
+                  setHours('02');
+                  setMinutes('30');
+                  setEntryIsFree(true);
+                  setUploadedPhoto(null);
+                  setPhotoPreview(null);
+                  setCroppedPhoto(null);
+                  if (photoInputRef.current) {
+                    photoInputRef.current.value = '';
+                  }
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <FiX size={24} />
@@ -926,6 +1227,11 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                     </div>
                   </div>
                 )}
+                {photoUploading && (
+                  <p className="text-xs text-blue-500 mt-3 text-center">
+                    Uploading photo… {photoUploadProgress}%
+                  </p>
+                )}
                 {/* Hidden file input */}
                 <input
                   ref={photoInputRef}
@@ -943,7 +1249,7 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
                 onClick={handleSaveItinerary}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Save
+                {editingItineraryId ? 'Update' : 'Save'}
               </button>
             </div>
           </div>
@@ -970,8 +1276,8 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
               <div className="flex justify-center mb-4">
                 <ReactCrop
                   crop={crop}
-                  onChange={(c) => setCrop(c)}
-                  onComplete={(c) => setCompletedCrop(c)}
+                  onChange={(c) => setCrop((prev) => sanitizeCrop({ ...prev, ...c }))}
+                  onComplete={handleCropComplete}
                   aspect={1}
                   circularCrop
                 >
@@ -996,8 +1302,8 @@ const AddItineraryComponent = ({ onClose, onBack, coverImage, uploadedPhotos, pr
               >
                 Cancel
               </button>
-              <button
-                onClick={handleCropComplete}
+                <button
+                 onClick={applyCrop}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Apply Crop

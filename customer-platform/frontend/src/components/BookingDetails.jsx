@@ -1,8 +1,104 @@
-import React from 'react'
+import React, { useMemo, useState, useCallback } from 'react'
 import { FiDownload, FiClock, FiUser, FiMapPin, FiX } from 'react-icons/fi'
 import { Check } from 'lucide-react'
 
-const BookingDetails = ({ booking, onClose }) => {
+const formatCurrencyValue = (value, currency = 'USD') => {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: currency === 'JPY' ? 0 : 2
+    }).format(value || 0)
+  } catch (err) {
+    const amount = Number(value || 0)
+    if (Number.isNaN(amount)) {
+      return '$0.00'
+    }
+    return `$${amount.toFixed(currency === 'JPY' ? 0 : 2)}`
+  }
+}
+
+const BookingDetails = ({
+  booking,
+  onClose,
+  onCancel,
+  onCancelIntent,
+  cancelling = false,
+  cancelError = null
+}) => {
+  const [showCancelForm, setShowCancelForm] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+
+  const handleCancelClick = () => {
+    setShowCancelForm(true)
+    setCancelReason('')
+    if (typeof onCancelIntent === 'function') {
+      onCancelIntent()
+    }
+  }
+
+  const handleCancelClose = () => {
+    if (cancelling) {
+      return
+    }
+    setShowCancelForm(false)
+    setCancelReason('')
+  }
+
+  const handleSubmitCancel = (event) => {
+    event.preventDefault()
+    if (typeof onCancel !== 'function') {
+      return
+    }
+    const reason = cancelReason.trim()
+    if (!reason) {
+      return
+    }
+    onCancel(reason)
+  }
+
+  const formattedAmount = useMemo(
+    () => formatCurrencyValue(booking?.totalAmount, booking?.currency),
+    [booking?.totalAmount, booking?.currency]
+  )
+
+  const handleDownload = useCallback(() => {
+    const rows = [
+      ['Booking ID', booking?.bookingId || booking?.id || ''],
+      ['Tour Name', booking?.tourName || booking?.title || ''],
+      ['Package Type', booking?.packageType || ''],
+      ['Tour Date', booking?.tourDate || ''],
+      ['Destination', booking?.destination || booking?.location || ''],
+      ['Total Amount', formattedAmount],
+      ['Currency', booking?.currency || 'USD'],
+      ['Travelers', booking?.numberOfPersons || booking?.travelers || ''],
+      ['Status', booking?.status || ''],
+      ['Notes', booking?.notes || ''],
+      ['Pick-up Location', booking?.pickUpLocation || ''],
+      ['Drop-off Location', booking?.dropOffLocation || ''],
+      ['Vehicle', booking?.vehicle || ''],
+    ]
+
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) =>
+            `"${String(cell ?? '')
+              .replace(/"/g, '""')}"`
+          )
+          .join(',')
+      )
+      .join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `booking-${booking?.bookingId || booking?.id || 'details'}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }, [booking, formattedAmount])
+
   const guide = {
     name: 'Yuki Tanaka',
     role: 'Professional Guide',
@@ -40,11 +136,19 @@ const BookingDetails = ({ booking, onClose }) => {
               <FiX className="w-5 h-5" />
             </button>
           )}
-          <button className="px-6 py-2 rounded-lg text-white font-semibold transition flex items-center gap-2" style={{ backgroundColor: '#1d236b' }}>
+          <button
+            onClick={handleDownload}
+            className="px-6 py-2 rounded-lg text-white font-semibold transition flex items-center gap-2"
+            style={{ backgroundColor: '#1d236b' }}
+          >
             <FiDownload className="w-4 h-4" />
-            Download
+            Download CSV
           </button>
-          <button className="px-6 py-2 border-2 border-gray-300 rounded-lg text-gray-900 font-semibold hover:bg-gray-50 transition">
+          <button
+            onClick={handleCancelClick}
+            className="px-6 py-2 border-2 border-gray-300 rounded-lg text-gray-900 font-semibold hover:bg-gray-50 transition disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={cancelling}
+          >
             Cancel Booking
           </button>
         </div>
@@ -87,13 +191,13 @@ const BookingDetails = ({ booking, onClose }) => {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 font-medium">Total Cost:</span>
-                <span className="text-gray-900 font-semibold">{booking?.totalAmount || '$189'}</span>
+                <span className="text-gray-900 font-semibold">{formattedAmount}</span>
               </div>
               <div className="flex justify-between items-center pt-3 border-t border-gray-200">
                 <span className="text-gray-600 font-medium">Status:</span>
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold capitalize ${
                   booking?.status === 'confirmed' 
-                    ? 'bg-yellow-500 text-white'
+                    ? 'bg-blue-500 text-white'
                     : booking?.status === 'pending'
                     ? 'bg-yellow-500 text-white'
                     : booking?.status === 'canceled'
@@ -198,6 +302,66 @@ const BookingDetails = ({ booking, onClose }) => {
           </div>
         </div>
       </div>
+
+      {showCancelForm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-6 py-10">
+          <div className="w-full max-w-3xl rounded-3xl bg-white p-10 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Cancel booking</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Please share a short reason so we can improve future experiences.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelClose}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                disabled={cancelling}
+              >
+                <FiX className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitCancel} className="mt-5 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-900">
+                  Reason for cancellation
+                </label>
+                <textarea
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                  placeholder="e.g. Need to reschedule, change of plans..."
+                  rows={4}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': '#1d236b' }}
+                  disabled={cancelling}
+                />
+              </div>
+              {cancelError && (
+                <p className="text-sm text-red-600">{cancelError}</p>
+              )}
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelClose}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={cancelling}
+                >
+                  Keep Booking
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{ backgroundColor: '#1d236b' }}
+                  disabled={cancelling || cancelReason.trim().length < 3}
+                >
+                  {cancelling ? 'Cancelling…' : 'Submit Cancellation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,13 +1,18 @@
-import React, { useState, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FiUser, FiChevronDown, FiSearch, FiShoppingCart } from 'react-icons/fi'
+import { FiChevronDown, FiShoppingCart } from 'react-icons/fi'
 import SettingsModal from './SettingsModal'
 import AttractionsDropdown from './AttractionsDropdown'
 import DestinationsDropdown from './DestinationsDropdown'
 import ExploreTripsAdoraDropdown from './ExploreTripsAdoraDropdown'
+import { getProfileSummary } from '../services/profileService'
+import { useAuth } from '../context/AuthContext'
+
+const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
 const MainHeader = () => {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const profileRef = useRef(null)
   
@@ -18,6 +23,95 @@ const MainHeader = () => {
   const destinationsRef = useRef(null)
   const exploreRef = useRef(null)
   const [isExploreOpen, setIsExploreOpen] = useState(false)
+  
+  // Get userId only if authenticated - don't use default
+  const userId = isAuthenticated ? (localStorage.getItem('customer_profile_user_id') || null) : null
+
+  // Load cached profile summary immediately on mount (synchronous) - only if authenticated
+  const [profileSummary, setProfileSummary] = useState(() => {
+    if (!isAuthenticated || !userId) return null
+    try {
+      const cached = localStorage.getItem(`customer_profile_summary_cache_${userId}`);
+      const timestamp = localStorage.getItem(`customer_profile_summary_cache_ts_${userId}`);
+      if (cached && timestamp) {
+        const age = Date.now() - parseInt(timestamp, 10);
+        if (age < 10 * 60 * 1000) { // 10 minutes for summary
+          return JSON.parse(cached);
+        }
+      }
+    } catch (_) {
+      // Ignore cache errors
+    }
+    return null;
+  })
+  const [profileLoading, setProfileLoading] = useState(false)
+
+  const fetchProfileSummary = useCallback(async () => {
+    if (!isAuthenticated || !userId) {
+      setProfileSummary(null)
+      return
+    }
+    // Only show loading if we don't have cached data
+    if (!profileSummary) {
+      setProfileLoading(true)
+    }
+    try {
+      // Use lightweight summary endpoint for header
+      const data = await getProfileSummary(userId, true) // Use cache
+      setProfileSummary(data)
+    } catch (_) {
+      // Only clear if we don't have cached data
+      if (!profileSummary) {
+        setProfileSummary(null)
+      }
+    } finally {
+      setProfileLoading(false)
+    }
+  }, [userId, profileSummary, isAuthenticated])
+
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      // If we have cached data, fetch fresh in background
+      if (profileSummary) {
+        fetchProfileSummary() // This will fetch in background
+      } else {
+        // No cache, fetch immediately
+        fetchProfileSummary()
+      }
+    } else {
+      setProfileSummary(null)
+    }
+  }, [isAuthenticated, userId]) // Run when authentication state or userId changes
+
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      const handleProfileUpdated = () => fetchProfileSummary()
+      window.addEventListener('customer_profile_updated', handleProfileUpdated)
+      return () => window.removeEventListener('customer_profile_updated', handleProfileUpdated)
+    }
+  }, [fetchProfileSummary, isAuthenticated, userId])
+
+  const user = profileSummary?.user
+  const languageCode = (user?.language || 'en').toUpperCase()
+  const displayName = useMemo(() => {
+    if (!user) return ''
+    if (user.first_name || user.last_name) {
+      return [user.first_name, user.last_name].filter(Boolean).join(' ').trim()
+    }
+    return user.name || ''
+  }, [user])
+
+  const initials = useMemo(() => {
+    if (displayName) {
+      const segments = displayName.split(/\s+/).filter(Boolean)
+      if (segments.length === 1) return segments[0][0]?.toUpperCase() || ''
+      return (segments[0][0] || '').toUpperCase() + (segments[segments.length - 1][0] || '').toUpperCase()
+    }
+    const fallback = user?.email || 'User'
+    return fallback.slice(0, 2).toUpperCase()
+  }, [displayName, user?.email])
+
+  const avatarUrl = user?.avatar_url
 
   return (
     <>
@@ -33,43 +127,57 @@ const MainHeader = () => {
                 />
               </Link>
 
-              {/* Search Bar */}
-              <div className="flex-1 max-w-md hidden md:flex items-center mx-4">
-                <div className="relative w-full">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiSearch className="h-5 w-5 text-gray-500" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search Destinations"
-                    className="block w-full pl-10 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
               {/* Navigation Links */}
               <nav className="hidden lg:flex items-center space-x-6 flex-shrink-0">
                 <Link to="/dashboard" className="text-gray-900 font-medium text-sm hover:opacity-80 transition">Home</Link>
-                <Link to="/search" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Explore</Link>
-                <a href="#" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Blogs</a>
+                <Link to="/blogs" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Blogs</Link>
                 <Link to="/about-us" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">About</Link>
-                <a href="#" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Contact</a>
+                <Link to="/contact" className="text-gray-900 font-normal text-sm hover:opacity-80 transition">Contact</Link>
               </nav>
 
               {/* Language Selector and Profile */}
               <div className="flex items-center space-x-4 relative flex-shrink-0">
                 <div className="flex items-center text-gray-900 cursor-pointer hover:opacity-80">
-                  <span className="text-sm font-medium">EN</span>
+                  <span className="text-sm font-medium">{languageCode}</span>
                 </div>
 
-                <div 
-                  ref={profileRef}
-                  className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition"
-                  style={{ backgroundColor: '#1d236b' }}
-                  onClick={() => setIsSettingsOpen(true)}
-                >
-                  <FiUser className="text-white text-sm" />
-                </div>
+                {isAuthenticated ? (
+                  <button
+                    type="button"
+                    ref={profileRef}
+                    className="flex items-center gap-2 cursor-pointer transition hover:opacity-85"
+                    onClick={() => setIsSettingsOpen(true)}
+                    aria-label="Open profile menu"
+                  >
+                    {displayName && (
+                      <span className="hidden sm:block text-sm font-medium text-gray-900 max-w-[120px] truncate">
+                        {displayName}
+                      </span>
+                    )}
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden bg-[#1d236b] text-white text-sm font-semibold"
+                      style={{ opacity: profileLoading ? 0.7 : 1 }}
+                    >
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt={displayName || 'Profile avatar'} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-semibold tracking-wide" title={displayName || 'Profile'}>
+                          {initials}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    ref={profileRef}
+                    className="px-4 py-2 text-sm font-medium text-gray-900 hover:text-[#1d236b] transition-colors"
+                    onClick={() => navigate('/login')}
+                    aria-label="Login or Sign up"
+                  >
+                    Login/Sign up
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -84,28 +192,28 @@ const MainHeader = () => {
               {/* Left Side Dropdowns */}
               <div className="flex items-center space-x-8">
                 <div 
-                  ref={exploreRef}
-                  className="flex items-center text-gray-900 cursor-pointer group"
-                  onClick={() => setIsExploreOpen(!isExploreOpen)}
-                >
-                  <span className="text-sm font-medium group-hover:opacity-80">Things to do</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
-                </div>
-                <div 
                   ref={attractionsRef}
-                  className="flex items-center text-gray-900 cursor-pointer group"
+                  className="flex items-center text-gray-900 cursor-pointer group transition-colors"
                   onClick={() => setIsAttractionsOpen(!isAttractionsOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:opacity-80">Top Attractions of Japan</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
+                  <span className="text-sm font-medium group-hover:text-[#1d236b]">Top Attractions</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:text-[#1d236b]" />
                 </div>
                 <div 
                   ref={destinationsRef}
-                  className="flex items-center text-gray-900 cursor-pointer group"
+                  className="flex items-center text-gray-900 cursor-pointer group transition-colors"
                   onClick={() => setIsDestinationsOpen(!isDestinationsOpen)}
                 >
-                  <span className="text-sm font-medium group-hover:opacity-80">Trips Inspiration</span>
-                  <FiChevronDown className="ml-1 text-xs group-hover:opacity-80" />
+                  <span className="text-sm font-medium group-hover:text-[#1d236b]">Top Destinations</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:text-[#1d236b]" />
+                </div>
+                <div 
+                  ref={exploreRef}
+                  className="flex items-center text-gray-900 cursor-pointer group transition-colors"
+                  onClick={() => setIsExploreOpen(!isExploreOpen)}
+                >
+                  <span className="text-sm font-medium group-hover:text-[#1d236b]">Explore TripsAdora</span>
+                  <FiChevronDown className="ml-1 text-xs group-hover:text-[#1d236b]" />
                 </div>
               </div>
 
@@ -158,6 +266,7 @@ const MainHeader = () => {
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)}
         profileRef={profileRef}
+        profile={profileSummary}
       />
     </>
   )

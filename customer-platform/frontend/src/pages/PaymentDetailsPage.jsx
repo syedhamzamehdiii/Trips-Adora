@@ -1,9 +1,35 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiArrowLeft } from 'react-icons/fi'
 import { BsBorderStyle } from 'react-icons/bs'
+import { createBooking } from '../services/bookingService'
+
+const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
+
+const toISODateString = (value) => {
+  if (!value) {
+    return new Date().toISOString()
+  }
+  const tryParse = (input) => {
+    const parsed = new Date(input)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  const direct = tryParse(value)
+  if (direct) {
+    return direct.toISOString()
+  }
+
+  const cleaned = value.replace(/,/g, '')
+  const cleanedParsed = tryParse(cleaned)
+  if (cleanedParsed) {
+    return cleanedParsed.toISOString()
+  }
+
+  return new Date().toISOString()
+}
 
 const PaymentDetailsPage = () => {
   const location = useLocation()
@@ -17,45 +43,72 @@ const PaymentDetailsPage = () => {
   const [cvv, setCvv] = useState('')
   const [specialInstructions, setSpecialInstructions] = useState('')
 
-  const handleCompleteBooking = () => {
+  const [error, setError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const userId = useMemo(
+    () => localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID,
+    []
+  )
+
+  const handleCompleteBooking = async () => {
     // Validate required fields
     if (!cardNumber.trim() || !cardholderName.trim() || !expiryMonth.trim() || !cvv.trim()) {
       alert('Please fill in all required payment fields')
       return
     }
 
-    // Generate booking ID
-    const bookingId = `FUJI-2025-${Math.floor(Math.random() * 1000).toString().padStart(4, '0')}`
-    
-    // Create booking object
-    const booking = {
-      id: bookingId,
-      bookingId,
-      tourName: bookingData?.name || 'Fuji Subaru Line 5th Station Tour',
-      packageType: 'Scenic Mountain Drive + Photo Spots',
-      tourDate: selectedDate || 'October 22, 2025',
-      totalAmount: `$${totalPrice || 778}`,
-      customerName: cardholderName || 'Kenji Yamamoto',
-      email: 'kenji.yamamoto@email.com',
-      numberOfPersons: `${selectedPersons || 3} Adults, 1 Child`,
-      phone: '+81 90-1234-5678',
-      vehicle: 'Toyota Hiace Van',
+    setError(null)
+    setSubmitting(true)
+
+    const totalAmount = Number(totalPrice || bookingData?.price || 0)
+    const bookingPayload = {
+      title: bookingData?.name || 'Fuji Subaru Line 5th Station Tour',
+      productId: bookingData?.id || bookingData?.slug || bookingData?.productId,
+      destination: bookingData?.location || bookingData?.destination,
+      location: bookingData?.location || bookingData?.destination,
+      startDate: toISODateString(selectedDate),
+      endDate: toISODateString(selectedDate),
+      status: 'confirmed',
+      totalAmount,
+      currency: bookingData?.currency || 'USD',
+      loyaltyPoints: Math.max(0, Math.round((totalAmount || 0) / 10)),
+      heroImage: bookingData?.image || '/assests/bg.jpg',
+      notes: specialInstructions?.trim() || '',
+      travelers: selectedPersons ? `${selectedPersons} Traveler${selectedPersons > 1 ? 's' : ''}` : '',
+      packageType: bookingData?.packageType || 'Scenic Mountain Drive + Photo Spots',
       pickUpLocation: 'Kawaguchiko Station',
       dropOffLocation: 'Fuji Subaru Line 5th Station',
-      image: bookingData?.image || '/assests/bg.jpg',
-      status: 'confirmed'
+      customerName: cardholderName || 'Guest',
+      customerEmail: bookingData?.email || 'customer@example.com',
+      customerPhone: '+81 90-1234-5678',
+      vehicle: selectedVehicle?.name || vehicleData?.name || 'Toyota Hiace Van',
+      tourDateLabel: selectedDate || '',
+      extras: Array.isArray(extras) ? extras : [],
+      metadata: {
+        selectedTime: selectedTime || '',
+        extrasTotal: typeof extrasTotal === 'number' ? extrasTotal.toString() : '',
+        cardLast4: cardNumber.slice(-4),
+        selectedVehicleId: selectedVehicle?.id || vehicleData?.id || '',
+      },
     }
-    
-    // Save to localStorage
-    const existingBookings = JSON.parse(localStorage.getItem('bookings') || '[]')
-    existingBookings.push(booking)
-    localStorage.setItem('bookings', JSON.stringify(existingBookings))
-    
-    // Clear cart after successful booking
-    localStorage.removeItem('cart')
-    
-    // Navigate to payment success page
-    navigate('/payment-success', { state: booking })
+
+    try {
+      const created = await createBooking(userId, bookingPayload)
+
+      // Clear cart after successful booking
+      localStorage.removeItem('cart')
+
+      // Notify other views to refresh
+      window.dispatchEvent(new CustomEvent('customer_bookings_updated'))
+      window.dispatchEvent(new Event('customer_profile_updated'))
+
+      navigate('/payment-success', { state: created })
+    } catch (err) {
+      setError(err?.message || 'Unable to complete booking right now. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -104,6 +157,11 @@ const PaymentDetailsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Panel - Payment Details */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+            {error && (
+              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-6">
               <BsBorderStyle className="w-6 h-6" style={{ color: '#1d236b' }} />
               <div>
@@ -130,7 +188,7 @@ const PaymentDetailsPage = () => {
               <label className="block text-lg font-semibold text-gray-900 mb-3">Cardholder Name</label>
               <input
                 type="text"
-                placeholder="123456-5678"
+                placeholder="your name"
                 value={cardholderName}
                 onChange={(e) => setCardholderName(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 resize-none"
@@ -188,8 +246,9 @@ const PaymentDetailsPage = () => {
                 onClick={handleCompleteBooking}
                 className="flex-1 py-3 rounded-lg text-white font-semibold transition"
                 style={{ backgroundColor: '#1d236b' }}
+                disabled={submitting}
               >
-                Complete Booking
+                {submitting ? 'Processing...' : 'Complete Booking'}
               </button>
             </div>
           </div>

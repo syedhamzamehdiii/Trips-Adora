@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react'
 import Footer from '@/components/common/Footer'
 import { FiDownload, FiSearch } from 'react-icons/fi'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import dashboardService from '@/services/dashboardService'
 
 const FinancePage = () => {
   // Real-time finance data derived from bookings in storage
@@ -9,6 +10,8 @@ const FinancePage = () => {
   const [rows, setRows] = useState([])
   const [summary, setSummary] = useState({ totalEarning: 0, pendingPayout: 0, lossFromCancellation: 0, paidThisMonth: 0 })
   const [chartData, setChartData] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   const parseAmount = (v) => {
     if (typeof v === 'number') return v
@@ -32,21 +35,38 @@ const FinancePage = () => {
   }
 
   useEffect(() => {
-    const load = () => {
+    let isMounted = true
+
+    const load = async () => {
+      setLoading(true)
+      setError(null)
       try {
-        const raw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings')
-        const list = raw ? JSON.parse(raw) : []
-        setBookings(Array.isArray(list) ? list : [])
-      } catch (_) {
+        const overview = await dashboardService.getOverview()
+        if (!isMounted) return
+
+        const bookingItems = Array.isArray(overview?.bookings?.items)
+          ? overview.bookings.items
+          : []
+        setBookings(bookingItems)
+      } catch (err) {
+        if (!isMounted) return
         setBookings([])
+        setError(err?.message || 'Unable to load finance data.')
+      } finally {
+        if (isMounted) setLoading(false)
       }
     }
+
     load()
-    window.addEventListener('storage', load)
-    window.addEventListener('bookings_updated', load)
+
+    const handleRefresh = () => load()
+    window.addEventListener('bookings_updated', handleRefresh)
+    window.addEventListener('products_updated', handleRefresh)
+
     return () => {
-      window.removeEventListener('storage', load)
-      window.removeEventListener('bookings_updated', load)
+      isMounted = false
+      window.removeEventListener('bookings_updated', handleRefresh)
+      window.removeEventListener('products_updated', handleRefresh)
     }
   }, [])
 
@@ -263,6 +283,18 @@ const FinancePage = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {loading && (
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+            Loading the latest finance data…
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white border border-gray-200 rounded-lg p-4">

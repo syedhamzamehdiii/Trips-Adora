@@ -18,8 +18,9 @@ const SupplierPromo = () => {
     try {
       localStorage.setItem('tripsadora_mode', 'supplier')
     } catch (_) {}
-    const supplierUrl = import.meta?.env?.VITE_SUPPLIER_APP_URL || 'http://localhost:5173'
-    window.location.assign(supplierUrl)
+    const supplierBase = import.meta?.env?.VITE_SUPPLIER_APP_URL || 'http://localhost:5173'
+    const loginUrl = `${supplierBase.replace(/\/$/, '')}/login`
+    window.location.assign(loginUrl)
   }
 
   return (

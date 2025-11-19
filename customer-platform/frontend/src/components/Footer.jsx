@@ -1,8 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones } from 'lucide-react';
+import { config } from '../config';
 
 const Footer = () => {
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
   return (
     <footer className="bg-[#1d236b] text-white">
       <div className="max-w-7xl mx-auto px-6 py-10">
@@ -10,34 +13,34 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-3">Company</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
-              <li><Link to="/dashboard#about-us">About us</Link></li>
-              <li><Link to="/dashboard#careers">Careers</Link></li>
-              <li><a href="#">Blogs</a></li>
-              <li><Link to="/dashboard#contact-us">Contact Us</Link></li>
+              <li><Link to="/about-us" onClick={scrollToTop}>About us</Link></li>
+              <li><Link to="/about-us#careers">Careers</Link></li>
+              <li><Link to="/blogs" onClick={scrollToTop}>Blogs</Link></li>
+              <li><Link to="/contact" onClick={scrollToTop}>Contact Us</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold mb-3">Support</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
-              <li><a href="#">Help Center</a></li>
-              <li><a href="#">FAQs</a></li>
-              <li><a href="#">Privacy Policy</a></li>
+              <li><Link to="/support" onClick={scrollToTop}>Help Center</Link></li>
+              <li><Link to="/faq" onClick={scrollToTop}>FAQs</Link></li>
+              <li><Link to="/privacy" onClick={scrollToTop}>Privacy Policy</Link></li>
+              <li><Link to="/sitemap" onClick={scrollToTop}>Sitemap</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold mb-3">Partner With Us</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
-              <li><a href="#">Become a Partner</a></li>
-              <li><a href="#">Join as an Affiliate</a></li>
-              <li><a href="#">Collaboration Inquiries</a></li>
+              <li><a href={`${config.SUPPLIER_APP_URL}/login`} target="_blank" rel="noopener noreferrer">Become a Partner</a></li>
+              <li><a href={`${config.SUPPLIER_APP_URL}/login`} target="_blank" rel="noopener noreferrer">Join as an Affiliate</a></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold mb-3">Explore</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
-              <li><a href="#">Case Studies</a></li>
-              <li><a href="#">Resources</a></li>
-              <li><Link to="/customer-reviews">Customer Reviews</Link></li>
+              <li><a href="#" onClick={(e) => { e.preventDefault(); scrollToTop(); }}>Case Studies</a></li>
+              <li><a href="#" onClick={(e) => { e.preventDefault(); scrollToTop(); }}>Resources</a></li>
+              <li><Link to="/profile/reviews" onClick={scrollToTop}>Customer Reviews</Link></li>
             </ul>
           </div>
           {/* Payments & Settings */}

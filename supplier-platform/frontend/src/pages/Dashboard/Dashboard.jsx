@@ -1,21 +1,24 @@
-import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
+import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown, FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { getUnreadCount as getChatUnreadCount } from '@/services/chatService';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
 import SettingsDropdown from '@/components/common/SettingsDropdown';
 import TravellerSectionModal from '@/components/modals/TravellerSectionModal';
 import FromSupplierModal from '@/components/modals/FromSupplierModal';
 import RefundPolicyModal from '@/components/modals/RefundPolicyModal';
 import Footer from '@/components/common/Footer';
+import productService from '@/services/productService';
+import dashboardService from '@/services/dashboardService';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showAllNotifications, setShowAllNotifications] = useState(false);
+  const [showAllNotificationsModal, setShowAllNotificationsModal] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -25,6 +28,7 @@ const Dashboard = () => {
   const [isRefundPolicyOpen, setIsRefundPolicyOpen] = useState(false);
   const [draftProducts, setDraftProducts] = useState([]);
   const [popularActivities, setPopularActivities] = useState([]);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
@@ -32,27 +36,108 @@ const Dashboard = () => {
   const profileRef = useRef(null);
 
   // Load profile data from localStorage in real-time
-  const [sidebarProfile, setSidebarProfile] = useState({ name: 'Edward William', photo: null, id: '00032123', location: 'Notting Hill, London' });
+  const [sidebarProfile, setSidebarProfile] = useState({ name: 'User', photo: null, id: 'N/A', location: 'Tokyo, Japan' });
   const [supplierMode, setSupplierMode] = useState(true);
-  const [dashboardData, setDashboardData] = useState({
-    balance: 1850,
-    todaysBookings: 18,
-    tomorrowsBookings: 24,
-    totalProducts: 12,
+  const DEFAULT_DASHBOARD = {
+    balance: 0,
+    todaysBookings: 0,
+    tomorrowsBookings: 0,
+    totalProducts: 0,
     cancellationRate: 0,
-    freshReviews: 4.8,
-    todaysBalance: 760,
+    freshReviews: 0,
+    todaysBalance: 0,
     myActivity: {
-      published: 50,
-      drafts: 15,
-      underReview: 35
+      published: 0,
+      drafts: 0,
+      underReview: 0,
+      counts: {
+        published: 0,
+        draft: 0,
+        under_review: 0,
+        total: 0,
+      },
     },
     accountStability: {
-      positiveRating: 70,
-      cancellation: 18,
-      negativeRating: 12
+      positiveRating: 100,
+      cancellation: 0,
+      negativeRating: 0,
+    },
+    financeSummary: {
+      totalEarning: 0,
+      pendingPayout: 0,
+      lossFromCancellation: 0,
+      paidThisMonth: 0,
+    },
+    bookingsSummary: {
+      total: 0,
+      today: 0,
+      tomorrow: 0,
+    },
+    bookings: [],
+  };
+  // Load cached dashboard data immediately on mount (synchronous)
+  const [dashboardData, setDashboardData] = useState(() => {
+    try {
+      const cached = localStorage.getItem('supplier_dashboard_cache');
+      const timestamp = localStorage.getItem('supplier_dashboard_cache_ts');
+      if (cached && timestamp) {
+        const age = Date.now() - parseInt(timestamp, 10);
+        if (age < 2 * 60 * 1000) { // 2 minutes
+          const overview = JSON.parse(cached);
+          return transformOverviewToDashboardState(overview, DEFAULT_DASHBOARD);
+        }
+      }
+    } catch (_) {
+      // Ignore cache errors
     }
+    return DEFAULT_DASHBOARD;
   });
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState(null);
+  const hasLoadedOnceRef = useRef(false);
+
+  const transformOverviewToDashboardState = (overview, previous = dashboardData) => {
+    const metrics = overview?.metrics || {};
+    const activityPercentages = overview?.activity?.percentages || {};
+    const activityCounts = overview?.activity?.counts || {};
+    const finance = overview?.finance || {};
+    const products = overview?.products || {};
+    const stability = overview?.account_stability || {};
+    const bookings = overview?.bookings || {};
+
+    return {
+      balance: Math.round(metrics.available_balance ?? previous.balance ?? 0),
+      todaysBookings: bookings.today ?? metrics.todays_bookings ?? previous.bookingsSummary?.today ?? 0,
+      tomorrowsBookings: bookings.tomorrow ?? metrics.tomorrows_bookings ?? previous.bookingsSummary?.tomorrow ?? 0,
+      totalProducts: products.total ?? 0,
+      cancellationRate: products.cancellation_rate ?? 0,
+      freshReviews: products.average_rating ?? 0,
+      todaysBalance: Math.round(metrics.todays_balance ?? previous.todaysBalance ?? 0),
+      myActivity: {
+        published: activityPercentages.published ?? 0,
+        drafts: activityPercentages.draft ?? 0,
+        underReview: activityPercentages.under_review ?? 0,
+        counts: activityCounts,
+      },
+      accountStability: {
+        positiveRating: stability.positive ?? 0,
+        cancellation: stability.cancellation ?? 0,
+        negativeRating: stability.negative ?? 0,
+      },
+      financeSummary: {
+        totalEarning: finance.total_earning ?? previous.financeSummary?.totalEarning ?? 0,
+        pendingPayout: finance.pending_payout ?? previous.financeSummary?.pendingPayout ?? 0,
+        lossFromCancellation: finance.loss_from_cancellation ?? previous.financeSummary?.lossFromCancellation ?? 0,
+        paidThisMonth: finance.paid_this_month ?? previous.financeSummary?.paidThisMonth ?? 0,
+      },
+      bookingsSummary: {
+        total: bookings.total ?? 0,
+        today: bookings.today ?? previous.bookingsSummary?.today ?? 0,
+        tomorrow: bookings.tomorrow ?? previous.bookingsSummary?.tomorrow ?? 0,
+      },
+      bookings: Array.isArray(bookings.items) ? bookings.items : [],
+    };
+  };
 
   // Keep toggle in sync with global mode (tripsadora_mode)
   useEffect(() => {
@@ -76,10 +161,14 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
+    // Load profile from cache instantly
     const loadProfile = () => {
       try {
         let saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
-        const supplierId = localStorage.getItem('supplier_id') || sessionStorage.getItem('supplier_id') || '00032123';
+        const supplierId =
+          localStorage.getItem('supplier_id') ||
+          sessionStorage.getItem('supplier_id') ||
+          'N/A';
         if (saved) {
           const data = JSON.parse(saved);
           setSidebarProfile({
@@ -92,127 +181,69 @@ const Dashboard = () => {
       } catch (_) {}
     };
 
-    const loadDashboardData = () => {
+    const loadDashboardData = async () => {
+      // Only show loading if we don't have cached data
+      const hasCachedData = dashboardData && Object.keys(dashboardData).length > 0 && 
+        dashboardData.balance !== undefined && dashboardData.balance !== null;
+      
+      if (!hasCachedData) {
+        setDashboardLoading(true);
+      }
+      setDashboardError(null);
       try {
-        // Calculate real-time data from actual products
-        const allProductsData = localStorage.getItem('all_products');
-        if (allProductsData) {
-          const allProducts = JSON.parse(allProductsData);
-          
-          // Match Active Product Listing logic: count products that have a valid name/title
-          // and are in one of the relevant statuses (Published, Draft, Under Review)
-          const userProducts = allProducts.filter(p => {
-            if (!p) return false;
-            const displayName = (p.title || p.name || '').toString().trim();
-            const isRelevantStatus = p.status === 'Published' || p.status === 'Draft' || p.status === 'Under Review';
-            return displayName !== '' && isRelevantStatus;
-          });
-          
-          const publishedProducts = userProducts.filter(p => p.status === 'Published');
-          const draftProducts = userProducts.filter(p => p.status === 'Draft');
-          const underReviewProducts = userProducts.filter(p => p.status === 'Under Review');
-
-          // Calculate real-time metrics from user's products only
-          const totalProducts = userProducts.length;
-          const totalRevenue = userProducts.reduce((sum, product) => {
-            return sum + parseInt(product.revenue || product.vehicles?.[0]?.amount || 0);
-          }, 0);
-          
-          const totalBookings = userProducts.reduce((sum, product) => {
-            return sum + parseInt(product.bookings || 0);
-          }, 0);
-          
-          const totalCancellations = userProducts.reduce((sum, product) => {
-            return sum + parseInt(product.cancellations || 0);
-          }, 0);
-          
-          const cancellationRate = totalBookings > 0 ? Math.round((totalCancellations / totalBookings) * 100) : 0;
-          
-          const averageRating = userProducts.reduce((sum, product) => {
-            const rating = parseFloat(product.ratings?.split('/')[0] || 0);
-            return sum + rating;
-          }, 0) / Math.max(userProducts.length, 1);
-          
-          // Calculate activity percentages
-          const publishedPercent = totalProducts > 0 ? Math.round((publishedProducts.length / totalProducts) * 100) : 0;
-          const draftsPercent = totalProducts > 0 ? Math.round((draftProducts.length / totalProducts) * 100) : 0;
-          const underReviewPercent = totalProducts > 0 ? Math.round((underReviewProducts.length / totalProducts) * 100) : 0;
-
-          // Calculate today's metrics (simulated based on products)
-          const todaysBookings = Math.floor(totalBookings * 0.1) + Math.floor(Math.random() * 5); // 10% of total + random
-          const tomorrowsBookings = Math.floor(totalBookings * 0.15) + Math.floor(Math.random() * 8); // 15% of total + random
-          const todaysBalance = Math.floor(totalRevenue * 0.05) + Math.floor(Math.random() * 200); // 5% of total + random
-
-          setDashboardData({
-            balance: Math.floor(totalRevenue * 0.1) + Math.floor(Math.random() * 500), // 10% of total revenue + random
-            todaysBookings: todaysBookings,
-            tomorrowsBookings: tomorrowsBookings,
-            totalProducts: totalProducts,
-            cancellationRate: cancellationRate,
-            freshReviews: Math.round(averageRating * 10) / 10,
-            todaysBalance: todaysBalance,
-            myActivity: {
-              published: publishedPercent,
-              drafts: draftsPercent,
-              underReview: underReviewPercent
-            },
-            accountStability: {
-              positiveRating: Math.max(70 - cancellationRate, 50), // Higher cancellation = lower positive rating
-              cancellation: cancellationRate,
-              negativeRating: Math.min(cancellationRate + Math.floor(Math.random() * 10), 20)
-            }
-          });
+        const overview = await dashboardService.getOverview(true); // Use cache
+        const transformed = transformOverviewToDashboardState(overview, dashboardData);
+        setDashboardData(transformed);
+        hasLoadedOnceRef.current = true;
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        // Only show error if we don't have cached data
+        if (!hasCachedData) {
+          setDashboardError(error?.message || 'Unable to load dashboard data right now.');
+          setDashboardData(DEFAULT_DASHBOARD);
         }
-      } catch (_) {}
+      } finally {
+        setDashboardLoading(false);
+      }
     };
 
-    const loadDraftProducts = () => {
+    const loadDraftProducts = async () => {
       try {
-        // Load draft products from localStorage
-        const allProductsData = localStorage.getItem('all_products');
-        if (allProductsData) {
-          const allProducts = JSON.parse(allProductsData);
-          const drafts = allProducts.filter(p => p.status === 'Draft');
-          
-          // Also check individual draft files
-          const draftKeys = Object.keys(localStorage).filter(key => key.startsWith('product_draft_'));
-          const additionalDrafts = [];
-          
-          draftKeys.forEach(key => {
+        // Load draft products from database using lightweight summary
+        const response = await productService.getMyProducts({ status: 'draft', page: 1, page_size: 20, summary: true });
+        const { transformApiProductsList } = await import('@/utils/productTransform');
+        const allProducts = transformApiProductsList(response);
+        const drafts = allProducts.filter(p => p.status === 'Draft');
+        
+        // Also check localStorage for draft data (images and additional data)
+        const draftKeys = Object.keys(localStorage).filter(key => key.startsWith('product_draft_'));
+        const draftsWithProgress = drafts.map(draft => {
+          // Try to get full draft data from localStorage for progress calculation
+          const draftKey = `product_draft_${draft.dbProductId || draft.id}`;
+          const draftData = localStorage.getItem(draftKey);
+          let parsedDraftData = null;
+          if (draftData) {
             try {
-              const draftData = JSON.parse(localStorage.getItem(key));
-              if (draftData && draftData.title) {
-                // Check if this draft is not already in all_products
-                const existsInAllProducts = allProducts.some(p => p.id === draftData.draftId);
-                if (!existsInAllProducts) {
-                  additionalDrafts.push({
-                    id: draftData.draftId || key.replace('product_draft_', ''),
-                    name: draftData.title || 'Untitled Product',
-                    status: 'Draft',
-                    creationDate: draftData.lastModified ? new Date(draftData.lastModified).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
-                    revenue: draftData.vehicles?.[0]?.amount || 0,
-                    progress: calculateProgress(draftData)
-                  });
-                }
-              }
+              parsedDraftData = JSON.parse(draftData);
             } catch (e) {
               console.warn('Error parsing draft data:', e);
             }
-          });
+          }
           
-          // Combine drafts from all_products and individual draft files
-          const allDrafts = [...drafts, ...additionalDrafts].map(draft => ({
+          return {
             id: draft.id,
-            name: draft.name || draft.title || 'Untitled Product',
+            name: draft.name || 'Untitled Product',
             status: 'Draft',
-            creationDate: draft.creationDate || draft.creationDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
-            revenue: draft.revenue || draft.vehicles?.[0]?.amount || 0,
-            progress: draft.progress || calculateProgress(draft)
-          }));
-          
-          setDraftProducts(allDrafts.slice(0, 3)); // Show max 3 drafts
-        }
-      } catch (_) {}
+            creationDate: draft.creationDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
+            revenue: draft.revenue || 0,
+            progress: calculateProgress(parsedDraftData || draft)
+          };
+        });
+        
+        setDraftProducts(draftsWithProgress.slice(0, 3)); // Show max 3 drafts
+      } catch (error) {
+        console.error('Error loading drafts:', error);
+      }
     };
 
     const calculateProgress = (draftData) => {
@@ -232,13 +263,12 @@ const Dashboard = () => {
       return Math.round((completedSteps / totalSteps) * 100);
     };
 
-    const loadPopularActivities = () => {
-      try {
-        // Load all published products (these are the ones customers can book)
-        const allProductsData = localStorage.getItem('all_products');
-        if (allProductsData) {
-          const allProducts = JSON.parse(allProductsData);
-          const publishedProducts = allProducts.filter(p => p.status === 'Published');
+    const loadPopularActivities = async () => {
+      // Load all published products from database (these are the ones customers can book)
+      const response = await productService.getMyProducts({ status: 'published', page: 1, page_size: 20, summary: true });
+      const { transformApiProductsList } = await import('@/utils/productTransform');
+      const allProducts = transformApiProductsList(response);
+      const publishedProducts = allProducts.filter(p => p.status === 'Published');
           
           // Calculate customer demand analytics for each published product
           const activitiesWithAnalytics = publishedProducts.map(product => {
@@ -309,34 +339,60 @@ const Dashboard = () => {
             .sort((a, b) => b.demandScore - a.demandScore)
             .slice(0, 3);
           
-          setPopularActivities(topActivities);
-        }
-      } catch (_) {}
+      setPopularActivities(topActivities);
     };
 
+    // Load all data
     loadProfile();
-    loadDashboardData();
+    
+    // If we have cached dashboard data, fetch fresh in background
+    if (dashboardData && Object.keys(dashboardData).length > 0 && 
+        dashboardData.balance !== undefined && dashboardData.balance !== null) {
+      loadDashboardData(); // This will fetch in background
+    } else {
+      // No cache, fetch immediately
+      loadDashboardData();
+    }
+    
     loadDraftProducts();
     loadPopularActivities();
     
+    // Listen for updates
     window.addEventListener('account_settings_updated', loadProfile);
     window.addEventListener('accountSettingsUpdated', loadProfile);
     window.addEventListener('storage', loadProfile);
-    window.addEventListener('dashboard_data_updated', loadDashboardData);
-    window.addEventListener('products_updated', () => {
+    const handleProductsUpdated = () => {
+      loadDashboardData();
       loadDraftProducts();
       loadPopularActivities();
-    });
+    };
+    window.addEventListener('products_updated', handleProductsUpdated);
     
     return () => {
       window.removeEventListener('account_settings_updated', loadProfile);
       window.removeEventListener('accountSettingsUpdated', loadProfile);
       window.removeEventListener('storage', loadProfile);
-      window.removeEventListener('dashboard_data_updated', loadDashboardData);
-      window.removeEventListener('products_updated', () => {
-        loadDraftProducts();
-        loadPopularActivities();
-      });
+      window.removeEventListener('products_updated', handleProductsUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadUnread = async () => {
+      try {
+        const data = await getChatUnreadCount();
+        if (isMounted) {
+          setChatUnreadCount(data?.unread_count || 0);
+        }
+      } catch (_) {
+        if (isMounted) setChatUnreadCount(0);
+      }
+    };
+    loadUnread();
+    const interval = setInterval(loadUnread, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -374,7 +430,7 @@ const Dashboard = () => {
       }
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setShowNotifications(false);
-        setShowAllNotifications(false);
+        setShowAllNotificationsModal(false);
       }
       if (languageRef.current && !languageRef.current.contains(event.target)) {
         setShowLanguageDropdown(false);
@@ -439,6 +495,14 @@ const Dashboard = () => {
     persistNotifications(updated);
   };
 
+  const handleMarkAllRead = () => {
+    if (!notifications.length) return;
+    // Clear all notifications (mark as read and remove them)
+    persistNotifications([]);
+    setShowAllNotificationsModal(false);
+    setShowNotifications(false);
+  };
+
   return (
     <div className="min-h-screen bg-white relative">
       {/* Blur Overlay */}
@@ -480,49 +544,102 @@ const Dashboard = () => {
             
             {/* Right side - Profile Section */}
             <div className="flex items-center space-x-4">
+              {/* Chat Icon */}
+              <div className="relative">
+                <button 
+                  onClick={() => navigate('/chat')}
+                  className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
+                  title="Messages"
+                >
+                  <FiMessageSquare className="w-6 h-6" />
+                  {chatUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold w-4 h-4 rounded-full flex items-center justify-center">
+                      {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+              
               {/* Notification Bell */}
               <div className="relative" ref={notificationRef}>
                 <button 
-                  onClick={() => { setShowNotifications(!showNotifications); setShowAllNotifications(false);} }
+                  onClick={() => { setShowNotifications(!showNotifications); setShowAllNotificationsModal(false);} }
                   className="relative p-2 text-gray-700 hover:text-gray-900 transition-colors"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {unreadCount > 0 && (<div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>)}
+                  </svg>
+                  {unreadCount > 0 && (<div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>)}
                 </button>
                 
-                {/* Notifications Dropdown */}
+                {/* Notifications Dropdown - Show only 3 recent */}
                 {showNotifications && (
                   <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                     <div className="p-4">
-                      <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
-                      <div className="space-y-3 max-h-80 overflow-y-auto">
-                        {((showAllNotifications ? notifications : notifications.filter(n => !n.read).slice(0, 5))).length === 0 ? (
-                          <div className="text-center text-sm text-gray-500 py-6">No notifications</div>
-                        ) : (
-                        (showAllNotifications ? notifications : notifications.filter(n => !n.read).slice(0, 5)).map((n) => {
-                          const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
-                          const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
-                          return (
-                            <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''}`} onClick={() => markAsRead(n.id)}>
-                              <div className={`w-2 h-2 ${typeColor} rounded-full mt-2`}></div>
-                          <div>
-                                <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                                {n.message && (<p className="text-xs text-gray-600">{n.message}</p>)}
-                                <p className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()}</p>
-                          </div>
-                        </div>
-                          );
-                        }))}
-                          </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <button onClick={() => setShowAllNotifications(!showAllNotifications)} className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400" disabled={notifications.length === 0}>
-                          {showAllNotifications ? 'Show recent' : 'View all notifications'}
-                      </button>
-                        {unreadCount > 0 && (
-                          <span className="text-xs text-gray-500">Unread: {unreadCount}</span>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-gray-900">Notifications</h3>
+                        {notifications.length > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMarkAllRead();
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                          >
+                            <FiCheck className="w-3 h-3" />
+                            Mark as read
+                          </button>
                         )}
+                      </div>
+                      <div className="space-y-3 max-h-80 overflow-y-auto">
+                        {notifications.slice(0, 3).length === 0 ? (
+                          <div className="text-center text-sm text-gray-500 py-6">No recent notifications</div>
+                        ) : (
+                          notifications.slice(0, 3).map((n) => {
+                            const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
+                            const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
+                            return (
+                              <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} cursor-pointer hover:opacity-90 transition-opacity`} onClick={() => markAsRead(n.id)}>
+                                <div className={`w-2 h-2 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900">{n.title}</p>
+                                  {n.message && (<p className="text-xs text-gray-600 mt-1">{n.message}</p>)}
+                                  <p className="text-xs text-gray-500 mt-1">{new Date(n.created_at || n.createdAt).toLocaleString()}</p>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                        <div className="flex items-center gap-3">
+                          {unreadCount > 0 ? (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMarkAllRead();
+                                }}
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                              >
+                                Mark all as read
+                              </button>
+                              <span className="text-xs text-gray-500">Unread: {unreadCount}</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-500">All caught up</span>
+                          )}
+                        </div>
+                        <button 
+                          onClick={() => {
+                            setShowNotifications(false);
+                            setShowAllNotificationsModal(true);
+                          }} 
+                          className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400" 
+                          disabled={notifications.length === 0}
+                        >
+                          View all notifications
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -573,7 +690,15 @@ const Dashboard = () => {
           </div>
         </div>
         
-              </div>
+      </div>
+
+      {dashboardError && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {dashboardError}
+          </div>
+        </div>
+      )}
 
       {/* Blue Sidebar - starts from top navigation and extends through hero */}
       <div className="absolute right-0 top-0 w-80 bg-[#1d236b]/95 backdrop-blur-md border-l border-[#1d236b]/50 p-4 text-white z-50" style={{top: '-80px', height: 'calc(max(70vh, 800px) + 161px)', paddingTop: '80px'}}>
@@ -1104,6 +1229,78 @@ const Dashboard = () => {
         onClose={() => setIsRefundPolicyOpen(false)}
       />
 
+      {/* All Notifications Modal */}
+      {showAllNotificationsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowAllNotificationsModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Notifications</h2>
+              <div className="flex items-center gap-3">
+                {notifications.length > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMarkAllRead();
+                    }}
+                    className="inline-flex items-center gap-1 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                  >
+                    <FiCheck className="w-4 h-4" />
+                    Mark as read
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {notifications.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No recent notifications</h3>
+                  <p className="text-sm text-gray-600">You're all caught up!</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {notifications.map((n) => {
+                    const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
+                    const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
+                    return (
+                      <div 
+                        key={n.id} 
+                        className={`relative flex items-start space-x-3 p-4 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} transition-opacity border border-gray-100 ${!n.read ? 'cursor-pointer hover:opacity-90' : ''}`}
+                        onClick={() => {
+                          if (!n.read) {
+                            markAsRead(n.id);
+                          }
+                        }}
+                      >
+                        <div className={`w-3 h-3 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">{n.title}</p>
+                          {n.message && (
+                            <p className="text-sm text-gray-600 mt-1">{n.message}</p>
+                          )}
+                          <p className="text-xs text-gray-500 mt-2">
+                            {new Date(n.created_at || n.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        {!n.read && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

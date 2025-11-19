@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import HeaderLandingPage from '../components/HeaderLandingPage'
 import BottomNavigationBar from '../components/BottomNavigationBar'
 import AUImage from '../../assests/AU.jpg'
@@ -52,7 +52,7 @@ const AboutUsPage = () => {
           {/* Breadcrumbs - Top Left */}
           <div className="absolute left-4 top-8 pt-20">
             <nav className="text-white text-sm font-light">
-              <span className="hover:opacity-80 cursor-pointer">Home</span>
+              <Link to="/dashboard" className="hover:opacity-80 cursor-pointer">Home</Link>
               <span className="mx-2">/</span>
               <span className="opacity-80">About Us</span>
             </nav>

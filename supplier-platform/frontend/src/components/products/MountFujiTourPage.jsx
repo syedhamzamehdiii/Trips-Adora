@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   FiSave, 
   FiEdit3, 
@@ -24,19 +25,132 @@ import {
   FiFacebook,
   FiTwitter,
   FiChevronDown,
-  FiMenu,
-  FiHome,
   FiArrowLeft,
-  FiBell,
   FiChevronLeft,
   FiChevronRight,
+  FiPlus,
+  FiMinus,
   FiX
 } from 'react-icons/fi';
 import PublishProductModal from './PublishProductModal';
 import ApplicationSubmittedPage from './ApplicationSubmittedPage';
 import Footer from '@/components/common/Footer';
+import productService from '@/services/productService';
+import Header from '@/components/common/Header';
+import dashboardService from '@/services/dashboardService';
+
+const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024; // ~1.5MB per image after compression
+const MAX_IMAGE_COUNT = 8;
+
+const approximateBytesFromDataUrl = (dataUrl = '') => {
+  if (typeof dataUrl !== 'string') return 0;
+  const base64 = dataUrl.split(',')[1];
+  if (!base64) return 0;
+  return Math.floor((base64.length * 3) / 4);
+};
+
+const compressDataUrl = async (dataUrl, maxBytes = MAX_IMAGE_BYTES) => {
+  if (typeof window === 'undefined' || !dataUrl?.startsWith('data:image')) {
+    return dataUrl;
+  }
+
+  const initialBytes = approximateBytesFromDataUrl(dataUrl);
+  if (initialBytes <= maxBytes) {
+    return dataUrl;
+  }
+
+  return await new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+
+      const scale = Math.sqrt(maxBytes / initialBytes);
+      const targetWidth = Math.max(1, Math.floor(img.width * Math.min(scale, 1)));
+      const targetHeight = Math.max(1, Math.floor(img.height * Math.min(scale, 1)));
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+      let quality = 0.85;
+      let output = canvas.toDataURL('image/jpeg', quality);
+      let iterations = 0;
+
+      while (approximateBytesFromDataUrl(output) > maxBytes && iterations < 8) {
+        quality -= 0.1;
+        output = canvas.toDataURL('image/jpeg', Math.max(quality, 0.4));
+        iterations += 1;
+      }
+
+      resolve(output);
+    };
+
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+};
+
+const normaliseImageSource = async (source) => {
+  if (!source || typeof source !== 'string') {
+    return null;
+  }
+
+  const trimmed = source.trim();
+  if (!trimmed.startsWith('data:image')) {
+    return trimmed;
+  }
+
+  try {
+    return await compressDataUrl(trimmed);
+  } catch (error) {
+    console.warn('Image compression failed, using original image.', error);
+    return trimmed;
+  }
+};
+
+const dedupeStrings = (items = []) => {
+  const seen = new Set();
+  const result = [];
+  items.forEach((item) => {
+    if (item && !seen.has(item)) {
+      seen.add(item);
+      result.push(item);
+    }
+  });
+  return result;
+};
+
+const buildImagePayload = async (sources = [], limit = MAX_IMAGE_COUNT) => {
+  const limited = sources.filter(Boolean).slice(0, limit);
+  if (limited.length === 0) {
+    return [];
+  }
+
+  const processed = await Promise.all(
+    limited.map(async (item) => {
+      const src = typeof item === 'string' ? item : item?.url || null;
+      if (!src) return null;
+      return await normaliseImageSource(src);
+    })
+  );
+
+  return dedupeStrings(processed.filter(Boolean));
+};
+
+const FALLBACK_SUPPLIER_ID = 'N/A';
+const buildEmptyCancellationPolicy = () => ({
+  freeCancellationText: '',
+  schedule: [],
+  notes: []
+});
 
 const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) => {
+  const navigate = useNavigate();
   const [selectedDay, setSelectedDay] = useState('Tuesday');
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [language, setLanguage] = useState('US English');
@@ -45,60 +159,408 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [previewProfile, setPreviewProfile] = useState({
+    name: 'User',
+    id: FALLBACK_SUPPLIER_ID,
+    photo: null,
+    balance: null
+  });
+  const [expandedFaqIndex, setExpandedFaqIndex] = useState(null);
 
-  const handleSaveDraft = () => {
-    try {
-      // Get current products from localStorage
-      const allProductsData = localStorage.getItem('all_products');
-      let allProducts = allProductsData ? JSON.parse(allProductsData) : [];
-      
-      console.log('📦 Current products before save:', allProducts.length);
-      
-      // Check if this draft already exists in all_products
-      const existingDraftIndex = allProducts.findIndex(p => 
-        p.name === (productData?.title || 'Untitled Product') && p.status === 'Draft'
+  useEffect(() => {
+    const loadProfileFromStorage = () => {
+      try {
+        const stored =
+          localStorage.getItem('account_settings') ||
+          sessionStorage.getItem('account_settings');
+        const supplierId =
+          localStorage.getItem('supplier_id') ||
+          sessionStorage.getItem('supplier_id') ||
+          FALLBACK_SUPPLIER_ID;
+
+        let name = 'User';
+        let id = supplierId || FALLBACK_SUPPLIER_ID;
+        let photo = null;
+
+        if (stored) {
+          const data = JSON.parse(stored);
+          name =
+            data?.editableInfo?.publicName?.trim() ||
+            data?.profileData?.publicName?.trim() ||
+            name;
+          id =
+            data?.profileData?.contactValue?.toString().trim() ||
+            data?.editableInfo?.contactValue?.toString().trim() ||
+            id;
+          photo = data?.globalUserPhoto || data?.profilePhotoPreview || null;
+        }
+
+        const dashboardRaw =
+          localStorage.getItem('dashboard_data') ||
+          sessionStorage.getItem('dashboard_data');
+        let balance = previewProfile.balance;
+
+        if (dashboardRaw) {
+          try {
+            const dashboard = JSON.parse(dashboardRaw);
+            const value =
+              typeof dashboard?.balance === 'number'
+                ? dashboard.balance
+                : parseFloat(dashboard?.balance);
+            if (!Number.isNaN(value)) {
+              balance = value;
+            }
+          } catch (_) {
+            // ignore malformed dashboard data
+          }
+        }
+
+        setPreviewProfile({
+          name,
+          id: id || FALLBACK_SUPPLIER_ID,
+          photo,
+          balance
+        });
+
+        (async () => {
+          try {
+            const overview = await dashboardService.getOverview();
+            const availableBalance = overview?.metrics?.available_balance;
+            if (typeof availableBalance === 'number' && !Number.isNaN(availableBalance)) {
+              setPreviewProfile((prev) => ({ ...prev, balance: availableBalance }));
+            }
+          } catch (error) {
+            console.warn('Failed to refresh supplier balance', error);
+          }
+        })();
+      } catch (error) {
+        console.warn('Failed to load supplier preview profile', error);
+      }
+    };
+
+    loadProfileFromStorage();
+    window.addEventListener('account_settings_updated', loadProfileFromStorage);
+    window.addEventListener('accountSettingsUpdated', loadProfileFromStorage);
+    window.addEventListener('dashboard_data_updated', loadProfileFromStorage);
+    window.addEventListener('bookings_updated', loadProfileFromStorage);
+    window.addEventListener('products_updated', loadProfileFromStorage);
+    window.addEventListener('storage', loadProfileFromStorage);
+
+    return () => {
+      window.removeEventListener(
+        'account_settings_updated',
+        loadProfileFromStorage
       );
+      window.removeEventListener(
+        'accountSettingsUpdated',
+        loadProfileFromStorage
+      );
+      window.removeEventListener('dashboard_data_updated', loadProfileFromStorage);
+      window.removeEventListener('bookings_updated', loadProfileFromStorage);
+      window.removeEventListener('products_updated', loadProfileFromStorage);
+      window.removeEventListener('storage', loadProfileFromStorage);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
+  const profileInitials = useMemo(() => {
+    if (!previewProfile?.name) return 'US';
+    const parts = previewProfile.name.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'US';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`
+      .toUpperCase()
+      .slice(0, 2);
+  }, [previewProfile?.name]);
+
+  const formattedBalance = useMemo(() => {
+    const value = previewProfile?.balance;
+    if (typeof value === 'number' && !Number.isNaN(value)) {
+      return value.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      });
+    }
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value;
+    }
+    return '1850';
+  }, [previewProfile?.balance]);
+
+
+  const handleSaveDraft = async () => {
+    if (isSavingDraft || isPublishing) {
+      console.log('⏳ Already processing, please wait...');
+      return;
+    }
+    
+    setIsSavingDraft(true);
+    try {
+      console.log('💾 Saving draft to database...');
       
-      // Generate unique draft ID
-      const draftId = existingDraftIndex >= 0 ? allProducts[existingDraftIndex].id : Date.now();
-      
-      const draftProduct = {
-        id: draftId,
-        name: productData?.title || 'Untitled Product',
-        referenceCode: existingDraftIndex >= 0 ? allProducts[existingDraftIndex].referenceCode : `T-${Math.floor(1000 + Math.random() * 9000)}`,
-        status: 'Draft',
-        bookings: 0,
-        revenue: parseInt(productData?.vehicles?.[0]?.amount || 0),
-        creationDate: existingDraftIndex >= 0 ? allProducts[existingDraftIndex].creationDate : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
-        ratings: "0/5",
-        vehicles: Array.isArray(productData?.vehicles) ? productData.vehicles : []
+      // Helper to coerce various inputs into clean string arrays
+      const ensureStringArray = (value, { splitOnComma = false } = {}) => {
+        if (!value) return [];
+        if (Array.isArray(value)) {
+          return value
+            .map((item) => {
+              if (typeof item === 'string') {
+                return item.trim();
+              }
+              if (item && typeof item === 'object') {
+                return (
+                  item.value?.toString().trim() ||
+                  item.label?.toString().trim() ||
+                  item.name?.toString().trim() ||
+                  ''
+                );
+              }
+              return '';
+            })
+            .map((item) => (splitOnComma ? item.split(',') : item))
+            .flat()
+            .map((item) => item.trim())
+            .filter(Boolean);
+        }
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (!trimmed) return [];
+          if (splitOnComma) {
+            return trimmed
+              .split(',')
+              .map((item) => item.trim())
+              .filter(Boolean);
+          }
+          return [trimmed];
+        }
+        return [];
       };
-      
-      // Update existing draft or add new one
-      if (existingDraftIndex >= 0) {
-        allProducts[existingDraftIndex] = draftProduct;
-        console.log('✅ Draft updated successfully!', draftProduct);
-      } else {
-        allProducts.push(draftProduct);
-        console.log('✅ Draft saved successfully!', draftProduct);
+
+      const normalizedCategoryRaw = (productData?.category || 'tour').toString().trim();
+      const normalizedCategory = ['tour', 'hotel', 'rent_a_car'].includes(
+        normalizedCategoryRaw.toLowerCase()
+      )
+        ? normalizedCategoryRaw.toLowerCase()
+        : 'tour';
+
+      const normalizedLanguages = ensureStringArray(productData?.languages);
+      const normalizedThingsToCarry = ensureStringArray(productData?.thingsToCarry);
+      const normalizedSellingPoints = ensureStringArray(productData?.sellingPoints);
+      const normalizedBreadcrumb = ensureStringArray(productData?.breadcrumb, {
+        splitOnComma: true
+      });
+      const normalizedIncluded = ensureStringArray(productData?.includedItems);
+      const normalizedExcluded = ensureStringArray(productData?.excludedItems);
+      const normalizedAvailableDays = ensureStringArray(
+        productData?.availableDays ||
+          productData?.availableDay ||
+          (productData?.weekDay ? [productData.weekDay] : [])
+      );
+
+      // Derive and normalize title from form state (support both title and productTitle)
+      const normalizedTitle = (productData?.title || productData?.productTitle || '').trim();
+
+      const existingVehicles = Array.isArray(productData?.vehicles) ? productData.vehicles : [];
+      const selectedVehicleForTour = productData?.selectedVehicleForTour
+        ? (Array.isArray(productData.selectedVehicleForTour)
+            ? productData.selectedVehicleForTour[0]
+            : productData.selectedVehicleForTour)
+        : existingVehicles[0] || null;
+      const existingVehicleAllocations = Array.isArray(productData?.vehicleTimeAllocations)
+        ? productData.vehicleTimeAllocations
+        : [];
+      const primaryVehicle = selectedVehicleForTour || existingVehicles[0] || null;
+
+      const normalizedFaqs = Array.isArray(productData?.faqs)
+        ? productData.faqs
+            .filter(faq => faq?.question?.trim() && faq?.answer?.trim())
+            .map(faq => ({
+              question: faq.question.trim(),
+              answer: faq.answer.trim()
+            }))
+        : [];
+      const normalizedCancellationPolicy = productData?.cancellationPolicy && Array.isArray(productData.cancellationPolicy.schedule)
+        ? {
+            free_cancellation_text: productData.cancellationPolicy.freeCancellationText || '',
+            schedule: productData.cancellationPolicy.schedule
+              .filter(entry => entry?.label?.trim())
+              .map(entry => ({
+                label: entry.label.trim(),
+                percentage: Number(entry.percentage) || 0,
+                note: entry.note || ''
+              })),
+            notes: Array.isArray(productData.cancellationPolicy.notes)
+              ? productData.cancellationPolicy.notes.filter(note => note && note.trim())
+              : []
+          }
+        : null;
+
+      // Prepare product data for API (matching ProductCreate schema)
+      const apiProductData = {
+        title: normalizedTitle || 'Untitled Product',
+        category: normalizedCategory,
+        tagline: productData?.tagline || '',
+        description: productData?.description || 'No description provided',
+        highlights: Array.isArray(productData?.highlights) ? productData.highlights.map(h => ({
+          icon: h.icon || 'mountain',
+          text: h.text || ''
+        })) : [],
+        images: [],
+        hero_image: null,
+        gallery_images: [],
+        itinerary: Array.isArray(productData?.itineraries) ? productData.itineraries.map(item => ({
+          time: item.time || '',
+          title: item.title || '',
+          description: item.description || '',
+          icon: item.icon || 'sightseeing',
+          photo: typeof item.photo === 'string' && item.photo.startsWith('http')
+            ? item.photo
+            : (item.photo?.url || item.croppedPhoto || item.photoPreview || null)
+        })) : [],
+        duration: productData?.duration || '',
+        guide_type: productData?.guideType || '',
+        activity_type: productData?.activityType || '',
+        languages: normalizedLanguages,
+        things_to_carry: normalizedThingsToCarry,
+        included_excluded: {
+          included: normalizedIncluded,
+          excluded: normalizedExcluded
+        },
+        accessibility: productData?.accessibility || {},
+        vehicle_details: primaryVehicle ? {
+          vehicle_type: primaryVehicle.type || 'car',
+          vehicle_model: primaryVehicle.model || '',
+          vehicle_year: primaryVehicle.year || null,
+          capacity: Number.isFinite(primaryVehicle.capacity)
+            ? primaryVehicle.capacity
+            : null
+        } : null,
+        pickup_dropoff: {
+          pickup_location: productData?.pickupLocations?.[0] || '',
+          dropoff_location: productData?.dropoffLocations?.[0] || '',
+          pickup_time: productData?.pickupTime || '',
+          available_days: normalizedAvailableDays,
+          available_time_slots: productData?.timeSlots
+            ? Object.values(productData.timeSlots).flat().filter(Boolean)
+            : []
+        },
+        cancellation_policy: normalizedCancellationPolicy,
+        faqs: normalizedFaqs,
+        price: (() => {
+          // Try multiple sources for price
+          if (primaryVehicle?.amount != null && !isNaN(primaryVehicle.amount) && parseFloat(primaryVehicle.amount) > 0) {
+            return parseFloat(primaryVehicle.amount);
+          }
+          if (productData?.productAmount != null && !isNaN(productData.productAmount) && parseFloat(productData.productAmount) > 0) {
+            return parseFloat(productData.productAmount);
+          }
+          if (productData?.price != null && !isNaN(productData.price) && parseFloat(productData.price) > 0) {
+            return parseFloat(productData.price);
+          }
+          // Fallback to vehicle amount or 0
+          return primaryVehicle ? Number(primaryVehicle.amount || 0) : parseFloat(productData?.price || productData?.productAmount || 0);
+        })(),
+        currency: primaryVehicle?.currency || 'USD',
+        price_unit: primaryVehicle?.pricingType || 'Per Group',
+        destination: productData?.destination || '',
+        breadcrumb: normalizedBreadcrumb,
+        selling_points: normalizedSellingPoints,
+        style_theme: productData?.styleTheme || ''
+      };
+
+      const possiblePhotos = Array.isArray(uploadedPhotos) && uploadedPhotos.length
+        ? uploadedPhotos
+        : Array.isArray(productData?.uploadedPhotos)
+          ? productData.uploadedPhotos
+          : [];
+
+      const photoSources = possiblePhotos
+        .map((photo) => {
+          if (!photo) return null;
+          if (typeof photo === 'string') return photo;
+          if (photo.url) return photo.url;
+          return null;
+        })
+        .filter(Boolean);
+
+      // For drafts, skip heavy image compression to speed up saving
+      // Just use the images as-is (compression happens on publish)
+      const imageUrls = photoSources.length > 0 ? photoSources.slice(0, MAX_IMAGE_COUNT) : [];
+
+      const heroCandidates = [
+        coverImage?.url,
+        typeof coverImage === 'string' ? coverImage : null,
+        productData?.coverImage?.url,
+        productData?.coverImage,
+        imageUrls[0],
+      ].filter(Boolean);
+
+      // For drafts, use first candidate without compression to speed up
+      let heroUrl = heroCandidates.length > 0 ? heroCandidates[0] : null;
+
+      if (!heroUrl && imageUrls.length > 0) {
+        heroUrl = imageUrls[0];
+      }
+
+      const dedupedImages = dedupeStrings(heroUrl ? [heroUrl, ...imageUrls] : imageUrls);
+      const galleryImages = dedupedImages.filter((url) => url !== heroUrl);
+
+      apiProductData.images = dedupedImages;
+      apiProductData.hero_image = heroUrl || null;
+      apiProductData.gallery_images = galleryImages;
+      apiProductData.custom_fields = {
+        vehicles_full: existingVehicles,
+        selected_vehicle_for_tour: selectedVehicleForTour,
+        vehicle_time_allocations: existingVehicleAllocations,
+      };
+
+      // Validate title length (minimum 30 chars for database)
+      if (!apiProductData.title || apiProductData.title.length < 30) {
+        throw new Error('Title must be at least 30 characters to save as draft');
+      }
+      if (!Number.isFinite(apiProductData.price) || apiProductData.price <= 0) {
+        throw new Error('Price must be greater than 0 to save as draft');
       }
       
-      // Save back to localStorage
-      localStorage.setItem('all_products', JSON.stringify(allProducts));
-      console.log('📦 Total products after save:', allProducts.length);
+      const existingProductIdRaw = productData?.dbProductId || productData?.draftId || productData?.id;
+      const existingProductId = existingProductIdRaw && existingProductIdRaw !== 'current_draft'
+        ? existingProductIdRaw
+        : null;
+
+      let dbProductId = existingProductId;
+
+      if (existingProductId) {
+        console.log('♻️ Updating existing product draft:', existingProductId);
+        await productService.updateProduct(existingProductId, apiProductData);
+        await productService.saveAsDraft(existingProductId);
+        console.log('✅ Existing product updated & saved as draft:', existingProductId);
+      } else {
+        const createdProduct = await productService.createProduct(apiProductData);
+        dbProductId = createdProduct.id;
+        console.log('✅ Draft product created in database with ID:', dbProductId);
+        await productService.saveAsDraft(dbProductId);
+        console.log('✅ Draft saved successfully!');
+      }
+
+      if (!dbProductId) {
+        throw new Error('Draft save failed: missing product ID after persistence.');
+      }
       
-      // ** IMPORTANT: Also save the FULL product data for editing later **
-      // NOTE: Images (uploadedPhotos, coverImage) are excluded to avoid localStorage quota errors
+      // Save images to localStorage for later use
       const fullDraftData = {
-        draftId: draftId,
+        draftId: dbProductId,
+        dbProductId: dbProductId,
         productTitle: productData?.title || 'Untitled Product',
         productCategory: productData?.category || '',
         sellingPoints: productData?.sellingPoints || '',
         tagline: productData?.tagline || '',
         description: productData?.description || '',
         highlights: productData?.highlights || [],
-        // uploadedPhotos: excluded due to localStorage size limits
-        // coverImage: excluded due to localStorage size limits
+        coverImage: heroUrl || null,
+        uploadedPhotos: galleryImages,
         selectedGuideType: productData?.guideType || '',
         selectedActivityType: productData?.activityType || '',
         selectedLanguages: productData?.languages || [],
@@ -106,94 +568,397 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         includedItems: productData?.includedItems || '',
         excludedItems: productData?.excludedItems || '',
         accessibilityToggles: productData?.accessibility || {},
-        vehicles: productData?.vehicles || [],
-        selectedVehicleForTour: productData?.vehicles || [],
+        vehicles: existingVehicles,
+        selectedVehicleForTour,
         selectedPickupLocations: productData?.pickupLocations || [],
         selectedDropoffLocations: productData?.dropoffLocations || [],
         pickupTime: productData?.pickupTime || '',
         selectedWeekDay: productData?.weekDay || '',
         selectedDate: productData?.selectedDate || '',
         itineraries: productData?.itineraries || [],
+        faqs: productData?.faqs || [],
+        cancellationPolicy: productData?.cancellationPolicy || buildEmptyCancellationPolicy(),
+        vehicleTimeAllocations: existingVehicleAllocations,
         lastModified: new Date().toISOString()
       };
       
-      // Save full draft data under unique key
-      localStorage.setItem(`product_draft_${draftId}`, JSON.stringify(fullDraftData));
-      console.log('💾 Full draft data saved to product_draft_' + draftId + ' (images excluded)');
-      
-      // Verify save
-      const verifyData = localStorage.getItem('all_products');
-      const verifyProducts = JSON.parse(verifyData);
-      console.log('✔️ Verified products in localStorage:', verifyProducts.length);
+      // Save full draft data with images to localStorage
+      const storageDraftId = String(dbProductId);
+      localStorage.setItem(`product_draft_${storageDraftId}`, JSON.stringify(fullDraftData));
+      console.log('💾 Full draft data with images saved to localStorage:', `product_draft_${storageDraftId}`);
       
       // Show success message
-      alert('✅ Draft saved successfully! Refreshing to show in listings...');
+      alert('✅ Draft saved successfully!');
       
-      // Force reload after 1 second to show the new draft
+      // Navigate back or refresh
       setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+        window.location.href = '/products/drafts';
+      }, 500);
     } catch (error) {
       console.error('❌ Error saving draft:', error);
-      alert('Error saving draft. Please try again.');
+      const message = error?.friendlyMessage || error?.message || 'Unable to save draft.';
+      alert(`Error saving draft: ${message}`);
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
-  const handlePublishProduct = () => {
+  const handlePublishProduct = async () => {
+    if (isPublishing || isSavingDraft) {
+      console.log('⏳ Already processing, please wait...');
+      return;
+    }
+    
+    setIsPublishing(true);
+    
+    // Debug: Log what we have at the start
+    console.log('🚀 Publishing product - Initial state:', {
+      hasCoverImageProp: !!coverImage,
+      coverImageType: coverImage ? typeof coverImage : 'null',
+      coverImageUrl: coverImage?.url ? 'exists' : 'none',
+      hasUploadedPhotosProp: !!uploadedPhotos,
+      uploadedPhotosCount: uploadedPhotos?.length || 0,
+      hasProductDataCoverImage: !!productData?.coverImage,
+      hasProductDataUploadedPhotos: !!productData?.uploadedPhotos,
+      productDataUploadedPhotosCount: productData?.uploadedPhotos?.length || 0
+    });
+    
     try {
-      // Get current products from localStorage
-      const allProductsData = localStorage.getItem('all_products');
-      let allProducts = allProductsData ? JSON.parse(allProductsData) : [];
-      
-      console.log('📦 Current products before publish:', allProducts.length);
-      
-      // Find and remove any existing draft with the same name, and track IDs for cleanup
-      const draftIdsToDelete = [];
-      const beforeFilter = allProducts.length;
-      allProducts = allProducts.filter(p => {
-        if (p.name === (productData?.title || 'Untitled Product') && p.status === 'Draft') {
-          draftIdsToDelete.push(p.id); // Track draft ID for full data deletion
-          return false; // Remove this draft
-        }
-        return true; // Keep this product
-      });
-      console.log('🗑️ Removed drafts:', beforeFilter - allProducts.length);
-      
-      // Create new product entry
-      const newProduct = {
-        id: Date.now(), // Use timestamp as unique ID
-        name: productData?.title || 'Untitled Product',
-        referenceCode: `T-${Math.floor(1000 + Math.random() * 9000)}`,
-        status: 'Published',
-        bookings: 0,
-        revenue: parseInt(productData?.vehicles?.[0]?.amount || 0),
-        creationDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
-        ratings: "0/5",
-        vehicles: Array.isArray(productData?.vehicles) ? productData.vehicles : [],
-        // Persist vehicle-time allocations for availability filters
-        vehicleTimeAllocations: Array.isArray(productData?.vehicleTimeAllocations) ? productData.vehicleTimeAllocations : [],
-        // Persist generated time slots for availability filters
-        timeSlots: productData?.timeSlots || {}
-      };
-      
-      // Add to products array
-      allProducts.push(newProduct);
-      
-      // Save back to localStorage
-      localStorage.setItem('all_products', JSON.stringify(allProducts));
-      console.log('✅ Product published successfully!', newProduct);
-      console.log('📦 Total products after publish:', allProducts.length);
+      // Check if there's an existing draft in database with the same title
+      // (We'll handle this by checking if we're updating an existing draft)
+      // Normalize title (support both title and productTitle)
+      const publishTitle = (productData?.title || productData?.productTitle || '').trim();
 
-      // Also persist full published data for cloning later (same shape as drafts)
+      // Build image URLs from either prop `uploadedPhotos` or draft data
+      const rawPhotos = Array.isArray(uploadedPhotos) && uploadedPhotos.length
+        ? uploadedPhotos
+        : (Array.isArray(productData?.uploadedPhotos) ? productData.uploadedPhotos : []);
+
+      const photoSources = rawPhotos
+        .map((photo) => {
+          if (!photo) return null;
+          if (typeof photo === 'string') return photo;
+          if (photo.url) return photo.url;
+          return null;
+        })
+        .filter(Boolean);
+
+      const imageUrls = await buildImagePayload(photoSources);
+
+      const heroCandidates = [
+        coverImage?.url,
+        typeof coverImage === 'string' ? coverImage : null,
+        productData?.coverImage?.url,
+        productData?.coverImage,
+        imageUrls[0],
+      ].filter(Boolean);
+
+      let heroUrl = null;
+      for (const candidate of heroCandidates) {
+        const processed = await normaliseImageSource(candidate);
+        if (processed) {
+          heroUrl = processed;
+          break;
+        }
+      }
+
+      if (!heroUrl && imageUrls.length > 0) {
+        heroUrl = imageUrls[0];
+      }
+
+      const dedupedImages = dedupeStrings(heroUrl ? [heroUrl, ...imageUrls] : imageUrls);
+      const galleryImages = dedupedImages.filter((url) => url !== heroUrl);
+
+      // Normalize category to backend enum values
+      const normalizedCategory = (productData?.category || 'tour')
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '_');
+
+      // Normalize accessibility to backend schema keys
+      const acc = productData?.accessibility || productData?.accessibilityToggles || {};
+      const accessibilityNormalized = {
+        wheelchair_accessible: !!(acc.wheelchair || acc.wheelchair_accessible),
+        service_animals_allowed: !!(acc.serviceAnimals || acc.service_animals_allowed),
+        infant_seat_available: !!(acc.infantSeat || acc.infant_seat_available),
+        stroller_friendly: !!(acc.stroller || acc.stroller_friendly)
+      };
+
+      // Normalize available days
+      const wd = productData?.weekDay;
+      let availableDays = [];
+      if (Array.isArray(wd)) {
+        availableDays = wd;
+      } else if (typeof wd === 'string' && wd.trim()) {
+        const low = wd.trim().toLowerCase();
+        if (low === 'week days' || low === 'weekdays') {
+          availableDays = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+        } else if (low === 'weekend' || low === 'week end') {
+          availableDays = ['Saturday','Sunday'];
+        } else {
+          availableDays = [wd];
+        }
+      }
+
+      // Helper to map photo objects/strings to URL strings
+      const normalizedFaqs = Array.isArray(productData?.faqs)
+        ? productData.faqs
+            .filter(faq => faq?.question?.trim() && faq?.answer?.trim())
+            .map(faq => ({
+              question: faq.question.trim(),
+              answer: faq.answer.trim()
+            }))
+        : [];
+      const normalizedCancellationPolicy = productData?.cancellationPolicy && Array.isArray(productData.cancellationPolicy.schedule)
+        ? {
+            free_cancellation_text: productData.cancellationPolicy.freeCancellationText || '',
+            schedule: productData.cancellationPolicy.schedule
+              .filter(entry => entry?.label?.trim())
+              .map(entry => ({
+                label: entry.label.trim(),
+                percentage: Number(entry.percentage) || 0,
+                note: entry.note || ''
+              })),
+            notes: Array.isArray(productData.cancellationPolicy.notes)
+              ? productData.cancellationPolicy.notes.filter(note => note && note.trim())
+              : []
+          }
+        : null;
+
+      // Prepare product data for API (matching ProductCreate schema)
+      const apiProductData = {
+        title: publishTitle || 'Untitled Product',
+        category: normalizedCategory,
+        tagline: productData?.tagline || '',
+        description: (productData?.description || '').toString(),
+        highlights: Array.isArray(productData?.bHighlights || productData?.highlights)
+          ? (productData?.highlights || []).map(h => ({
+              icon: (h && h.icon) ? h.icon : 'mountain',
+              text: (h && h.text) ? h.text : ''
+            }))
+          : [],
+        images: dedupedImages,
+        hero_image: heroUrl || null,
+        gallery_images: galleryImages,
+        itinerary: Array.isArray(productData?.itineraries)
+          ? productData.itineraries.map(it => ({
+              time: (it?.time && String(it.time).trim()) ? it.time : '09:00',
+              title: (it?.title && String(it.title).trim()) ? it.title : 'Experience highlight',
+              description: (it?.description || '').toString(),
+              icon: (it?.lineIcon || it?.icon || 'sightseeing'),
+              photo: typeof it?.photo === 'string' && it.photo.startsWith('http')
+                ? it.photo
+                : (it?.photo?.url || it?.croppedPhoto || it?.photoPreview || null)
+            }))
+          : [],
+        duration: productData?.duration || '',
+        guide_type: productData?.guideType || '',
+        activity_type: productData?.activityType || '',
+        languages: Array.isArray(productData?.languages) ? productData.languages : [],
+        things_to_carry: Array.isArray(productData?.thingsToCarry) ? productData.thingsToCarry : [],
+        included_excluded: {
+          included: Array.isArray(productData?.includedItems) ? productData.includedItems : (productData?.includedItems ? [productData.includedItems] : []),
+          excluded: Array.isArray(productData?.excludedItems) ? productData.excludedItems : (productData?.excludedItems ? [productData?.excludedItems] : [])
+        },
+        accessibility: accessibilityNormalized,
+        vehicle_details: Array.isArray(productData?.vehicles) && productData.vehicles.length ? {
+          vehicle_type: productData.vehicles[0]?.type || 'car',
+          vehicle_model: productData.vehicles[0]?.model || '',
+          capacity: productData.vehicles[0]?.capacity ?? null
+        } : null,
+        pickup_dropoff: {
+          pickup_location: (productData?.pickupLocations && productData.pickupLocations[0]) ? String(productData.pickupLocations[0]) : '',
+          dropoff_location: (productData?.dropoffLocations && productData.dropoffLocations[0]) ? String(productData.dropoffLocations[0]) : '',
+          pickup_time: (productData?.pickupTime || '').toString(),
+          available_days: availableDays,
+          available_time_slots: productData?.timeSlots
+            ? Object.values(productData.timeSlots).flat().filter(Boolean)
+            : []
+        },
+        cancellation_policy: normalizedCancellationPolicy,
+        faqs: normalizedFaqs,
+        price: (() => {
+          // Try multiple sources for price, prioritizing valid numbers > 0
+          const vehicleAmount = productData?.vehicles?.[0]?.amount;
+          const directPrice = productData?.price;
+          const productAmount = productData?.productAmount; // From CreateProductComponent
+          
+          console.log('🔍 Price extraction debug:', {
+            vehicleAmount,
+            directPrice,
+            productAmount,
+            vehicles: productData?.vehicles,
+            productDataKeys: Object.keys(productData || {})
+          });
+          
+          // Check vehicle amount first if it's a valid positive number
+          if (vehicleAmount != null && vehicleAmount !== '' && !isNaN(vehicleAmount) && parseFloat(vehicleAmount) > 0) {
+            const parsed = parseFloat(vehicleAmount);
+            console.log('✅ Using vehicle amount:', parsed);
+            return parsed;
+          }
+          
+          // Check productAmount (from CreateProductComponent form)
+          if (productAmount != null && productAmount !== '' && !isNaN(productAmount) && parseFloat(productAmount) > 0) {
+            const parsed = parseFloat(productAmount);
+            console.log('✅ Using productAmount:', parsed);
+            return parsed;
+          }
+          
+          // Fall back to direct price if it's a valid positive number
+          if (directPrice != null && directPrice !== '' && !isNaN(directPrice) && parseFloat(directPrice) > 0) {
+            const parsed = parseFloat(directPrice);
+            console.log('✅ Using direct price:', parsed);
+            return parsed;
+          }
+          
+          // Try vehicle amount even if 0 (might be valid)
+          if (vehicleAmount != null && vehicleAmount !== '' && !isNaN(vehicleAmount)) {
+            const parsed = parseFloat(vehicleAmount);
+            console.log('⚠️ Using vehicle amount (may be 0):', parsed);
+            return parsed;
+          }
+          
+          // Try productAmount even if 0
+          if (productAmount != null && productAmount !== '' && !isNaN(productAmount)) {
+            const parsed = parseFloat(productAmount);
+            console.log('⚠️ Using productAmount (may be 0):', parsed);
+            return parsed;
+          }
+          
+          // Try direct price even if 0
+          if (directPrice != null && directPrice !== '' && !isNaN(directPrice)) {
+            const parsed = parseFloat(directPrice);
+            console.log('⚠️ Using direct price (may be 0):', parsed);
+            return parsed;
+          }
+          
+          // Default to 0
+          console.warn('❌ No valid price found, defaulting to 0');
+          return 0;
+        })(),
+        currency: productData?.vehicles?.[0]?.currency || productData?.currency || 'USD',
+        price_unit: productData?.vehicles?.[0]?.pricingType || productData?.pricingType || 'Per Group',
+        destination: (productData?.destination || '').toString(),
+        breadcrumb: Array.isArray(productData?.breadcrumb) ? productData.breadcrumb : [],
+        selling_points: Array.isArray(productData?.sellingPoints) ? productData.sellingPoints : (productData?.sellingPoints ? [productData.sellingPoints] : []),
+        style_theme: productData?.styleTheme || ''
+      };
+
+      console.log('apiProductData ->', apiProductData);
+
+      // Save to database (required - no localStorage fallback)
+      // Validate title length (backend requires min 30 chars)
+      if (!apiProductData.title || apiProductData.title.length < 30) {
+        console.warn('apiProductData invalid title length', apiProductData.title);
+        throw new Error(`Title must be at least 30 characters (got ${apiProductData.title?.length || 0})`);
+      }
+      if (!Number.isFinite(apiProductData.price) || apiProductData.price <= 0) {
+        console.error('❌ Price validation failed:', {
+          price: apiProductData.price,
+          vehicleAmount: productData?.vehicles?.[0]?.amount,
+          directPrice: productData?.price,
+          productAmount: productData?.productAmount,
+          vehicles: productData?.vehicles,
+          productDataKeys: Object.keys(productData || {})
+        });
+        throw new Error(`Price must be greater than 0 before publishing. Found: ${apiProductData.price}. Please check that the price is set in the vehicle details or product price field.`);
+      }
+
+      const existingProductIdRaw = productData?.dbProductId || productData?.draftId || productData?.id;
+      const existingProductId = existingProductIdRaw && existingProductIdRaw !== 'current_draft'
+        ? existingProductIdRaw
+        : null;
+
+      let dbProductId = existingProductId;
+
+      if (existingProductId) {
+        console.log('♻️ Updating existing product before publish:', existingProductId);
+        await productService.updateProduct(existingProductId, apiProductData);
+      } else {
+        const createdProduct = await productService.createProduct(apiProductData);
+        dbProductId = createdProduct.id;
+        console.log('✅ Product saved to database with ID:', dbProductId);
+      }
+
+      if (!dbProductId) {
+        throw new Error('Publish failed: missing product ID after save.');
+      }
+
+      await productService.publishProduct(dbProductId);
+      console.log('✅ Product published in database');
+
+      // Also persist full published data for cloning later - INCLUDING IMAGES
+      // Save images to localStorage (will sync to backend cache which can handle large data)
+      // For localStorage, save image references to avoid quota issues
+      let savedCoverImage = null;
+      
+      // PRIORITY 1: Use coverImage prop (from component state)
+      if (coverImage) {
+        // coverImage is an object with {id, url, file, name} structure
+        // Save only the URL (base64 string) to avoid localStorage quota issues
+        if (typeof coverImage === 'object' && coverImage.url) {
+          savedCoverImage = coverImage.url; // Save only the URL string (base64)
+          console.log('📸 Using coverImage prop (object with url)');
+        } else if (typeof coverImage === 'string') {
+          savedCoverImage = coverImage; // Already a string (base64)
+          console.log('📸 Using coverImage prop (string)');
+        }
+      } 
+      // PRIORITY 2: Use productData.coverImage (from draft data)
+      else if (productData?.coverImage) {
+        if (typeof productData.coverImage === 'object' && productData.coverImage.url) {
+          savedCoverImage = productData.coverImage.url;
+          console.log('📸 Using productData.coverImage (object with url)');
+        } else if (typeof productData.coverImage === 'string') {
+          savedCoverImage = productData.coverImage;
+          console.log('📸 Using productData.coverImage (string)');
+        }
+      }
+      
+      // Save uploadedPhotos URLs only (extract base64 strings)
+      let savedUploadedPhotos = [];
+      const photosToProcess = uploadedPhotos || productData?.uploadedPhotos || [];
+      if (photosToProcess.length > 0) {
+        savedUploadedPhotos = photosToProcess.map(photo => {
+          if (typeof photo === 'string') {
+            return photo; // Already a string
+          } else if (photo && typeof photo === 'object' && photo.url) {
+            return photo.url; // Extract URL from object
+          }
+          return photo;
+        }).filter(Boolean); // Remove any null/undefined values
+      }
+
+      // Fallback: if no explicit cover set, use first uploaded photo as cover
+      if (!savedCoverImage && savedUploadedPhotos.length > 0) {
+        savedCoverImage = savedUploadedPhotos[0];
+        console.log('📸 Fallback coverImage from first uploaded photo');
+      }
+      
+      console.log('📸 Saving coverImage:', {
+        hasCoverImageProp: !!coverImage,
+        hasProductDataCoverImage: !!productData?.coverImage,
+        savedCoverImage: !!savedCoverImage,
+        savedCoverImageType: savedCoverImage ? typeof savedCoverImage : 'null',
+        savedCoverImagePreview: savedCoverImage ? savedCoverImage.substring(0, 50) + '...' : 'none',
+        photosCount: savedUploadedPhotos.length,
+        photosSource: uploadedPhotos ? 'uploadedPhotos prop' : (productData?.uploadedPhotos ? 'productData' : 'none')
+      });
+      
       const fullPublishedData = {
-        draftId: newProduct.id,
-        productTitle: productData?.title || 'Untitled Product',
+        draftId: dbProductId,
+        dbProductId: dbProductId, // Store database ID
+        productTitle: publishTitle || 'Untitled Product',
         productCategory: productData?.category || '',
         sellingPoints: productData?.sellingPoints || '',
         tagline: productData?.tagline || '',
         description: productData?.description || '',
         highlights: productData?.highlights || [],
-        // images excluded due to quota limits
+        // INCLUDE IMAGES - Save as strings (base64 URLs) to reduce localStorage size
+        coverImage: savedCoverImage, // String (base64 URL)
+        uploadedPhotos: savedUploadedPhotos, // Array of strings (base64 URLs)
         selectedGuideType: productData?.guideType || '',
         selectedActivityType: productData?.activityType || '',
         selectedLanguages: productData?.languages || [],
@@ -211,24 +976,39 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         selectedWeekDay: productData?.weekDay || '',
         selectedDate: productData?.selectedDate || '',
         itineraries: productData?.itineraries || [],
+        destination: productData?.destination || '',
+        duration: productData?.duration || '',
         lastModified: new Date().toISOString()
       };
-      localStorage.setItem(`product_full_${newProduct.id}`, JSON.stringify(fullPublishedData));
-      console.log('💾 Full published data saved to', `product_full_${newProduct.id}`);
+      // Try to save to localStorage, but if it fails due to quota, save to backend cache only
+      try {
+      const storageProductId = String(dbProductId);
+      localStorage.setItem(`product_full_${storageProductId}`, JSON.stringify(fullPublishedData));
+        console.log('💾 Full published data saved to localStorage:', `product_full_${storageProductId}`);
+        console.log('📸 CoverImage in localStorage:', {
+          hasCoverImage: !!fullPublishedData.coverImage,
+          coverImageType: fullPublishedData.coverImage ? typeof fullPublishedData.coverImage : 'null',
+          coverImagePreview: fullPublishedData.coverImage ? fullPublishedData.coverImage.substring(0, 50) + '...' : 'none'
+        });
+      } catch (storageError) {
+        if (storageError.name === 'QuotaExceededError') {
+          console.warn('⚠️ localStorage quota exceeded, saving to backend cache only');
+          // Don't throw - we'll sync to backend cache which can handle large data
+          // But make sure we still have the data for backend sync
+          fullPublishedData.coverImage = savedCoverImage; // Ensure coverImage is in the data
+          fullPublishedData.uploadedPhotos = savedUploadedPhotos; // Ensure uploadedPhotos are in the data
+        } else {
+          throw storageError; // Re-throw other errors
+        }
+      }
       
-      // Verify save
-      const verifyData = localStorage.getItem('all_products');
-      const verifyProducts = JSON.parse(verifyData);
-      console.log('✔️ Verified products in localStorage:', verifyProducts.length);
+      // Save images to localStorage for later use (images are still stored locally)
+      // Note: Products are now in database, images remain in localStorage temporarily
+      console.log('✅ Product published and saved to database');
+      console.log('📸 Images saved to localStorage for later migration');
       
       // Clear draft data after publishing
       localStorage.removeItem('product_draft_current_draft');
-      
-      // Also delete full draft data for all removed drafts
-      draftIdsToDelete.forEach(draftId => {
-        localStorage.removeItem(`product_draft_${draftId}`);
-        console.log(`🗑️ Deleted full draft data: product_draft_${draftId}`);
-      });
       
     // Close publish modal and show success modal
     setShowPublishModal(false);
@@ -240,7 +1020,10 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       }, 2000);
     } catch (error) {
       console.error('❌ Error publishing product:', error);
-      alert('Error publishing product. Please try again.');
+      const message = error?.friendlyMessage || error?.message || 'Unable to publish product.';
+      alert(message);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -263,29 +1046,59 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   };
 
   // Use uploaded photos if available, otherwise use default photos
-  const defaultPhotos = [
-    { src: "/assets/Screenshot 2025-10-21 at 3.42.38 PM.png", alt: "Mount Fuji view 1" },
-    { src: "/assets/Screenshot 2025-10-21 at 3.44.28 PM.png", alt: "Mount Fuji view 2" },
-    { src: "/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png", alt: "Mount Fuji view 3" }
+  const defaultCoverImage = "/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg";
+
+  const coverPhoto = (() => {
+    if (coverImage?.url) return { src: coverImage.url, alt: coverImage.name || 'Cover image' };
+    if (typeof coverImage === 'string') return { src: coverImage, alt: 'Cover image' };
+    return null;
+  })();
+
+  const galleryPhotos = Array.isArray(uploadedPhotos)
+    ? uploadedPhotos
+        .map((photo, index) => {
+          if (!photo) return null;
+          if (typeof photo === 'string') return { src: photo, alt: `Gallery photo ${index + 1}` };
+          if (photo.url) return { src: photo.url, alt: photo.name || `Gallery photo ${index + 1}` };
+          return null;
+        })
+        .filter(Boolean)
+    : [];
+
+  const photos = galleryPhotos.length > 0 ? galleryPhotos : [
+    { src: "/assets/Screenshot 2025-10-21 at 3.42.38 PM.png", alt: "Default view 1" },
+    { src: "/assets/Screenshot 2025-10-21 at 3.44.28 PM.png", alt: "Default view 2" },
+    { src: "/assets/7a69a86aa051f23c28e29bda402f67956fba18bf.png", alt: "Default view 3" }
   ];
 
-  // Convert uploaded photos to the same format
-  const photos = uploadedPhotos && uploadedPhotos.length > 0 
-    ? uploadedPhotos.map(photo => ({ src: photo.url, alt: photo.name }))
-    : defaultPhotos;
+  const mainCoverImage = coverPhoto?.src || photos[0]?.src || defaultCoverImage;
 
-  // All photos for modal (cover + uploaded photos)
-  const allPhotos = coverImage && uploadedPhotos && uploadedPhotos.length > 0
-    ? [{ src: coverImage.url, alt: coverImage.name }, ...photos]
-    : [
-        { src: "/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg", alt: "Mount Fuji cover" },
-        ...defaultPhotos
+  const allPhotos = (() => {
+    const combined = [];
+    if (coverPhoto?.src) combined.push(coverPhoto);
+    const uniqueGallery = photos.filter(photo => coverPhoto?.src ? photo.src !== coverPhoto.src : true);
+    combined.push(...uniqueGallery);
+
+    if (combined.length === 0) {
+      return [
+        { src: defaultCoverImage, alt: 'Default cover image' },
+        { src: "/assets/Screenshot 2025-10-21 at 3.42.38 PM.png", alt: "Default view 1" },
+        { src: "/assets/Screenshot 2025-10-21 at 3.44.28 PM.png", alt: "Default view 2" }
       ];
+    }
 
-  // Determine main cover image
-  const mainCoverImage = coverImage 
-    ? coverImage.url 
-    : "/assets/WhatsApp Image 2025-10-15 at 3.49.28 PM.jpeg";
+    return combined;
+  })();
+
+  const hasCoverPhoto = Boolean(coverPhoto?.src);
+
+  const openGalleryPhoto = (galleryIndex) => {
+    const offset = hasCoverPhoto ? 1 : 0;
+    const targetIndex = galleryIndex + offset;
+    handlePhotoClick(
+      targetIndex >= 0 && targetIndex < allPhotos.length ? targetIndex : offset
+    );
+  };
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const timeSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
@@ -316,10 +1129,10 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
 
   // Use dynamic highlights from productData or fallback to defaults
   const defaultHighlights = [
-    { icon: 'mountain', text: 'Visit iconic Mount Fuji viewpoints including Lake Kawaguchi' },
-    { icon: 'camera', text: 'Explore Chureito Pagoda for the perfect panoramic shots' },
-    { icon: 'car', text: 'Comfortable private transport with flexible itinerary' },
-    { icon: 'guide', text: 'Multilingual guide (English, Japanese, Hindi available)' }
+    { icon: 'mountain', text: 'Experience breathtaking alpine scenery and glacier views' },
+    { icon: 'camera', text: 'Capture panoramic vistas from hidden vantage points' },
+    { icon: 'car', text: 'Comfortable private transport tailored to your group' },
+    { icon: 'guide', text: 'Expert local guide sharing culture, stories, and history' }
   ];
   
   const highlights = productData?.highlights && productData.highlights.length > 0
@@ -346,148 +1159,27 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     'Additional activities not mentioned'
   ];
 
-  const faqs = [
-    {
-      question: 'What happens if Mount Fuji is not visible due to weather?',
-      answer: 'We provide alternative viewpoints and cultural experiences. Weather conditions are monitored, and we adjust the itinerary accordingly.'
-    },
-    {
-      question: 'Can the itinerary be customized?',
-      answer: 'Yes, this is a private tour with flexible scheduling. We can accommodate special requests within the tour duration.'
-    },
-    {
-      question: 'Is this tour suitable for elderly travelers?',
-      answer: 'Absolutely. Our vehicle is wheelchair accessible and we can adjust the pace and activities based on your needs.'
-    },
-    {
-      question: 'What\'s the cancellation policy?',
-      answer: 'Free cancellation up to 24 hours before the tour. Full refund for weather-related cancellations.'
-    }
+  // FAQs will be loaded from product data, no dummy data
+  const faqs = productData?.faqs || [];
+  const cancellationPolicyPreview = productData?.cancellationPolicy;
+  const hasCancellationPolicyPreview =
+    cancellationPolicyPreview &&
+    Array.isArray(cancellationPolicyPreview.schedule) &&
+    cancellationPolicyPreview.schedule.length > 0;
+  const previewPolicyColors = [
+    { bg: 'bg-green-100', border: 'border-green-200', accent: 'text-green-700' },
+    { bg: 'bg-blue-100', border: 'border-blue-200', accent: 'text-blue-700' },
+    { bg: 'bg-yellow-100', border: 'border-yellow-200', accent: 'text-yellow-700' },
+    { bg: 'bg-red-100', border: 'border-red-200', accent: 'text-red-700' }
   ];
+
+  const toggleFaq = (index) => {
+    setExpandedFaqIndex((prev) => (prev === index ? null : index));
+  };
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header Navbar */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            {/* Logo */}
-            <div className="flex items-center">
-              <img src="/assets/logo.jpg" alt="TripsAdora" className="h-12 w-auto" />
-            </div>
-            
-            {/* Navigation Links */}
-            <nav className="hidden md:flex space-x-8">
-              <a href="#" className="text-[#1d236b] font-medium relative">
-                Home
-                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]"></span>
-              </a>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">FAQs</a>
-              <a href="#" className="text-gray-700 hover:text-gray-900 font-medium">Support</a>
-            </nav>
-            
-            {/* User Info Section */}
-            <div className="flex items-center space-x-6">
-              {/* Notification Icons */}
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <FiClock size={20} className="text-gray-600" />
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-                </div>
-                <div className="relative">
-                  <FiBell size={20} className="text-gray-600" />
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-                </div>
-              </div>
-              
-              {/* Language Selector */}
-              <div className="flex items-center space-x-1">
-                <span className="text-sm font-medium text-gray-700">EN</span>
-                <FiChevronDown size={14} className="text-gray-600" />
-              </div>
-              
-              {/* Balance */}
-              <div className="text-right">
-                <p className="text-xs text-gray-600">Available Balance</p>
-                <p className="text-lg font-bold text-gray-900">$1850</p>
-              </div>
-              
-              {/* User Profile */}
-              <div className="flex flex-col items-center">
-                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                  <FiUser size={20} className="text-gray-600" />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">ID 00032123</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Working Navbar */}
-      <nav className="bg-transparent border-b border-gray-200">
-        <div className="w-full px-6 py-4">
-          <div className="flex items-center justify-center space-x-12 relative">
-            <button 
-              onClick={() => window.location.href = '/dashboard'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Dashboard
-            </button>
-            
-            {/* Listings with Dropdown */}
-            <div className="relative group">
-              <button className="flex items-center space-x-1 text-black font-medium hover:text-gray-600">
-                <span>Listings</span>
-                <FiChevronDown size={16} />
-              </button>
-              
-              {/* Dropdown Menu */}
-              <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <div className="py-2">
-                  <button 
-                    onClick={() => window.location.href = '/products/create'}
-                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50 border-b border-gray-100"
-                  >
-                    Create new product
-                  </button>
-                  <button 
-                    onClick={() => window.location.href = '/products'}
-                    className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50"
-                  >
-                    Active Product listing
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <button 
-              onClick={() => window.location.href = '/availability'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Availability
-            </button>
-            <button 
-              onClick={() => window.location.href = '/bookings'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Bookings
-            </button>
-            <button 
-              onClick={() => window.location.href = '/insights'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Insights
-            </button>
-            <button 
-              onClick={() => window.location.href = '/finance'}
-              className="text-black font-medium hover:text-gray-600 cursor-pointer"
-            >
-              Finance
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Header activePage="home" />
 
       {/* Page Header */}
       <div className="w-full px-6 py-6 bg-gray-50">
@@ -522,17 +1214,43 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
           <div className="flex items-center space-x-3">
             <button 
               onClick={handleSaveDraft}
-              className="flex items-center space-x-2 px-4 py-2 border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 bg-white shadow-sm transition-colors"
+              disabled={isSavingDraft || isPublishing}
+              className="flex items-center space-x-2 px-4 py-2 border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 bg-white shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FiEdit3 size={16} />
-              <span>Save as Draft</span>
+              {isSavingDraft ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <FiEdit3 size={16} />
+                  <span>Save as Draft</span>
+                </>
+              )}
             </button>
             <button 
               onClick={() => setShowPublishModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md transition-colors"
+              disabled={isSavingDraft || isPublishing}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FiUpload size={16} />
-              <span>Publish Product</span>
+              {isPublishing ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Publishing...</span>
+                </>
+              ) : (
+                <>
+                  <FiUpload size={16} />
+                  <span>Publish Product</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -563,7 +1281,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                       src={photos[0].src}
                       alt={photos[0].alt}
                     className="w-full h-[240px] object-cover rounded-lg cursor-pointer hover:opacity-80 transition-all"
-                    onClick={() => handlePhotoClick(1)}
+                    onClick={() => openGalleryPhoto(0)}
                   />
                 </div>
                 )}
@@ -579,7 +1297,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                   {/* See More Button Overlay */}
                     <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center rounded-lg">
                     <button 
-                      onClick={() => setShowPhotoModal(true)}
+                      onClick={() => openGalleryPhoto(0)}
                       className="bg-gray-800 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition-all"
                     >
                       See More
@@ -756,6 +1474,67 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 </div>
               </div>
             </div>
+
+            {hasCancellationPolicyPreview && (
+              <div className="bg-white p-6 rounded-lg border border-gray-200">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                  <div>
+                    <div className="text-sm uppercase tracking-wide text-gray-500 font-semibold">Policies</div>
+                    <h3 className="text-2xl font-bold text-gray-900">Cancellation & Refund Policy</h3>
+                    <p className="text-gray-600 text-sm">
+                      Guests will see this policy on your public listing.
+                    </p>
+                  </div>
+                </div>
+
+                {cancellationPolicyPreview?.freeCancellationText && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 text-sm text-blue-800 flex items-center gap-2">
+                    <FiCheckCircle className="w-4 h-4 text-blue-500" />
+                    <span className="font-medium">{cancellationPolicyPreview.freeCancellationText}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  {cancellationPolicyPreview.schedule.map((tier, index) => {
+                    const colors = previewPolicyColors[index % previewPolicyColors.length];
+                    return (
+                      <div
+                        key={`${tier.label}-${index}`}
+                        className={`${colors.bg} border ${colors.border} rounded-xl p-5 text-center`}
+                      >
+                        <div className={`text-4xl font-bold ${colors.accent} mb-2`}>
+                          {typeof tier.percentage === 'number' ? `${tier.percentage}%` : tier.percentage}
+                        </div>
+                        <div className={`font-semibold ${colors.accent} mb-2`}>
+                          {parseInt(tier.percentage, 10) === 100
+                            ? 'Full Refund'
+                            : parseInt(tier.percentage, 10) === 0
+                            ? 'No Refund'
+                            : 'Partial Refund'}
+                        </div>
+                        <div className="text-sm text-gray-700 whitespace-pre-line">
+                          {tier.note || tier.label}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {Array.isArray(cancellationPolicyPreview.notes) && cancellationPolicyPreview.notes.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3">Important Notes</h4>
+                    <ul className="space-y-2">
+                      {cancellationPolicyPreview.notes.map((note, idx) => (
+                        <li key={`preview-note-${idx}`} className="flex items-start gap-3 text-sm text-gray-700">
+                          <FiCheckCircle className="w-4 h-4 text-blue-500 mt-0.5" />
+                          <span>{note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Vehicle & Pricing */}
             <div className="bg-white p-6 rounded-lg border border-gray-200">
@@ -945,12 +1724,31 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 <h3 className="text-xl font-bold text-gray-900">Frequently Asked Questions</h3>
               </div>
               <div className="space-y-4">
-                {faqs.map((faq, index) => (
-                  <div key={index} className="border-b border-gray-200 pb-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">{faq.question}</h4>
-                    <p className="text-gray-600">{faq.answer}</p>
-                  </div>
-                ))}
+                {faqs.length > 0 ? (
+                  faqs.map((faq, index) => (
+                    <div key={index} className="border-b border-gray-200 pb-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleFaq(index)}
+                        className="w-full flex items-center justify-between text-left"
+                      >
+                        <h4 className="font-semibold text-gray-900">
+                          {faq.question?.trim() || `FAQ ${index + 1}`}
+                        </h4>
+                        {expandedFaqIndex === index ? (
+                          <FiMinus className="text-blue-600" size={18} />
+                        ) : (
+                          <FiPlus className="text-blue-600" size={18} />
+                        )}
+                      </button>
+                      {expandedFaqIndex === index && faq.answer?.trim() && (
+                        <p className="text-gray-600 mt-3">{faq.answer}</p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">No FAQs added yet.</p>
+                )}
               </div>
             </div>
           </div>
@@ -1086,6 +1884,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         isOpen={showPublishModal}
         onClose={() => setShowPublishModal(false)}
         onPublish={handlePublishProduct}
+        isPublishing={isPublishing}
       />
 
           {/* Application Submitted Success Modal */}
@@ -1110,8 +1909,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 {/* Main Photo */}
                 <div className="relative">
                   <img
-                    src={allPhotos[currentPhotoIndex].src}
-                    alt={allPhotos[currentPhotoIndex].alt}
+                    src={allPhotos[currentPhotoIndex]?.src}
+                    alt={allPhotos[currentPhotoIndex]?.alt || 'Gallery photo'}
                     className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
                   />
                   
@@ -1132,12 +1931,12 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 
                 {/* Photo Counter */}
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-full">
-                  {currentPhotoIndex + 1} / {photos.length}
+                  {Math.min(currentPhotoIndex + 1, allPhotos.length)} / {allPhotos.length}
                 </div>
                 
                 {/* Thumbnail Strip */}
                 <div className="absolute bottom-4 left-4 right-4 flex space-x-2 overflow-x-auto pb-2">
-                  {photos.map((photo, index) => (
+                  {allPhotos.map((photo, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentPhotoIndex(index)}

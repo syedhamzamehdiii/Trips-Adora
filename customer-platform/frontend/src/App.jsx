@@ -1,5 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+//Maham Saeeed
 import LandingPage from './pages/LandingPage'
+import Login from './pages/Auth/Login'
+import Register from './pages/Auth/Register'
+import GoogleCallback from './pages/Auth/GoogleCallback'
 import SupplierRegistrationPage from './pages/SupplierRegistrationPage'
 import AboutUsPage from './pages/AboutUsPage'
 import ProductDetails from './components/ProductDetails'
@@ -15,6 +20,8 @@ import SearchResultsPage from './pages/SearchResultsPage'
 import ProfilePage from './pages/ProfilePage'
 import ProfileSettings from './pages/ProfileSettings'
 import ProfileWallet from './pages/ProfileWallet'
+import ProfileWalletSettings from './pages/ProfileWalletSettings'
+import ProfileReviews from './pages/ProfileReviews'
 import ComparisonPage from './pages/ComparisonPage'
 import ProductComparisonDetail from './components/ProductComparisonDetail'
 import WishlistPage from './pages/WishlistPage'
@@ -27,20 +34,38 @@ import PaymentSuccessPage from './pages/PaymentSuccessPage'
 import BookingDetailsPage from './pages/BookingDetailsPage'
 import ShareReviewPage from './pages/ShareReviewPage'
 import CustomerReviews from './components/CustomerReviews'
+<<<<<<< HEAD
 import Account_setting from './components/Account_setting'
+=======
+import BlogsPage from './pages/BlogsPage'
+import BlogDetailPage from './pages/BlogDetailPage'
+import CustomerFAQPage from './pages/CustomerFAQPage'
+import CustomerSupportPage from './pages/CustomerSupportPage'
+import CustomerPrivacyPolicy from './pages/CustomerPrivacyPolicy'
+import ContactUsPage from './pages/ContactUsPage'
+import ChatPage from './pages/ChatPage'
+import SitemapPage from './pages/SitemapPage'
+>>>>>>> 222a66946abcdd0813de6e266090a3c970167ee1
 
 function App() {
   return (
-    <div className="App">
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<LandingPage />} />
+    <AuthProvider>
+      <div className="App">
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/auth/google/callback" element={<GoogleCallback />} />
         <Route path="/wishlist" element={<WishlistPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/search" element={<SearchResultsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/wallet" element={<ProfileWallet />} />
         <Route path="/profile/settings" element={<ProfileSettings />} />
+        <Route path="/profile/reviews" element={<ProfileReviews />} />
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/profile/wallet/settings" element={<ProfileWalletSettings />} />
         <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/booking-details" element={<BookingDetailsPage />} />
         <Route path="/share-review" element={<ShareReviewPage />} />
@@ -67,9 +92,22 @@ function App() {
         <Route path="/attractions/tokyo-skytree" element={<TokyoSkytreePage />} />
         <Route path="/attractions/tokyo-tower" element={<TokyoTowerPage />} />
         <Route path="/attractions/arashiyama-bamboo-grove" element={<ArashiyamaBambooGrovePage />} />
+<<<<<<< HEAD
         <Route path="/Account_setting" element={<Account_setting />} />
       </Routes>
     </div>
+=======
+        <Route path="/blogs" element={<BlogsPage />} />
+        <Route path="/blogs/:id" element={<BlogDetailPage />} />
+        <Route path="/contact" element={<ContactUsPage />} />
+        <Route path="/faq" element={<CustomerFAQPage />} />
+        <Route path="/support" element={<CustomerSupportPage />} />
+        <Route path="/sitemap" element={<SitemapPage />} />
+        <Route path="/privacy" element={<CustomerPrivacyPolicy />} />
+        </Routes>
+      </div>
+    </AuthProvider>
+>>>>>>> 222a66946abcdd0813de6e266090a3c970167ee1
   )
 }
 

@@ -1,29 +1,94 @@
-import React, { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import TourCard from './TourCard'
 import ExperienceCard from './ExperienceCard'
 import StatsBanner from './StatsBanner'
 import ConsultationBanner from './ConsultationBanner'
+import { getPublishedProducts, transformProductForFrontend, getProductClicks, recordProductClick, addRecentlyViewed, getRecentlyViewed } from '../services/productService'
+import { blogPosts } from '../data/blogData'
 
 const ToursSection = () => {
-  const baseTours = [
-    { id: 1, name: 'Mount Fuji Highlights & Hidden Gems Tour', image: '/assests/bg.jpg', duration: '8 hours', price: '$119/person', slotsRemaining: 3 },
-    { id: 2, name: 'Hakone Highlights & Hidden Gems Tour', image: '/assests/bg.jpg', duration: '6 hours', price: '$245/person', slotsRemaining: 5 },
-    { id: 3, name: 'Burj Khalifa Highlights & Hidden Gems Tour', image: '/assests/bg.jpg', duration: '4 hours', price: '$167/person' },
-    { id: 4, name: 'Tokyo Highlights & Hidden Gems Tour', image: '/assests/bg.jpg', duration: '7 hours', price: '$345/person', slotsRemaining: 1 }
-  ]
+  const navigate = useNavigate()
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [recent, setRecent] = useState([])
+  const blogTickerRef = useRef(null)
+  const blogTickerRef2 = useRef(null)
+  const [shuffledBlogs, setShuffledBlogs] = useState([])
 
   const [isSortOpen, setIsSortOpen] = useState(false)
-  const [sortKey, setSortKey] = useState('price_desc')
+  const [sortKey, setSortKey] = useState('most_clicked')
   const sortRef = useRef(null)
 
-  const tours = useMemo(() => {
-    const parsed = baseTours.map(t => ({
-      ...t,
-      priceValue: Number((t.price.match(/\$(\d+)/) || [])[1]) || 0,
-      updatedAt: t.id // placeholder stable field
-    }))
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        const data = await getPublishedProducts({ page: 1, page_size: 8 })
+        const list = (data.products || []).map(transformProductForFrontend)
+        setProducts(list)
+        setRecent(getRecentlyViewed())
+      } catch (e) {
+        setError('Failed to load tours')
+        setProducts([])
+        setRecent(getRecentlyViewed())
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+    // Smooth revalidation when tab becomes visible instead of constant polling
+    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVisible)
+    // Realtime updates within the same tab
+    const handler = () => {
+      setProducts(prev => [...prev]) // trigger re-sort with latest clicks
+      setRecent(getRecentlyViewed())
+    }
+    window.addEventListener('realtime-products-update', handler)
+    // Prepare shuffled blogs once for ticker
+    const latest = [...blogPosts].slice(0, 20)
+    // simple shuffle
+    for (let i = latest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[latest[i], latest[j]] = [latest[j], latest[i]]
+    }
+    setShuffledBlogs(latest)
 
+    // Auto-scrolling ticker
+    let rafId
+    const speed = 0.5 // pixels per frame
+    const step = () => {
+      const el = blogTickerRef.current
+      if (el) {
+        el.scrollLeft += speed
+        if (el.scrollLeft >= el.scrollWidth / 2) el.scrollLeft = 0
+      }
+      const el2 = blogTickerRef2.current
+      if (el2) {
+        el2.scrollLeft += speed
+        if (el2.scrollLeft >= el2.scrollWidth / 2) el2.scrollLeft = 0
+      }
+      rafId = requestAnimationFrame(step)
+    }
+    rafId = requestAnimationFrame(step)
+
+    return () => {
+      window.removeEventListener('realtime-products-update', handler)
+      document.removeEventListener('visibilitychange', onVisible)
+      cancelAnimationFrame(rafId)
+    }
+  }, [])
+
+  const tours = useMemo(() => {
+    const clicks = getProductClicks()
+    const parsed = products.map(t => ({
+      ...t,
+      priceValue: Number((String(t.price).match(/\$(\d+)/) || [])[1]) || 0,
+      updatedAt: t.id,
+      clicks: clicks[t.id] || 0
+    }))
     switch (sortKey) {
       case 'price_asc':
         return [...parsed].sort((a, b) => a.priceValue - b.priceValue)
@@ -32,13 +97,28 @@ const ToursSection = () => {
       case 'date_old':
         return [...parsed].sort((a, b) => a.updatedAt - b.updatedAt)
       case 'price_desc':
-      default:
         return [...parsed].sort((a, b) => b.priceValue - a.priceValue)
+      case 'most_clicked':
+      default:
+        return [...parsed].sort((a, b) => b.clicks - a.clicks)
     }
-  }, [baseTours, sortKey])
+  }, [products, sortKey])
+
+  const handleCardClick = (tour) => {
+    recordProductClick(tour.id)
+    // Resort immediately based on updated clicks
+    setProducts(prev => [...prev])
+    // Update recently viewed list
+    const updated = addRecentlyViewed(tour)
+    setRecent(updated)
+    // Navigate to product detail if available
+    if (tour.id) {
+      navigate(`/tours/${encodeURIComponent(tour.name?.toLowerCase().replace(/\s+/g,'-'))}`)
+    }
+  }
 
   return (
-    <section className="py-16 bg-gray-200">
+    <section id="tours" className="py-16 bg-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold text-gray-900">Explore our tours</h2>
@@ -70,6 +150,7 @@ const ToursSection = () => {
             {isSortOpen && (
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-200 p-3 z-10">
                 {[
+                  { key: 'most_clicked', label: 'Most Clicked (Realtime)' },
                   { key: 'price_desc', label: 'Price ( High to Low )' },
                   { key: 'price_asc', label: 'Price ( Low to High )' },
                   { key: 'date_new', label: 'Date Updated ( new )' },
@@ -88,19 +169,28 @@ const ToursSection = () => {
             )}
           </div>
         </div>
+        {/* Removed slideshow ticker */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {tours.map((t) => (
-            <TourCard key={t.id} tour={t} />
-          ))}
+          {loading ? (
+            <div className="col-span-4 text-center text-gray-600">Loading tours...</div>
+          ) : error ? (
+            <div className="col-span-4 text-center text-red-600">{error}</div>
+          ) : tours.length === 0 ? (
+            <div className="col-span-4 text-center text-gray-600">No tours available</div>
+          ) : (
+            tours.slice(0,4).map((t) => (
+              <TourCard key={t.id} tour={t} onClick={() => handleCardClick(t)} />
+            ))
+          )}
         </div>
 
-        <div className="flex items-center justify-between mb-6">
+        <div id="recently-viewed" className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-semibold text-gray-900">Recently Viewed</h3>
           <Link to="/search" className="text-sm text-gray-600 hover:text-gray-800">See more</Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {tours.map((t) => (
-            <TourCard key={`recent-${t.id}`} tour={t} />
+          {tours.slice(0,4).map((t) => (
+            <TourCard key={`recent-${t.id}`} tour={t} onClick={() => handleCardClick(t)} />
           ))}
         </div>
         <div className="flex items-center gap-6 my-6">
@@ -110,11 +200,15 @@ const ToursSection = () => {
         </div>
         <StatsBanner />
         <h3 className="text-2xl font-semibold text-gray-900 mt-10 mb-6">You Might Like These</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {tours.map((t, idx) => (
-            <ExperienceCard key={`exp-${t.id}`} image={t.image} title={t.name} price={t.price} liked={idx % 2 === 0} />
-          ))}
-        </div>
+        {shuffledBlogs.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {shuffledBlogs.slice(0,4).map((b) => (
+              <Link key={`like-${b.id}`} to={`/blogs/${b.id}`}>
+                <ExperienceCard image={b.image} title={b.title} price={b.readTime ? `${b.readTime} min read` : b.date || ''} liked={false} id={`blog-${b.id}`} />
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )

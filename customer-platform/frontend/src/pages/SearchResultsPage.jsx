@@ -1,128 +1,213 @@
-import React, { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import TourCard from '../components/TourCard'
 import { FiFilter } from 'react-icons/fi'
-import tc2 from '../../assests/tc2.jpg'
-import tc4 from '../../assests/tc4.jpg'
-import place1 from '../../assests/place 1.jpg'
+import { getPublishedProducts, transformProductForFrontend, getCachedPublishedProductsSync } from '../services/productService'
 
 const SearchResultsPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   
   // Filter states
   const [tourTypes, setTourTypes] = useState([])
   const [locations, setLocations] = useState([])
   const [durations, setDurations] = useState([])
-  const [priceRange, setPriceRange] = useState([0, 1000])
+  const [priceRange, setPriceRange] = useState([0, 10000000]) // Increased max to show all products including expensive ones
   const [minimumRating, setMinimumRating] = useState('Any Rating')
   const [itemsPerPage, setItemsPerPage] = useState('9')
   const [sortBy, setSortBy] = useState('Recommended')
-
-  // All products data
-  const allProducts = useMemo(() => [
-    {
-      id: 1,
-      name: 'Hokonos Highlights & Hidden Gems Tour',
-      image: tc2,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$245/person',
-      location: 'Tokyo, Japan'
-    },
-    {
-      id: 2,
-      name: 'Burj Khalifa Highlights & Hidden Gems Tour',
-      image: tc4,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$167/person',
-      location: 'Dubai, UAE'
-    },
-    {
-      id: 3,
-      name: 'Tokyo Highlights & Hidden Gems Tour',
-      image: place1,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$345/person',
-      location: 'Tokyo, Japan'
-    },
-    // Repeat the pattern to create 9 products
-    {
-      id: 4,
-      name: 'Hokonos Highlights & Hidden Gems Tour',
-      image: tc2,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$245/person',
-      location: 'Tokyo, Japan'
-    },
-    {
-      id: 5,
-      name: 'Burj Khalifa Highlights & Hidden Gems Tour',
-      image: tc4,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$167/person',
-      location: 'Dubai, UAE'
-    },
-    {
-      id: 6,
-      name: 'Tokyo Highlights & Hidden Gems Tour',
-      image: place1,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$345/person',
-      location: 'Tokyo, Japan'
-    },
-    {
-      id: 7,
-      name: 'Hokonos Highlights & Hidden Gems Tour',
-      image: tc2,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$245/person',
-      location: 'Tokyo, Japan'
-    },
-    {
-      id: 8,
-      name: 'Burj Khalifa Highlights & Hidden Gems Tour',
-      image: tc4,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$167/person',
-      location: 'Dubai, UAE'
-    },
-    {
-      id: 9,
-      name: 'Tokyo Highlights & Hidden Gems Tour',
-      image: place1,
-      rating: 4.8,
-      reviews: 234,
-      duration: '8 hours',
-      groupSize: 'Up to 12',
-      price: '$345/person',
-      location: 'Tokyo, Japan'
+  
+  // Load from cache immediately (synchronous) - only if no search term
+  const searchParams = new URLSearchParams(location.search)
+  const searchTerm = searchParams.get('q') || ''
+  const initialProducts = (() => {
+    if (!searchTerm) {
+      try {
+        const cached = getCachedPublishedProductsSync()
+        if (cached && cached.length > 0) {
+          return cached.map(transformProductForFrontend)
+        }
+      } catch (_) {}
     }
-  ], [])
+    return []
+  })()
+  
+  const [products, setProducts] = useState(initialProducts)
+  const hasLoadedOnceRef = useRef(false)
+  const [loading, setLoading] = useState(initialProducts.length === 0)
+  const [totalProducts, setTotalProducts] = useState(initialProducts.length)
+
+  // Background fetch function for refreshing cache
+  const fetchAllProductsInBackground = async () => {
+    try {
+      const pageSize = 100
+      let currentPage = 1
+      let hasMore = true
+      let allProducts = []
+      
+      while (hasMore) {
+        const params = { page: currentPage, page_size: pageSize }
+        const data = await getPublishedProducts(params, true) // Use cache
+        
+        if (data && data.products && Array.isArray(data.products)) {
+          if (data.products.length > 0) {
+            allProducts = [...allProducts, ...data.products]
+            if (data.total_pages && currentPage < data.total_pages) {
+              currentPage++
+            } else {
+              hasMore = false
+            }
+          } else {
+            hasMore = false
+          }
+        } else {
+          hasMore = false
+        }
+      }
+      
+      if (allProducts.length > 0) {
+        const transformed = allProducts.map(transformProductForFrontend).filter(p => p !== null)
+        setProducts(transformed)
+        setTotalProducts(transformed.length)
+      }
+    } catch (error) {
+      console.error('Background fetch error:', error)
+    }
+  }
+
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        // Only show loading if we don't have cached data
+        if (initialProducts.length === 0 && !hasLoadedOnceRef.current) {
+          setLoading(true)
+        }
+        
+        const searchParams = new URLSearchParams(location.search)
+        const searchTerm = searchParams.get('q') || ''
+        
+        let allProducts = []
+        let total = 0
+        
+        if (searchTerm && searchTerm.trim()) {
+          // With search term - use pagination
+          const params = {
+            page: 1,
+            page_size: parseInt(itemsPerPage) || 9,
+            search: searchTerm.trim()
+          }
+          const data = await getPublishedProducts(params, false) // Don't use cache for search
+          if (data && data.products && Array.isArray(data.products)) {
+            allProducts = data.products
+            total = data.total || 0
+          }
+        } else {
+          // No search term - use cached data if available, otherwise fetch
+          if (initialProducts.length > 0) {
+            allProducts = initialProducts
+            total = initialProducts.length
+            hasLoadedOnceRef.current = true
+            setLoading(false)
+            // Set products immediately from cache
+            setProducts(allProducts)
+            setTotalProducts(total)
+            // Fetch fresh in background (async, don't await)
+            fetchAllProductsInBackground().catch(() => {})
+            return
+          }
+          
+          // No cache, fetch ALL products by getting all pages
+          const pageSize = 100 // Max allowed by API
+          let currentPage = 1
+          let hasMore = true
+          
+          console.log('🔍 Fetching all products (no search term)...')
+          
+          while (hasMore) {
+            const params = {
+              page: currentPage,
+              page_size: pageSize
+            }
+            console.log(`📄 Fetching page ${currentPage}...`)
+            const data = await getPublishedProducts(params)
+            
+            console.log(`📦 Page ${currentPage} response:`, {
+              productsCount: data?.products?.length || 0,
+              total: data?.total || 0,
+              totalPages: data?.total_pages || 0
+            })
+            
+            if (data && data.products && Array.isArray(data.products)) {
+              if (data.products.length > 0) {
+                allProducts = [...allProducts, ...data.products]
+                total = data.total || 0
+                console.log(`✅ Added ${data.products.length} products. Total so far: ${allProducts.length}`)
+                
+                // Check if there are more pages
+                if (data.total_pages && currentPage < data.total_pages) {
+                  currentPage++
+                } else {
+                  hasMore = false
+                  console.log('✅ Reached last page')
+                }
+              } else {
+                // Empty page means we're done
+                hasMore = false
+                console.log('✅ No more products (empty page)')
+              }
+            } else {
+              hasMore = false
+              console.log('⚠️ Invalid response, stopping')
+            }
+          }
+          
+          console.log(`✅ Finished fetching. Total products: ${allProducts.length}, Total in DB: ${total}`)
+        }
+        
+        if (allProducts.length > 0) {
+          console.log('🔄 Transforming products...', allProducts.length)
+          const transformed = allProducts.map((product, index) => {
+            try {
+              const transformedProduct = transformProductForFrontend(product)
+              console.log(`✅ Product ${index + 1} transformed:`, {
+                id: transformedProduct.id,
+                name: transformedProduct.name,
+                price: transformedProduct.price,
+                location: transformedProduct.location,
+                duration: transformedProduct.duration,
+                rating: transformedProduct.rating,
+                hasImage: !!transformedProduct.image
+              })
+              return transformedProduct
+            } catch (error) {
+              console.error(`❌ Error transforming product ${index + 1}:`, error, product)
+              return null
+            }
+          }).filter(p => p !== null) // Remove any failed transformations
+          
+          console.log(`✅ Transformed ${transformed.length} products successfully`)
+          setProducts(transformed)
+          setTotalProducts(total)
+        } else {
+          setProducts([])
+          setTotalProducts(0)
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error)
+        setProducts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProducts()
+  }, [location.search, itemsPerPage])
+
+  // All products data - now from API
+  const allProducts = useMemo(() => products, [products])
 
   // Filter toggle functions
   const toggleFilter = (filterType, value) => {
@@ -144,38 +229,115 @@ const SearchResultsPage = () => {
   // Filter products based on active filters
   const filteredProducts = useMemo(() => {
     let filtered = allProducts
+    console.log(`🔍 Starting with ${filtered.length} products for filtering`)
 
     // Apply price range filter
     if (priceRange && priceRange.length === 2) {
+      const beforeCount = filtered.length
       filtered = filtered.filter(product => {
-        // Extract numeric price from string like "$245/person"
-        const priceValue = parseInt(product.price.match(/\$(\d+)/)?.[1] || '0')
-        return priceValue >= priceRange[0] && priceValue <= priceRange[1]
+        // Extract numeric price from string like "$245/person" or "$245"
+        const priceMatch = product.price?.match(/\$(\d+)/)
+        const priceValue = priceMatch ? parseInt(priceMatch[1]) : 0
+        const passes = priceValue >= priceRange[0] && priceValue <= priceRange[1]
+        if (!passes) {
+          console.log(`❌ Product "${product.name}" filtered out by price: $${priceValue} (range: $${priceRange[0]}-$${priceRange[1]})`)
+        }
+        return passes
       })
+      console.log(`💰 Price filter: ${beforeCount} → ${filtered.length} products`)
     }
 
     // Apply minimum rating filter
     if (minimumRating !== 'Any Rating') {
+      const beforeCount = filtered.length
       const minRating = parseFloat(minimumRating)
-      filtered = filtered.filter(product => product.rating >= minRating)
+      filtered = filtered.filter(product => {
+        const productRating = product.rating || 0
+        const passes = productRating >= minRating
+        if (!passes) {
+          console.log(`❌ Product "${product.name}" filtered out by rating: ${productRating} (minimum: ${minRating})`)
+        }
+        return passes
+      })
+      console.log(`⭐ Rating filter: ${beforeCount} → ${filtered.length} products`)
     }
 
     // Apply location filter
     if (locations.length > 0) {
-      filtered = filtered.filter(product => 
-        locations.some(loc => product.location.includes(loc))
-      )
+      const beforeCount = filtered.length
+      filtered = filtered.filter(product => {
+        const productLocation = product.location || ''
+        const passes = locations.some(loc => productLocation.includes(loc))
+        if (!passes) {
+          console.log(`❌ Product "${product.name}" filtered out by location: "${productLocation}" (looking for: ${locations.join(', ')})`)
+        }
+        return passes
+      })
+      console.log(`📍 Location filter: ${beforeCount} → ${filtered.length} products`)
     }
 
     // Apply duration filter
     if (durations.length > 0) {
-      filtered = filtered.filter(product => 
-        durations.some(dur => product.duration.includes(dur))
-      )
+      const beforeCount = filtered.length
+      filtered = filtered.filter(product => {
+        const productDuration = product.duration || ''
+        const passes = durations.some(dur => productDuration.includes(dur))
+        if (!passes) {
+          console.log(`❌ Product "${product.name}" filtered out by duration: "${productDuration}" (looking for: ${durations.join(', ')})`)
+        }
+        return passes
+      })
+      console.log(`⏱️ Duration filter: ${beforeCount} → ${filtered.length} products`)
     }
 
+    // Apply tour type filter
+    if (tourTypes.length > 0) {
+      const beforeCount = filtered.length
+      filtered = filtered.filter(product => {
+        const isPrivate = product.isPrivate === true || String(product.activity_type || '').toLowerCase().includes('private')
+        const matchesPrivate = tourTypes.includes('Private Tours') ? isPrivate : true
+        const matchesShared = tourTypes.includes('Shared Tours') ? !isPrivate : true
+        // Customize Tours currently passes through (no dedicated flag yet)
+        return matchesPrivate && matchesShared
+      })
+      console.log(`🎯 Tour type filter: ${beforeCount} → ${filtered.length} products`)
+    }
+
+    console.log(`✅ Final filtered products: ${filtered.length}`)
     return filtered
-  }, [allProducts, priceRange, minimumRating, locations, durations])
+  }, [allProducts, priceRange, minimumRating, locations, durations, tourTypes])
+
+  // Sorting
+  const visibleProducts = useMemo(() => {
+    const list = [...filteredProducts]
+    switch (sortBy) {
+      case 'Price: Low to High':
+        return list.sort((a, b) => {
+          const pa = parseInt(String(a.price).match(/\$(\d+)/)?.[1] || '0')
+          const pb = parseInt(String(b.price).match(/\$(\d+)/)?.[1] || '0')
+          return pa - pb
+        })
+      case 'Price: High to Low':
+        return list.sort((a, b) => {
+          const pa = parseInt(String(a.price).match(/\$(\d+)/)?.[1] || '0')
+          const pb = parseInt(String(b.price).match(/\$(\d+)/)?.[1] || '0')
+          return pb - pa
+        })
+      case 'Rating':
+        return list.sort((a, b) => (b.rating || 0) - (a.rating || 0))
+      case 'Most Reviews':
+        const toCount = (p) => {
+          const m = String(p.reviews || '').match(/(\d+(?:\.\d+)?)(k)?/i)
+          if (!m) return 0
+          const n = parseFloat(m[1])
+          return m[2] ? n * 1000 : n
+        }
+        return list.sort((a, b) => toCount(b) - toCount(a))
+      case 'Recommended':
+      default:
+        return list.sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    }
+  }, [filteredProducts, sortBy])
 
   // Handle price range slider
   const handlePriceChange = (e) => {
@@ -273,8 +435,8 @@ const SearchResultsPage = () => {
                       <input
                         type="range"
                         min="0"
-                        max="1000"
-                        step="50"
+                        max="10000000"
+                        step="10000"
                         value={priceRange[1]}
                         onChange={handlePriceChange}
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
@@ -339,15 +501,38 @@ const SearchResultsPage = () => {
             </div>
 
             {/* Products Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => (
-                <TourCard 
-                  key={product.id} 
-                  tour={product}
-                  onClick={() => navigate(`/product-details/${product.id}`)}
-                />
-              ))}
-            </div>
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="bg-white rounded-2xl overflow-hidden shadow animate-pulse">
+                    <div className="h-56 bg-gray-300"></div>
+                    <div className="p-4 space-y-2">
+                      <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                      <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : visibleProducts.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {visibleProducts.map((product) => {
+                  // Ensure we're using the actual MongoDB ObjectId, not a slug
+                  const productId = product.id
+                  console.log('🔗 Navigating to product:', { id: productId, name: product.name })
+                  return (
+                    <TourCard 
+                      key={product.id} 
+                      tour={product}
+                      onClick={() => navigate(`/product-details/${productId}`)}
+                    />
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                No products found matching your filters
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -4,6 +4,10 @@ from app.core.config import settings
 from app.models.user import User
 from app.models.coi_document import COIDocument
 from app.models.product import Product
+from app.models.account_settings import SupplierAccountSettings
+from app.models.vehicle import SupplierVehicle
+from app.models.notification import Notification
+from app.models.message import Message
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,24 +22,43 @@ db = Database()
 
 
 async def initiate_database():
-    """Initialize database and Beanie ODM."""
+    """Initialize database and Beanie ODM with optimized connection settings."""
     try:
-        db.client = AsyncIOMotorClient(settings.MONGODB_URL)
+        db.client = AsyncIOMotorClient(
+            settings.MONGODB_URL,
+            # Connection pool settings
+            maxPoolSize=50,
+            minPoolSize=10,
+            maxIdleTimeMS=45000,
+
+            # Timeout settings
+            serverSelectionTimeoutMS=30000,  # 30 seconds
+            connectTimeoutMS=20000,  # 20 seconds
+            socketTimeoutMS=60000,  # 60 seconds
+
+            # Retry settings
+            retryWrites=True,
+            retryReads=True,
+
+            # TLS (allow self-signed certificates for development)
+            tls=True,
+            tlsAllowInvalidCertificates=True,
+        )
         db.database = db.client[settings.DATABASE_NAME]
         
         # Test the connection
         await db.client.admin.command('ping')
-        logger.info("Successfully connected to MongoDB!")
+        logger.info("✅ Successfully connected to MongoDB!")
         
         # Initialize Beanie with all document models
         await init_beanie(
             database=db.database,
-            document_models=[User, COIDocument, Product]
+            document_models=[User, COIDocument, Product, SupplierAccountSettings, SupplierVehicle, Notification, Message]
         )
-        logger.info("Beanie initialized successfully!")
+        logger.info("✅ Beanie initialized successfully!")
         
     except Exception as e:
-        logger.error(f"Error connecting to MongoDB: {e}")
+        logger.error(f"❌ Error connecting to MongoDB: {e}")
         raise
 
 

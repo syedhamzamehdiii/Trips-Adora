@@ -11,7 +11,8 @@ from app.models.product import (
     FAQ,
     VehicleDetails,
     PickupDropoff,
-    Accessibility
+    Accessibility,
+    CancellationPolicy
 )
 
 
@@ -36,10 +37,11 @@ class ProductBase(BaseModel):
     vehicle_details: Optional[VehicleDetails] = None
     pickup_dropoff: Optional[PickupDropoff] = None
     price: float
-    currency: str = "USD"
+    currency: str = "USD" 
     price_unit: str = "Per Group"
     commission_rate: Optional[float] = 20.0
     faqs: List[FAQ] = []
+    cancellation_policy: Optional[CancellationPolicy] = None
     destination: Optional[str] = None
     breadcrumb: List[str] = []
     selling_points: List[str] = []
@@ -77,12 +79,39 @@ class ProductUpdate(BaseModel):
     price_unit: Optional[str] = None
     commission_rate: Optional[float] = None
     faqs: Optional[List[FAQ]] = None
+    cancellation_policy: Optional[CancellationPolicy] = None
     destination: Optional[str] = None
     breadcrumb: Optional[List[str]] = None
     selling_points: Optional[List[str]] = None
     style_theme: Optional[str] = None
     status: Optional[ProductStatus] = None
     custom_fields: Optional[Dict[str, Any]] = None
+
+
+class ProductSummary(BaseModel):
+    """Lightweight product summary for list views - excludes heavy fields like images"""
+    id: str
+    supplier_id: str
+    title: str
+    category: ProductCategory
+    tagline: Optional[str] = None
+    status: ProductStatus
+    price: float
+    currency: str
+    destination: Optional[str] = None
+    duration: Optional[str] = None
+    views: int
+    bookings_count: int
+    rating: Optional[float] = None
+    reviews_count: int
+    created_at: datetime
+    updated_at: datetime
+    published_at: Optional[datetime] = None
+    # Only include first image URL (not base64) for thumbnail
+    hero_image_url: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
 
 
 class ProductResponse(ProductBase):
@@ -105,6 +134,15 @@ class ProductResponse(ProductBase):
 class ProductListResponse(BaseModel):
     """Schema for paginated product list"""
     products: List[ProductResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class ProductSummaryListResponse(BaseModel):
+    """Schema for paginated product summary list (lightweight)"""
+    products: List[ProductSummary]
     total: int
     page: int
     page_size: int

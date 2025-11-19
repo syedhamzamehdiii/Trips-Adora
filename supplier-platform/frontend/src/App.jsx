@@ -28,6 +28,8 @@ import FAQPage from './pages/FAQPage'
 import TermsOfService from './pages/TermsOfService'
 import SafetyGuidelinesPage from './pages/SafetyGuidelinesPage'
 import DashboardLayout from './layouts/DashboardLayout'
+import GlobalCacheSync from './components/GlobalCacheSync'
+import ChatPage from './pages/Chat/ChatPage'
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth()
@@ -127,6 +129,10 @@ function AppRoutes() {
           ) : <Navigate to="/login" />} 
         />
         <Route 
+          path="/chat" 
+          element={isAuthenticated ? <ChatPage /> : <Navigate to="/login" />} 
+        />
+        <Route 
           path="/insights" 
           element={isAuthenticated ? (
             <DashboardLayout>
@@ -191,6 +197,7 @@ function App() {
       loadingElement={<div>Loading Maps...</div>}
     >
       <AuthProvider>
+        <GlobalCacheSync />
         <AppRoutes />
       </AuthProvider>
     </LoadScript>

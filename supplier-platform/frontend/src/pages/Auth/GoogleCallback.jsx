@@ -46,7 +46,18 @@ const GoogleCallback = () => {
         }
       } catch (error) {
         console.error('Google callback error:', error);
-        const errorMessage = error.response?.data?.detail || error.message || 'Google authentication failed';
+        
+        // Provide more helpful error messages
+        let errorMessage = 'Google authentication failed';
+        
+        if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+          errorMessage = 'Request timed out. Please check if the backend server is running at http://localhost:8000';
+        } else if (error.message?.includes('Network error') || error.message?.includes('ERR_NETWORK')) {
+          errorMessage = 'Cannot connect to the server. Please ensure the backend is running at http://localhost:8000';
+        } else {
+          errorMessage = error.response?.data?.detail || error.message || 'Google authentication failed';
+        }
+        
         toast.error(errorMessage);
         navigate(ROUTES.LOGIN);
       }

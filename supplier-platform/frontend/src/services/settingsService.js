@@ -1,25 +1,62 @@
 // Frontend/src/services/settingsService.js
 import { apiService } from './api';
-import config from '@/config';
+
+const BASE_PATH = '/settings';
+
+// Cache for settings to avoid redundant API calls
+let settingsCache = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 30000; // 30 seconds
 
 export const settingsService = {
-  getProfile: async () => {
-    return await apiService.get(config.endpoints.settings.profile);
+  async getSettings(forceRefresh = false) {
+    // Return cached data if available and fresh
+    const now = Date.now();
+    if (!forceRefresh && settingsCache && (now - cacheTimestamp) < CACHE_TTL) {
+      return settingsCache;
+    }
+
+    try {
+      const response = await apiService.get(`${BASE_PATH}`);
+      settingsCache = response;
+      cacheTimestamp = now;
+      return response;
+    } catch (error) {
+      // Return cached data on error if available
+      if (settingsCache) {
+        return settingsCache;
+      }
+      throw error;
+    }
   },
 
-  updateProfile: async (profileData) => {
-    return await apiService.put(config.endpoints.settings.profile, profileData);
+  async saveSettings(settings) {
+    const response = await apiService.put(`${BASE_PATH}`, { settings });
+    // Update cache immediately
+    settingsCache = { settings };
+    cacheTimestamp = Date.now();
+    return response;
   },
 
-  updateAccount: async (accountData) => {
-    return await apiService.put(config.endpoints.settings.account, accountData);
+  async updateProfile(profileSettings) {
+    return apiService.put(`${BASE_PATH}/profile`, { settings: profileSettings });
   },
 
-  updateBanking: async (bankingData) => {
-    return await apiService.put(config.endpoints.settings.banking, bankingData);
+  async updateAccount(accountSettings) {
+    return apiService.put(`${BASE_PATH}/account`, { settings: accountSettings });
   },
 
-  updateNotifications: async (notificationData) => {
-    return await apiService.put(config.endpoints.settings.notifications, notificationData);
+  async updateBanking(bankingSettings) {
+    return apiService.put(`${BASE_PATH}/banking`, { settings: bankingSettings });
+  },
+
+  async updateNotifications(notificationSettings) {
+    return apiService.put(`${BASE_PATH}/notifications`, { settings: notificationSettings });
+  },
+
+  // Clear cache (useful after updates)
+  clearCache() {
+    settingsCache = null;
+    cacheTimestamp = 0;
   },
 };

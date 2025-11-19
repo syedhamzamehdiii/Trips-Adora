@@ -43,6 +43,9 @@ const KyotoPage = () => {
         // Also remove from wishlist
         const updatedWishlist = wishlist.filter(item => item.id !== id)
         localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+        try {
+          window.dispatchEvent(new CustomEvent('wishlist:changed', { detail: updatedWishlist }))
+        } catch (_) {}
       } else {
         next.add(id)
         
@@ -67,6 +70,9 @@ const KyotoPage = () => {
           
           const updatedWishlist = [...wishlist, tourForWishlist]
           localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+          try {
+            window.dispatchEvent(new CustomEvent('wishlist:changed', { detail: updatedWishlist }))
+          } catch (_) {}
         }
       }
       try { localStorage.setItem('kyoto_favorites', JSON.stringify(Array.from(next))) } catch (_) {}
