@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field
 
 
 class VehicleBase(BaseModel):
+    product_id: Optional[str] = Field(
+        default=None, description="Product/draft identifier this vehicle belongs to"
+    )
     title: str = Field(..., min_length=1)
     vehicle_type: str = Field(..., min_length=1)
     variant: str = Field(..., min_length=1)
@@ -38,6 +41,7 @@ class VehicleUpdate(BaseModel):
     duration: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    product_id: Optional[str] = None
 
 
 class VehicleResponse(VehicleBase):

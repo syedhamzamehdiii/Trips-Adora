@@ -7,6 +7,10 @@ import vehicleService from '@/services/vehicleService';
 import { imageService } from '@/services/imageService';
 
 const DEFAULT_DRAFT_ID = 'current_draft';
+const DRAFT_ORIGIN = {
+  NEW: 'new_product',
+  EXISTING: 'existing_product'
+};
 
 const createScheduleEntry = (overrides = {}) => ({
   id: `policy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -100,6 +104,13 @@ const hasMeaningfulDraftData = (draftData = {}) => {
   }
 
   return false;
+};
+
+const createLocalVehicleId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `temp_vehicle_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 };
 
 const createValidationError = (message) => {
@@ -254,29 +265,45 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   
   // Vehicle-Time Allocations (time + vehicle pairings)
   const [vehicleTimeAllocations, setVehicleTimeAllocations] = useState([]);
-
+  const resolvedVehicleContextId = useMemo(() => {
+    // Only use dbProductId for backend queries - this ensures we only load vehicles for saved products
+    // For new products (no dbProductId yet), vehicles are stored locally in state
+    if (dbProductId) return dbProductId;
+    return null;
+  }, [dbProductId]);
   const loadVehicles = useCallback(async () => {
+    if (!resolvedVehicleContextId) {
+      return;
+    }
     setVehiclesLoading(true);
     setVehicleError(null);
     try {
-      const fetched = await vehicleService.list();
+      const fetched = await vehicleService.list(resolvedVehicleContextId);
       const mapped = Array.isArray(fetched) ? fetched : [];
-      setVehicles(mapped);
-      setSelectedVehicleForTour((prevSelected) => {
-        if (prevSelected?.id) {
-          const match = mapped.find((vehicle) => vehicle.id === prevSelected.id);
-          return match || prevSelected;
-        }
-        return prevSelected || (mapped.length ? mapped[0] : null);
-      });
+      if (mapped.length > 0) {
+        setVehicles(mapped);
+        setSelectedVehicleForTour((current) => {
+          if (current && mapped.some((vehicle) => vehicle.id === current.id)) {
+            return current;
+          }
+          return mapped[0] || null;
+        });
+      } else {
+        // If we have vehicles in state but backend returns empty, keep the state vehicles
+        setVehicles((prev) => {
+          if (prev.length > 0) {
+            return prev;
+          }
+          return [];
+        });
+      }
     } catch (error) {
-      console.error('Failed to load vehicle options:', error);
-      setVehicles([]);
+      console.error('Failed to load vehicles:', error);
       setVehicleError(error?.message || 'Failed to load vehicles.');
     } finally {
       setVehiclesLoading(false);
     }
-  }, []);
+  }, [resolvedVehicleContextId]);
   
   // Google Maps state
   const [mapCenter, setMapCenter] = useState({ lat: 35.3606, lng: 138.7274 }); // Mount Fuji area
@@ -786,13 +813,59 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         
         if (savedDraft) {
           console.log('📦 Found draft data in localStorage');
-          const draftData = JSON.parse(savedDraft);
+          const parsedDraft = JSON.parse(savedDraft);
+          const fallbackOrigin = internalDraftId === DEFAULT_DRAFT_ID
+            ? DRAFT_ORIGIN.NEW
+            : DRAFT_ORIGIN.EXISTING;
+          const resolvedDraftOrigin = parsedDraft.draftOrigin || (parsedDraft.dbProductId
+            ? DRAFT_ORIGIN.EXISTING
+            : fallbackOrigin
+          );
+
+          if (internalDraftId === DEFAULT_DRAFT_ID && resolvedDraftOrigin === DRAFT_ORIGIN.EXISTING) {
+            console.log('🚫 Ignoring autosaved data because it belongs to an existing product edit.');
+            console.log('🧹 Clearing current_draft so new uploads start fresh.');
+            setShowStartFreshPrompt(false);
+            try {
+              localStorage.removeItem(draftStorageKey);
+            } catch (cleanupError) {
+              console.warn('Unable to clear stale draft storage key:', cleanupError);
+            }
+            return;
+          }
+
+          const draftData = {
+            ...parsedDraft,
+            draftOrigin: resolvedDraftOrigin
+          };
           console.log('📄 Draft data parsed:', draftData);
-          setShowStartFreshPrompt(hasMeaningfulDraftData(draftData));
+
+          const allowStartFreshPrompt = internalDraftId === DEFAULT_DRAFT_ID && resolvedDraftOrigin === DRAFT_ORIGIN.NEW;
+          const showPrompt = allowStartFreshPrompt && hasMeaningfulDraftData(draftData);
+          if (!showPrompt) {
+            setShowStartFreshPrompt(false);
+          } else {
+            setShowStartFreshPrompt(true);
+          }
           
           const fallbackDraftId = internalDraftId !== DEFAULT_DRAFT_ID ? internalDraftId : null;
           const detectedDbId = draftData.dbProductId || draftData.draftId || fallbackDraftId;
           setDbProductId(detectedDbId || null);
+          const draftVehicles =
+            Array.isArray(draftData.vehicles) && draftData.vehicles.length
+              ? draftData.vehicles
+              : (Array.isArray(draftData.customFields?.vehicles_full) && draftData.customFields.vehicles_full.length
+                  ? draftData.customFields.vehicles_full
+                  : (draftData.selectedVehicleForTour ? [draftData.selectedVehicleForTour] : []));
+          // Filter draft vehicles to only include those for this product (or without productId for new products)
+          const currentProductId = detectedDbId || null;
+          const filteredDraftVehicles = draftVehicles.filter(vehicle => {
+            // Include vehicles without productId (for new products) or vehicles matching current product
+            return !vehicle.productId || vehicle.productId === currentProductId;
+          });
+          if (filteredDraftVehicles.length) {
+            setVehicles(filteredDraftVehicles);
+          }
           if (Array.isArray(draftData.itineraries)) setItineraries(draftData.itineraries);
 
           // Load Step 1 data
@@ -918,8 +991,28 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   }, [internalDraftId, draftStorageKey, normalizeTimeSlots]);
 
   useEffect(() => {
-    loadVehicles();
-  }, [loadVehicles]);
+    // Only load vehicles from backend if we have a product_id AND draft loading is complete
+    // This ensures we don't overwrite vehicles loaded from draft data
+    if (resolvedVehicleContextId && !isLoadingDraft) {
+      loadVehicles().catch(error => {
+        console.error('Failed to load vehicles from backend:', error);
+        // Don't clear vehicles on error - keep any vehicles loaded from localStorage
+      });
+    }
+  }, [resolvedVehicleContextId, isLoadingDraft, loadVehicles]);
+
+  useEffect(() => {
+    if (vehicles.length === 0) {
+      setSelectedVehicleForTour(null);
+      return;
+    }
+    setSelectedVehicleForTour((current) => {
+      if (current && vehicles.some((vehicle) => vehicle.id === current.id)) {
+        return current;
+      }
+      return vehicles[0];
+    });
+  }, [vehicles]);
 
   // Utility to serialize photos for storage
   const serializePhoto = (photo) => {
@@ -969,6 +1062,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           .map(serializePhoto)
           .filter(Boolean);
         const serializedCover = serializePhoto(coverImage);
+
+        const derivedDraftOrigin = internalDraftId === DEFAULT_DRAFT_ID ? DRAFT_ORIGIN.NEW : DRAFT_ORIGIN.EXISTING;
 
         const draftData = {
           // Step 1 data
@@ -1033,6 +1128,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           itineraries,
           customFields: preservedCustomFields
         };
+        draftData.draftOrigin = derivedDraftOrigin;
         
         const attemptSave = (payload) => {
           try {
@@ -1647,40 +1743,51 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     }
   };
 
-  // === VEHICLE HANDLERS (Legacy - for modal selection) ===
+  // === VEHICLE HANDLERS (Product-specific) ===
   const deleteVehicle = async (vehicleId) => {
     if (!vehicleId) return;
     if (!window.confirm('Are you sure you want to delete this vehicle?')) {
       return;
     }
-
-    try {
-      const wasSelected = selectedVehicleForTour?.id === vehicleId;
-      await vehicleService.remove(vehicleId);
-      // Reload vehicles from database to ensure consistency
-      const fetched = await vehicleService.list();
-      const mapped = Array.isArray(fetched) ? fetched : [];
-      setVehicles(mapped);
-      
-      // Update selected vehicle if the deleted one was selected
-      if (wasSelected) {
-        setSelectedVehicleForTour(mapped.length ? mapped[0] : null);
-      } else {
-        // Preserve current selection if it still exists
-        const currentSelected = mapped.find(v => v.id === selectedVehicleForTour?.id);
-        if (currentSelected) {
-          setSelectedVehicleForTour(currentSelected);
+    const isLocalVehicle = vehicleId.startsWith('temp_vehicle_');
+    if (resolvedVehicleContextId && !isLocalVehicle) {
+      try {
+        await vehicleService.remove(vehicleId);
+        await loadVehicles();
+        setVehicleTimeAllocations((prev) =>
+          prev.filter((allocation) => allocation.vehicle?.id !== vehicleId)
+        );
+        if (editingVehicleId === vehicleId) {
+          clearVehicleForm();
         }
+        alert('Vehicle removed from this product.');
+        return;
+      } catch (error) {
+        console.error('Failed to delete vehicle option from database:', error);
+        alert(error?.message || 'Failed to delete vehicle.');
       }
-      
-      if (editingVehicleId === vehicleId) {
-        clearVehicleForm();
-      }
-      alert('Vehicle deleted successfully!');
-    } catch (error) {
-      console.error('Failed to delete vehicle option:', error);
-      alert(error?.message || 'Failed to delete vehicle.');
     }
+
+    let updatedVehicles = [];
+    setVehicles((prev) => {
+      updatedVehicles = prev.filter((vehicle) => vehicle.id !== vehicleId);
+      return updatedVehicles;
+    });
+    setVehicleTimeAllocations((prev) =>
+      prev.filter((allocation) => allocation.vehicle?.id !== vehicleId)
+    );
+    setSelectedVehicleForTour((current) => {
+      if (!current) return updatedVehicles[0] || null;
+      if (current.id === vehicleId) {
+        return updatedVehicles[0] || null;
+      }
+      const stillExists = updatedVehicles.some((vehicle) => vehicle.id === current.id);
+      return stillExists ? current : (updatedVehicles[0] || null);
+    });
+    if (editingVehicleId === vehicleId) {
+      clearVehicleForm();
+    }
+    alert('Vehicle removed from this product.');
   };
 
   // === STEP 5 VEHICLE FORM HANDLERS ===
@@ -1690,6 +1797,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         !vehicleAttributes || !numTravellers || !currency || 
         !pricingType || !productAmount || !totalDuration || !vehicleDescription) {
       alert('Please fill in all required fields before saving.');
+      setVehicleError('Please complete all vehicle details before saving.');
       return;
     }
 
@@ -1714,32 +1822,81 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     setVehicleSaving(true);
     setVehicleError(null);
 
-    try {
-      if (editingVehicleId) {
-        const updated = await vehicleService.update(editingVehicleId, payload);
-        // Reload vehicles from database to ensure consistency
-        await loadVehicles();
-        setSelectedVehicleForTour((prevSelected) => {
-          if (!prevSelected) return updated;
-          return prevSelected.id === updated.id ? updated : prevSelected;
+    const contextProductId = resolvedVehicleContextId;
+
+    if (contextProductId) {
+      try {
+        const payloadWithContext = { ...payload, productId: contextProductId };
+        const isEditingPersisted =
+          editingVehicleId && !editingVehicleId.startsWith('temp_vehicle_');
+        
+        const savedVehicle = isEditingPersisted
+          ? await vehicleService.update(editingVehicleId, payloadWithContext)
+          : await vehicleService.create(payloadWithContext);
+
+        // Immediately add the saved vehicle to local state to show it right away
+        setVehicles((prev) => {
+          if (isEditingPersisted) {
+            return prev.map(v => v.id === savedVehicle.id ? savedVehicle : v);
+          } else {
+            return [...prev, savedVehicle];
+          }
         });
-        setEditingVehicleId(null);
-        alert('Vehicle option updated successfully!');
-      } else {
-        const created = await vehicleService.create(payload);
-        // Reload vehicles from database to ensure consistency
+        
+        // Small delay to ensure backend has processed the write
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Reload from backend to ensure we have the latest data
         await loadVehicles();
-        setSelectedVehicleForTour((prevSelected) => prevSelected || created);
-        alert('Vehicle option saved successfully!');
+        
+        setSelectedVehicleForTour((current) => {
+          if (!current) return savedVehicle;
+          if (current.id === savedVehicle.id) return savedVehicle;
+          return current;
+        });
+        clearVehicleForm();
+        alert(isEditingPersisted ? 'Vehicle option updated for this product.' : 'Vehicle option saved for this product.');
+      } catch (error) {
+        console.error('Failed to save vehicle:', error);
+        setVehicleError(error?.message || 'Failed to save vehicle.');
+        alert(error?.message || 'Failed to save vehicle.');
+      } finally {
+        setVehicleSaving(false);
       }
-      clearVehicleForm();
-    } catch (error) {
-      console.error('Failed to save vehicle option:', error);
-      setVehicleError(error?.message || 'Failed to save vehicle.');
-      alert(error?.message || 'Failed to save vehicle.');
-    } finally {
-      setVehicleSaving(false);
+      return;
     }
+
+
+    const vehicleId = editingVehicleId || payload.id || createLocalVehicleId();
+    const normalizedVehicle = { ...payload, id: vehicleId };
+
+    let updatedVehicles = [];
+    setVehicles((prev) => {
+      updatedVehicles = editingVehicleId
+        ? prev.map((vehicle) => (vehicle.id === vehicleId ? normalizedVehicle : vehicle))
+        : [...prev, normalizedVehicle];
+      return updatedVehicles;
+    });
+
+    if (editingVehicleId) {
+      setVehicleTimeAllocations((prev) =>
+        prev.map((allocation) =>
+          allocation.vehicle?.id === vehicleId
+            ? { ...allocation, vehicle: normalizedVehicle }
+            : allocation
+        )
+      );
+    }
+
+    setSelectedVehicleForTour((current) => {
+      if (!current) return normalizedVehicle;
+      if (current.id === vehicleId) return normalizedVehicle;
+      return current;
+    });
+
+    clearVehicleForm();
+    alert(editingVehicleId ? 'Vehicle option updated for this product.' : 'Vehicle option saved for this product.');
+    setVehicleSaving(false);
   };
 
   const clearVehicleForm = () => {
@@ -3741,7 +3898,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                    {/* Modal Header */}
                    <div className="p-6 border-b border-gray-200 relative sticky top-0 bg-white z-10">
                      <h2 className="text-lg font-semibold text-gray-900">Select Vehicle</h2>
-                     <p className="text-sm text-gray-600 mt-1">Choose a vehicle from your existing vehicles. To edit or delete vehicles, go back to the vehicle form section.</p>
+                    <p className="text-sm text-gray-600 mt-1">Choose a vehicle you've added for this product. To edit or delete vehicles, go back to the vehicle form section.</p>
                      
                      {/* Close Button */}
                      <button
@@ -3754,25 +3911,23 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
 
                    {/* Modal Content - List of Saved Vehicles */}
                    <div className="p-6">
-                     {/* Load all existing vehicles from database */}
-                     {(() => {
-                       // Use vehicles loaded from database (same as "Existing Vehicle Options")
-                       const availableVehicles = vehicles;
-                         
-                       if (vehiclesLoading) {
-                         return (
-                           <div className="text-center py-12">
-                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                               <svg className="w-8 h-8 text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                               </svg>
-                             </div>
-                             <h3 className="text-lg font-medium text-gray-900 mb-2">Loading Vehicles...</h3>
-                           </div>
-                         );
-                       }
+                    {(() => {
+                      const availableVehicles = vehicles;
 
-                       if (availableVehicles.length === 0) {
+                      if (vehiclesLoading) {
+                        return (
+                          <div className="text-center py-12">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <svg className="w-8 h-8 text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Loading Vehicles...</h3>
+                          </div>
+                        );
+                      }
+
+                      if (availableVehicles.length === 0) {
                          return (
                            <div className="text-center py-12">
                              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -3792,7 +3947,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                          );
                        }
                        
-                       return (
+                      return (
                          <div className="space-y-3">
                            {availableVehicles.map((vehicle, index) => {
                              const isSelected = selectedVehicleForTour?.id === vehicle.id || 

@@ -367,6 +367,7 @@ export const transformProductForFrontend = (product) => {
   // Handle both API format and localStorage format
   // Get image from various sources - prioritize coverImage/hero_image
   let image = null;
+  const customFields = product.custom_fields || product.customFields || {};
   
   // First try hero_image or coverImage (directly)
   if (product.hero_image_url) {
@@ -415,8 +416,21 @@ export const transformProductForFrontend = (product) => {
   const reviewsCount = product.reviews_count || 0;
   const reviewsText = reviewsCount >= 1000 ? `${(reviewsCount / 1000).toFixed(1)}k reviews` : reviewsCount >= 100 ? `${reviewsCount} reviews` : '384 reviews';
 
+  const resolvedDuration = product.total_duration || product.totalDuration || product.duration || product.vehicle_duration || 
+    (product.vehicle_details?.duration) || 
+    (product.totalDuration) || 
+    (Array.isArray(product.vehicles) && product.vehicles.length > 0 ? product.vehicles[0].duration : null) || 
+    '';
+
+  const resolvedGroupSizeRaw = product.groupSize || product.num_travellers || product.numTravellers || product.group_size || 
+    (Array.isArray(product.vehicles) && product.vehicles.length > 0 ? product.vehicles[0].capacity : null);
+  const resolvedGroupSize = resolvedGroupSizeRaw
+    ? (typeof resolvedGroupSizeRaw === 'number' ? `Up to ${resolvedGroupSizeRaw}` : resolvedGroupSizeRaw)
+    : '';
+
   // Transform vehicle_details to vehicles array
   let vehicles = product.vehicles || [];
+  const vehiclesFromCustomFields = Array.isArray(customFields?.vehicles_full) ? customFields.vehicles_full : null;
   if (product.vehicle_details && !vehicles.length) {
     // Convert vehicle_details object to vehicles array format
     const vd = product.vehicle_details;
@@ -426,6 +440,14 @@ export const transformProductForFrontend = (product) => {
       year: vd.vehicle_year || '',
       capacity: vd.capacity || null
     }];
+  } else if (!vehicles.length && vehiclesFromCustomFields && vehiclesFromCustomFields.length) {
+    vehicles = vehiclesFromCustomFields;
+  } else if (
+    !vehicles.length &&
+    customFields?.selected_vehicle_for_tour &&
+    typeof customFields.selected_vehicle_for_tour === 'object'
+  ) {
+    vehicles = [customFields.selected_vehicle_for_tour];
   }
 
   // Extract meeting points from pickup_dropoff
@@ -454,8 +476,8 @@ export const transformProductForFrontend = (product) => {
     rating: product.rating || 4.8,
     reviews: reviewsText,
     reviewsCount: reviewsCount,
-    duration: (product.duration && product.duration.trim()) || '8 hours',
-    groupSize: product.groupSize || 'Up to 12',
+    duration: (typeof resolvedDuration === 'string' && resolvedDuration.trim()) ? resolvedDuration.trim() : '8 hours',
+    groupSize: (resolvedGroupSize && String(resolvedGroupSize).trim()) ? String(resolvedGroupSize).trim() : 'Up to 12',
     price: price,
     oldPrice: oldPrice,
     location: (product.location && product.location.trim()) || (product.destination && product.destination.trim()) || 'Tokyo Japan',

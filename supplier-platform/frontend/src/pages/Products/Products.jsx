@@ -247,13 +247,25 @@ const Products = () => {
           try {
             const existingDraft = localStorage.getItem(draftStorageKey);
             if (existingDraft) {
+              let payloadToStore = existingDraft;
               try {
-                localStorage.setItem('product_draft_current_draft', existingDraft);
+                const parsedDraft = JSON.parse(existingDraft);
+                payloadToStore = JSON.stringify({
+                  ...parsedDraft,
+                  draftOrigin: 'existing_product'
+                });
+              } catch (parseError) {
+                console.warn('Unable to tag existing draft with origin metadata:', parseError);
+              }
+
+              try {
+                localStorage.setItem('product_draft_current_draft', payloadToStore);
               } catch (currentDraftError) {
                 if (currentDraftError?.name === 'QuotaExceededError') {
                   console.warn('⚠️ Could not save current_draft reference due to quota. Using lightweight reference.');
                   // Save just a reference instead of full data
                   const lightweightRef = JSON.stringify({
+                    draftOrigin: 'existing_product',
                     draftId: resolvedProductId,
                     storageKey: draftStorageKey,
                     lastModified: new Date().toISOString()
@@ -348,12 +360,17 @@ const Products = () => {
             
             // Save reference to current draft (with fallback for quota issues)
             try {
-              localStorage.setItem('product_draft_current_draft', savedDraft.serialized);
+              const currentDraftSnapshot = JSON.stringify({
+                ...savedDraft.data,
+                draftOrigin: 'existing_product'
+              });
+              localStorage.setItem('product_draft_current_draft', currentDraftSnapshot);
             } catch (currentDraftError) {
               if (currentDraftError?.name === 'QuotaExceededError') {
                 console.warn('⚠️ Could not save current_draft reference due to quota. Using lightweight reference.');
                 // Save just a reference instead of full data
                 const lightweightRef = JSON.stringify({
+                  draftOrigin: 'existing_product',
                   draftId: resolvedProductId,
                   storageKey: draftStorageKey,
                   photoStoragePending: savedDraft.data.photoStoragePending || false,

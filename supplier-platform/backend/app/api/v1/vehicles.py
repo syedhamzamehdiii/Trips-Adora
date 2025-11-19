@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
 
 from app.core.dependencies import get_current_user
 from app.models.user import User
@@ -19,8 +19,15 @@ router = APIRouter(prefix="/vehicles", tags=["Vehicles"])
 
 
 @router.get("/", response_model=VehicleListResponse)
-async def list_vehicles(current_user: User = Depends(get_current_user)) -> VehicleListResponse:
-    vehicles = await VehicleService.list_for_supplier(str(current_user.id))
+async def list_vehicles(
+    product_id: Optional[str] = Query(
+        None, description="Filter vehicles by product/draft identifier"
+    ),
+    current_user: User = Depends(get_current_user),
+) -> VehicleListResponse:
+    vehicles = await VehicleService.list_for_supplier(
+        str(current_user.id), product_id=product_id
+    )
     return VehicleListResponse(vehicles=[VehicleResponse(**vehicle.model_dump(exclude={"id"}), id=str(vehicle.id)) for vehicle in vehicles])
 
 
@@ -29,9 +36,15 @@ async def create_vehicle(
     payload: VehicleCreate,
     current_user: User = Depends(get_current_user),
 ) -> VehicleResponse:
+    payload_dict = payload.dict(exclude_unset=False, exclude_none=False)
+    
+    # Ensure product_id is normalized if it exists
+    if payload_dict.get('product_id') is not None:
+        payload_dict['product_id'] = str(payload_dict['product_id']).strip()
+    
     document = await VehicleService.create_vehicle(
         str(current_user.id),
-        payload.dict(exclude_unset=True),
+        payload_dict,
     )
     return VehicleResponse(**document.model_dump(exclude={"id"}), id=str(document.id))
 
@@ -42,7 +55,10 @@ async def update_vehicle(
     vehicle_id: str = Path(..., description="Vehicle identifier"),
     current_user: User = Depends(get_current_user),
 ) -> VehicleResponse:
-    updates = payload.dict(exclude_unset=True)
+    updates = payload.dict(exclude_unset=True, exclude_none=False)
+    # Ensure product_id is normalized if it exists
+    if 'product_id' in updates and updates['product_id'] is not None:
+        updates['product_id'] = str(updates['product_id']).strip()
     if not updates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

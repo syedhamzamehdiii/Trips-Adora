@@ -1,6 +1,6 @@
 
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight, X, Plus, Minus } from 'lucide-react'
+import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight, X, Plus, Minus, AlertTriangle } from 'lucide-react'
 import Itinerary from "../components/Itinerary"
 import share from "../../assests/share.png";
 import branch from "../../assests/middle.png";
@@ -79,10 +79,7 @@ const ProductDetails = () => {
   const fetchProduct = useCallback(async () => {
     let cancelled = false
     try {
-      // Only show loading if we don't have cached product and haven't loaded once
-      if (!initialFromCache && !hasLoadedOnceRef.current) {
-        setLoading(true)
-      }
+      setLoading(true)
       
       if (!identifier) {
         if (!cancelled) setProduct(null)
@@ -105,7 +102,7 @@ const ProductDetails = () => {
         if (fresh) return fresh
         return await getProductById(String(targetId), true)
       }
-      
+
       if (isObjectId) {
         const byId = await fetchById(identifier)
         if (byId) {
@@ -376,6 +373,27 @@ const ProductDetails = () => {
     }
   ]), [])
 
+  const experienceSnapshot = useMemo(() => {
+    if (!product) return []
+    const computedGroupSize = product.groupSize || product.maxGroupSize || product.capacity
+    const entries = [
+      product.duration && { label: 'Duration', value: product.duration, icon: Clock },
+      product.location && { label: 'Location', value: product.location, icon: MapPin },
+      computedGroupSize && {
+        label: 'Group size',
+        value: typeof computedGroupSize === 'number' ? `Up to ${computedGroupSize} guests` : computedGroupSize,
+        icon: UsersRound
+      },
+      product.languages && product.languages.length > 0 && {
+        label: 'Languages',
+        value: product.languages.join(', '),
+        icon: MessageSquareText
+      },
+      product.activity_type && { label: 'Activity type', value: product.activity_type, icon: Droplet }
+    ]
+    return entries.filter(Boolean)
+  }, [product])
+
   const reviewBundle = useMemo(() => {
     if (!product) return reviewBundles[0]
     const key = String(product.id || product.name || '').trim()
@@ -391,7 +409,21 @@ const ProductDetails = () => {
     return { ...item, percentage: Math.min(100, percentage) }
   })
   const reviewList = reviewBundle.reviews
-  const supplierName = product?.supplierBusinessName || product?.supplier_business_name || product?.host || 'TripsAdora'
+  const FALLBACK_SUPPLIER_NAME = 'TripsAdora Partner'
+  const rawSupplierName =
+    product?.supplierBusinessName ||
+    product?.supplier_business_name ||
+    product?.businessName ||
+    product?.business_name ||
+    product?.host ||
+    ''
+  const hasExplicitSupplierField = Boolean(product?.supplierBusinessName || product?.supplier_business_name)
+  const isFallbackSupplierName =
+    !hasExplicitSupplierField &&
+    rawSupplierName.trim().toLowerCase() === FALLBACK_SUPPLIER_NAME.toLowerCase()
+  const supplierName = isFallbackSupplierName ? '' : rawSupplierName
+  const supplierNameForMeta = supplierName || rawSupplierName || FALLBACK_SUPPLIER_NAME
+  const isSupplierHydrating = loading && (!supplierName || isFallbackSupplierName)
   const cancellationPolicy = product?.cancellationPolicy || product?.cancellation_policy
   const scheduleEntries = Array.isArray(cancellationPolicy?.schedule) ? cancellationPolicy.schedule : []
   const noteEntries = Array.isArray(cancellationPolicy?.notes) ? cancellationPolicy.notes : []
@@ -657,15 +689,57 @@ const ProductDetails = () => {
               <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">About this Experience</h2>
               <p className="text-black leading-relaxed text-sm sm:text-base">{product.description || 'Experience an unforgettable tour.'}</p>
             </div>
+
+            {experienceSnapshot.length > 0 && (
+              <div className="mb-6 sm:mb-8">
+                <div className="bg-gradient-to-r from-[#F8FBFF] to-[#F0F4FE] border border-[#E0E7FF] rounded-2xl p-4 sm:p-6 shadow-sm">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-[#284078] font-semibold">
+                        Experience snapshot
+                      </p>
+                      <p className="text-gray-500 text-xs sm:text-sm">Key facts curated for quick planning</p>
+                    </div>
+                    <span className="text-xs font-semibold text-[#284078] bg-white px-3 py-1 rounded-full border border-[#D6E2FF]">
+                      {experienceSnapshot.length} insights
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {experienceSnapshot.map(({ label, value, icon: Icon }, idx) => (
+                      <div
+                        key={`${label}-${idx}`}
+                        className="flex items-start gap-3 bg-white/80 rounded-xl border border-white/60 px-3 py-3 sm:px-4 sm:py-4 shadow-sm"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-[#2840780d] flex items-center justify-center text-[#284078]">
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">{label}</p>
+                          <p className="text-sm sm:text-base font-semibold text-gray-900">{value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Climate content is shown in a modal, not inline */}
 
-            {/* Trip Highlights - Added by supplier */}
+            {/* Trip Highlights */}
             {Array.isArray(product.highlights) && product.highlights.length > 0 && (
               <div className="mb-6 sm:mb-8">
                 <div className="border border-[#302E2E] rounded-lg p-4 sm:p-6">
-                  <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#302E2E] mb-3 sm:mb-4">Trip Highlights</h2>
-                  <p className="text-gray-500 text-xs sm:text-sm mb-3">Added by supplier named: Highlights</p>
+                  <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+                    <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-[#302E2E]">Trip Highlights</h2>
+                    <span className="text-xs font-semibold text-[#302E2E] bg-[#F7F4ED] border border-[#E6DED0] rounded-full px-3 py-1">
+                      {product.highlights.length} key moments
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-500 text-xs sm:text-sm mb-3">
+                    <ShieldCheck className="w-4 h-4 text-[#34A853]" />
+                    <span>Curated directly by the host for authenticity</span>
+                  </div>
                   <ul className="space-y-2 sm:space-y-3">
                     {product.highlights.map((h, idx) => {
                       const text = typeof h === 'string' ? h : (h.text || '');
@@ -683,12 +757,22 @@ const ProductDetails = () => {
               </div>
             )}
 
-            {/* What's Included and What's Excluded - Added by supplier */}
+            {/* What's Included and What's Excluded */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
               {/* What's Included */}
               <div>
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">What's Included</h2>
-                <p className="text-gray-500 text-xs sm:text-sm mb-3">Added by supplier</p>
+                <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black">What's Included</h2>
+                  {Array.isArray(product.includedItems) && product.includedItems.length > 0 && (
+                    <span className="text-xs font-semibold text-[#0B5E3B] bg-[#E5F5EB] border border-[#B4E6CE] rounded-full px-3 py-1">
+                      {product.includedItems.length} items
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-gray-500 text-xs sm:text-sm mb-3">
+                  <ShieldCheck className="w-4 h-4 text-[#34A853]" />
+                  <span>Everything that comes standard with this tour</span>
+                </div>
                 {Array.isArray(product.includedItems) && product.includedItems.length > 0 ? (
                   <ul className="space-y-2 sm:space-y-3">
                     {product.includedItems.map((item, idx) => (
@@ -707,8 +791,18 @@ const ProductDetails = () => {
 
               {/* What's Excluded */}
               <div>
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">What's Excluded</h2>
-                <p className="text-gray-500 text-xs sm:text-sm mb-3">Added by supplier</p>
+                <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black">What's Excluded</h2>
+                  {Array.isArray(product.excludedItems) && product.excludedItems.length > 0 && (
+                    <span className="text-xs font-semibold text-[#8B1F14] bg-[#FFF1F0] border border-[#F5C2BF] rounded-full px-3 py-1">
+                      {product.excludedItems.length} reminders
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-gray-500 text-xs sm:text-sm mb-3">
+                  <AlertTriangle className="w-4 h-4 text-[#F97316]" />
+                  <span>Plan ahead for costs that are not covered</span>
+                </div>
                 {Array.isArray(product.excludedItems) && product.excludedItems.length > 0 ? (
                   <ul className="space-y-2 sm:space-y-3">
                     {product.excludedItems.map((item, idx) => (
@@ -831,7 +925,13 @@ const ProductDetails = () => {
               {/* Tour Provider */}
               <div className="mb-4 sm:mb-6 bg-[#F0F4FE] p-3 sm:p-4 rounded-xl shadow-md">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base sm:text-lg font-bold text-black">{supplierName}</h3>
+                  {isSupplierHydrating ? (
+                    <div className="h-5 w-32 bg-white/70 rounded animate-pulse" aria-label="Loading supplier name" />
+                  ) : supplierName ? (
+                    <h3 className="text-base sm:text-lg font-bold text-black">{supplierName}</h3>
+                  ) : (
+                    <span className="text-sm text-gray-500">Supplier details updating</span>
+                  )}
                   <div className="relative">
                     <button
                       type="button"
@@ -841,8 +941,8 @@ const ProductDetails = () => {
                       onBlur={() => setShowVerifiedTooltip(false)}
                       className="bg-[#00A63E] text-white px-2 py-1 rounded-full text-xs flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#00A63E]"
                     >
-                    <Check className="w-3 h-3" />
-                    Verified
+                      <Check className="w-3 h-3" />
+                      Verified
                     </button>
                     {showVerifiedTooltip && (
                       <div className="absolute right-0 top-full mt-2 bg-gray-900 text-white text-xs font-medium rounded-lg px-3 py-1 shadow-lg whitespace-nowrap">
@@ -955,7 +1055,7 @@ const ProductDetails = () => {
                           : 'opacity-60 cursor-not-allowed bg-transparent'
                       }`}
                     >
-                    <UserPlus className="w-4 h-4 text-gray-600" />
+                      <UserPlus className="w-4 h-4 text-gray-600" />
                       <span className="text-[#34A853] text-sm sm:text-base font-bold">
                         Cancellation Policy
                       </span>
@@ -1013,7 +1113,7 @@ const ProductDetails = () => {
                       rating: product.rating,
                       reviews: String(product.reviewsCount || '0'),
                       tags: product.tags || [],
-                      host: supplierName,
+                      host: supplierNameForMeta,
                       duration: product.duration,
                       groupSize: product.groupSize || 'Up to 12',
                       location: product.location
@@ -1426,7 +1526,7 @@ const ProductDetails = () => {
       <SupplierChatModal
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
-        supplierName={product?.supplierBusinessName || product?.supplier_business_name}
+        supplierName={supplierName || supplierNameForMeta}
         supplierId={product?.supplierId || product?.supplier_id}
         supplierRating={product?.rating || 4.8}
         supplierReviews={product?.reviewsCount || 342}

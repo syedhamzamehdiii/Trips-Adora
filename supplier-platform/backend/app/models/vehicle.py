@@ -11,6 +11,9 @@ class SupplierVehicle(Document):
     """Persisted vehicle option that suppliers can reuse across products."""
 
     supplier_id: str = Field(..., description="Owner supplier/user id")
+    product_id: Optional[str] = Field(
+        default=None, description="Product/draft identifier this vehicle is tied to"
+    )
     title: str = Field(..., min_length=1)
     vehicle_type: str = Field(..., min_length=1, description="e.g. SUV, Sedan, Van")
     variant: str = Field(..., min_length=1, description="Vehicle model or trim")
@@ -41,7 +44,7 @@ class SupplierVehicle(Document):
 
     class Settings:
         name = "supplier_vehicle_options"
-        indexes = ["supplier_id", "is_active"]
+        indexes = ["supplier_id", "is_active", "product_id"]
 
     async def touch(self) -> None:
         self.updated_at = datetime.utcnow()

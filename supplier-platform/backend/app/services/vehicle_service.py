@@ -11,10 +11,22 @@ class VehicleService:
     """CRUD helpers around supplier vehicle options."""
 
     @staticmethod
-    async def list_for_supplier(supplier_id: str) -> List[SupplierVehicle]:
-        return await SupplierVehicle.find(
-            {"supplier_id": supplier_id, "is_active": True}
-        ).sort("-created_at").to_list()
+    async def list_for_supplier(
+        supplier_id: str, product_id: Optional[str] = None
+    ) -> List[SupplierVehicle]:
+        # Base query with supplier and active status
+        query = {"supplier_id": supplier_id, "is_active": True}
+        
+        # If product_id is provided and is a non-empty string, filter strictly by it
+        # This ensures vehicles from different products don't leak into other products
+        if product_id and isinstance(product_id, str) and product_id.strip():
+            # Strict filter: only return vehicles with this exact product_id
+            query["product_id"] = product_id.strip()
+        else:
+            # If no valid product_id is provided, return empty list to prevent showing all vehicles
+            return []
+        
+        return await SupplierVehicle.find(query).sort("-created_at").to_list()
 
     @staticmethod
     async def get_vehicle(
@@ -39,7 +51,13 @@ class VehicleService:
             **payload,
         )
         await document.insert()
-        return document
+        
+        # Reload the document to ensure it's fully persisted
+        try:
+            reloaded = await SupplierVehicle.get(document.id)
+            return reloaded if reloaded else document
+        except Exception:
+            return document
 
     @staticmethod
     async def update_vehicle(

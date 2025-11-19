@@ -34,13 +34,14 @@ const TourCard = ({ tour, onClick }) => {
       setIsInWishlist(false)
     } else {
       // Add tour to wishlist
+      const resolvedHost = tour.host || tour.supplierBusinessName || 'TripsAdora Partner'
       const updatedWishlist = [...wishlist, {
         ...tour,
         oldPrice: tour.oldPrice || '$250',
         rating: tour.rating || 4.8,
         reviews: tour.reviews || '384',
         tags: tour.tags || ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
-        host: tour.host || 'Karvaan Tours',
+        host: resolvedHost,
         isPrivate: true,
         isTripadurasChoice: false,
         groupSize: tour.groupSize || 'Up to 12',
@@ -63,7 +64,7 @@ const TourCard = ({ tour, onClick }) => {
     rating = 4.8,
     reviews = '384',
     tags = ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
-    host = 'Karvaan Tours',
+    host = tour.supplierBusinessName || 'TripsAdora Partner',
     oldPrice = '$250',
     price,
     slotsRemaining
@@ -118,7 +119,9 @@ const TourCard = ({ tour, onClick }) => {
         </div>
         {/* Host */}
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-7 h-7 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs">K</div>
+          <div className="w-7 h-7 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs">
+            {(host && host.trim().charAt(0).toUpperCase()) || 'H'}
+          </div>
           <div className="text-xs text-gray-600">
             <div className="text-gray-500">Hosted by</div>
             <div className="text-gray-800">{host}</div>

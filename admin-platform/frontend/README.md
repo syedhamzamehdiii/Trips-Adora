@@ -16,10 +16,9 @@ npm install
 npm run dev
 ```
 
-Browser mein automatically open ho jayega `http://localhost:5173`
+Browser mein automatically open ho jayega `http://localhost:5175`
 
 ### Step 3: Production Build
-
 ```bash
 npm run build
 ```
