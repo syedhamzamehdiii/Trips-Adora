@@ -42,6 +42,14 @@ import CustomerPrivacyPolicy from './pages/CustomerPrivacyPolicy'
 import ContactUsPage from './pages/ContactUsPage'
 import ChatPage from './pages/ChatPage'
 import SitemapPage from './pages/SitemapPage'
+import SupplierAboutPage from './pages/SupplierPortal/SupplierAboutPage'
+import SupplierContactPage from './pages/SupplierPortal/SupplierContactPage'
+import SupplierFAQPage from './pages/SupplierPortal/SupplierFAQPage'
+import SupplierSupportPage from './pages/SupplierPortal/SupplierSupportPage'
+import SupplierPrivacyPolicy from './pages/SupplierPortal/SupplierPrivacyPolicy'
+import SupplierRefundPolicy from './pages/SupplierPortal/SupplierRefundPolicy'
+import SupplierSafetyGuidelines from './pages/SupplierPortal/SupplierSafetyGuidelines'
+import SupplierTermsPage from './pages/SupplierPortal/SupplierTermsPage'
 
 function App() {
   return (
@@ -93,6 +101,14 @@ function App() {
           <Route path="/support" element={<CustomerSupportPage />} />
           <Route path="/sitemap" element={<SitemapPage />} />
           <Route path="/privacy" element={<CustomerPrivacyPolicy />} />
+        <Route path="/supplier/about" element={<SupplierAboutPage />} />
+        <Route path="/supplier/contact" element={<SupplierContactPage />} />
+        <Route path="/supplier/faq" element={<SupplierFAQPage />} />
+        <Route path="/supplier/support" element={<SupplierSupportPage />} />
+        <Route path="/supplier/privacy" element={<SupplierPrivacyPolicy />} />
+        <Route path="/supplier/refund-policy" element={<SupplierRefundPolicy />} />
+        <Route path="/supplier/safety-guidelines" element={<SupplierSafetyGuidelines />} />
+        <Route path="/supplier/terms" element={<SupplierTermsPage />} />
         </Routes>
       </div>
     </AuthProvider>

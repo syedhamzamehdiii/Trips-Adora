@@ -1,8 +1,19 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { FiCheck, FiBriefcase, FiUser, FiShield, FiInfo, FiMessageSquare, FiChevronDown } from 'react-icons/fi';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { FiCheck, FiBriefcase, FiUser, FiShield, FiInfo, FiSearch, FiBarChart2 } from 'react-icons/fi';
 import { FaPlus, FaMinus } from 'react-icons/fa';
+import { Link, useNavigate } from 'react-router-dom';
+import { config } from '../config';
+import { SupplierPortalHeader, SupplierPortalFooter } from '../components/SupplierPortalChrome';
 
 const SupplierRegistrationPage = () => {
+  const navigate = useNavigate();
+  const initialSupplierStatus = useMemo(() => {
+    try {
+      return localStorage.getItem('supplier_onboarding_status') || 'onboarding';
+    } catch (_) {
+      return 'onboarding';
+    }
+  }, []);
   const [selectedBusinessType, setSelectedBusinessType] = useState('company');
   const [employeeCount, setEmployeeCount] = useState(0);
   const [currentStep, setCurrentStep] = useState(1);
@@ -33,9 +44,18 @@ const SupplierRegistrationPage = () => {
   const [idBackFile, setIdBackFile] = useState(null);
   const [errors, setErrors] = useState({});
   const [showSubmissionSummary, setShowSubmissionSummary] = useState(false);
-  const [showDashboardView, setShowDashboardView] = useState(false);
   const [submissionTimestamp, setSubmissionTimestamp] = useState(null);
   const [supplierMode, setSupplierMode] = useState(true);
+  const [supplierStatus, setSupplierStatus] = useState(initialSupplierStatus);
+  const [showDashboardView, setShowDashboardView] = useState(initialSupplierStatus === 'pending_verification');
+  const [showWelcomeScreen, setShowWelcomeScreen] = useState(initialSupplierStatus === 'onboarding');
+  const [needsSelfVerification, setNeedsSelfVerification] = useState(() => {
+    try {
+      return localStorage.getItem('supplier_requires_self_verification') === 'true';
+    } catch (_) {
+      return false;
+    }
+  });
 
   const logoInputRef = useRef(null);
   const insuranceInputRef = useRef(null);
@@ -86,6 +106,37 @@ const SupplierRegistrationPage = () => {
     completed: step.id < currentStep,
     current: step.id === currentStep
   }));
+
+  const getGreetingName = () => {
+    const trimmedBusiness = formData.businessName?.trim();
+    if (trimmedBusiness) return trimmedBusiness;
+    const trimmedPerson = formData.personCountry?.trim();
+    if (trimmedPerson) return trimmedPerson.split(',')[0];
+    return 'User';
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('supplier_onboarding_status', supplierStatus);
+    } catch (_) {}
+
+    setShowWelcomeScreen(supplierStatus === 'onboarding');
+    setShowDashboardView(supplierStatus === 'pending_verification');
+
+    if (supplierStatus === 'verified') {
+      window.location.href = `${config.SUPPLIER_APP_URL}/dashboard`;
+    }
+  }, [supplierStatus]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('supplier_onboarding_status', supplierStatus);
+    } catch (_) {}
+
+    if (supplierStatus === 'verified') {
+      window.location.href = `${config.SUPPLIER_APP_URL}/dashboard`;
+    }
+  }, [supplierStatus]);
 
   const handleEmployeeCountChange = (increment) => {
     if (increment) {
@@ -1081,21 +1132,47 @@ const SupplierRegistrationPage = () => {
     );
   };
 
+  const updateSelfVerificationFlag = (value) => {
+    setNeedsSelfVerification(value);
+    try {
+      if (value) {
+        localStorage.setItem('supplier_requires_self_verification', 'true');
+      } else {
+        localStorage.removeItem('supplier_requires_self_verification');
+      }
+    } catch (_) {}
+  };
+
+  const handleStartVerification = () => {
+    updateSelfVerificationFlag(false);
+    setSupplierStatus('registering');
+    setShowDashboardView(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleContinueToDashboard = () => {
+    updateSelfVerificationFlag(true);
+    setSupplierStatus('pending_verification');
+  };
+
   const handleSummaryBack = () => {
     setShowSubmissionSummary(false);
   };
 
   const handleDashboardRedirect = () => {
     setShowSubmissionSummary(false);
-    setShowDashboardView(true);
+    setSupplierStatus('pending_verification');
   };
 
   const handleVerificationMessage = () => {
-    alert('You can add your product after verification. Please wait for admin verification to access this feature.');
+    alert('Your supplier account is pending admin verification. Listings, bookings, finance, and product creation stay locked until an admin approves your documents.');
   };
 
   const handleSupplierModeToggle = () => {
-    setSupplierMode(!supplierMode);
+    const nextMode = !supplierMode;
+    setSupplierMode(nextMode);
+    navigate('/', { replace: false });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const renderSubmissionSummary = () => {
@@ -1176,11 +1253,81 @@ const SupplierRegistrationPage = () => {
     );
   };
 
+  const renderWelcomeScreen = () => {
+    const greetingName = getGreetingName();
+
+    return (
+      <div className="min-h-screen bg-[#c6dbfa] flex flex-col">
+    <header className="w-full bg-white shadow">
+  <div className="flex items-center justify-start py-4 px-6 w-full">
+    <img
+      src="/assests/logo1.png"
+      alt="TripsAdora Logo"
+      className="h-10 w-auto"
+    />
+  </div>
+</header>
+
+
+
+        <div className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="bg-white rounded-[40px] shadow-[0_25px_65px_rgba(26,32,117,0.15)] border border-white max-w-3xl w-full p-12 space-y-10">
+            <div className="space-y-2">
+              <p className="text-3xl font-bold text-gray-900">Hi {greetingName},</p>
+              <p className="text-3xl font-extrabold text-gray-900">Welcome to TripsAdora!</p>
+              <p className="text-lg text-gray-600">Thank you for creating an account on TripsAdora.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <button
+                type="button"
+                onClick={handleStartVerification}
+                className="bg-[#1d236b] text-white rounded-[32px] px-8 py-6 text-left shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                    <FiSearch className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-semibold">Verify Your account</p>
+                    <p className="text-sm text-white/80 mt-2">Complete your verification to unlock your dashboard.</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleContinueToDashboard}
+                className="bg-white rounded-[32px] px-8 py-6 text-left border border-gray-200 shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-[#1d236b]">
+                    <FiBarChart2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-semibold text-gray-900">Continue to Dashboard</p>
+                    <p className="text-sm text-gray-600 mt-2">Go straight to your dashboard and manage your business profile.</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <div className="pt-2">
+              <p className="text-gray-900 font-semibold">Kind Regards,</p>
+              <p className="text-gray-500 text-lg">TripsAdora Development Team</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderPendingDashboard = () => {
     const heroImage = "/assests/49f555cdd6a046078f7f2a1e0a835fc0c68a4e3a.jpg";
-    const businessName = formData.businessName?.trim() || 'Karwan Tours';
-    const locationDisplay = [formData.city, formData.personCountry].filter(Boolean).join(', ') || 'Notting Hill, London';
-    const greetingName = businessName || formData.personCountry || 'Suneel';
+    const businessName = formData.businessName?.trim() || 'TripsAdora';
+    const locationDisplay = [formData.city, formData.personCountry].filter(Boolean).join(', ');
+    const greetingName = getGreetingName();
+    const requiresSelfVerification = needsSelfVerification && supplierStatus === 'pending_verification';
     const businessInitials = businessName
       .split(' ')
       .filter(Boolean)
@@ -1196,277 +1343,32 @@ const SupplierRegistrationPage = () => {
       id: '00032123'
     };
 
-    const renderSupplierHeader = () => (
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center">
-              <img
-                src="/assests/logo1.png"
-                alt="TripsAdora Logo"
-                className="h-12 w-auto"
-              />
-            </div>
-
-            <nav className="hidden md:flex space-x-8 text-sm font-medium">
-              <button 
-                onClick={handleVerificationMessage}
-                className="text-[#1d236b] relative cursor-pointer hover:opacity-80 transition-opacity"
-              >
-                Home
-                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]" />
-              </button>
-              <button 
-                onClick={handleVerificationMessage}
-                className="text-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
-              >
-                FAQs
-              </button>
-              <button 
-                onClick={handleVerificationMessage}
-                className="text-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
-              >
-                Support
-              </button>
-            </nav>
-
-            <div className="flex items-center space-x-6">
-              <button 
-                onClick={handleVerificationMessage}
-                className="relative p-2 text-gray-700 cursor-pointer hover:opacity-80 transition-opacity"
-              >
-                <FiMessageSquare className="w-6 h-6" />
-              </button>
-
-              <button 
-                onClick={handleVerificationMessage}
-                className="relative p-2 text-gray-700 cursor-pointer hover:opacity-80 transition-opacity"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-              </button>
-
-              <div className="flex items-center space-x-2 text-gray-700">
-                <span className="text-sm font-medium">EN</span>
-                <FiChevronDown size={14} />
-              </div>
-
-              <div className="flex items-center space-x-3 bg-[#1d236b] text-white px-4 py-2 rounded-full">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#1d236b] font-semibold">
-                  {businessInitials}
-                </div>
-                <div className="text-left leading-tight">
-                  <p className="text-sm font-semibold">{businessName}</p>
-                  <p className="text-xs text-blue-200">
-                    {locationDisplay} • ID 00032123
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-    );
-
-    const renderSupplierFooter = () => (
-      <footer className="bg-[#1d236b] text-white py-16 relative z-60 w-full left-0 right-0">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
-            {/* Know About us */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Know About us</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">About us</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Careers</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Contact</a></li>
-              </ul>
-            </div>
-            
-            {/* Explore */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Explore</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Destinations</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Experiences</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Tours</a></li>
-              </ul>
-            </div>
-            
-            {/* Help & Support */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Help & Support</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">FAQ</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Contact Support</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Refund Policy</a></li>
-                <li><a href="#" className="text-white hover:text-gray-300 transition-colors">Safety Guidelines</a></li>
-              </ul>
-            </div>
-
-            {/* Payments & Settings */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Payments & Settings</h3>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">AMEX</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">Master</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">Visa</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">Apple</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">PayPal</span>
-                </div>
-                <div className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
-                  <span className="text-[#1d236b] font-bold text-xs">Google</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Stay Connected */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Stay Connected</h3>
-              <div className="space-y-4">
-                <p className="text-white">Get travel deals & inspiration</p>
-                <div className="flex max-w-xs">
-                  <input 
-                    type="email" 
-                    placeholder="Enter your email" 
-                    className="flex-1 px-3 py-2 bg-gray-400 text-white placeholder-white border border-gray-400 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button className="px-4 py-2 bg-gray-400 hover:bg-gray-500 rounded-r-lg transition-colors">
-                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                      <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                    </svg>
-                  </button>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold mb-2">Follow Us</h4>
-                    <div className="flex space-x-3">
-                      {/* Instagram */}
-                      <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                        </svg>
-                      </div>
-                      {/* LinkedIn */}
-                      <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                        </svg>
-                      </div>
-                      {/* Facebook */}
-                      <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                        </svg>
-                      </div>
-                      {/* Twitter */}
-                      <div className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-semibold mb-2">Language</h4>
-                    <button className="bg-white text-black px-3 py-2 rounded flex items-center space-x-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-sm">US English</span>
-                    </button>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-semibold mb-2">Currency</h4>
-                    <button className="bg-white text-black px-3 py-2 rounded flex items-center space-x-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-sm">$ USD - US Dollar</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            </div>
-          </div>
-        </div>
-        //maham saeeddddddddd
-        
-        {/* Bottom Footer Bar */}
-        <div className="border-t border-white/20 mt-12 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="text-sm text-white mb-4 md:mb-0">
-              ©2025 TripsAdora. All rights reserved.
-            </div>
-            <div className="flex items-center space-x-6 text-sm text-white">
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span>Secure Booking</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
-                </svg>
-                <span>10M+ Travels</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                </svg>
-                <span>+1-800-Travel</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-                </svg>
-                <span>24/7 Support</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
-    );
 
     return (
       <div className="min-h-screen bg-white text-[#1d236b] relative">
-        {renderSupplierHeader()}
+        <SupplierPortalHeader />
 
         {/* Static Dashboard Navigation */}
         <div className="max-w-4xl mx-auto px-6 mt-8">
           <div className="bg-[#f6f6f8] rounded-full px-6 py-3 flex flex-wrap items-center justify-center gap-4 text-sm font-semibold text-[#1d1c23]">
             {[
               { label: 'Dashboard', active: true },
-              { label: 'Listings' },
-              { label: 'Availability' },
-              { label: 'Bookings' },
-              { label: 'Insights' },
-              { label: 'Finance' }
+              { label: 'Listings', active: false },
+              { label: 'Availability', active: false },
+              { label: 'Bookings', active: false },
+              { label: 'Insights', active: false },
+              { label: 'Finance', active: false }
             ].map(tab => (
               <button
                 key={tab.label}
-                onClick={handleVerificationMessage}
-                className={`px-5 py-1.5 rounded-full border border-[#c7c1c1] cursor-pointer hover:opacity-80 transition-opacity ${
-                  tab.active ? 'bg-[#1d2a6f] text-white border-[#1d2a6f]' : 'text-[#1d1c23]'
+                type="button"
+                onClick={!tab.active ? handleVerificationMessage : undefined}
+                className={`px-5 py-1.5 rounded-full border border-[#c7c1c1] cursor-pointer ${
+                  tab.active
+                    ? 'bg-[#1d2a6f] text-white border-[#1d2a6f]'
+                    : 'text-[#1d1c23] hover:opacity-80 transition-opacity'
                 }`}
+                disabled={tab.active}
               >
                 {tab.label}
               </button>
@@ -1482,7 +1384,7 @@ const SupplierRegistrationPage = () => {
               className="rounded-[32px] overflow-hidden shadow-2xl relative w-full"
               style={{
                 backgroundImage: `url(${heroImage})`,
-                backgroundSize: '80% auto',
+                backgroundSize: '120% auto',
                 backgroundPosition: 'left center',
                 backgroundRepeat: 'no-repeat',
                 minHeight: '460px',
@@ -1491,24 +1393,45 @@ const SupplierRegistrationPage = () => {
               }}
             >
               <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px]" />
-              <div className="relative z-10 p-10 space-y-6 text-[#1d1c23]">
-                <div className="space-y-3">
-                  <p className="text-sm font-semibold text-gray-500">Hi {greetingName},</p>
+              <div className="relative z-10 p-10 space-y-6 text-left text-[#1d1c23] flex flex-col items-start max-w-3xl">
+                <div className="space-y-3 text-left w-full">
+                  <p className="text-sm font-semibold text-gray-500">
+                    Hi {greetingName}!{' '}
+                    <span className="text-gray-600">
+                    
+                    </span>
+                  </p>
                   <h2 className="text-3xl font-extrabold text-[#1b1b1f]">Welcome to TripsAdora!</h2>
                   <p className="text-lg text-gray-600">
-                    Thank you for creating an account on TripsAdora.
+                     
                   </p>
                 </div>
 
-                <div className="space-y-3">
+                {supplierStatus === 'pending_verification' && (
+                  <div className="bg-white/80 border border-[#cfd5ff] rounded-2xl p-4 flex items-start gap-3 text-sm text-gray-700 text-left w-full">
+                    <FiShield className="text-[#1d236b] mt-1" size={20} />
+                    <div>
+                      <p className="font-semibold text-[#1d1c23]">
+                        {requiresSelfVerification ? 'Verify yourself first' : 'Verification pending'}
+                      </p>
+                      <p>
+                        {requiresSelfVerification
+                          ? 'Please verify your business details to create your first product and unlock the full dashboard.'
+                          : 'All dashboard modules remain read-only until an admin approves your business. We’ll notify you as soon as you can add listings.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3 text-left w-full">
                   <p className="font-semibold text-[#1b1b1f]">Your product setup progress</p>
                   <div className="h-3 bg-white border border-[#c5cbe8] rounded-full overflow-hidden">
-                    <div className="h-full w-0 bg-[#1d236b]" />
+                    <div className="h-full w-5 bg-[#1d236b]" />
                   </div>
                   <span className="text-sm text-gray-500">0%</span>
                 </div>
 
-                <div className="space-y-4 text-gray-600 leading-relaxed">
+                <div className="space-y-4 text-gray-600 leading-relaxed text-left w-full">
                   <p>
                     Upload your first product to showcase your services to thousands of travellers searching for unique
                     experiences. Include key details like description, pricing, photos, and highlights.
@@ -1521,23 +1444,39 @@ const SupplierRegistrationPage = () => {
                   </p>
                 </div>
 
-                <button 
-                  onClick={handleVerificationMessage}
-                  className="px-6 py-3 rounded-full bg-[#1d236b] text-white font-semibold shadow-md w-fit cursor-pointer hover:opacity-90 transition-opacity"
-                >
-                  Click to Add first Product
-                </button>
+                <div className="flex flex-wrap items-center gap-4">
+                  <button 
+                    onClick={handleVerificationMessage}
+                    disabled={requiresSelfVerification}
+                    className={`px-6 py-3 rounded-full font-semibold shadow-md w-fit self-start ${
+                      requiresSelfVerification
+                        ? 'bg-[#1d236b]/50 text-white cursor-not-allowed'
+                        : 'bg-[#1d236b] text-white hover:opacity-90 transition-opacity'
+                    }`}
+                  >
+                    Click to Add first Product
+                  </button>
+                  {requiresSelfVerification && (
+                    <button
+                      type="button"
+                      onClick={handleStartVerification}
+                      className="px-5 py-3 rounded-full border border-[#1d236b] text-[#1d236b] font-semibold hover:bg-[#1d236b] hover:text-white transition-colors"
+                    >
+                      Start Verification
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Blue Sidebar - positioned absolutely to extreme right, from header to before footer */}
+        {/* Blue Sidebar - positioned absolutely to extreme right, ends before footer */}
         <div 
-          className="absolute right-0 top-0 w-80 bg-[#14255c] text-white shadow-2xl flex flex-col z-50" 
+          className="absolute right-0 top-0 w-80 bg-[#14255c] text-white shadow-2xl flex flex-col z-40" 
           style={{
             top: '0px',
-            bottom: '0px',
+            bottom: '600px',
             borderLeft: '1px solid rgba(20, 37, 92, 0.5)'
           }}
         >
@@ -1576,8 +1515,10 @@ const SupplierRegistrationPage = () => {
             {/* User Profile */}
             <div className="bg-[#1f3270] rounded-3xl p-5 space-y-4 border border-white/10">
               <div className="mb-4">
-                <p className="text-sm font-semibold text-white">{businessName || 'Supplier'}</p>
-                <p className="text-xs text-white/80 mt-1">{locationDisplay}</p>
+                <p className="text-sm font-semibold text-white">{businessName}</p>
+                <p className="text-xs text-white/80 mt-1">
+                  {locationDisplay ? locationDisplay : 'Country, City'}
+                </p>
               </div>
               <div className="flex items-center mb-4">
                 <span className="text-xs text-white">{businessName || 'TripsAdora'}</span>
@@ -1604,7 +1545,7 @@ const SupplierRegistrationPage = () => {
           </div>
         </div>
 
-        {renderSupplierFooter()}
+        <SupplierPortalFooter />
       </div>
     );
   };
@@ -1624,7 +1565,11 @@ const SupplierRegistrationPage = () => {
     }
   };
 
-  if (showDashboardView) {
+  if (showWelcomeScreen) {
+    return renderWelcomeScreen();
+  }
+
+  if (showDashboardView && supplierStatus !== 'verified') {
     return renderPendingDashboard();
   }
 

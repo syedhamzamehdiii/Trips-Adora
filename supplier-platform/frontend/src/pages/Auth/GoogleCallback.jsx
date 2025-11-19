@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import authService from '@/services/authService';
 import { toast } from 'react-toastify';
 import { ROUTES } from '@/utils/constants';
+import { redirectToSupplierOnboarding } from '@/utils/onboardingRedirect';
 
 const GoogleCallback = () => {
   const navigate = useNavigate();
@@ -39,7 +40,9 @@ const GoogleCallback = () => {
         if (response.success) {
           updateUser(response.user);
           toast.success('Successfully signed in with Google!');
-          navigate(ROUTES.DASHBOARD);
+          if (!redirectToSupplierOnboarding()) {
+            navigate(ROUTES.DASHBOARD);
+          }
         } else {
           toast.error('Google authentication failed');
           navigate(ROUTES.LOGIN);

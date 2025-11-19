@@ -105,7 +105,7 @@ const ProductDetails = () => {
         if (fresh) return fresh
         return await getProductById(String(targetId), true)
       }
-
+      
       if (isObjectId) {
         const byId = await fetchById(identifier)
         if (byId) {
@@ -841,8 +841,8 @@ const ProductDetails = () => {
                       onBlur={() => setShowVerifiedTooltip(false)}
                       className="bg-[#00A63E] text-white px-2 py-1 rounded-full text-xs flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#00A63E]"
                     >
-                      <Check className="w-3 h-3" />
-                      Verified
+                    <Check className="w-3 h-3" />
+                    Verified
                     </button>
                     {showVerifiedTooltip && (
                       <div className="absolute right-0 top-full mt-2 bg-gray-900 text-white text-xs font-medium rounded-lg px-3 py-1 shadow-lg whitespace-nowrap">
@@ -955,7 +955,7 @@ const ProductDetails = () => {
                           : 'opacity-60 cursor-not-allowed bg-transparent'
                       }`}
                     >
-                      <UserPlus className="w-4 h-4 text-gray-600" />
+                    <UserPlus className="w-4 h-4 text-gray-600" />
                       <span className="text-[#34A853] text-sm sm:text-base font-bold">
                         Cancellation Policy
                       </span>

@@ -8,6 +8,7 @@ import { FiMail, FiLock } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
 import { ROUTES } from '@/utils/constants';
 import { toast } from 'react-toastify';
+import { redirectToSupplierOnboarding } from '@/utils/onboardingRedirect';
 
 // Validation schema
 const loginSchema = yup.object().shape({
@@ -38,7 +39,10 @@ const Login = () => {
     setIsLoading(true);
     try {
       await login(data);
-      toast.success('Login successful! Welcome back!');
+      const redirected = redirectToSupplierOnboarding();
+      if (!redirected) {
+        toast.success('Login successful! Welcome back!');
+      }
     } catch (error) {
       console.error('Login error:', error);
       toast.error(error.message || 'Login failed. Please check your credentials.');
