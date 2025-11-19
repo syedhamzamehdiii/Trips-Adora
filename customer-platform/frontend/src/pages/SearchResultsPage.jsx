@@ -22,6 +22,33 @@ const SearchResultsPage = () => {
   // Load from cache immediately (synchronous) - only if no search term
   const searchParams = new URLSearchParams(location.search)
   const searchTerm = searchParams.get('q') || ''
+  const compareFromParam = searchParams.get('compareFrom') || ''
+  const compareBaseIds = useMemo(
+    () => (compareFromParam ? compareFromParam.split(',').map((id) => id.trim()).filter(Boolean) : []),
+    [compareFromParam]
+  )
+  useEffect(() => {
+    if (compareFromParam === 'pick-product') {
+      alert('Please open any product and use the compare button to start comparing.')
+      navigate('/search', { replace: true })
+    }
+  }, [compareFromParam, navigate])
+  const isComparisonSelection = compareBaseIds.length > 0 && compareFromParam !== 'pick-product'
+  const comparisonHeading = compareBaseIds.length > 1
+    ? 'Select a third product to finish your comparison.'
+    : 'Select a product to compare with your current choice.'
+  const comparisonSubheading = compareBaseIds.length > 1
+    ? 'We removed your current choices from this list—pick any other experience to add as the third slot.'
+    : 'We removed your current choice from this list so you only see new experiences.'
+  const handleComparisonBack = () => {
+    if (compareBaseIds.length >= 2) {
+      navigate(`/comparison/detail/${compareBaseIds.join('&')}`)
+    } else if (compareBaseIds.length === 1) {
+      navigate(`/product-details/${compareBaseIds[0]}`)
+    } else {
+      navigate(-1)
+    }
+  }
   const initialProducts = (() => {
     if (!searchTerm) {
       try {
@@ -229,6 +256,10 @@ const SearchResultsPage = () => {
   // Filter products based on active filters
   const filteredProducts = useMemo(() => {
     let filtered = allProducts
+    if (isComparisonSelection) {
+      const excludeSet = new Set(compareBaseIds.map(String))
+      filtered = filtered.filter((product) => !excludeSet.has(String(product.id)))
+    }
     console.log(`🔍 Starting with ${filtered.length} products for filtering`)
 
     // Apply price range filter
@@ -305,7 +336,7 @@ const SearchResultsPage = () => {
 
     console.log(`✅ Final filtered products: ${filtered.length}`)
     return filtered
-  }, [allProducts, priceRange, minimumRating, locations, durations, tourTypes])
+  }, [allProducts, priceRange, minimumRating, locations, durations, tourTypes, isComparisonSelection, compareBaseIds])
 
   // Sorting
   const visibleProducts = useMemo(() => {
@@ -350,6 +381,22 @@ const SearchResultsPage = () => {
       <MainHeader />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isComparisonSelection && (
+          <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-blue-900 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-semibold">{comparisonHeading}</p>
+              <p className="text-sm text-blue-800/80">
+                {comparisonSubheading}
+              </p>
+            </div>
+            <button
+              onClick={handleComparisonBack}
+              className="inline-flex items-center justify-center rounded-full border border-blue-200 px-4 py-2 text-sm font-semibold hover:bg-white"
+            >
+              Back
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Sidebar - Filters */}
           <div className="lg:col-span-1">
@@ -523,7 +570,14 @@ const SearchResultsPage = () => {
                     <TourCard 
                       key={product.id} 
                       tour={product}
-                      onClick={() => navigate(`/product-details/${productId}`)}
+                      onClick={() => {
+                        if (isComparisonSelection) {
+                          const combined = [...compareBaseIds, String(productId)]
+                          navigate(`/comparison/detail/${combined.join('&')}`)
+                        } else {
+                          navigate(`/product-details/${productId}`)
+                        }
+                      }}
                     />
                   )
                 })}

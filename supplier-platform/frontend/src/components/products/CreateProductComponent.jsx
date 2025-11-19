@@ -6,6 +6,8 @@ import productService from '@/services/productService';
 import vehicleService from '@/services/vehicleService';
 import { imageService } from '@/services/imageService';
 
+const DEFAULT_DRAFT_ID = 'current_draft';
+
 const createScheduleEntry = (overrides = {}) => ({
   id: `policy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
   label: overrides.label || '',
@@ -42,11 +44,82 @@ const normalizeCancellationPolicyForEditor = (policy) => {
   };
 };
 
+const hasMeaningfulDraftData = (draftData = {}) => {
+  const textFields = [
+    'productTitle',
+    'productCategory',
+    'sellingPoints',
+    'tagline',
+    'description',
+    'includedItems',
+    'excludedItems',
+    'vehicleTitle',
+    'vehicleAttributes',
+    'vehicleDescription',
+    'manualPickupRegion',
+    'manualDropoffRegion',
+  ];
+
+  if (textFields.some(field => typeof draftData[field] === 'string' && draftData[field].trim().length > 0)) {
+    return true;
+  }
+
+  if (typeof draftData.productAmount === 'number' && !Number.isNaN(draftData.productAmount) && draftData.productAmount > 0) {
+    return true;
+  }
+
+  const arrayChecks = [
+    { key: 'highlights', predicate: (entry) => (entry?.text || '').trim().length > 0 },
+    { key: 'uploadedPhotos', predicate: () => true },
+    { key: 'selectedLanguages', predicate: () => true },
+    { key: 'selectedThingsToCarry', predicate: () => true },
+    { key: 'selectedPickupLocations', predicate: () => true },
+    { key: 'selectedDropoffLocations', predicate: () => true },
+    { key: 'vehicleTimeAllocations', predicate: () => true },
+    { key: 'faqs', predicate: (entry) => (entry?.question || '').trim().length > 0 || (entry?.answer || '').trim().length > 0 },
+  ];
+
+  if (arrayChecks.some(({ key, predicate }) => Array.isArray(draftData[key]) && draftData[key].some(predicate))) {
+    return true;
+  }
+
+  if (draftData.cancellationPolicy) {
+    const policy = draftData.cancellationPolicy;
+    if (
+      (typeof policy.freeCancellationText === 'string' && policy.freeCancellationText.trim().length > 0) ||
+      (Array.isArray(policy.notes) && policy.notes.some(note => typeof note === 'string' && note.trim().length > 0))
+    ) {
+      return true;
+    }
+    if (
+      Array.isArray(policy.schedule) &&
+      policy.schedule.some(entry => entry && (entry.label || entry.note || entry.percentage))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const createValidationError = (message) => {
+  const error = new Error(message);
+  error.isValidationError = true;
+  return error;
+};
+
 const CreateProductComponent = ({ onClose, draftId = null }) => {
+  const [internalDraftId, setInternalDraftId] = useState(() => draftId || DEFAULT_DRAFT_ID);
   const [step, setStep] = useState(1);
   const [showItineraryComponent, setShowItineraryComponent] = useState(false);
   const [showImageTipsModal, setShowImageTipsModal] = useState(false);
   const [showIncludedExcludedModal, setShowIncludedExcludedModal] = useState(false);
+  useEffect(() => {
+    setInternalDraftId(draftId || DEFAULT_DRAFT_ID);
+  }, [draftId]);
+
+  const draftStorageKey = useMemo(() => `product_draft_${internalDraftId}`, [internalDraftId]);
+
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
   const [selectedVehicleModel, setSelectedVehicleModel] = useState('');
   const [isLoadingDraft, setIsLoadingDraft] = useState(true);
@@ -227,6 +300,134 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   // Step navigation hover menu (return to step 1 from step 2)
   const [showStep1Menu, setShowStep1Menu] = useState(false);
   const [topMenuStep, setTopMenuStep] = useState(null); // 1 or 2 when hovering top circles
+  const [showStartFreshPrompt, setShowStartFreshPrompt] = useState(false);
+
+  const resetFormState = useCallback(() => {
+    setStep(1);
+    setShowItineraryComponent(false);
+    setShowImageTipsModal(false);
+    setShowIncludedExcludedModal(false);
+    setSelectedVehicleType('');
+    setSelectedVehicleModel('');
+    setIsLoadingDraft(false);
+    setDbProductId(null);
+    setItineraries([]);
+    setProductTitle('');
+    setProductCategory('');
+    setSellingPoints('');
+    setTagline('');
+    setDescription('');
+    setCancellationPolicy(buildDefaultCancellationPolicy());
+    setUploadedPhotos([]);
+    setCoverImage(null);
+    setIsUploadingImage(false);
+    setImageUploadProgress(0);
+    setHighlights([{ id: Date.now(), text: '' }]);
+    setVehicleError(null);
+    setVehicleSaving(false);
+    setEditingVehicleId(null);
+    setVehicleTitle('');
+    setVehicleYear('2024');
+    setVehicleAttributes('');
+    setNumTravellers('');
+    setCurrency('');
+    setPricingType('');
+    setProductAmount('');
+    setTotalDuration('');
+    setVehicleDescription('');
+    setSelectedVehicleForTour(null);
+    setSelectedLocationType('All Location');
+    setShowSelectLocationsDropdown(false);
+    setShowPickupDropdown(false);
+    setShowDropoffDropdown(false);
+    setSelectedPickupLocation('');
+    setSelectedDropoffLocation('');
+    setSelectedPickupHour('00');
+    setSelectedPickupMinute('00');
+    setSelectedWeekDay('week days');
+    setShowCalendar(false);
+    setSelectedDate('01 Oct');
+    setCurrentMonth(new Date());
+    setShowSelectVehicleModal(false);
+    setUseSamePickupLocation(true);
+    setPickupSearchQuery('');
+    setDropoffSearchQuery('');
+    setSelectedPickupLocations([]);
+    setSelectedDropoffLocations([]);
+    setShowLocationAddedMessage(false);
+    setManualPickupRegion('');
+    setManualDropoffRegion('');
+    setActivePickupLocations([]);
+    setActiveDropoffLocations([]);
+    setApplyToAllDays(false);
+    setStartTime('');
+    setEndTime('');
+    setDuration('');
+    setTimeSlots({ ...emptyTimeSlots });
+    setVehicleTimeAllocations([]);
+    setSelectedGuideType('Driver');
+    setSelectedActivityType('Private');
+    setSelectedLanguages([]);
+    setSelectedThingsToCarry([]);
+    setIncludedItems('');
+    setExcludedItems('');
+    setShowLanguageDropdown(false);
+    setShowThingsToCarryDropdown(false);
+    setShowSavedMessage(false);
+    setFaqs([]);
+    setShowStep1Menu(false);
+    setTopMenuStep(null);
+    setMapCenter({ lat: 35.3606, lng: 138.7274 });
+    setMapZoom(8);
+    setMap(null);
+  }, [emptyTimeSlots]);
+
+  const handleStartFresh = useCallback(() => {
+    const confirmed = window.confirm('Start a brand new product draft? This will clear the current autosaved data.');
+    if (!confirmed) return;
+    try {
+      localStorage.removeItem(draftStorageKey);
+    } catch (error) {
+      console.warn('Unable to clear draft storage key:', error);
+    }
+    resetFormState();
+    setShowStartFreshPrompt(false);
+    setInternalDraftId(DEFAULT_DRAFT_ID);
+  }, [draftStorageKey, resetFormState]);
+
+  const handleDismissStartFreshPrompt = useCallback(() => {
+    setShowStartFreshPrompt(false);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    let shouldWarn = false;
+    try {
+      const savedDraft = localStorage.getItem(draftStorageKey);
+      if (savedDraft) {
+        const draftData = JSON.parse(savedDraft);
+        shouldWarn = hasMeaningfulDraftData(draftData);
+      }
+    } catch (error) {
+      console.warn('Unable to read draft data before closing:', error);
+    }
+
+    if (shouldWarn) {
+      const confirmed = window.confirm('Closing will discard your current draft. Do you want to continue?');
+      if (!confirmed) {
+        return;
+      }
+      try {
+        localStorage.removeItem(draftStorageKey);
+      } catch (error) {
+        console.warn('Unable to remove draft while closing:', error);
+      }
+      resetFormState();
+      setInternalDraftId(DEFAULT_DRAFT_ID);
+      setShowStartFreshPrompt(false);
+    }
+
+    onClose();
+  }, [draftStorageKey, onClose, resetFormState]);
   
   // Refs for all sections to enable scroll navigation
   const projectTitleRef = React.useRef(null);
@@ -246,6 +447,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const transportationRef = React.useRef(null);
   const durationRef = React.useRef(null);
   const addVehicleRef = React.useRef(null);
+  const activeUploadsRef = React.useRef(0);
   
   const scrollToRef = (ref) => {
     if (ref && ref.current) {
@@ -572,24 +774,24 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   useEffect(() => {
     const loadDraftData = () => {
       try {
-        // Only load draft if draftId is provided (not null/undefined)
-        if (!draftId) {
-          console.log('💡 No draftId provided - Creating NEW product from scratch');
+        if (!internalDraftId) {
           setIsLoadingDraft(false);
           return;
         }
         
-        console.log('🔍 Loading draft with ID:', draftId);
-        console.log('🔍 Looking for key:', `product_draft_${draftId}`);
+        console.log('🔍 Loading draft with ID:', internalDraftId);
+        console.log('🔍 Looking for key:', draftStorageKey);
         
-        const savedDraft = localStorage.getItem(`product_draft_${draftId}`);
+        const savedDraft = localStorage.getItem(draftStorageKey);
         
         if (savedDraft) {
           console.log('📦 Found draft data in localStorage');
           const draftData = JSON.parse(savedDraft);
           console.log('📄 Draft data parsed:', draftData);
+          setShowStartFreshPrompt(hasMeaningfulDraftData(draftData));
           
-          const detectedDbId = draftData.dbProductId || draftData.draftId || (draftId && draftId !== 'current_draft' ? draftId : null);
+          const fallbackDraftId = internalDraftId !== DEFAULT_DRAFT_ID ? internalDraftId : null;
+          const detectedDbId = draftData.dbProductId || draftData.draftId || fallbackDraftId;
           setDbProductId(detectedDbId || null);
           if (Array.isArray(draftData.itineraries)) setItineraries(draftData.itineraries);
 
@@ -668,7 +870,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           }
 
           if (draftData.photoStoragePending) {
-            const targetId = detectedDbId || draftId;
+            const targetId = detectedDbId || internalDraftId;
             if (targetId) {
               (async () => {
                 try {
@@ -698,9 +900,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           console.log('✅ Draft data loaded successfully!');
           console.log('📊 Summary: Title=', draftData.productTitle, 'Highlights=', draftData.highlights?.length, 'Vehicles=', draftData.vehicles?.length);
         } else {
-          console.log('⚠️ No existing draft found for ID:', draftId);
+          console.log('⚠️ No existing draft found for ID:', internalDraftId);
           console.log('💡 Starting fresh - no saved data to load');
-          setDbProductId(draftId && draftId !== 'current_draft' ? draftId : null);
+          setDbProductId(internalDraftId !== DEFAULT_DRAFT_ID ? internalDraftId : null);
+          setShowStartFreshPrompt(false);
         }
       } catch (error) {
         console.error('❌ Error loading draft data:', error);
@@ -712,7 +915,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     };
     
     loadDraftData();
-  }, [draftId, normalizeTimeSlots]);
+  }, [internalDraftId, draftStorageKey, normalizeTimeSlots]);
 
   useEffect(() => {
     loadVehicles();
@@ -740,14 +943,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
 
   // Auto-save draft data whenever any field changes
   useEffect(() => {
-    // Don't auto-save if we're still loading the draft OR if there's no draftId (new product)
-    if (isLoadingDraft || !draftId) {
+    // Don't auto-save if we're still loading the draft OR if there's no draft identifier
+    if (isLoadingDraft || !internalDraftId) {
       return;
     }
     
     const saveDraftData = () => {
       try {
-        const storageKey = `product_draft_${draftId}`;
+        const storageKey = draftStorageKey;
         let preservedCustomFields = undefined;
 
         try {
@@ -825,8 +1028,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           
           // Metadata
           lastModified: new Date().toISOString(),
-          draftId: draftId,
-          dbProductId: dbProductId || (draftId && draftId !== 'current_draft' ? draftId : null),
+          draftId: internalDraftId,
+          dbProductId: dbProductId || (internalDraftId !== DEFAULT_DRAFT_ID ? internalDraftId : null),
           itineraries,
           customFields: preservedCustomFields
         };
@@ -858,7 +1061,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             console.log('💾 Draft saved without images due to storage limits.');
           }
         } else {
-          console.log('💾 Draft auto-saved to product_draft_' + draftId);
+          console.log('💾 Draft auto-saved to ' + storageKey);
         }
       } catch (error) {
         console.error('Error saving draft data:', error);
@@ -882,7 +1085,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     selectedPickupLocations, selectedDropoffLocations, activePickupLocations, activeDropoffLocations,
     selectedPickupHour, selectedPickupMinute, selectedWeekDay, selectedDate, timeSlots,
     vehicleTimeAllocations, itineraries,
-    step, draftId, dbProductId
+    step, internalDraftId, dbProductId, draftStorageKey
   ]);
 
   // Auto-generate time slots when start/end time, duration, or weekday changes
@@ -1217,19 +1420,18 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
 
   // === PHOTO UPLOAD HANDLERS ===
   const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
-  const MIN_DIMENSION_PX = 720;
+  const MIN_DIMENSION_PX = 420;
 
   const validateImage = (file) => {
     return new Promise((resolve, reject) => {
       if (!file) {
-        reject(new Error('No file provided'));
+        reject(createValidationError('No file provided'));
         return;
       }
 
       if (file.size > MAX_IMAGE_BYTES) {
         const message = `"${file.name}" is too large. Maximum size is 5MB.`;
-        alert(message);
-        reject(new Error(message));
+        reject(createValidationError(message));
         return;
       }
 
@@ -1238,9 +1440,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       img.onload = () => {
         if (img.width < MIN_DIMENSION_PX || img.height < MIN_DIMENSION_PX) {
           const message = `"${file.name}" is too small. Minimum resolution is ${MIN_DIMENSION_PX}px on both width and height.`;
-          alert(message);
           URL.revokeObjectURL(objectUrl);
-          reject(new Error(message));
+          reject(createValidationError(message));
           return;
         }
         URL.revokeObjectURL(objectUrl);
@@ -1248,9 +1449,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       };
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl);
-        const message = `Unable to read "${file.name}". Please try another image.`;
-        alert(message);
-        reject(new Error(message));
+        reject(createValidationError(`Unable to read "${file.name}". Please try another image.`));
       };
       img.src = objectUrl;
     });
@@ -1274,8 +1473,11 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   };
 
   const uploadImageToCloudinary = async (file, { folder = 'products' } = {}) => {
+    activeUploadsRef.current += 1;
     setIsUploadingImage(true);
-    setImageUploadProgress(0);
+    if (activeUploadsRef.current === 1) {
+      setImageUploadProgress(0);
+    }
     try {
       const response = await imageService.uploadImage(file, {
         folder,
@@ -1288,8 +1490,11 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
 
       return normalizeUploadResponse(file, response);
     } finally {
-      setIsUploadingImage(false);
-      setImageUploadProgress(0);
+      activeUploadsRef.current = Math.max(0, activeUploadsRef.current - 1);
+      if (activeUploadsRef.current === 0) {
+        setIsUploadingImage(false);
+        setImageUploadProgress(0);
+      }
     }
   };
 
@@ -1297,17 +1502,34 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
 
-    for (const file of files) {
-      try {
+    const uploadPromises = files.map((file) =>
+      (async () => {
         await validateImage(file);
         const uploaded = await uploadImageToCloudinary(file);
-        setUploadedPhotos((prev) => [...prev, uploaded]);
-        if (!coverImage) {
-          setCoverImage(uploaded);
+        return { file, uploaded };
+      })()
+    );
+
+    const results = await Promise.allSettled(uploadPromises);
+    const successfulUploads = [];
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        successfulUploads.push(result.value.uploaded);
+      } else {
+        const error = result.reason;
+        if (error?.isValidationError) {
+          alert(error.message);
+        } else {
+          console.error(`Failed to upload "${files[index].name}"`, error);
         }
-      } catch (error) {
-        console.error('Failed to upload photo:', error);
-        alert(`Failed to upload "${file.name}". ${error?.message || 'Please try again.'}`);
+      }
+    });
+
+    if (successfulUploads.length) {
+      setUploadedPhotos((prev) => [...prev, ...successfulUploads]);
+      if (!coverImage) {
+        setCoverImage(successfulUploads[0]);
       }
     }
 
@@ -1333,7 +1555,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       setCoverImage(uploaded);
     } catch (error) {
       console.error('Failed to upload cover image:', error);
-      alert(`Failed to upload cover image. ${error?.message || 'Please try again.'}`);
+      if (error?.isValidationError) {
+        alert(error.message);
+      }
     } finally {
       if (event?.target) {
         event.target.value = '';
@@ -1393,7 +1617,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       }
     } catch (error) {
       console.error('Failed to replace photo:', error);
-      alert(`Failed to replace photo. ${error?.message || 'Please try again.'}`);
+      if (error?.isValidationError) {
+        alert(error.message);
+      }
     }
   };
 
@@ -2023,7 +2249,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 <FiUpload className="mr-2" size={16} />
                 Upload Photo
               </button>
-              <p className="text-sm text-gray-600">Only JPG, PNG, SVG (2GB Max)</p>
+              <p className="text-sm text-gray-600">Only JPG, PNG, SVG · min 420px · max 5MB</p>
             </div>
 
             {/* Cover Image Section */}
@@ -4191,7 +4417,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           {/* Close Button */}
           <div className="flex justify-end p-4">
             <button
-              onClick={onClose}
+              type="button"
+              onClick={handleCloseModal}
               className="text-gray-400 hover:text-gray-600 text-2xl"
             >
               <FiX size={24} />
@@ -4201,6 +4428,32 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           {/* Content */}
           <div className="flex-1 p-8 overflow-y-auto">
             <div className="max-w-4xl mx-auto">
+              {showStartFreshPrompt && !isLoadingDraft && (
+                <div className="mb-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#1d236b]">Resume your saved draft?</p>
+                    <p className="text-sm text-[#1d236b]/70">
+                      We found an autosaved draft. Start fresh to clear it or keep editing to continue where you left off.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleStartFresh}
+                      className="px-4 py-2 rounded-full bg-[#1d236b] text-white text-sm font-semibold hover:bg-[#151a4a] transition-colors"
+                    >
+                      Start Fresh
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDismissStartFreshPrompt}
+                      className="px-4 py-2 rounded-full border border-[#1d236b] text-[#1d236b] text-sm font-semibold hover:bg-white transition-colors"
+                    >
+                      Keep Editing
+                    </button>
+                  </div>
+                </div>
+              )}
               {renderStepContent()}
             </div>
           </div>
@@ -4425,8 +4678,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             applyToAllDays: applyToAllDays,
             itineraries: itineraries,
             // Provide draftId so AddItineraryComponent can preload existing itineraries
-            draftId: draftId,
-            dbProductId: dbProductId || (draftId && draftId !== 'current_draft' ? draftId : null)
+            draftId: internalDraftId,
+            dbProductId: dbProductId || (internalDraftId !== DEFAULT_DRAFT_ID ? internalDraftId : null)
           }}
         />
       )}

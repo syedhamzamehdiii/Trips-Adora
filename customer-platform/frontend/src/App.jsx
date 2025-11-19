@@ -22,7 +22,6 @@ import ProfileSettings from './pages/ProfileSettings'
 import ProfileWallet from './pages/ProfileWallet'
 import ProfileWalletSettings from './pages/ProfileWalletSettings'
 import ProfileReviews from './pages/ProfileReviews'
-import ComparisonPage from './pages/ComparisonPage'
 import ProductComparisonDetail from './components/ProductComparisonDetail'
 import WishlistPage from './pages/WishlistPage'
 import CartPage from './pages/CartPage'
@@ -76,7 +75,6 @@ function App() {
         <Route path="/choose-vehicle" element={<ChooseVehiclePage />} />
         <Route path="/payment-details" element={<PaymentDetailsPage />} />
         <Route path="/payment-success" element={<PaymentSuccessPage />} />
-        <Route path="/comparison" element={<ComparisonPage />} />
         <Route path="/comparison/detail/:ids" element={<ProductComparisonDetail />} />
         <Route path="/supplier-registration" element={<SupplierRegistrationPage />} />
         <Route path="/about-us" element={<AboutUsPage />} />

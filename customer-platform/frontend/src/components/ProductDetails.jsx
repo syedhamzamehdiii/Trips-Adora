@@ -886,10 +886,18 @@ const ProductDetails = () => {
                     <img src={share} alt="Share" className="w-5 h-5" />
                   </button>
                   <button 
-                    onClick={() => navigate('/comparison')}
+                    onClick={() => {
+                      if (product?.id) {
+                        const params = new URLSearchParams()
+                        params.set('compareFrom', product.id)
+                        navigate(`/search?${params.toString()}`)
+                      } else {
+                        navigate('/search')
+                      }
+                    }}
                     className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900 hover:text-blue-600 transition-colors cursor-pointer"
                   >
-                    <img src={branch} alt="Compare" className="w-5 h-5" />
+                    <img src={branch} alt="Compare" className="w-5.h-5" />
                   </button>
                   <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900">
                     <Map className="w-5 h-5" />

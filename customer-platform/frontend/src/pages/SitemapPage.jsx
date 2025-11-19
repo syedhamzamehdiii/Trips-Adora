@@ -103,7 +103,15 @@ const SitemapPage = () => {
             <ul className="space-y-2 text-gray-700 text-sm flex-1">
               <li><Link to="/cart" onClick={scrollToTop} className="block py-1.5 px-2 rounded-md hover:bg-[#1d236b]/10 hover:text-[#1d236b] hover:translate-x-1 transition-all duration-200">Shopping Cart</Link></li>
               <li><Link to="/wishlist" onClick={scrollToTop} className="block py-1.5 px-2 rounded-md hover:bg-[#1d236b]/10 hover:text-[#1d236b] hover:translate-x-1 transition-all duration-200">Wishlist</Link></li>
-              <li><Link to="/comparison" onClick={scrollToTop} className="block py-1.5 px-2 rounded-md hover:bg-[#1d236b]/10 hover:text-[#1d236b] hover:translate-x-1 transition-all duration-200">Product Comparison</Link></li>
+              <li>
+                <Link
+                  to="/search?compareFrom=pick-product"
+                  onClick={scrollToTop}
+                  className="block py-1.5 px-2 rounded-md hover:bg-[#1d236b]/10 hover:text-[#1d236b] hover:translate-x-1 transition-all duration-200"
+                >
+                  Product Comparison
+                </Link>
+              </li>
               <li><Link to="/bookings" onClick={scrollToTop} className="block py-1.5 px-2 rounded-md hover:bg-[#1d236b]/10 hover:text-[#1d236b] hover:translate-x-1 transition-all duration-200">My Bookings</Link></li>
               <li><Link to="/check-availability" onClick={scrollToTop} className="block py-1.5 px-2 rounded-md hover:bg-[#1d236b]/10 hover:text-[#1d236b] hover:translate-x-1 transition-all duration-200">Check Availability</Link></li>
               <li><Link to="/choose-vehicle" onClick={scrollToTop} className="block py-1.5 px-2 rounded-md hover:bg-[#1d236b]/10 hover:text-[#1d236b] hover:translate-x-1 transition-all duration-200">Choose Vehicle</Link></li>

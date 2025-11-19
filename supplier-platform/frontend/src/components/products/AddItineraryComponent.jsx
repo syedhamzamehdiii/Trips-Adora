@@ -34,7 +34,7 @@ const areItinerariesEqual = (a, b) => {
 };
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
-const MIN_DIMENSION_PX = 720;
+const MIN_DIMENSION_PX = 420;
 
 const dataUrlToFile = (dataUrl, filename = `itinerary-${Date.now()}.jpg`) => {
   const arr = dataUrl.split(',');
@@ -278,6 +278,7 @@ const AddItineraryComponent = ({
     if (!imgRef.current) return;
 
     const croppedImageUrl = getCroppedImg(imgRef.current, cropToUse);
+    setPhotoPreview(croppedImageUrl);
     try {
       const file = dataUrlToFile(croppedImageUrl);
       if (photoPublicId) {
@@ -285,7 +286,6 @@ const AddItineraryComponent = ({
       }
       const upload = await uploadPhotoToCloud(file);
       setUploadedPhoto(file);
-      setPhotoPreview(upload.url);
       setCroppedPhoto(upload.url);
       setPhotoPublicId(upload.public_id);
       console.log('✅ Photo cropped & uploaded successfully');
@@ -341,6 +341,7 @@ const AddItineraryComponent = ({
     const inferredTime = `${String(startHour % 24).padStart(2, '0')}:00`;
 
     const normalizedName = placeName?.trim() || '';
+    const photoUrlForEntry = croppedPhoto || photoPreview;
     const entryData = {
       id: editingItineraryId || Date.now(),
       title: normalizedName || 'Itinerary Stop',
@@ -350,8 +351,8 @@ const AddItineraryComponent = ({
       attractionType: selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
       timeSpent: `${hours}h ${minutes}min`,
       isFree: entryIsFree,
-      hasPhoto: Boolean(photoPreview),
-      photo: photoPreview,
+      hasPhoto: Boolean(photoUrlForEntry),
+      photo: photoUrlForEntry || null,
       photoPublicId: photoPublicId || null,
       time: inferredTime,
       ticket: entryIsFree ? 'Free' : 'Paid',
@@ -1223,7 +1224,7 @@ const AddItineraryComponent = ({
                       <span className="text-gray-600 mb-1">Upload Photo</span>
                       <FiUpload className="w-4 h-4 text-gray-400" />
                       <p className="text-xs text-gray-500 mt-2">Click to browse or drag and drop</p>
-                      <p className="text-xs text-gray-400 mt-1">Max size: 2GB</p>
+                      <p className="text-xs text-gray-400 mt-1">Min 420px · Max 5MB</p>
                     </div>
                   </div>
                 )}
