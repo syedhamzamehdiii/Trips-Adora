@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { FiCheck, FiBriefcase, FiUser, FiShield, FiInfo } from 'react-icons/fi';
+import React, { useEffect, useState, useRef } from 'react';
+import { FiCheck, FiBriefcase, FiUser, FiShield, FiInfo, FiMessageSquare, FiChevronDown } from 'react-icons/fi';
 import { FaPlus, FaMinus } from 'react-icons/fa';
 
 const SupplierRegistrationPage = () => {
@@ -9,6 +9,8 @@ const SupplierRegistrationPage = () => {
   const [formData, setFormData] = useState({
     businessName: '',
     businessPhone: '',
+    businessPhoneCode: '+1',
+    businessEmail: '',
     businessWebsite: '',
     businessRegistration: '',
     country: '',
@@ -21,6 +23,7 @@ const SupplierRegistrationPage = () => {
     personAddress: '',
     personZipCode: '',
     personContact: '',
+    personPhoneCode: '+1',
     idType: ''
   });
   const [logoFile, setLogoFile] = useState(null);
@@ -29,15 +32,26 @@ const SupplierRegistrationPage = () => {
   const [idFrontFile, setIdFrontFile] = useState(null);
   const [idBackFile, setIdBackFile] = useState(null);
   const [errors, setErrors] = useState({});
+  const [showSubmissionSummary, setShowSubmissionSummary] = useState(false);
+  const [showDashboardView, setShowDashboardView] = useState(false);
+  const [submissionTimestamp, setSubmissionTimestamp] = useState(null);
+  const [supplierMode, setSupplierMode] = useState(true);
 
   const logoInputRef = useRef(null);
   const insuranceInputRef = useRef(null);
   const documentInputRef = useRef(null);
   const idFrontInputRef = useRef(null);
   const idBackInputRef = useRef(null);
+  const dashboardProfileRef = useRef(null);
   const [showSocialInfo, setShowSocialInfo] = useState(false);
   const [showCountrySuggestions, setShowCountrySuggestions] = useState(false);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const [showBusinessCodeSuggestions, setShowBusinessCodeSuggestions] = useState(false);
+  const [showPersonCodeSuggestions, setShowPersonCodeSuggestions] = useState(false);
+  const [showPersonCountrySuggestions, setShowPersonCountrySuggestions] = useState(false);
+  const [showPersonCitySuggestions, setShowPersonCitySuggestions] = useState(false);
   const [showIdTypeDropdown, setShowIdTypeDropdown] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const businessTypes = [
     {
@@ -84,15 +98,124 @@ const SupplierRegistrationPage = () => {
   const countries = [
     'United States','United Kingdom','Canada','Australia','New Zealand','Japan','China','India','Pakistan','Germany','France','Spain','Italy','South Africa','Brazil','Mexico','Singapore','United Arab Emirates','Saudi Arabia','Malaysia','Indonesia','Thailand'
   ];
+  const cities = [
+    'New York','Los Angeles','London','Manchester','Toronto','Vancouver','Sydney','Melbourne','Auckland','Tokyo','Osaka','Beijing','Shanghai','Karachi','Lahore','Berlin','Munich','Paris','Madrid','Barcelona','Rome','Milan','Cape Town','Johannesburg','Sao Paulo','Rio de Janeiro','Mexico City','Singapore','Dubai','Abu Dhabi','Riyadh','Jeddah','Kuala Lumpur','Jakarta','Bangkok'
+  ];
+  const countryDialCodes = {
+    'United States': '+1',
+    'United Kingdom': '+44',
+    Canada: '+1',
+    Australia: '+61',
+    'New Zealand': '+64',
+    Japan: '+81',
+    China: '+86',
+    India: '+91',
+    Pakistan: '+92',
+    Germany: '+49',
+    France: '+33',
+    Spain: '+34',
+    Italy: '+39',
+    'South Africa': '+27',
+    Brazil: '+55',
+    Mexico: '+52',
+    Singapore: '+65',
+    'United Arab Emirates': '+971',
+    'Saudi Arabia': '+966',
+    Malaysia: '+60',
+    Indonesia: '+62',
+    Thailand: '+66'
+  };
+  const phoneCodeOptions = countries.map(country => ({
+    country,
+    code: countryDialCodes[country] || ''
+  }));
 
   const filteredCountries = countries
     .filter(country => country.toLowerCase().includes(formData.country.toLowerCase()))
     .slice(0, 6);
+  const filteredCities = cities
+    .filter(city => city.toLowerCase().includes(formData.city.toLowerCase()))
+    .slice(0, 6);
+  const filteredPersonCountries = countries
+    .filter(country => country.toLowerCase().includes(formData.personCountry.toLowerCase()))
+    .slice(0, 6);
+  const filteredPersonCities = cities
+    .filter(city => city.toLowerCase().includes(formData.personCity.toLowerCase()))
+    .slice(0, 6);
+  const filteredBusinessCodeOptions = phoneCodeOptions
+    .filter(option =>
+      option.country.toLowerCase().includes(formData.businessPhoneCode.toLowerCase()) ||
+      option.code.toLowerCase().includes(formData.businessPhoneCode.toLowerCase())
+    )
+    .slice(0, 6);
+  const filteredPersonCodeOptions = phoneCodeOptions
+    .filter(option =>
+      option.country.toLowerCase().includes(formData.personPhoneCode.toLowerCase()) ||
+      option.code.toLowerCase().includes(formData.personPhoneCode.toLowerCase())
+    )
+    .slice(0, 6);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^[+\d][\d\s-]{6,}$/;
   const idTypes = ['Passport', 'National ID', 'Driver License', 'Residence Permit'];
+  const [requiresBackImage, setRequiresBackImage] = useState(true);
+  useEffect(() => {
+    const needsBack = formData.idType && formData.idType !== 'Passport';
+    setRequiresBackImage(!!needsBack);
+    if (!needsBack) {
+      setIdBackFile(null);
+      setErrors(prev => {
+        const updated = { ...prev };
+        delete updated.idBack;
+        return updated;
+      });
+    }
+  }, [formData.idType]);
 
   const handleCountrySelect = (country) => {
-    handleInputChange('country', country);
+    setFormData(prev => ({
+      ...prev,
+      country,
+      businessPhoneCode: countryDialCodes[country] || prev.businessPhoneCode
+    }));
     setShowCountrySuggestions(false);
+  };
+  const handleCitySelect = (city) => {
+    handleInputChange('city', city);
+    setShowCitySuggestions(false);
+  };
+  const handlePersonCountrySelect = (country) => {
+    setFormData(prev => ({
+      ...prev,
+      personCountry: country,
+      personPhoneCode: countryDialCodes[country] || prev.personPhoneCode
+    }));
+    setShowPersonCountrySuggestions(false);
+  };
+  const handlePersonCitySelect = (city) => {
+    handleInputChange('personCity', city);
+    setShowPersonCitySuggestions(false);
+  };
+  const handlePhoneCodeSelect = (field, code) => {
+    handleInputChange(field, code);
+    setErrors(prev => {
+      const updated = { ...prev };
+      delete updated[field];
+      return updated;
+    });
+    if (field === 'businessPhoneCode') {
+      setShowBusinessCodeSuggestions(false);
+    } else {
+      setShowPersonCodeSuggestions(false);
+    }
+  };
+
+  const handleTermsToggle = (checked) => {
+    setTermsAccepted(checked);
+    setErrors(prev => {
+      const updated = { ...prev };
+      delete updated.termsAccepted;
+      return updated;
+    });
   };
 
   const handleFileChange = (file, setter, errorKey) => {
@@ -132,16 +255,31 @@ const SupplierRegistrationPage = () => {
   const validateStepTwo = () => {
     const newErrors = {};
     if (!formData.businessName.trim()) newErrors.businessName = 'Business name is required';
+    if (!formData.businessPhoneCode.trim()) newErrors.businessPhoneCode = 'Code is required';
+    else if (!/^\+\d{1,4}$/.test(formData.businessPhoneCode.trim())) newErrors.businessPhoneCode = 'Enter a valid code';
     if (!formData.businessPhone.trim()) newErrors.businessPhone = 'Business phone is required';
+    else if (!phoneRegex.test(formData.businessPhone.trim())) newErrors.businessPhone = 'Enter a valid phone number';
+    if (!formData.businessEmail.trim()) newErrors.businessEmail = 'Business email is required';
+    else if (!emailRegex.test(formData.businessEmail.trim())) newErrors.businessEmail = 'Enter a valid email address';
     if (!formData.businessWebsite.trim()) newErrors.businessWebsite = 'Business website is required';
+    else {
+      try {
+        const urlValue = formData.businessWebsite.startsWith('http')
+          ? formData.businessWebsite
+          : `https://${formData.businessWebsite}`;
+        new URL(urlValue);
+      } catch {
+        newErrors.businessWebsite = 'Enter a valid website URL';
+      }
+    }
     if (!formData.businessRegistration.trim()) newErrors.businessRegistration = 'Registration / License number is required';
     if (!formData.country.trim()) newErrors.country = 'Country is required';
     if (!formData.city.trim()) newErrors.city = 'City is required';
     if (!formData.zipCode.trim()) newErrors.zipCode = 'Zip code is required';
     if (!formData.shortBio.trim()) newErrors.shortBio = 'Short bio is required';
     formData.socialLinks.forEach((link, index) => {
-      if (!link.trim()) {
-        newErrors[`social-${index}`] = 'Social link is required';
+      if (link && !link.trim()) {
+        newErrors[`social-${index}`] = 'Please enter a valid link or leave it blank.';
       }
     });
     if (!logoFile) newErrors.logo = 'Logo is required';
@@ -157,10 +295,13 @@ const SupplierRegistrationPage = () => {
     if (!formData.personCity.trim()) newErrors.personCity = 'City is required';
     if (!formData.personAddress.trim()) newErrors.personAddress = 'Address is required';
     if (!formData.personZipCode.trim()) newErrors.personZipCode = 'Zip code is required';
+    if (!formData.personPhoneCode.trim()) newErrors.personPhoneCode = 'Code is required';
+    else if (!/^\+\d{1,4}$/.test(formData.personPhoneCode.trim())) newErrors.personPhoneCode = 'Enter a valid code';
     if (!formData.personContact.trim()) newErrors.personContact = 'Contact number is required';
+    else if (!phoneRegex.test(formData.personContact.trim())) newErrors.personContact = 'Enter a valid contact number';
     if (!formData.idType.trim()) newErrors.idType = 'ID type is required';
     if (!idFrontFile) newErrors.idFront = 'Front side document is required';
-    if (!idBackFile) newErrors.idBack = 'Back side document is required';
+    if (requiresBackImage && !idBackFile) newErrors.idBack = 'Back side document is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -172,6 +313,20 @@ const SupplierRegistrationPage = () => {
     if (currentStep === 3) {
       if (!validateStepThree()) return;
     }
+    if (currentStep === 4) {
+      if (!termsAccepted) {
+        setErrors(prev => ({ ...prev, termsAccepted: 'Please agree to continue.' }));
+        return;
+      }
+      setSubmissionTimestamp(new Date());
+      setShowSubmissionSummary(true);
+      console.log('Supplier registration payload', {
+        formData,
+        employeeCount,
+        selectedBusinessType
+      });
+      return;
+    }
     setCurrentStep(prev => Math.min(prev + 1, stepsConfig.length));
   };
 
@@ -181,80 +336,80 @@ const SupplierRegistrationPage = () => {
 
   const renderStepOne = () => (
     <>
-      <h2 className="text-2xl font-bold text-black mb-2">How do you run your business?</h2>
-      <p className="text-black mb-8">Select the business type the best describe your operations</p>
+            <h2 className="text-2xl font-bold text-black mb-2">How do you run your business?</h2>
+            <p className="text-black mb-8">Select the business type the best describe your operations</p>
 
-      {/* Business Type Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {businessTypes.map((type) => {
-          const IconComponent = type.icon;
-          const isSelected = selectedBusinessType === type.id;
-
-          return (
-            <div
-              key={type.id}
-              onClick={() => setSelectedBusinessType(type.id)}
-              className={`p-6 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                isSelected
+            {/* Business Type Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {businessTypes.map((type) => {
+                const IconComponent = type.icon;
+                const isSelected = selectedBusinessType === type.id;
+                
+                return (
+                  <div
+                    key={type.id}
+                    onClick={() => setSelectedBusinessType(type.id)}
+                    className={`p-6 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                      isSelected
                   ? 'bg-[#e9ecff] border-[#1d236b]'
-                  : 'bg-white border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              <div className="text-center">
-                <div className={`w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                        : 'bg-white border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className={`w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center ${
                   isSelected ? 'bg-[#d8ddff]' : 'bg-gray-100'
-                }`}>
-                  <IconComponent className={`text-xl ${
+                      }`}>
+                        <IconComponent className={`text-xl ${
                     isSelected ? 'text-[#1d236b]' : 'text-black'
-                  }`} />
+                        }`} />
+                      </div>
+                      <h3 className={`text-lg font-bold mb-2 ${
+                  isSelected ? 'text-[#1d236b]' : 'text-black'
+                      }`}>{type.title}</h3>
+                      <p className={`text-sm ${
+                  isSelected ? 'text-[#1d236b]' : 'text-black'
+                      }`}>{type.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Employee Count Section */}
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-black mb-2">Add No. of Employees</h3>
+              <p className="text-black mb-4">Enter the total number of people working in your business, including yourself.</p>
+              
+              <div className="flex items-center justify-center">
+                <button
+                  onClick={() => handleEmployeeCountChange(false)}
+            className="w-10 h-10 bg-[#1d236b] text-white rounded-full flex items-center justify-center hover:bg-[#151a4a] transition-colors"
+                >
+                  <FaMinus className="text-sm" />
+                </button>
+                
+                <div className="mx-6 bg-white border-2 border-gray-200 rounded-lg px-6 py-3 min-w-[80px] text-center">
+                  <span className="text-xl font-semibold text-black">{employeeCount}</span>
                 </div>
-                <h3 className={`text-lg font-bold mb-2 ${
-                  isSelected ? 'text-[#1d236b]' : 'text-black'
-                }`}>{type.title}</h3>
-                <p className={`text-sm ${
-                  isSelected ? 'text-[#1d236b]' : 'text-black'
-                }`}>{type.description}</p>
+                
+                <button
+                  onClick={() => handleEmployeeCountChange(true)}
+            className="w-10 h-10 bg-[#1d236b] text-white rounded-full flex items-center justify-center hover:bg-[#151a4a] transition-colors"
+                >
+                  <FaPlus className="text-sm" />
+                </button>
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* Employee Count Section */}
-      <div className="mb-8">
-        <h3 className="text-lg font-bold text-black mb-2">Add No. of Employees</h3>
-        <p className="text-black mb-4">Enter the total number of people working in your business, including yourself.</p>
-
-        <div className="flex items-center justify-center">
-          <button
-            onClick={() => handleEmployeeCountChange(false)}
-            className="w-10 h-10 bg-[#1d236b] text-white rounded-full flex items-center justify-center hover:bg-[#151a4a] transition-colors"
-          >
-            <FaMinus className="text-sm" />
-          </button>
-
-          <div className="mx-6 bg-white border-2 border-gray-200 rounded-lg px-6 py-3 min-w-[80px] text-center">
-            <span className="text-xl font-semibold text-black">{employeeCount}</span>
-          </div>
-
-          <button
-            onClick={() => handleEmployeeCountChange(true)}
-            className="w-10 h-10 bg-[#1d236b] text-white rounded-full flex items-center justify-center hover:bg-[#151a4a] transition-colors"
-          >
-            <FaPlus className="text-sm" />
-          </button>
-        </div>
-      </div>
-
-      {/* Continue Button */}
-      <div className="flex justify-end">
+            {/* Continue Button */}
+            <div className="flex justify-end">
         <button
           onClick={handleNext}
           className="bg-[#1d236b] text-white px-8 py-3 rounded-lg font-medium hover:bg-[#151a4a] transition-colors"
         >
-          Continue
-        </button>
-      </div>
+                Continue
+              </button>
+            </div>
     </>
   );
 
@@ -263,24 +418,70 @@ const SupplierRegistrationPage = () => {
       <h2 className="text-2xl font-bold text-black mb-2">Person Verification</h2>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
         <div className="space-y-4">
-          <div>
+          <div className="relative">
             <input
               type="text"
               placeholder="Country"
               value={formData.personCountry}
-              onChange={(e) => handleInputChange('personCountry', e.target.value)}
+              onChange={(e) => {
+                handleInputChange('personCountry', e.target.value);
+                setShowPersonCountrySuggestions(true);
+              }}
+              onFocus={() => setShowPersonCountrySuggestions(true)}
+              onBlur={() => setTimeout(() => setShowPersonCountrySuggestions(false), 150)}
               className={`w-full rounded-full border px-4 py-3 focus:outline-none focus:ring-2 ${errors.personCountry ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
             />
-            {errors.personCountry && <p className="text-sm text-red-500 mt-1">{errors.personCountry}</p>}
+            {showPersonCountrySuggestions && formData.personCountry && (
+              <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg z-30 max-h-56 overflow-y-auto">
+                {filteredPersonCountries.length > 0 ? (
+                  filteredPersonCountries.map(country => (
+                    <button
+                      key={country}
+                      type="button"
+                      onClick={() => handlePersonCountrySelect(country)}
+                      className="w-full text-left px-4 py-2 hover:bg-[#f1f3ff] text-gray-800"
+                    >
+                      {country}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-2 text-sm text-gray-500">No matches</div>
+                )}
           </div>
-          <div>
+            )}
+            {errors.personCountry && <p className="text-sm text-red-500 mt-1">{errors.personCountry}</p>}
+        </div>
+          <div className="relative">
             <input
               type="text"
               placeholder="City"
               value={formData.personCity}
-              onChange={(e) => handleInputChange('personCity', e.target.value)}
+              onChange={(e) => {
+                handleInputChange('personCity', e.target.value);
+                setShowPersonCitySuggestions(true);
+              }}
+              onFocus={() => setShowPersonCitySuggestions(true)}
+              onBlur={() => setTimeout(() => setShowPersonCitySuggestions(false), 150)}
               className={`w-full rounded-full border px-4 py-3 focus:outline-none focus:ring-2 ${errors.personCity ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
             />
+            {showPersonCitySuggestions && formData.personCity && (
+              <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg z-30 max-h-56 overflow-y-auto">
+                {filteredPersonCities.length > 0 ? (
+                  filteredPersonCities.map(city => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => handlePersonCitySelect(city)}
+                      className="w-full text-left px-4 py-2 hover:bg-[#f1f3ff] text-gray-800"
+                    >
+                      {city}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-2 text-sm text-gray-500">No matches</div>
+                )}
+      </div>
+            )}
             {errors.personCity && <p className="text-sm text-red-500 mt-1">{errors.personCity}</p>}
           </div>
           <div>
@@ -304,13 +505,50 @@ const SupplierRegistrationPage = () => {
             {errors.personZipCode && <p className="text-sm text-red-500 mt-1">{errors.personZipCode}</p>}
           </div>
           <div>
-            <input
-              type="text"
-              placeholder="Contact Number"
-              value={formData.personContact}
-              onChange={(e) => handleInputChange('personContact', e.target.value)}
-              className={`w-full rounded-full border px-4 py-3 focus:outline-none focus:ring-2 ${errors.personContact ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
-            />
+            <div className="flex items-center gap-3">
+              <div className="relative w-28">
+                <input
+                  type="text"
+                  placeholder="+1"
+                  value={formData.personPhoneCode}
+                  onChange={(e) => {
+                    handleInputChange('personPhoneCode', e.target.value);
+                    setShowPersonCodeSuggestions(true);
+                  }}
+                  onFocus={() => setShowPersonCodeSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowPersonCodeSuggestions(false), 150)}
+                  className={`w-full rounded-full border px-3 py-3 focus:outline-none focus:ring-2 ${errors.personPhoneCode ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
+                />
+                {showPersonCodeSuggestions && formData.personPhoneCode && (
+                  <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg z-30 max-h-48 overflow-y-auto">
+                    {filteredPersonCodeOptions.length > 0 ? (
+                      filteredPersonCodeOptions.map(option => (
+                        <button
+                          key={option.country}
+                          type="button"
+                          onClick={() => handlePhoneCodeSelect('personPhoneCode', option.code)}
+                          className="w-full text-left px-3 py-2 hover:bg-[#f1f3ff]"
+                        >
+                          {option.country} ({option.code})
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <input
+                  type="tel"
+                  placeholder="Contact Number"
+                  value={formData.personContact}
+                  onChange={(e) => handleInputChange('personContact', e.target.value)}
+                  className={`w-full rounded-full border px-4 py-3 focus:outline-none focus:ring-2 ${errors.personContact ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
+                />
+              </div>
+            </div>
+            {errors.personPhoneCode && <p className="text-sm text-red-500 mt-1">{errors.personPhoneCode}</p>}
             {errors.personContact && <p className="text-sm text-red-500 mt-1">{errors.personContact}</p>}
           </div>
         </div>
@@ -369,26 +607,28 @@ const SupplierRegistrationPage = () => {
             />
             {errors.idFront && <p className="text-sm text-red-500 mt-1">{errors.idFront}</p>}
           </div>
-          <div>
-            <p className="text-sm text-gray-600 mb-2">Upload Back</p>
-            <button
-              type="button"
-              onClick={() => idBackInputRef.current?.click()}
-              className={`flex items-center space-x-2 px-4 py-3 border rounded-full text-sm font-medium transition-colors ${errors.idBack ? 'border-red-400 text-red-500' : 'border-gray-300 hover:border-[#1d236b]'}`}
-            >
-              <span role="img" aria-label="upload">📄</span>
-              <span>{idBackFile ? idBackFile.name : 'Upload Back'}</span>
-            </button>
-            <p className="text-xs text-gray-500 mt-1">(Only JPG, PNG, PDF accepted. Max 10MB)</p>
-            <input
-              ref={idBackInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => handleFileChange(e.target.files[0], setIdBackFile, 'idBack')}
-            />
-            {errors.idBack && <p className="text-sm text-red-500 mt-1">{errors.idBack}</p>}
-          </div>
+          {requiresBackImage && (
+            <div>
+              <p className="text-sm text-gray-600 mb-2">Upload Back</p>
+              <button
+                type="button"
+                onClick={() => idBackInputRef.current?.click()}
+                className={`flex items-center space-x-2 px-4 py-3 border rounded-full text-sm font-medium transition-colors ${errors.idBack ? 'border-red-400 text-red-500' : 'border-gray-300 hover:border-[#1d236b]'}`}
+              >
+                <span role="img" aria-label="upload">📄</span>
+                <span>{idBackFile ? idBackFile.name : 'Upload Back'}</span>
+              </button>
+              <p className="text-xs text-gray-500 mt-1">(Only JPG, PNG, PDF accepted. Max 10MB)</p>
+              <input
+                ref={idBackInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={(e) => handleFileChange(e.target.files[0], setIdBackFile, 'idBack')}
+              />
+              {errors.idBack && <p className="text-sm text-red-500 mt-1">{errors.idBack}</p>}
+            </div>
+          )}
         </div>
       </div>
 
@@ -425,14 +665,61 @@ const SupplierRegistrationPage = () => {
             {errors.businessName && <p className="text-sm text-red-500 mt-1">{errors.businessName}</p>}
           </div>
           <div>
-            <input
-              type="text"
-              placeholder="Business Phone"
-              value={formData.businessPhone}
-              onChange={(e) => handleInputChange('businessPhone', e.target.value)}
-              className={`w-full rounded-full border px-4 py-3 focus:outline-none focus:ring-2 ${errors.businessPhone ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
-            />
+            <div className="flex items-center gap-3">
+              <div className="relative w-28">
+                <input
+                  type="text"
+                  placeholder="+1"
+                  value={formData.businessPhoneCode}
+                  onChange={(e) => {
+                    handleInputChange('businessPhoneCode', e.target.value);
+                    setShowBusinessCodeSuggestions(true);
+                  }}
+                  onFocus={() => setShowBusinessCodeSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowBusinessCodeSuggestions(false), 150)}
+                  className={`w-full rounded-full border px-3 py-3 focus:outline-none focus:ring-2 ${errors.businessPhoneCode ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
+                />
+                {showBusinessCodeSuggestions && formData.businessPhoneCode && (
+                  <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg z-30 max-h-48 overflow-y-auto">
+                    {filteredBusinessCodeOptions.length > 0 ? (
+                      filteredBusinessCodeOptions.map(option => (
+                        <button
+                          key={option.country}
+                          type="button"
+                          onClick={() => handlePhoneCodeSelect('businessPhoneCode', option.code)}
+                          className="w-full text-left px-3 py-2 hover:bg-[#f1f3ff]"
+                        >
+                          {option.country} ({option.code})
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <input
+                  type="tel"
+                  placeholder="Business Phone"
+                  value={formData.businessPhone}
+                  onChange={(e) => handleInputChange('businessPhone', e.target.value)}
+                  className={`w-full rounded-full border px-4 py-3 focus:outline-none focus:ring-2 ${errors.businessPhone ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
+                />
+              </div>
+            </div>
+            {errors.businessPhoneCode && <p className="text-sm text-red-500 mt-1">{errors.businessPhoneCode}</p>}
             {errors.businessPhone && <p className="text-sm text-red-500 mt-1">{errors.businessPhone}</p>}
+          </div>
+          <div>
+            <input
+              type="email"
+              placeholder="Business Email"
+              value={formData.businessEmail}
+              onChange={(e) => handleInputChange('businessEmail', e.target.value)}
+              className={`w-full rounded-full border px-4 py-3 focus:outline-none focus:ring-2 ${errors.businessEmail ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
+            />
+            {errors.businessEmail && <p className="text-sm text-red-500 mt-1">{errors.businessEmail}</p>}
           </div>
           <div>
             <input
@@ -512,14 +799,37 @@ const SupplierRegistrationPage = () => {
             )}
             {errors.country && <p className="text-sm text-red-500 mt-1">{errors.country}</p>}
           </div>
-          <div>
+          <div className="relative">
             <input
               type="text"
               placeholder="City"
               value={formData.city}
-              onChange={(e) => handleInputChange('city', e.target.value)}
+              onChange={(e) => {
+                handleInputChange('city', e.target.value);
+                setShowCitySuggestions(true);
+              }}
+              onFocus={() => setShowCitySuggestions(true)}
+              onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
               className={`w-full rounded-full border px-4 py-3 focus:outline-none focus:ring-2 ${errors.city ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
             />
+            {showCitySuggestions && formData.city && (
+              <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg z-30 max-h-56 overflow-y-auto">
+                {filteredCities.length > 0 ? (
+                  filteredCities.map(city => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => handleCitySelect(city)}
+                      className="w-full text-left px-4 py-2 hover:bg-[#f1f3ff] text-gray-800"
+                    >
+                      {city}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-2 text-sm text-gray-500">No matches</div>
+                )}
+              </div>
+            )}
             {errors.city && <p className="text-sm text-red-500 mt-1">{errors.city}</p>}
           </div>
           <div>
@@ -548,7 +858,7 @@ const SupplierRegistrationPage = () => {
                 <div className="flex items-center space-x-2">
                   <input
                     type="text"
-                    placeholder="Link your Social account"
+                  placeholder="Link your Social account (Optional)"
                     value={link}
                     onChange={(e) => handleInputChange('socialLinks', e.target.value, index)}
                     className={`flex-1 rounded-full border px-4 py-3 focus:outline-none focus:ring-2 ${errors[`social-${index}`] ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 focus:ring-[#1d236b]'}`}
@@ -655,26 +965,560 @@ const SupplierRegistrationPage = () => {
     </>
   );
 
-  const renderPlaceholder = (title) => (
-    <div className="text-center py-20">
-      <h2 className="text-2xl font-semibold mb-4 text-[#1d236b]">{title}</h2>
-      <p className="text-gray-600">This step will be available soon.</p>
-      <div className="flex justify-center mt-8 space-x-4">
-        <button
-          onClick={handleBack}
-          className="px-8 py-3 rounded-full border border-gray-300 text-gray-700 font-medium hover:border-gray-400 transition-colors"
-        >
-          Back
-        </button>
-        <button
-          onClick={handleNext}
-          className="bg-[#1d236b] text-white px-8 py-3 rounded-full font-medium hover:bg-[#151a4a] transition-colors"
-        >
-          Continue
-        </button>
+  const renderStepFour = () => {
+    const sections = [
+      {
+        title: 'Welcome to TripsAdora!',
+        items: [
+          'TripsAdora acts as a digital marketplace connecting travelers with local suppliers. We facilitate bookings but do not directly provide the services.',
+          'Suppliers are fully responsible for the safety, compliance, and delivery of the experiences they list.',
+          'Travelers must review booking details, cancellation policies, and supplier instructions before reserving.',
+          'All payments are processed securely. Pricing, availability, and taxes may vary by region.',
+          'TripAdora may update these Terms & Conditions at any time; continued use means you accept the updated terms.'
+        ]
+      },
+      {
+        title: 'Acceptance of Terms',
+        items: [
+          'By using TripsAdora’s website or services, you acknowledge that you have read, understood, and agree to these Terms & Conditions.',
+          'If you disagree with any part of these terms, please discontinue use of our platform.',
+          'These terms apply to all users and visitors who access our services or content.',
+          'Updates or modifications to these terms may be issued at any time. Continued use signifies acceptance.'
+        ]
+      },
+      {
+        title: 'Booking Terms & Conditions',
+        items: [
+          'Bookings are subject to availability and confirmation by the activity provider.',
+          'You are responsible for providing accurate participant information, special requirements, and contact details.',
+          'Certain activities have minimum age requirements or special terms; please review them before booking.',
+          'Group bookings or modifications may require special arrangements or additional fees depending on the provider.'
+        ]
+      },
+      {
+        title: 'Cancellations & Refunds',
+        items: [
+          'Each activity carries its own cancellation policy, visible during checkout and in your confirmation email.',
+          'Customer cancellations must follow the specific activity’s timeline and may result in partial refunds or credits.',
+          'If a provider cancels due to weather or operational reasons, you will receive a full refund or a rescheduled option.',
+          'Refunds typically process within 5–10 business days. Bank timelines may vary.',
+          'In extraordinary circumstances (force majeure), TripsAdora will work with providers to offer alternatives whenever possible.'
+        ]
+      }
+    ];
+
+    const contactOptions = [
+      { label: 'Start Live Chat', type: 'chat' },
+      { label: 'info@tripsadora.com', type: 'mail' },
+      { label: '+1 (555) 123-456', type: 'phone' }
+    ];
+
+    return (
+      <>
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 sm:px-10 py-10 space-y-10">
+            <div className="text-center space-y-3">
+              <h2 className="text-3xl font-bold text-gray-900">Terms and Conditions</h2>
+              <p className="text-gray-600 text-sm">
+                By using our services, you agree to these terms. Please read them carefully.
+              </p>
+              <p className="text-xs text-gray-500 font-medium">Effective Date: 11-09-2025</p>
+            </div>
+
+            <div className="space-y-6">
+              {sections.map(section => (
+                <div key={section.title} className="rounded-2xl border border-gray-200 bg-[#f9f9ff] p-6 space-y-3">
+                  <h3 className="text-lg font-semibold text-[#0f1b4c]">{section.title}</h3>
+                  <ul className="list-disc pl-5 text-sm text-gray-700 space-y-2">
+                    {section.items.map((item, idx) => (
+                      <li key={idx}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-start gap-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => handleTermsToggle(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-[#1d236b] focus:ring-[#1d236b]"
+                />
+                <span>
+                  By continuing, you agree to the{' '}
+                  <a href="#" className="text-[#1d236b] underline">
+                    Terms and Conditions
+                  </a>{' '}
+                  and{' '}
+                  <a href="#" className="text-[#1d236b] underline">
+                    Privacy Policy
+                  </a>
+                  .
+                </span>
+              </label>
+              {errors.termsAccepted && <p className="text-sm text-red-500">{errors.termsAccepted}</p>}
+            </div>
+
+            <div className="flex justify-between pt-4 border-t border-gray-200">
+              <button
+                onClick={handleBack}
+                className="px-8 py-3 rounded-full border border-gray-300 text-gray-700 font-medium hover:border-gray-400 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleNext}
+                className="bg-[#1d236b] text-white px-8 py-3 rounded-full font-medium hover:bg-[#151a4a] transition-colors"
+              >
+                Save &amp; Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const handleSummaryBack = () => {
+    setShowSubmissionSummary(false);
+  };
+
+  const handleDashboardRedirect = () => {
+    setShowSubmissionSummary(false);
+    setShowDashboardView(true);
+  };
+
+  const handleVerificationMessage = () => {
+    alert('You can add your product after verification. Please wait for admin verification to access this feature.');
+  };
+
+  const handleSupplierModeToggle = () => {
+    setSupplierMode(!supplierMode);
+  };
+
+  const renderSubmissionSummary = () => {
+    const documentStatuses = [
+      { label: 'Front side of ID', uploaded: !!idFrontFile },
+      { label: 'Back side of ID', uploaded: requiresBackImage ? !!idBackFile : true },
+      { label: 'Profile Picture', uploaded: !!documentFile },
+      { label: 'Company Logo', uploaded: !!logoFile }
+    ];
+
+    return (
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl p-8 sm:p-12 space-y-10">
+        <div className="space-y-2">
+          <p className="text-sm text-gray-500">
+            Submitted on {submissionTimestamp ? submissionTimestamp.toLocaleDateString() : new Date().toLocaleDateString()}
+          </p>
+          <h2 className="text-3xl font-bold text-gray-900">Documents Submitted for Approval</h2>
+          <p className="text-gray-600 text-sm">
+            Your documents have been received. We're reviewing them to keep your account secure.
+          </p>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-10">
+          <div className="flex-1 space-y-6">
+            <div className="flex items-center gap-4 bg-[#f5f6ff] px-4 py-4 rounded-2xl border border-[#cfd5ff]">
+              <div className="text-4xl">⚠️</div>
+              <div>
+                <p className="text-lg font-semibold text-gray-900">Your documents are under review</p>
+                <p className="text-sm text-gray-600">Estimate time 24–36 hours</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-gray-900">Submitted Documents</h3>
+              <div className="space-y-2">
+                {documentStatuses.map(doc => (
+                  <div key={doc.label} className="flex items-center justify-between border rounded-2xl px-4 py-3">
+                    <span className="text-gray-800 font-medium">{doc.label}</span>
+                    <span
+                      className={`flex items-center gap-2 text-sm font-semibold ${
+                        doc.uploaded ? 'text-green-600' : 'text-orange-500'
+                      }`}
+                    >
+                      {doc.uploaded ? <FiCheck /> : '⏳'}
+                      {doc.uploaded ? 'Uploaded' : 'Pending'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full lg:w-72 border border-gray-200 rounded-2xl p-5 space-y-3 bg-gray-50">
+            <h4 className="text-lg font-semibold text-gray-900">Next Steps</h4>
+            <ul className="space-y-2 text-sm text-gray-600">
+              <li>We’ll review your documents within 24–36 hours.</li>
+              <li>You will receive an email once your verification is complete.</li>
+              <li>If additional documents are needed, we’ll notify you.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex justify-between pt-6 border-t border-gray-200">
+          <button
+            onClick={handleSummaryBack}
+            className="px-8 py-3 rounded-full border border-gray-300 text-gray-700 font-medium hover:border-gray-400 transition-colors"
+          >
+            Back
+          </button>
+          <button
+            onClick={handleDashboardRedirect}
+            className="bg-[#1d236b] text-white px-8 py-3 rounded-full font-medium hover:bg-[#151a4a] transition-colors"
+          >
+            Go to Dashboard
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  const renderPendingDashboard = () => {
+    const heroImage = "/assests/49f555cdd6a046078f7f2a1e0a835fc0c68a4e3a.jpg";
+    const businessName = formData.businessName?.trim() || 'Karwan Tours';
+    const locationDisplay = [formData.city, formData.personCountry].filter(Boolean).join(', ') || 'Notting Hill, London';
+    const greetingName = businessName || formData.personCountry || 'Suneel';
+    const businessInitials = businessName
+      .split(' ')
+      .filter(Boolean)
+      .map(word => word[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'EW';
+
+    const tabs = ['Dashboard', 'Listings', 'Availability', 'Bookings', 'Insights', 'Finance'];
+    const pendingSidebarProfile = {
+      name: businessName || 'Edward William',
+      location: 'Notting Hill, London',
+      id: '00032123'
+    };
+
+    const renderSupplierHeader = () => (
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-4">
+            <div className="flex items-center">
+              <img
+                src="/assests/logo1.png"
+                alt="TripsAdora Logo"
+                className="h-12 w-auto"
+              />
+            </div>
+
+            <nav className="hidden md:flex space-x-8 text-sm font-medium">
+              <button 
+                onClick={handleVerificationMessage}
+                className="text-[#1d236b] relative cursor-pointer hover:opacity-80 transition-opacity"
+              >
+                Home
+                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-[#1d236b]" />
+              </button>
+              <button 
+                onClick={handleVerificationMessage}
+                className="text-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
+              >
+                FAQs
+              </button>
+              <button 
+                onClick={handleVerificationMessage}
+                className="text-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
+              >
+                Support
+              </button>
+            </nav>
+
+            <div className="flex items-center space-x-6">
+              <button 
+                onClick={handleVerificationMessage}
+                className="relative p-2 text-gray-700 cursor-pointer hover:opacity-80 transition-opacity"
+              >
+                <FiMessageSquare className="w-6 h-6" />
+              </button>
+
+              <button 
+                onClick={handleVerificationMessage}
+                className="relative p-2 text-gray-700 cursor-pointer hover:opacity-80 transition-opacity"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </button>
+
+              <div className="flex items-center space-x-2 text-gray-700">
+                <span className="text-sm font-medium">EN</span>
+                <FiChevronDown size={14} />
+              </div>
+
+              <div className="flex items-center space-x-3 bg-[#1d236b] text-white px-4 py-2 rounded-full">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#1d236b] font-semibold">
+                  {businessInitials}
+                </div>
+                <div className="text-left leading-tight">
+                  <p className="text-sm font-semibold">{businessName}</p>
+                  <p className="text-xs text-blue-200">
+                    {locationDisplay} • ID 00032123
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+
+    const renderSupplierFooter = () => (
+      <footer className="bg-[#1d236b] text-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Know About us</h3>
+              <ul className="space-y-2 text-white/90 text-sm">
+                <li>About us</li>
+                <li>Careers</li>
+                <li>Contact</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Explore</h3>
+              <ul className="space-y-2 text-white/90 text-sm">
+                <li>Destinations</li>
+                <li>Experiences</li>
+                <li>Tours</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Help & Support</h3>
+              <ul className="space-y-2 text-white/90 text-sm">
+                <li>FAQ</li>
+                <li>Contact Support</li>
+                <li>Privacy Policy</li>
+                <li>Refund Policy</li>
+                <li>Safety Guidelines</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Payments & Settings</h3>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {['AMEX', 'Master', 'Visa', 'Apple', 'PayPal', 'Google'].map(label => (
+                  <div key={label} className="w-16 h-8 bg-white rounded border border-gray-300 flex items-center justify-center">
+                    <span className="text-[#1d236b] font-bold text-xs">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Stay Connected</h3>
+              <p className="text-sm text-white/80">Get travel deals & inspiration</p>
+              <div className="flex max-w-xs mt-3">
+                <input
+                  type="email"
+                  placeholder="Enter your email"
+                  className="flex-1 px-3 py-2 bg-white/20 text-white placeholder-white border border-white/30 rounded-l-lg focus:outline-none"
+                />
+                <button className="px-4 py-2 bg-white/30 hover:bg-white/40 rounded-r-lg transition-colors">
+                  ✉️
+                </button>
+              </div>
+              <div className="flex space-x-3 mt-4">
+                {['IG', 'IN', 'FB', 'TW'].map(label => (
+                  <div key={label} className="w-8 h-8 border-2 border-white rounded-full flex items-center justify-center text-xs font-semibold">
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-3 mt-6 text-sm">
+                <div>
+                  <h4 className="font-semibold mb-2">Language</h4>
+                  <div className="bg-white text-black px-3 py-2 rounded inline-flex items-center gap-2">
+                    <span>US English</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Currency</h4>
+                  <div className="bg-white text-black px-3 py-2 rounded inline-flex items-center gap-2">
+                    <span>$ USD - US Dollar</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-white/20 mt-12 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center text-sm text-white/80">
+              <p>©2025 TripsAdora. All rights reserved.</p>
+              <div className="flex items-center space-x-6 text-xs mt-4 md:mt-0">
+                <span>Secure Booking</span>
+                <span>10M+ Travels</span>
+                <span>+1-800-Travel</span>
+                <span>24/7 Support</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+    );
+
+    return (
+      <div className="min-h-screen bg-white text-[#1d236b] relative">
+        {renderSupplierHeader()}
+
+        {/* Static Dashboard Navigation */}
+        <div className="max-w-4xl mx-auto px-6 mt-8">
+          <div className="bg-[#f6f6f8] rounded-full px-6 py-3 flex flex-wrap items-center justify-center gap-4 text-sm font-semibold text-[#1d1c23]">
+            {[
+              { label: 'Dashboard', active: true },
+              { label: 'Listings' },
+              { label: 'Availability' },
+              { label: 'Bookings' },
+              { label: 'Insights' },
+              { label: 'Finance' }
+            ].map(tab => (
+              <button
+                key={tab.label}
+                onClick={handleVerificationMessage}
+                className={`px-5 py-1.5 rounded-full border border-[#c7c1c1] cursor-pointer hover:opacity-80 transition-opacity ${
+                  tab.active ? 'bg-[#1d2a6f] text-white border-[#1d2a6f]' : 'text-[#1d1c23]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Hero Section */}
+        <section className="mt-10">
+          {/* Hero Card */}
+          <div className="w-full px-6" style={{ paddingRight: 'calc(320px + 2rem)', paddingLeft: '1.5rem' }}>
+            <div
+              className="rounded-[32px] overflow-hidden shadow-2xl relative min-h-[460px] w-full"
+              style={{
+                backgroundImage: `url(${heroImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            >
+              <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px]" />
+              <div className="relative z-10 p-10 space-y-6 text-[#1d1c23]">
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-gray-500">Hi {greetingName},</p>
+                  <h2 className="text-3xl font-extrabold text-[#1b1b1f]">Welcome to TripsAdora!</h2>
+                  <p className="text-lg text-gray-600">
+                    Thank you for creating an account on TripsAdora.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="font-semibold text-[#1b1b1f]">Your product setup progress</p>
+                  <div className="h-3 bg-white border border-[#c5cbe8] rounded-full overflow-hidden">
+                    <div className="h-full w-0 bg-[#1d236b]" />
+                  </div>
+                  <span className="text-sm text-gray-500">0%</span>
+                </div>
+
+                <div className="space-y-4 text-gray-600 leading-relaxed">
+                  <p>
+                    Upload your first product to showcase your services to thousands of travellers searching for unique
+                    experiences. Include key details like description, pricing, photos, and highlights.
+                  </p>
+                  <p>
+                    A complete product listing builds trust, boosts visibility, and helps you start earning faster.
+                  </p>
+                  <p className="italic font-medium text-gray-700">
+                    Get started now and make the most of your presence on our platform!
+                  </p>
+                </div>
+
+                <button 
+                  onClick={handleVerificationMessage}
+                  className="px-6 py-3 rounded-full bg-[#1d236b] text-white font-semibold shadow-md w-fit cursor-pointer hover:opacity-90 transition-opacity"
+                >
+                  Click to Add first Product
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Blue Sidebar - positioned absolutely to extreme right, from header to before footer */}
+        <div 
+          className="absolute right-0 top-0 w-80 bg-[#14255c] text-white shadow-2xl flex flex-col z-50" 
+          style={{
+            top: '0px',
+            bottom: '600px',
+            borderLeft: '1px solid rgba(20, 37, 92, 0.5)'
+          }}
+        >
+          {/* Available Balance and Profile */}
+          <div className="bg-[#0f1c4a] px-6 py-6 border-b border-white/10">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <p className="text-xs text-white/70">Available Balance</p>
+                <p className="text-2xl font-semibold">$0</p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto rounded-full overflow-hidden border-2 border-white">
+                  <img src={heroImage} alt="Supplier profile" className="w-full h-full object-cover" />
+                </div>
+                <p className="text-xs mt-2">ID 00032123</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+            {/* Supplier Mode Toggle */}
+            <div className="bg-[#1f3270] rounded-full px-4 py-2 flex items-center justify-between text-sm font-medium">
+              <span>Supplier mode</span>
+              <button
+                onClick={handleSupplierModeToggle}
+                className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${
+                  supplierMode ? 'bg-green-500' : 'bg-[#0f1c4a]'
+                }`}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${
+                  supplierMode ? 'right-0.5' : 'left-0.5'
+                }`}></div>
+              </button>
+            </div>
+
+            {/* User Profile */}
+            <div className="bg-[#1f3270] rounded-3xl p-5 space-y-4 border border-white/10">
+              <div className="mb-4">
+                <p className="text-sm font-semibold text-white">{businessName || 'Supplier'}</p>
+                <p className="text-xs text-white/80 mt-1">{locationDisplay}</p>
+              </div>
+              <div className="flex items-center mb-4">
+                <span className="text-xs text-white">{businessName || 'TripsAdora'}</span>
+                <FiCheck className="ml-2 text-green-400" size={12} />
+              </div>
+              
+              {/* Divider */}
+              <div className="border-t border-white/20 mb-4"></div>
+              
+              {/* Booking Stats */}
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-white/80 mb-2">Today's bookings</p>
+                  <p className="text-lg font-bold text-white mb-1">0</p>
+                  <p className="text-xs text-green-400">Active</p>
+                </div>
+                <div>
+                  <p className="text-xs text-white/80 mb-2">Tomorrow's bookings</p>
+                  <p className="text-lg font-bold text-white mb-1">0</p>
+                  <p className="text-xs text-green-400">Confirmed</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {renderSupplierFooter()}
+      </div>
+    );
+  };
 
   const renderContent = () => {
     switch (currentStep) {
@@ -685,11 +1529,15 @@ const SupplierRegistrationPage = () => {
       case 3:
         return renderStepThree();
       case 4:
-        return renderPlaceholder('Terms & Conditions');
+        return renderStepFour();
       default:
         return null;
     }
   };
+
+  if (showDashboardView) {
+    return renderPendingDashboard();
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#c6dbfa' }}>
@@ -708,7 +1556,7 @@ const SupplierRegistrationPage = () => {
       </div>
 
       {/* Main Content Section */}
-      <div className="flex items-center justify-center p-4 mt-8">
+      <div className="p-4 mt-8 flex justify-center">
         <div className="bg-white rounded-lg shadow-lg w-full max-w-6xl p-8">
 
           {/* Progress Stepper */}
@@ -750,6 +1598,18 @@ const SupplierRegistrationPage = () => {
           </div>
         </div>
       </div>
+
+      {showSubmissionSummary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 sm:px-6">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={handleSummaryBack}
+          ></div>
+          <div className="relative z-50 w-full max-w-3xl">
+            {renderSubmissionSummary()}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
