@@ -1404,6 +1404,7 @@ const SupplierRegistrationPage = () => {
                 </div>
               </div>
             </div>
+            </div>
           </div>
         </div>
         
