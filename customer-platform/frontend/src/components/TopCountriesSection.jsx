@@ -1,10 +1,33 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import ExperienceCard from './ExperienceCard'
 
 const TopCountriesSection = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [activeTab, setActiveTab] = useState('destinations')
+
+  useEffect(() => {
+    if (location.hash === '#top-destinations') {
+      setActiveTab('destinations')
+      // Small delay to ensure tab switch completes before scrolling
+      setTimeout(() => {
+        const el = document.getElementById('top-countries-section')
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 150)
+    } else if (location.hash === '#top-attractions') {
+      setActiveTab('attractions')
+      // Small delay to ensure tab switch completes before scrolling
+      setTimeout(() => {
+        const el = document.getElementById('top-countries-section')
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 150)
+    }
+  }, [location.hash])
 
   // Top Destinations data (same as DestinationsDropdown)
   const destinations = [
@@ -25,7 +48,7 @@ const TopCountriesSection = () => {
   const currentCards = activeTab === 'destinations' ? destinations : attractions
 
   return (
-    <section className="py-12 bg-gray-200">
+    <section id="top-countries-section" className="py-12 bg-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Tabs header */}
         <div className="flex items-center gap-3 mb-6">
@@ -50,9 +73,28 @@ const TopCountriesSection = () => {
             Top Attractions
           </button>
         </div>
-
+        <div id="top-destinations" style={{ display: activeTab === 'destinations' ? 'block' : 'none' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {destinations.map((c, idx) => (
+              <div 
+                key={c.id}
+                onClick={() => navigate(c.to)}
+                className="cursor-pointer transform hover:scale-105 transition-transform duration-200"
+              >
+                <ExperienceCard 
+                  image={c.image} 
+                  title={`${c.name} ${c.description ? '- ' + c.description : ''}`} 
+                  price={c.price} 
+                  liked={idx % 2 === 0}
+                  id={c.id}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div id="top-attractions" style={{ display: activeTab === 'attractions' ? 'block' : 'none' }}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {currentCards.map((c, idx) => (
+            {attractions.map((c, idx) => (
             <div 
               key={c.id}
               onClick={() => navigate(c.to)}
@@ -67,6 +109,7 @@ const TopCountriesSection = () => {
               />
             </div>
           ))}
+          </div>
         </div>
       </div>
     </section>

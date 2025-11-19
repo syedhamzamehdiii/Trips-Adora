@@ -28,7 +28,7 @@ const PlacesSection = () => {
   ]
 
   return (
-    <section className="py-12 bg-gray-200">
+    <section id="places" className="py-12 bg-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl text-gray-900">An experience You'll never forget</h3>

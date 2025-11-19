@@ -118,7 +118,7 @@ const ToursSection = () => {
   }
 
   return (
-    <section className="py-16 bg-gray-200">
+    <section id="tours" className="py-16 bg-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold text-gray-900">Explore our tours</h2>
@@ -184,7 +184,7 @@ const ToursSection = () => {
           )}
         </div>
 
-        <div className="flex items-center justify-between mb-6">
+        <div id="recently-viewed" className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-semibold text-gray-900">Recently Viewed</h3>
           <Link to="/search" className="text-sm text-gray-600 hover:text-gray-800">See more</Link>
         </div>

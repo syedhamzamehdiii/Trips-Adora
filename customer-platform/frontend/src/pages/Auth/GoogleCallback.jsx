@@ -8,41 +8,41 @@ const GoogleCallback = () => {
   const { updateUser, prefetchProfileData } = useAuth();
 
   useEffect(() => {
-    let isHandled = false;
-
-    const handleCallback = async () => {
-      if (isHandled) return;
+      let isHandled = false;
+      
+      const handleCallback = async () => {
+        if (isHandled) return;
       isHandled = true;
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const error = urlParams.get('error');
-
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const error = urlParams.get('error');
+        
       const finishAndNavigate = (path) => {
         window.history.replaceState({}, document.title, window.location.pathname);
         navigate(path, { replace: true });
       };
 
-      if (error) {
-        console.log('Google authentication was cancelled');
+          if (error) {
+            console.log('Google authentication was cancelled');
         finishAndNavigate('/login');
-        return;
-      }
+            return;
+          }
 
-      if (!code) {
-        console.log('No authorization code received');
+          if (!code) {
+            console.log('No authorization code received');
         finishAndNavigate('/login');
-        return;
-      }
+            return;
+          }
 
       try {
-        const redirectUri = window.location.origin + '/auth/google/callback';
-        const response = await authService.googleLoginWithCode(code, redirectUri);
-
-        window.history.replaceState({}, document.title, window.location.pathname);
-
-        if (response && response.success) {
-          updateUser(response.user);
+          const redirectUri = window.location.origin + '/auth/google/callback';
+          const response = await authService.googleLoginWithCode(code, redirectUri);
+          
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          if (response && response.success) {
+            updateUser(response.user);
 
           const resolvedUserId =
             response.user?.id ||
@@ -51,19 +51,19 @@ const GoogleCallback = () => {
             prefetchProfileData(resolvedUserId);
           }
 
-          navigate('/dashboard', { replace: true });
-        } else {
-          console.log('Google authentication failed');
-          navigate('/login', { replace: true });
-        }
+            navigate('/dashboard', { replace: true });
+          } else {
+            console.log('Google authentication failed');
+            navigate('/login', { replace: true });
+          }
       } catch (err) {
         console.error('Google callback error:', err);
-        window.history.replaceState({}, document.title, window.location.pathname);
-        navigate('/login', { replace: true });
-      }
-    };
+          window.history.replaceState({}, document.title, window.location.pathname);
+          navigate('/login', { replace: true });
+        }
+      };
 
-    handleCallback();
+      handleCallback();
   }, [navigate, prefetchProfileData, updateUser]);
 
   return (

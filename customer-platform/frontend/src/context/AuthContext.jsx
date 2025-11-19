@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
 
           if (userData) {
             const userId = resolveUserId(userData)
-            localStorage.setItem('customer_profile_user_id', userId)
+              localStorage.setItem('customer_profile_user_id', userId)
             setUser(userData)
             warmProfileCaches(userId)
           } else {
@@ -105,7 +105,7 @@ export const AuthProvider = ({ children }) => {
       
       if (response.success) {
         const userId = resolveUserId(response.user)
-        localStorage.setItem('customer_profile_user_id', userId)
+          localStorage.setItem('customer_profile_user_id', userId)
         setUser(response.user)
         warmProfileCaches(userId)
         return { success: true }
@@ -127,7 +127,7 @@ export const AuthProvider = ({ children }) => {
       
       if (response.success) {
         const userId = resolveUserId(response.user)
-        localStorage.setItem('customer_profile_user_id', userId)
+          localStorage.setItem('customer_profile_user_id', userId)
         setUser(response.user)
         warmProfileCaches(userId)
         return { success: true }

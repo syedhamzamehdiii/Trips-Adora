@@ -19,7 +19,7 @@ const SearchSection = () => {
   }
 
   return (
-    <section className="relative -mt-12 z-20">
+    <section id="search" className="relative -mt-12 z-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-3xl shadow-2xl p-10">
           {/* Title */}

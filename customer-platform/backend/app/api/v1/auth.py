@@ -439,7 +439,7 @@ async def google_callback(request: GoogleCallbackRequest):
         
         print("[GoogleOAuth] Parsing token response…")
         _log_google_event("Parsing Google token response")
-
+        
         # Get user info from Google
         id_token = token_json.get("id_token")
         
@@ -453,7 +453,7 @@ async def google_callback(request: GoogleCallbackRequest):
             )
         
         print("[GoogleOAuth] Decoding ID token…")
-
+        
         # Decode the ID token (contains user info)
         try:
             decoded_token = jwt.decode(id_token, options={"verify_signature": False})
@@ -481,25 +481,25 @@ async def google_callback(request: GoogleCallbackRequest):
         _log_google_event("Looking up user in database")
 
         try:
-            # Check if user already exists
-            user = await User.find_one(User.email == email)
-            
-            if not user:
-                # Create new user from Google data
-                user = User(
-                    email=email,
-                    full_name=name or email.split('@')[0],
-                    role=UserRole.CUSTOMER,
-                    is_active=True,
-                    is_verified=True,
-                    hashed_password="",  # No password for Google users
-                )
-                await user.insert()
-            else:
-                # Update existing user's name if Google provides it and it's different
-                if name and name.strip() and user.full_name != name:
-                    user.full_name = name
-                    await user.save()
+        # Check if user already exists
+        user = await User.find_one(User.email == email)
+        
+        if not user:
+            # Create new user from Google data
+            user = User(
+                email=email,
+                full_name=name or email.split('@')[0],
+                role=UserRole.CUSTOMER,
+                is_active=True,
+                is_verified=True,
+                hashed_password="",  # No password for Google users
+            )
+            await user.insert()
+        else:
+            # Update existing user's name if Google provides it and it's different
+            if name and name.strip() and user.full_name != name:
+                user.full_name = name
+                await user.save()
         except Exception as exc:
             logger.exception("Failed ensuring user during Google OAuth for %s", email)
             _log_google_event(f"Failed ensuring user for {email}: {exc}")
@@ -510,13 +510,13 @@ async def google_callback(request: GoogleCallbackRequest):
         
         print("[GoogleOAuth] Ensuring profile and wallet…")
         _log_google_event("Scheduling background profile/wallet work")
-
+        
         # Auto-create profile and wallet for new/existing user
         user_id_str = str(user.id)
         async def setup_profile_and_wallet():
             _log_google_event(f"Background profile/wallet setup started for {user_id_str}")
             profile = None
-            try:
+        try:
                 profile = await asyncio.wait_for(ProfileService.ensure_profile(user_id_str), timeout=5)
             except asyncio.TimeoutError:
                 _log_google_event(f"Profile creation timed out for {user_id_str}")
@@ -536,7 +536,7 @@ async def google_callback(request: GoogleCallbackRequest):
                         updated_user_section["name"] = trimmed_name
                     name_parts = trimmed_name.split(' ', 1)
                     first_name = name_parts[0] if len(name_parts) > 0 else trimmed_name
-                    last_name = name_parts[1] if len(name_parts) > 1 else ''
+                last_name = name_parts[1] if len(name_parts) > 1 else ''
                     if first_name and not (profile_user.get("first_name") or "").strip():
                         updated_user_section["first_name"] = first_name
                     if last_name and not (profile_user.get("last_name") or "").strip():
@@ -565,7 +565,7 @@ async def google_callback(request: GoogleCallbackRequest):
             except asyncio.TimeoutError:
                 _log_google_event(f"Wallet creation timed out for {user_id_str}")
                 logger.warning(f"Wallet creation timed out for user {user_id_str}")
-            except Exception as e:
+        except Exception as e:
                 _log_google_event(f"Failed to ensure wallet for {user_id_str}: {e}")
                 logger.warning(f"Failed to ensure wallet for user {user_id_str}: {e}")
 
@@ -573,14 +573,14 @@ async def google_callback(request: GoogleCallbackRequest):
         
         print("[GoogleOAuth] Creating tokens and preparing response…")
         _log_google_event("Creating tokens and preparing response")
-
+        
         # Create tokens
         access_token = create_access_token(data={"sub": user_id_str})
         refresh_token = create_refresh_token(data={"sub": user_id_str})
         
         print("[GoogleOAuth] Returning success response.")
         _log_google_event("Returning success response")
-
+        
         return {
             "token": access_token,
             "refresh_token": refresh_token,

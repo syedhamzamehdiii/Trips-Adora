@@ -41,6 +41,7 @@ import CustomerSupportPage from './pages/CustomerSupportPage'
 import CustomerPrivacyPolicy from './pages/CustomerPrivacyPolicy'
 import ContactUsPage from './pages/ContactUsPage'
 import ChatPage from './pages/ChatPage'
+import SitemapPage from './pages/SitemapPage'
 
 function App() {
   return (
@@ -92,6 +93,7 @@ function App() {
         <Route path="/contact" element={<ContactUsPage />} />
         <Route path="/faq" element={<CustomerFAQPage />} />
         <Route path="/support" element={<CustomerSupportPage />} />
+        <Route path="/sitemap" element={<SitemapPage />} />
         <Route path="/privacy" element={<CustomerPrivacyPolicy />} />
         </Routes>
       </div>
