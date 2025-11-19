@@ -1,0 +1,366 @@
+/* Finance Component Styles */
+.finance-container {
+  font-family: 'Poppins', sans-serif;
+  width: 100%;
+}
+
+.finance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.finance-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #27804A;
+}
+
+.export-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  color: white;
+  font-weight: 500;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  background-color: #284078;
+  border: none;
+  cursor: pointer;
+}
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.kpi-card {
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+}
+
+.kpi-card-revenue {
+  background-color: #E8F5E9;
+}
+
+.kpi-card-commission {
+  background-color: #A9B3C9;
+}
+
+.kpi-card-payouts {
+  background-color: #E5E267;
+}
+
+.kpi-value {
+  font-size: 2.25rem;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+}
+
+.kpi-value-revenue {
+  color: #27804A;
+}
+
+.kpi-value-commission {
+  color: #284078;
+}
+
+.kpi-value-payouts {
+  color: black;
+}
+
+.kpi-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.kpi-label-revenue {
+  color: #27804A;
+}
+
+.kpi-label-commission {
+  color: #284078;
+}
+
+.kpi-label-payouts {
+  color: black;
+}
+
+.kpi-subtitle {
+  font-size: 0.75rem;
+  margin-bottom: 1rem;
+  color: #6B7280;
+}
+
+.kpi-trend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.kpi-trend-revenue {
+  color: #27804A;
+}
+
+.kpi-trend-commission {
+  color: #284078;
+}
+
+.kpi-trend-payouts {
+  color: black;
+}
+
+/* Chart Section */
+.chart-container {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #E5E7EB;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chart-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.month-dropdown {
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #D1D5DB;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  color: #6B7280;
+  background-color: white;
+  cursor: pointer;
+}
+
+.chart-wrapper {
+  height: 350px;
+  width: 100%;
+}
+
+/* Table Section */
+.table-container {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #E5E7EB;
+}
+
+.table-title {
+  font-size: 1.125rem;
+  font-weight: bold;
+  color: #111827;
+  margin-bottom: 0.25rem;
+}
+
+.table-subtitle {
+  font-size: 0.875rem;
+  color: #6B7280;
+  margin-bottom: 1rem;
+}
+
+.finance-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-header {
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.table-header-cell {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  border-right: 1px solid #E5E7EB;
+}
+
+.table-row {
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.table-cell {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #111827;
+  border-right: 1px solid #E5E7EB;
+}
+
+.month-red {
+  color: #FF0000;
+  font-weight: 600;
+}
+
+.month-green {
+  color: #27804A;
+  font-weight: 600;
+}
+
+.commission-cell {
+  color: #27804A;
+  font-weight: 600;
+  background-color: #FFE3E3;
+}
+
+.payout-cell {
+  color: #FF0000;
+  font-weight: 600;
+}
+
+.payout-cell-green {
+  color: #27804A;
+  font-weight: 600;
+}
+
+.bank-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #27804A;
+}
+
+.bank-badge-gray {
+  background-color: #A9B3C9;
+}
+
+.bank-badge-green {
+  background-color: #E3FFE4;
+}
+
+.withdraw-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #27804A;
+}
+
+.withdraw-badge-gray {
+  background-color: #A9B3C9;
+}
+
+.withdraw-badge-green {
+  background-color: #E3FFE4;
+}
+
+/* Pagination */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.pagination-button {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.pagination-button-active {
+  background-color: #284078;
+  color: white;
+}
+
+.pagination-button-inactive {
+  color: #374151;
+}
+
+.pagination-button-inactive:hover {
+  background-color: #F3F4F6;
+}
+
+.pagination-arrow {
+  padding: 0.5rem;
+  color: #4B5563;
+}
+
+.pagination-arrow:hover {
+  color: #111827;
+}
+
+.pagination-arrow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-select {
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #D1D5DB;
+  font-size: 0.875rem;
+  background-color: white;
+}
+
+/* Search Section */
+.search-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.search-input-wrapper {
+  flex: 1;
+  position: relative;
+  min-width: 200px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  padding-right: 2.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #D1D5DB;
+}
+
+.search-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #4B5563;
+}
+
