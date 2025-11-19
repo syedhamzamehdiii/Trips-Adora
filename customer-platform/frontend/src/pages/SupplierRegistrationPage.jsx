@@ -1407,6 +1407,7 @@ const SupplierRegistrationPage = () => {
             </div>
           </div>
         </div>
+        //maham saeeddddddddd
         
         {/* Bottom Footer Bar */}
         <div className="border-t border-white/20 mt-12 pt-8">
