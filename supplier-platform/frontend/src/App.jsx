@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { SettingsProvider } from './context/SettingsContext'
 import { LoadScript } from '@react-google-maps/api'
 import ScrollToTop from './components/common/ScrollToTop'
 
@@ -207,8 +208,10 @@ function App() {
       loadingElement={<div>Loading Maps...</div>}
     >
       <AuthProvider>
-        <GlobalCacheSync />
-        <AppRoutes />
+        <SettingsProvider>
+          <GlobalCacheSync />
+          <AppRoutes />
+        </SettingsProvider>
       </AuthProvider>
     </LoadScript>
   )

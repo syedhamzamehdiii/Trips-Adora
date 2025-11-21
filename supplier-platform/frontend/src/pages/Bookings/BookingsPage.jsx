@@ -375,7 +375,7 @@ const BookingsPage = () => {
           </button>
           <button 
             onClick={() => navigate('/products/create')}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-[#1d236b] text-white rounded-lg hover:bg-[#151a4a] transition-colors"
           >
             <FiPlus size={16} />
             <span>Create New Product</span>
@@ -402,7 +402,7 @@ const BookingsPage = () => {
             placeholder="Search bookings..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-transparent"
           />
         </div>
         <div className="flex items-center space-x-3">
@@ -592,7 +592,7 @@ const BookingsPage = () => {
                         onClick={() => handlePageChange(page)}
                         className={`px-3 py-1 rounded text-sm transition-colors ${
                           currentPage === page
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-[#1d236b] text-white'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
                       >
@@ -607,7 +607,7 @@ const BookingsPage = () => {
                     onClick={() => handlePageChange(page)}
                     className={`px-3 py-1 rounded text-sm transition-colors ${
                       currentPage === page
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-[#1d236b] text-white'
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
@@ -769,7 +769,7 @@ const BookingsPage = () => {
                   setShowFilterModal(false);
                   setCurrentPage(1); // Reset to first page when filters applied
                 }}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex-1 px-4 py-2 bg-[#1d236b] text-white rounded-lg hover:bg-[#151a4a] transition-colors"
               >
                 Apply Filters
               </button>

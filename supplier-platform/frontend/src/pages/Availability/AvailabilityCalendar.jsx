@@ -615,7 +615,7 @@ const AvailabilityCalendar = () => {
               <FiUpload className="w-4 h-4" />
               <span>Export Schedule</span>
             </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button className="flex items-center space-x-2 px-4 py-2 bg-[#1d236b] text-white rounded-lg hover:bg-[#151a4a] transition-colors">
               <FiPlus className="w-4 h-4" />
               <span>Add Availability</span>
             </button>
@@ -644,7 +644,7 @@ const AvailabilityCalendar = () => {
                 className="hover:scale-110 transition-transform disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FiRefreshCw 
-                  className={`w-8 h-8 text-blue-600 mx-auto mb-2 transition-all duration-300 ${isRefreshing ? 'animate-spin' : ''}`} 
+                  className={`w-8 h-8 text-[#1d236b] mx-auto mb-2 transition-all duration-300 ${isRefreshing ? 'animate-spin' : ''}`} 
                 />
               </button>
               <div className="text-gray-600">
@@ -667,7 +667,7 @@ const AvailabilityCalendar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowProductDropdown(!showProductDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white"
                 >
                   <div className="flex items-center space-x-2">
                     <FiSearch className="w-4 h-4 text-gray-400" />
@@ -689,7 +689,7 @@ const AvailabilityCalendar = () => {
                       >
                         <input 
                           type="checkbox" 
-                          className="mr-3 text-blue-600 focus:ring-blue-500"
+                          className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
                           checked={selectedProducts.length === productOptions.length}
                           onChange={() => {}} // Handled by onClick
                         />
@@ -699,7 +699,7 @@ const AvailabilityCalendar = () => {
                         <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
                           <input 
                             type="checkbox" 
-                            className="mr-3 text-blue-600 focus:ring-blue-500"
+                            className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
                             checked={selectedProducts.includes(option.id)}
                             onChange={() => handleOptionToggle(option.id, selectedProducts, setSelectedProducts)}
                           />
@@ -724,7 +724,7 @@ const AvailabilityCalendar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowVehicleDropdown(!showVehicleDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white"
                 >
                   <div className="flex items-center space-x-2">
                     <FiTruck className="w-4 h-4 text-gray-400" />
@@ -746,7 +746,7 @@ const AvailabilityCalendar = () => {
                       >
                         <input 
                           type="checkbox" 
-                          className="mr-3 text-blue-600 focus:ring-blue-500"
+                          className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
                           checked={selectedVehicles.length === vehicleOptions.length}
                           onChange={() => {}} // Handled by onClick
                         />
@@ -756,7 +756,7 @@ const AvailabilityCalendar = () => {
                         <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
                           <input 
                             type="checkbox" 
-                            className="mr-3 text-blue-600 focus:ring-blue-500"
+                            className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
                             checked={selectedVehicles.includes(option.id)}
                             onChange={() => handleOptionToggle(option.id, selectedVehicles, setSelectedVehicles)}
                           />
@@ -783,7 +783,7 @@ const AvailabilityCalendar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowGroupDropdown(!showGroupDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white"
                 >
                   <div className="flex items-center space-x-2">
                     <FiUsers className="w-4 h-4 text-gray-400" />
@@ -805,7 +805,7 @@ const AvailabilityCalendar = () => {
                       >
                         <input 
                           type="checkbox" 
-                          className="mr-3 text-blue-600 focus:ring-blue-500"
+                          className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
                           checked={selectedGroupSizes.length === groupSizeOptions.length}
                           onChange={() => {}} // Handled by onClick
                         />
@@ -815,7 +815,7 @@ const AvailabilityCalendar = () => {
                         <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
                           <input 
                             type="checkbox" 
-                            className="mr-3 text-blue-600 focus:ring-blue-500"
+                            className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
                             checked={selectedGroupSizes.includes(option.id)}
                             onChange={() => handleOptionToggle(option.id, selectedGroupSizes, setSelectedGroupSizes)}
                           />
@@ -840,7 +840,7 @@ const AvailabilityCalendar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowTimeDropdown(!showTimeDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white"
                 >
                   <div className="flex items-center space-x-2">
                     <FiClock className="w-4 h-4 text-gray-400" />
@@ -862,7 +862,7 @@ const AvailabilityCalendar = () => {
                       >
                         <input 
                           type="checkbox" 
-                          className="mr-3 text-blue-600 focus:ring-blue-500"
+                          className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
                           checked={selectedTimeSlots.length === timeSlotOptions.length}
                           onChange={() => {}} // Handled by onClick
                         />
@@ -872,7 +872,7 @@ const AvailabilityCalendar = () => {
                         <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
                           <input 
                             type="checkbox" 
-                            className="mr-3 text-blue-600 focus:ring-blue-500"
+                            className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
                             checked={selectedTimeSlots.includes(option.id)}
                             onChange={() => handleOptionToggle(option.id, selectedTimeSlots, setSelectedTimeSlots)}
                           />
@@ -992,7 +992,7 @@ const AvailabilityCalendar = () => {
                             }
                           }}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1d236b]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1d236b]"></div>
                       </label>
                     </div>
                   </div>
@@ -1029,7 +1029,7 @@ const AvailabilityCalendar = () => {
                       onClick={() => handlePageChange(page)}
                       className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                         currentPage === page
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-[#1d236b] text-white'
                           : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                       }`}
                     >
@@ -1057,7 +1057,7 @@ const AvailabilityCalendar = () => {
         )}
 
         {/* Status Summary */}
-        <div className="bg-blue-50 rounded-lg p-6">
+        <div className="bg-[#1d236b]/10 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Summary</h3>
           <div className="flex justify-between items-center">
             <div>

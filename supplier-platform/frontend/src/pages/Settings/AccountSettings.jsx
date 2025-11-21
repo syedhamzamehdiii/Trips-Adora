@@ -12,16 +12,16 @@ const AccountSettings = () => {
   const { settings: contextSettings, updateSettings } = useSettings();
   // User profile data
   const [profileData, setProfileData] = useState({
-    publicName: 'Your Public Name',
-    legalName: 'Your Legal Name',
-    email: 'you@gmail.com',
-    location: 'Notting Hill, London',
+    publicName: '',
+    legalName: '',
+    email: '',
+    location: '',
     accountType: 'Private individual',
-    streetAddress: '1 Chome-1 Nishi-Shinjuku, Shinjuku City, Tokyo',
-    zipCode: '160-0022',
-    city: 'Shinjuku',
-    state: 'Tokyo Prefecture',
-    country: 'Japan',
+    streetAddress: '',
+    zipCode: '',
+    city: '',
+    state: '',
+    country: '',
     contactType: 'DG number',
     contactValue: null
   });
@@ -363,31 +363,61 @@ const AccountSettings = () => {
   const infoSectionRef = useRef(null);
   const [showAccountVerification, setShowAccountVerification] = useState(false);
   const [editableInfo, setEditableInfo] = useState({
-    publicName: 'Your Public Name',
-    legalName: 'Your Legal Name',
-    email: 'example@gmail.com',
-    streetAddress: '1 Chome-1 Nishi-Shinjuku, Shinjuku City, Tokyo',
-    zipCode: '160-0022',
-    city: 'Shinjuku',
-    state: 'Tokyo Prefecture',
-    country: 'Japan'
+    publicName: '',
+    legalName: '',
+    email: '',
+    streetAddress: '',
+    zipCode: '',
+    city: '',
+    state: '',
+    country: ''
   });
 
-  // Derived profile completion (computed from current state)
-  const computeCompletion = () => {
+  // Derived profile completion (computed from current state) - reactive to all changes
+  const computeCompletion = useCallback(() => {
+    // Default/placeholder values to check against
+    const defaultValues = {
+      publicName: ['Your Public Name', ''],
+      legalName: ['Your Legal Name', ''],
+      email: ['example@gmail.com', 'you@gmail.com', ''],
+      streetAddress: ['1 Chome-1 Nishi-Shinjuku, Shinjuku City, Tokyo', ''],
+      zipCode: ['160-0022', ''],
+      city: ['Shinjuku', ''],
+      state: ['Tokyo Prefecture', ''],
+      country: ['Japan', '']
+    };
+    
+    // Check if a value is a default/placeholder value
+    const isDefaultValue = (field, value) => {
+      if (!value || !value.trim()) return true;
+      const defaults = defaultValues[field] || [];
+      return defaults.some(def => value.trim().toLowerCase() === def.toLowerCase());
+    };
+    
+    // Check if personal info is completed (not default values)
+    const hasValidPublicName = editableInfo.publicName?.trim() && !isDefaultValue('publicName', editableInfo.publicName);
+    const hasValidLegalName = editableInfo.legalName?.trim() && !isDefaultValue('legalName', editableInfo.legalName);
+    const hasValidEmail = editableInfo.email?.trim() && !isDefaultValue('email', editableInfo.email);
+    const personalInfoCompleted = hasValidPublicName && hasValidLegalName && hasValidEmail;
+    
+    // Check if location is completed (not default values)
+    const hasValidCity = editableInfo.city?.trim() && !isDefaultValue('city', editableInfo.city);
+    const hasValidCountry = editableInfo.country?.trim() && !isDefaultValue('country', editableInfo.country);
+    const locationCompleted = hasValidCity && hasValidCountry;
+    
     const items = [
-      { name: 'Personal Info', completed: Boolean(editableInfo.publicName && editableInfo.legalName && editableInfo.email), percentage: 10 },
-      { name: 'Setup account', completed: true, percentage: 20 },
-      { name: 'Upload your photo', completed: Boolean(globalUserPhoto), percentage: 10 },
-      { name: 'Notifications', completed: notifications.billingAccounting || notifications.newBookings || notifications.faqs, percentage: 10 },
-      { name: 'Location', completed: Boolean(editableInfo.city && editableInfo.country), percentage: 10 },
-      { name: 'Biography', completed: false, percentage: 30 },
-      { name: 'Bank details', completed: true, percentage: 10 },
+      { name: 'Personal Info', completed: personalInfoCompleted, percentage: 10 },
+      { name: 'Setup account', completed: personalInfoCompleted, percentage: 20 },
+      { name: 'Upload your photo', completed: Boolean(globalUserPhoto || profilePhotoPreview), percentage: 10 },
+      { name: 'Notifications', completed: Boolean(notifications.billingAccounting || notifications.newBookings || notifications.faqs), percentage: 10 },
+      { name: 'Location', completed: locationCompleted, percentage: 10 },
+      { name: 'Bank details', completed: locationCompleted && personalInfoCompleted, percentage: 10 },
     ];
     const percentage = items.reduce((sum, i) => sum + (i.completed ? i.percentage : 0), 0);
     return { percentage, items };
-  };
-  const profileCompletion = useMemo(() => computeCompletion(), [editableInfo, notifications, globalUserPhoto]);
+  }, [editableInfo, notifications, globalUserPhoto, profilePhotoPreview]);
+  
+  const profileCompletion = useMemo(() => computeCompletion(), [computeCompletion]);
 
   // Required document validation flags
   const [docErrors, setDocErrors] = useState({ business: false, liability: false, logo: false });
@@ -469,7 +499,8 @@ const AccountSettings = () => {
   const handleInfoChange = (field, value) => {
     const next = { ...editableInfo, [field]: value };
     setEditableInfo(next);
-    // do not persist per keystroke for large text fields; debounce by using confirm button
+    // The useMemo for profileCompletion will automatically recalculate when editableInfo changes
+    // No need to persist on every keystroke - that happens on save
   };
 
   const handleFileUpload = async (type, event) => {
@@ -785,20 +816,20 @@ const AccountSettings = () => {
               />
               <label
                 htmlFor="profile-upload"
-                className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors"
+                className="absolute -bottom-2 -right-2 bg-[#1d236b] text-white p-2 rounded-full cursor-pointer hover:bg-[#151a4a] transition-colors"
               >
                 <FiUpload size={16} />
               </label>
             </div>
             <div className="text-center lg:text-left">
               <div className="flex flex-col lg:flex-row items-center lg:items-center space-y-2 lg:space-y-0 lg:space-x-3 mb-2">
-                <h2 className="text-2xl font-bold text-gray-900">{editableInfo.publicName || 'Edward William'}</h2>
-                <button onClick={handleEditInfo} className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
+                <h2 className="text-2xl font-bold text-gray-900">{editableInfo.publicName || 'User'}</h2>
+                <button onClick={handleEditInfo} className="text-[#1d236b] hover:text-[#151a4a] text-sm font-medium flex items-center">
                   <FiEdit size={14} className="mr-1" />
                   Edit
                 </button>
               </div>
-              <p className="text-gray-600">{editableInfo.city && editableInfo.country ? `${editableInfo.city}, ${editableInfo.country}` : (profileData.location || 'Notting Hill, London')}</p>
+              <p className="text-gray-600">{editableInfo.city && editableInfo.country ? `${editableInfo.city}, ${editableInfo.country}` : (profileData.location || 'Not specified')}</p>
             </div>
           </div>
 
@@ -816,7 +847,7 @@ const AccountSettings = () => {
             />
             <label
               htmlFor="photo-upload"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors mb-2"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#1d236b] hover:bg-[#151a4a] cursor-pointer transition-colors mb-2"
             >
               <FiUpload size={16} className="mr-2" />
               Upload new photo
@@ -825,7 +856,7 @@ const AccountSettings = () => {
               JPG or PNG, max 5MB
             </p>
             {uploadStatuses.profile.uploading && (
-              <p className="text-xs text-blue-500 mt-1">
+              <p className="text-xs text-[#1d236b] mt-1">
                 Uploading profile photo… {uploadStatuses.profile.progress}%
               </p>
             )}
@@ -864,7 +895,7 @@ const AccountSettings = () => {
               {!isEditingInfo ? (
                 <button
                   onClick={handleEditInfo}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
+                  className="text-[#1d236b] hover:text-[#151a4a] text-sm font-medium flex items-center"
                 >
                   <FiEdit size={14} className="mr-1" />
                   Edit
@@ -890,7 +921,7 @@ const AccountSettings = () => {
             <div className="space-y-3 text-sm text-gray-700">
               <p>
                 <span className="font-medium w-36 inline-block">Account type:</span>
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium">
+                <span className="bg-[#1d236b]/20 text-[#1d236b] px-3 py-1 rounded-full text-xs font-medium">
                   Private individual
                 </span>
               </p>
@@ -901,7 +932,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.publicName}
                     onChange={(e) => handleInfoChange('publicName', e.target.value)}
-                    className={`px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.publicName ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-[#1d236b] ${fieldErrors.publicName ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   editableInfo.publicName
@@ -914,7 +945,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.legalName}
                     onChange={(e) => handleInfoChange('legalName', e.target.value)}
-                    className={`px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.legalName ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-[#1d236b] ${fieldErrors.legalName ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   editableInfo.legalName
@@ -927,7 +958,7 @@ const AccountSettings = () => {
                     type="email"
                     value={editableInfo.email}
                     onChange={(e) => handleInfoChange('email', e.target.value)}
-                    className={`px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-[#1d236b] ${fieldErrors.email ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   editableInfo.email
@@ -950,7 +981,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.streetAddress}
                     onChange={(e) => handleInfoChange('streetAddress', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.streetAddress ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#1d236b] ${fieldErrors.streetAddress ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.streetAddress}</p>
@@ -963,7 +994,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.zipCode}
                     onChange={(e) => handleInfoChange('zipCode', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.zipCode ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#1d236b] ${fieldErrors.zipCode ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.zipCode}</p>
@@ -976,7 +1007,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.city}
                     onChange={(e) => handleInfoChange('city', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.city ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#1d236b] ${fieldErrors.city ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.city}</p>
@@ -989,7 +1020,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.state}
                     onChange={(e) => handleInfoChange('state', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.state ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#1d236b] ${fieldErrors.state ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.state}</p>
@@ -1002,7 +1033,7 @@ const AccountSettings = () => {
                     type="text"
                     value={editableInfo.country}
                     onChange={(e) => handleInfoChange('country', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.country ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#1d236b] ${fieldErrors.country ? 'border-red-500' : 'border-gray-300'}`}
                   />
                 ) : (
                   <p className="bg-gray-50 px-3 py-2 rounded border text-gray-600">{editableInfo.country}</p>
@@ -1048,7 +1079,7 @@ const AccountSettings = () => {
                 </div>
                 <button
                   onClick={addContactNumber}
-                  className="text-blue-500 text-xs mt-1 inline-block hover:underline"
+                  className="text-[#1d236b] text-xs mt-1 inline-block hover:underline"
                 >
                   Add more
                 </button>
@@ -1073,7 +1104,7 @@ const AccountSettings = () => {
                 Upload new photo
               </label>
               {uploadStatuses.businessLicense.uploading && (
-                <p className="text-xs text-blue-500 mt-1">
+                <p className="text-xs text-[#1d236b] mt-1">
                   Uploading license… {uploadStatuses.businessLicense.progress}%
                 </p>
               )}
@@ -1102,7 +1133,7 @@ const AccountSettings = () => {
                 Upload new photo
               </label>
               {uploadStatuses.liabilityInsurance.uploading && (
-                <p className="text-xs text-blue-500 mt-1">
+                <p className="text-xs text-[#1d236b] mt-1">
                   Uploading insurance… {uploadStatuses.liabilityInsurance.progress}%
                 </p>
               )}
@@ -1131,7 +1162,7 @@ const AccountSettings = () => {
                 Upload new photo
               </label>
               {uploadStatuses.logo.uploading && (
-                <p className="text-xs text-blue-500 mt-1">
+                <p className="text-xs text-[#1d236b] mt-1">
                   Uploading logo… {uploadStatuses.logo.progress}%
                 </p>
               )}
@@ -1231,7 +1262,7 @@ const AccountSettings = () => {
                         getEnabledRoles().map((role, index) => (
                           <span
                             key={`${role}-${index}`}
-                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1d236b]/20 text-[#1d236b]"
                           >
                             {role}
                           </span>
@@ -1254,7 +1285,7 @@ const AccountSettings = () => {
               {!hasAddedUser ? (
                 <button 
                   onClick={() => setShowUserModal(true)}
-                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors w-full"
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#1d236b] hover:bg-[#151a4a] transition-colors w-full"
                 >
                   <FiUserPlus size={16} className="mr-2" />
                   Add a new user
@@ -1304,7 +1335,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleToggle('notifications', 'billingAccounting')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      notifications.billingAccounting ? 'bg-blue-600' : 'bg-gray-200'
+                      notifications.billingAccounting ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1328,7 +1359,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleToggle('notifications', 'newBookings')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      notifications.newBookings ? 'bg-blue-600' : 'bg-gray-200'
+                      notifications.newBookings ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1352,7 +1383,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleToggle('notifications', 'faqs')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      notifications.faqs ? 'bg-blue-600' : 'bg-gray-200'
+                      notifications.faqs ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1391,7 +1422,7 @@ const AccountSettings = () => {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-medium text-gray-900">Edit your password</h3>
-                  <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                  <button className="text-[#1d236b] hover:text-[#151a4a] text-sm font-medium">
                     Edit
                   </button>
                 </div>
@@ -1476,7 +1507,7 @@ const AccountSettings = () => {
                           maxLength="1"
                           value={passwordData.otp[index] || ''}
                           onChange={(e) => handleOTPChange(index, e.target.value)}
-                          className="w-12 h-12 text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-12 h-12 text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-[#1d236b]"
                         />
                       ))}
                     </div>
@@ -1506,7 +1537,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleToggle('reports', 'weekly')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      reports.weekly ? 'bg-blue-600' : 'bg-gray-200'
+                      reports.weekly ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1530,7 +1561,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleToggle('reports', 'monthly')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      reports.monthly ? 'bg-blue-600' : 'bg-gray-200'
+                      reports.monthly ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1554,7 +1585,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleToggle('reports', 'emailInsights')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      reports.emailInsights ? 'bg-blue-600' : 'bg-gray-200'
+                      reports.emailInsights ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1596,7 +1627,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleToggle('twoFactor', 'smsAuth')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      twoFactor.smsAuth ? 'bg-blue-600' : 'bg-gray-200'
+                      twoFactor.smsAuth ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1620,7 +1651,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleToggle('twoFactor', 'emailAuth')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      twoFactor.emailAuth ? 'bg-blue-600' : 'bg-gray-200'
+                      twoFactor.emailAuth ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1644,7 +1675,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleToggle('twoFactor', 'authApp')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      twoFactor.authApp ? 'bg-blue-600' : 'bg-gray-200'
+                      twoFactor.authApp ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1688,7 +1719,7 @@ const AccountSettings = () => {
                   placeholder="Email address"
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-[#1d236b]"
                 />
               </div>
               
@@ -1698,7 +1729,7 @@ const AccountSettings = () => {
                   rows={3}
                   value={personalMessage}
                   onChange={(e) => setPersonalMessage(e.target.value)}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1d236b] focus:border-[#1d236b] resize-none"
                 />
               </div>
             </div>
@@ -1717,7 +1748,7 @@ const AccountSettings = () => {
                     setShowUserModal(false);
                   }
                 }}
-                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors w-full"
+                className="px-6 py-3 bg-[#1d236b] text-white font-semibold rounded-lg hover:bg-[#151a4a] transition-colors w-full"
               >
                 Send invite to access
               </button>
@@ -1750,7 +1781,7 @@ const AccountSettings = () => {
             </div>
             <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
               <button onClick={() => setShowCropModal(false)} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-              <button onClick={applyCrop} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Apply Crop</button>
+              <button onClick={applyCrop} className="px-6 py-2 bg-[#1d236b] text-white rounded-lg hover:bg-[#151a4a] transition-colors">Apply Crop</button>
             </div>
           </div>
         </div>
@@ -1785,7 +1816,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleUserAccessToggle('administration')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      userAccess.roles.administration ? 'bg-blue-600' : 'bg-gray-200'
+                      userAccess.roles.administration ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1805,7 +1836,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleUserAccessToggle('finance')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      userAccess.roles.finance ? 'bg-blue-600' : 'bg-gray-200'
+                      userAccess.roles.finance ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1825,7 +1856,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleUserAccessToggle('manageBooking')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      userAccess.roles.manageBooking ? 'bg-blue-600' : 'bg-gray-200'
+                      userAccess.roles.manageBooking ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1845,7 +1876,7 @@ const AccountSettings = () => {
                   <button
                     onClick={() => handleUserAccessToggle('travelQueries')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      userAccess.roles.travelQueries ? 'bg-blue-600' : 'bg-gray-200'
+                      userAccess.roles.travelQueries ? 'bg-[#1d236b]' : 'bg-gray-200'
                     }`}
                   >
                     <span
@@ -1864,7 +1895,7 @@ const AccountSettings = () => {
                   // The roles are already updated in state, just close the modal
                   setShowLoginAccessModal(false);
                 }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-6 py-2 bg-[#1d236b] text-white rounded-lg hover:bg-[#151a4a] transition-colors"
               >
                 Update
               </button>
@@ -2023,7 +2054,7 @@ const AccountSettings = () => {
                 <input 
                   type="email" 
                   placeholder="Enter your email" 
-                    className="flex-1 px-3 py-2 bg-gray-200 text-gray-800 placeholder-gray-500 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 bg-gray-200 text-gray-800 placeholder-gray-500 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-[#1d236b]"
                   />
                   <button className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-r-lg transition-colors">
                     <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">

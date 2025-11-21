@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { settingsService } from '@/services/settingsService';
+import { useAuth } from './AuthContext';
 
 const SettingsContext = createContext(null);
 
@@ -12,19 +13,34 @@ export const useSettings = () => {
 };
 
 export const SettingsProvider = ({ children }) => {
+  const { user } = useAuth();
   const [settings, setSettings] = useState(null);
   const [profile, setProfile] = useState({ name: 'User', id: 'N/A', photo: null });
   const [loading, setLoading] = useState(false);
   const hasLoadedOnceRef = useRef(false);
   const isFetchingRef = useRef(false);
 
+  // Get user name from auth context (Google sign-in or registration)
+  const getUserNameFromAuth = useCallback(() => {
+    if (!user) return null;
+    return (
+      user.full_name?.trim() ||
+      user.business_name?.trim() ||
+      user.name?.trim() ||
+      null
+    );
+  }, [user]);
+
   // Load from cache instantly
   const loadFromCache = useCallback(() => {
     try {
       const saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
+      const authName = getUserNameFromAuth();
+      
       if (saved) {
         const data = JSON.parse(saved);
         const name =
+          authName ||
           data?.editableInfo?.publicName?.trim() ||
           data?.profileData?.publicName?.trim() ||
           'User';
@@ -34,17 +50,25 @@ export const SettingsProvider = ({ children }) => {
           localStorage.getItem('supplier_id') ||
           sessionStorage.getItem('supplier_id') ||
           'N/A';
-        const photo = data?.globalUserPhoto || null;
+        const photo = data?.globalUserPhoto || user?.avatar_url || user?.profile_photo || null;
         
         setSettings(data);
         setProfile({ name, id, photo });
+        return true;
+      } else if (authName) {
+        // If no saved settings but we have auth user, use that
+        setProfile({ 
+          name: authName, 
+          id: user?.supplier_code || localStorage.getItem('supplier_id') || 'N/A',
+          photo: user?.avatar_url || user?.profile_photo || null
+        });
         return true;
       }
     } catch (error) {
       console.warn('Failed to load cached settings', error);
     }
     return false;
-  }, []);
+  }, [getUserNameFromAuth, user]);
 
   // Fetch from API (non-blocking, updates cache)
   const fetchSettings = useCallback(async (force = false) => {
@@ -71,17 +95,20 @@ export const SettingsProvider = ({ children }) => {
       const remoteSettings = response?.settings || {};
 
       if (Object.keys(remoteSettings).length > 0) {
+        const authName = getUserNameFromAuth();
         const name =
+          authName ||
           remoteSettings?.editableInfo?.publicName?.trim() ||
           remoteSettings?.profileData?.publicName?.trim() ||
           'User';
         const id =
           remoteSettings?.profileData?.supplierCode ||
           remoteSettings?.profileData?.contactValue ||
+          user?.supplier_code ||
           localStorage.getItem('supplier_id') ||
           sessionStorage.getItem('supplier_id') ||
           'N/A';
-        const photo = remoteSettings?.globalUserPhoto || null;
+        const photo = remoteSettings?.globalUserPhoto || user?.avatar_url || user?.profile_photo || null;
 
         setSettings(remoteSettings);
         setProfile({ name, id, photo });
@@ -116,17 +143,20 @@ export const SettingsProvider = ({ children }) => {
   const updateSettings = useCallback((newSettings) => {
     setSettings(newSettings);
     
+    const authName = getUserNameFromAuth();
     const name =
+      authName ||
       newSettings?.editableInfo?.publicName?.trim() ||
       newSettings?.profileData?.publicName?.trim() ||
       'User';
     const id =
       newSettings?.profileData?.supplierCode ||
       newSettings?.profileData?.contactValue ||
+      user?.supplier_code ||
       localStorage.getItem('supplier_id') ||
       sessionStorage.getItem('supplier_id') ||
       'N/A';
-    const photo = newSettings?.globalUserPhoto || null;
+    const photo = newSettings?.globalUserPhoto || user?.avatar_url || user?.profile_photo || null;
 
     setProfile({ name, id, photo });
 
@@ -143,6 +173,29 @@ export const SettingsProvider = ({ children }) => {
     window.dispatchEvent(new Event('account_settings_updated'));
     window.dispatchEvent(new Event('accountSettingsUpdated'));
   }, []);
+
+  // Update profile when user changes - prioritize auth user name
+  useEffect(() => {
+    const authName = getUserNameFromAuth();
+    if (authName) {
+      // Always update profile name from auth user if available
+      setProfile(prev => ({
+        ...prev,
+        name: authName,
+        photo: prev.photo || user?.avatar_url || user?.profile_photo || null
+      }));
+    } else if (user) {
+      // If no auth name but user exists, try to get name from user object
+      const fallbackName = user?.full_name || user?.business_name || user?.name;
+      if (fallbackName) {
+        setProfile(prev => ({
+          ...prev,
+          name: fallbackName,
+          photo: prev.photo || user?.avatar_url || user?.profile_photo || null
+        }));
+      }
+    }
+  }, [user, getUserNameFromAuth]);
 
   // Initialize: Load from cache instantly, then fetch in background
   useEffect(() => {
@@ -167,7 +220,7 @@ export const SettingsProvider = ({ children }) => {
       window.removeEventListener('accountSettingsUpdated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
-  }, [loadFromCache, fetchSettings]);
+  }, [loadFromCache, fetchSettings, getUserNameFromAuth, user]);
 
   const value = {
     settings,

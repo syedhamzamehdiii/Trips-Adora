@@ -5,7 +5,7 @@ import SettingsModal from './SettingsModal'
 import { getProfileSummary } from '../services/profileService'
 import { useAuth } from '../context/AuthContext'
 
-const HeaderLandingPage = () => {
+const HeaderLandingPage = ({ backgroundVariant = 'transparent' }) => {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -104,7 +104,11 @@ const HeaderLandingPage = () => {
     <>
       <header className="absolute top-0 left-0 right-0 z-50 pt-6">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl shadow-xl">
+          <div className={`${
+            backgroundVariant === 'white' 
+              ? 'bg-white border border-gray-200 shadow-lg' 
+              : 'bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl'
+          } rounded-2xl`}>
             <div className="flex items-center justify-between h-16 px-6">
               <Link to="/dashboard" className="flex items-center cursor-pointer">
                 <img 
@@ -115,14 +119,54 @@ const HeaderLandingPage = () => {
               </Link>
 
               <nav className="hidden md:flex items-center space-x-8">
-                <Link to="/dashboard" className="text-white font-semibold text-base hover:text-gray-200 transition">Home</Link>
-                <Link to="/blogs" className="text-white font-normal text-base hover:text-gray-200 transition">Blogs</Link>
-                <Link to="/about-us" className="text-white font-normal text-base hover:text-gray-200 transition">About</Link>
-                <Link to="/contact" className="text-white font-normal text-base hover:text-gray-200 transition">Contact</Link>
+                <Link 
+                  to="/dashboard" 
+                  className={`${
+                    backgroundVariant === 'white' 
+                      ? 'text-[#1d236b] font-semibold hover:text-[#151a4a]' 
+                      : 'text-white font-semibold hover:text-gray-200'
+                  } text-base transition`}
+                >
+                  Home
+                </Link>
+                <Link 
+                  to="/blogs" 
+                  className={`${
+                    backgroundVariant === 'white' 
+                      ? 'text-gray-700 hover:text-[#1d236b]' 
+                      : 'text-white hover:text-gray-200'
+                  } font-normal text-base transition`}
+                >
+                  Blogs
+                </Link>
+                <Link 
+                  to="/about-us" 
+                  className={`${
+                    backgroundVariant === 'white' 
+                      ? 'text-gray-700 hover:text-[#1d236b]' 
+                      : 'text-white hover:text-gray-200'
+                  } font-normal text-base transition`}
+                >
+                  About
+                </Link>
+                <Link 
+                  to="/contact" 
+                  className={`${
+                    backgroundVariant === 'white' 
+                      ? 'text-gray-700 hover:text-[#1d236b]' 
+                      : 'text-white hover:text-gray-200'
+                  } font-normal text-base transition`}
+                >
+                  Contact
+                </Link>
               </nav>
 
               <div className="flex items-center space-x-6 relative">
-                <div className="flex items-center space-x-1 text-white cursor-pointer hover:text-gray-200">
+                <div className={`flex items-center space-x-1 cursor-pointer transition ${
+                  backgroundVariant === 'white' 
+                    ? 'text-gray-700 hover:text-[#1d236b]' 
+                    : 'text-white hover:text-gray-200'
+                }`}>
                   <span className="text-sm font-medium">{languageCode}</span>
                   <FiChevronDown className="text-xs" />
                 </div>
@@ -136,7 +180,9 @@ const HeaderLandingPage = () => {
                     aria-label="Open profile menu"
                   >
                     {displayName && (
-                      <span className="hidden sm:block text-sm font-medium text-white max-w-[120px] truncate">
+                      <span className={`hidden sm:block text-sm font-medium max-w-[120px] truncate ${
+                        backgroundVariant === 'white' ? 'text-gray-700' : 'text-white'
+                      }`}>
                         {displayName}
                       </span>
                     )}
@@ -157,7 +203,11 @@ const HeaderLandingPage = () => {
                   <button
                     type="button"
                     ref={profileRef}
-                    className="px-4 py-2 text-sm font-medium text-white hover:text-gray-200 transition-colors"
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      backgroundVariant === 'white' 
+                        ? 'text-[#1d236b] hover:text-[#151a4a]' 
+                        : 'text-white hover:text-gray-200'
+                    }`}
                     onClick={() => navigate('/login')}
                     aria-label="Login or Sign up"
                   >
