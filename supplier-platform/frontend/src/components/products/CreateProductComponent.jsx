@@ -895,8 +895,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             setHighlights(highlightsWithIds);
           }
           
-          // Load photo data (will be empty due to quota fix)
-          if (draftData.uploadedPhotos) setUploadedPhotos(draftData.uploadedPhotos);
+          // Load photo data (may be empty if stored draft was slimmed down)
+          if (Array.isArray(draftData.uploadedPhotos) && draftData.uploadedPhotos.length) {
+            setUploadedPhotos(draftData.uploadedPhotos);
+          }
           if (draftData.coverImage) setCoverImage(draftData.coverImage);
           
           // Load Step 4 data
@@ -942,26 +944,31 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             setVehicleTimeAllocations(draftData.vehicleTimeAllocations);
           }
 
-          if (draftData.photoStoragePending) {
-            const targetId = detectedDbId || internalDraftId;
-            if (targetId) {
-              (async () => {
-                try {
-                  console.log('🔄 Hydrating images for draft from server:', targetId);
-                  const fullProduct = await productService.getProduct(targetId);
-                  const { transformApiProductToDraftPayload } = await import('@/utils/productTransform');
-                  const hydratedDraft = transformApiProductToDraftPayload(fullProduct);
-                  if (hydratedDraft?.coverImage) {
-                    setCoverImage(hydratedDraft.coverImage);
-                  }
-                  if (Array.isArray(hydratedDraft?.uploadedPhotos) && hydratedDraft.uploadedPhotos.length) {
-                    setUploadedPhotos(hydratedDraft.uploadedPhotos);
-                  }
-                } catch (hydrationError) {
-                  console.warn('Unable to hydrate draft images from backend:', hydrationError);
-                }
-              })();
+          const hydrateImagesFromBackend = async (targetId) => {
+            try {
+              console.log('🔄 Hydrating images for draft from server:', targetId);
+              const fullProduct = await productService.getProduct(targetId);
+              const { transformApiProductToDraftPayload } = await import('@/utils/productTransform');
+              const hydratedDraft = transformApiProductToDraftPayload(fullProduct);
+              if (hydratedDraft?.coverImage) {
+                setCoverImage(hydratedDraft.coverImage);
+              }
+              if (Array.isArray(hydratedDraft?.uploadedPhotos) && hydratedDraft.uploadedPhotos.length) {
+                setUploadedPhotos(hydratedDraft.uploadedPhotos);
+              }
+            } catch (hydrationError) {
+              console.warn('Unable to hydrate draft images from backend:', hydrationError);
             }
+          };
+
+          const targetIdForHydration = detectedDbId || internalDraftId;
+          const needsImageHydration =
+            !draftData.coverImage ||
+            !Array.isArray(draftData.uploadedPhotos) ||
+            draftData.uploadedPhotos.length === 0;
+
+          if (targetIdForHydration && (draftData.photoStoragePending || needsImageHydration)) {
+            hydrateImagesFromBackend(targetIdForHydration);
           }
           
           // Load current step

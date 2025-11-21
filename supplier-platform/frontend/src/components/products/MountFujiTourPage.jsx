@@ -142,6 +142,70 @@ const buildImagePayload = async (sources = [], limit = MAX_IMAGE_COUNT) => {
   return dedupeStrings(processed.filter(Boolean));
 };
 
+const mapItineraryEntriesForApi = (entries = []) => {
+  if (!Array.isArray(entries)) return [];
+  return entries.map((item, index) => {
+    if (!item) return null;
+    const resolvedTitle =
+      (item.title && String(item.title).trim()) ||
+      (item.placeName && String(item.placeName).trim()) ||
+      (item.location && String(item.location).trim()) ||
+      `Itinerary stop ${index + 1}`;
+    const resolvedDescription = (item.description || '').toString();
+    const resolvedTime =
+      item.time && String(item.time).trim() ? item.time : `${String(9 + index).padStart(2, '0')}:00`;
+
+    let photoUrl = null;
+    if (item.photo) {
+      if (typeof item.photo === 'string') {
+        photoUrl = item.photo;
+      } else if (item.photo?.url) {
+        photoUrl = item.photo.url;
+      }
+    }
+    if (!photoUrl) {
+      photoUrl = item.croppedPhoto || item.photoPreview || null;
+    }
+
+    return {
+      time: resolvedTime,
+      title: resolvedTitle,
+      description: resolvedDescription,
+      icon: item.lineIcon || item.icon || 'sightseeing',
+      photo: photoUrl,
+      location: item.location || item.placeName || resolvedTitle,
+      timeSpent: item.timeSpent || '',
+      isFree: item.isFree !== undefined ? item.isFree : true,
+      ticketFare: item.ticketFare || null,
+      ticket: item.ticket || null,
+      attractionType: item.attractionType || '',
+      activities: Array.isArray(item.activities) ? item.activities : [],
+    };
+  }).filter(Boolean);
+};
+
+const buildCustomFieldsPayload = ({
+  existingVehicles = [],
+  selectedVehicleForTour = null,
+  existingVehicleAllocations = [],
+  productData = {},
+  heroUrl = null,
+  galleryImages = [],
+  availableDays = [],
+}) => ({
+  vehicles_full: existingVehicles,
+  selected_vehicle_for_tour: selectedVehicleForTour,
+  vehicle_time_allocations: existingVehicleAllocations,
+  itineraries_full: Array.isArray(productData?.itineraries) ? productData.itineraries : [],
+  pickup_locations: productData?.pickupLocations || productData?.selectedPickupLocations || [],
+  dropoff_locations: productData?.dropoffLocations || productData?.selectedDropoffLocations || [],
+  pickup_time: productData?.pickupTime || '',
+  available_days: availableDays || [],
+  time_slots: productData?.timeSlots || {},
+  cover_image_backup: heroUrl || null,
+  uploaded_photos_backup: Array.isArray(galleryImages) ? galleryImages : [],
+});
+
 const FALLBACK_SUPPLIER_ID = 'N/A';
 const buildEmptyCancellationPolicy = () => ({
   freeCancellationText: '',
@@ -411,15 +475,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         images: [],
         hero_image: null,
         gallery_images: [],
-        itinerary: Array.isArray(productData?.itineraries) ? productData.itineraries.map(item => ({
-          time: item.time || '',
-          title: item.title || '',
-          description: item.description || '',
-          icon: item.icon || 'sightseeing',
-          photo: typeof item.photo === 'string' && item.photo.startsWith('http')
-            ? item.photo
-            : (item.photo?.url || item.croppedPhoto || item.photoPreview || null)
-        })) : [],
+        itinerary: mapItineraryEntriesForApi(productData?.itineraries),
         duration: productData?.duration || '',
         guide_type: productData?.guideType || '',
         activity_type: productData?.activityType || '',
@@ -511,11 +567,15 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       apiProductData.images = dedupedImages;
       apiProductData.hero_image = heroUrl || null;
       apiProductData.gallery_images = galleryImages;
-      apiProductData.custom_fields = {
-        vehicles_full: existingVehicles,
-        selected_vehicle_for_tour: selectedVehicleForTour,
-        vehicle_time_allocations: existingVehicleAllocations,
-      };
+      apiProductData.custom_fields = buildCustomFieldsPayload({
+        existingVehicles,
+        selectedVehicleForTour,
+        existingVehicleAllocations,
+        productData,
+        heroUrl,
+        galleryImages,
+        availableDays: normalizedAvailableDays,
+      });
 
       // Validate title length (minimum 30 chars for database)
       if (!apiProductData.title || apiProductData.title.length < 30) {
@@ -701,6 +761,17 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         }
       }
 
+      const existingVehicles = Array.isArray(productData?.vehicles) ? productData.vehicles : [];
+      const selectedVehicleForTour = productData?.selectedVehicleForTour
+        ? (Array.isArray(productData.selectedVehicleForTour)
+            ? productData.selectedVehicleForTour[0]
+            : productData.selectedVehicleForTour)
+        : existingVehicles[0] || null;
+      const existingVehicleAllocations = Array.isArray(productData?.vehicleTimeAllocations)
+        ? productData.vehicleTimeAllocations
+        : [];
+      const primaryVehicle = selectedVehicleForTour || existingVehicles[0] || null;
+
       // Helper to map photo objects/strings to URL strings
       const normalizedFaqs = Array.isArray(productData?.faqs)
         ? productData.faqs
@@ -741,46 +812,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         images: dedupedImages,
         hero_image: heroUrl || null,
         gallery_images: galleryImages,
-        itinerary: Array.isArray(productData?.itineraries)
-          ? productData.itineraries.map(it => {
-              // Preserve photo URL - handle string URLs (http/https/data), objects with url property, or null
-              let photoUrl = null;
-              if (it?.photo) {
-                if (typeof it.photo === 'string') {
-                  // Preserve if it's a URL (http, https, or data URL)
-                  photoUrl = (it.photo.startsWith('http') || it.photo.startsWith('data:') || it.photo.startsWith('/'))
-                    ? it.photo
-                    : null;
-                } else if (it.photo?.url) {
-                  photoUrl = it.photo.url;
-                }
-              }
-              // Fallback to other photo fields if main photo field is empty
-              if (!photoUrl) {
-                photoUrl = it?.croppedPhoto || it?.photoPreview || null;
-              }
-              
-              // Preserve all itinerary fields including ticketFare
-              const itineraryItem = {
-                time: (it?.time && String(it.time).trim()) ? it.time : '09:00',
-                title: (it?.title && String(it.title).trim()) || (it?.location && String(it.location).trim()) || (it?.placeName && String(it.placeName).trim()) || 'Experience highlight',
-                description: (it?.description || '').toString(),
-                icon: (it?.lineIcon || it?.icon || 'sightseeing'),
-                photo: photoUrl,
-                location: (it?.location || it?.placeName || it?.title || '').toString(),
-                placeName: (it?.placeName || it?.location || it?.title || '').toString(),
-                attractionType: it?.attractionType || '',
-                timeSpent: it?.timeSpent || '',
-                ticketFare: (it?.ticketFare && String(it.ticketFare).trim()) ? String(it.ticketFare).trim() : null,
-                ticket: it?.ticket || null,
-                isFree: it?.isFree !== undefined ? it.isFree : true,
-                activities: Array.isArray(it?.activities) ? it.activities : [],
-                photoPublicId: it?.photoPublicId || null
-              };
-              
-              return itineraryItem;
-            })
-          : [],
+        itinerary: mapItineraryEntriesForApi(productData?.itineraries),
         duration: productData?.duration || '',
         guide_type: productData?.guideType || '',
         activity_type: productData?.activityType || '',
@@ -874,6 +906,16 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         selling_points: Array.isArray(productData?.sellingPoints) ? productData.sellingPoints : (productData?.sellingPoints ? [productData.sellingPoints] : []),
         style_theme: productData?.styleTheme || ''
       };
+
+      apiProductData.custom_fields = buildCustomFieldsPayload({
+        existingVehicles,
+        selectedVehicleForTour,
+        existingVehicleAllocations,
+        productData,
+        heroUrl,
+        galleryImages,
+        availableDays,
+      });
 
       console.log('apiProductData ->', apiProductData);
 

@@ -338,14 +338,17 @@ export const transformApiProductToDraftPayload = (apiProduct) => {
     ? itineraryFromCustom
     : (Array.isArray(apiProduct.itinerary) ? apiProduct.itinerary.map((item, index) => ({
         id: `${baseId}-itinerary-${index}`,
-        placeName: item.title || `Stop ${index + 1}`,
-        location: item.title || `Stop ${index + 1}`,
+        placeName: item.location || item.placeName || item.title || `Stop ${index + 1}`,
+        location: item.location || item.placeName || item.title || `Stop ${index + 1}`,
+        title: item.title || item.location || `Stop ${index + 1}`,
         description: item.description || '',
-        attractionType: item.icon || 'sightseeing',
-        timeSpent: item.time || '',
-        isFree: false,
-        photo: null,
-        activities: item.icon ? [item.icon] : [],
+        attractionType: item.attractionType || item.icon || 'sightseeing',
+        timeSpent: item.timeSpent || item.time || '',
+        isFree: item.isFree !== undefined ? item.isFree : (item.ticketFare ? false : true),
+        ticketFare: item.ticketFare || null,
+        ticket: item.ticket || null,
+        photo: item.photo || null,
+        activities: Array.isArray(item.activities) ? item.activities : (item.attractionType ? [item.attractionType] : []),
         time: item.time || ''
       })) : []);
 

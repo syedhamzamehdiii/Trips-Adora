@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiClock, FiMapPin, FiRotateCcw, FiPlus, FiX, FiCheckCircle, FiChevronDown, FiCamera, FiUpload, FiEdit3, FiTrash2, FiUser, FiStar } from 'react-icons/fi';
-import ReactCrop from 'react-image-crop';
+import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import MountFujiTourPage from './MountFujiTourPage';
 import { imageService } from '@/services/imageService';
@@ -225,6 +225,7 @@ const AddItineraryComponent = ({
       const reader = new FileReader();
       reader.onloadend = () => {
         setImageToCrop(reader.result);
+        // Reset crop to default - it will be properly initialized when image loads
         setCrop(DEFAULT_CROP);
         setCompletedCrop(DEFAULT_CROP);
         setShowCropModal(true);
@@ -235,39 +236,183 @@ const AddItineraryComponent = ({
     });
   };
 
-  const getCroppedImg = (image, rawCrop) => {
+  // Handle image load to properly initialize crop
+  const onImageLoad = (e) => {
+    const { naturalWidth, naturalHeight } = e.currentTarget;
+    
+    if (!imgRef.current) return;
+    
+    // Calculate 80% of the smaller dimension for the crop size
+    const minDimension = Math.min(naturalWidth, naturalHeight);
+    const cropSizePx = minDimension * 0.8;
+    
+    // Create a square crop (aspect ratio 1) using makeAspectCrop
+    const aspectCrop = makeAspectCrop(
+      {
+        unit: 'px',
+        width: cropSizePx,
+        height: cropSizePx,
+      },
+      1, // aspect ratio: 1 for square/circular crop
+      naturalWidth,
+      naturalHeight
+    );
+    
+    // Center the crop on the image
+    const centeredCrop = centerCrop(aspectCrop, naturalWidth, naturalHeight);
+    
+    // Convert to percentage for ReactCrop display
+    const percentageCrop = {
+      unit: '%',
+      width: (centeredCrop.width / naturalWidth) * 100,
+      height: (centeredCrop.height / naturalHeight) * 100,
+      x: (centeredCrop.x / naturalWidth) * 100,
+      y: (centeredCrop.y / naturalHeight) * 100,
+      aspect: 1
+    };
+    
+    // Ensure crop values are valid
+    const sanitizedCrop = sanitizeCrop(percentageCrop);
+    setCrop(sanitizedCrop);
+    setCompletedCrop(sanitizedCrop);
+  };
+
+  const getCroppedImg = (imageElement, rawCrop) => {
+    if (!imageElement || !rawCrop) {
+      console.error('Missing image element or crop data');
+      return null;
+    }
+
+    if (!imageElement.complete || imageElement.naturalWidth === 0 || imageElement.naturalHeight === 0) {
+      console.error('Image not fully loaded');
+      return null;
+    }
+
     const safeCrop = sanitizeCrop(rawCrop);
+    
+    // Get the actual displayed/rendered size of the image (not natural size)
+    // This is what ReactCrop uses for its coordinates
+    const rect = imageElement.getBoundingClientRect();
+    const displayWidth = rect.width || imageElement.offsetWidth || imageElement.clientWidth;
+    const displayHeight = rect.height || imageElement.offsetHeight || imageElement.clientHeight;
+    
+    if (!displayWidth || !displayHeight || displayWidth <= 0 || displayHeight <= 0) {
+      console.error('Cannot determine displayed image dimensions:', { displayWidth, displayHeight, rect });
+      return null;
+    }
+
+    // Calculate scale factors between displayed size and natural size
+    const scaleX = imageElement.naturalWidth / displayWidth;
+    const scaleY = imageElement.naturalHeight / displayHeight;
+    
+    // ReactCrop always returns coordinates relative to the displayed image size
+    // The unit property tells us if it's percentage or pixels
+    let cropX, cropY, cropWidth, cropHeight;
+    
+    if (safeCrop.unit === '%') {
+      // Crop is in percentages relative to displayed image
+      cropWidth = (safeCrop.width / 100) * displayWidth;
+      cropHeight = (safeCrop.height / 100) * displayHeight;
+      cropX = (safeCrop.x / 100) * displayWidth;
+      cropY = (safeCrop.y / 100) * displayHeight;
+    } else {
+      // Crop is already in pixels relative to displayed image (ReactCrop default when dragging)
+      // ReactCrop may return pixel values even if initialized with percentages
+      cropWidth = Number(safeCrop.width) || 0;
+      cropHeight = Number(safeCrop.height) || 0;
+      cropX = Number(safeCrop.x) || 0;
+      cropY = Number(safeCrop.y) || 0;
+      
+      // If values seem like percentages (0-100), convert them
+      if (cropWidth > 0 && cropWidth <= displayWidth && safeCrop.unit !== 'px') {
+        // Values are already in pixels, use as-is
+      }
+    }
+    
+    // Validate crop dimensions
+    if (cropWidth <= 0 || cropHeight <= 0) {
+      console.error('Invalid crop dimensions:', { 
+        cropWidth, 
+        cropHeight, 
+        cropX, 
+        cropY,
+        displayWidth,
+        displayHeight,
+        crop: safeCrop
+      });
+      return null;
+    }
+    
+    // Ensure crop doesn't exceed display bounds
+    cropX = Math.max(0, Math.min(cropX, displayWidth));
+    cropY = Math.max(0, Math.min(cropY, displayHeight));
+    cropWidth = Math.min(cropWidth, displayWidth - cropX);
+    cropHeight = Math.min(cropHeight, displayHeight - cropY);
+    
+    // Scale to natural image dimensions
+    const naturalCropX = cropX * scaleX;
+    const naturalCropY = cropY * scaleY;
+    const naturalCropWidth = cropWidth * scaleX;
+    const naturalCropHeight = cropHeight * scaleY;
+
+    // Ensure we don't exceed natural image bounds
+    const finalX = Math.max(0, Math.min(naturalCropX, imageElement.naturalWidth));
+    const finalY = Math.max(0, Math.min(naturalCropY, imageElement.naturalHeight));
+    const finalWidth = Math.min(naturalCropWidth, imageElement.naturalWidth - finalX);
+    const finalHeight = Math.min(naturalCropHeight, imageElement.naturalHeight - finalY);
+
+    if (finalWidth <= 0 || finalHeight <= 0) {
+      console.error('Invalid final crop dimensions:', { 
+        finalWidth, 
+        finalHeight, 
+        finalX, 
+        finalY,
+        naturalWidth: imageElement.naturalWidth,
+        naturalHeight: imageElement.naturalHeight
+      });
+      return null;
+    }
+
+    // Create canvas with the cropped dimensions
     const canvas = document.createElement('canvas');
-    const widthPx = safeCrop.unit === '%'
-      ? (safeCrop.width / 100) * image.naturalWidth
-      : safeCrop.width;
-    const heightPx = safeCrop.unit === '%'
-      ? (safeCrop.height / 100) * image.naturalHeight
-      : safeCrop.height;
-    const xPx = safeCrop.unit === '%'
-      ? (safeCrop.x / 100) * image.naturalWidth
-      : safeCrop.x;
-    const yPx = safeCrop.unit === '%'
-      ? (safeCrop.y / 100) * image.naturalHeight
-      : safeCrop.y;
-
-    canvas.width = widthPx;
-    canvas.height = heightPx;
+    canvas.width = Math.round(finalWidth);
+    canvas.height = Math.round(finalHeight);
+    
     const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.error('Failed to get canvas context');
+      return null;
+    }
 
+    // Set image smoothing for better quality
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Draw the cropped portion from the natural image
     ctx.drawImage(
-      image,
-      xPx,
-      yPx,
-      widthPx,
-      heightPx,
+      imageElement,
+      Math.round(finalX),
+      Math.round(finalY),
+      Math.round(finalWidth),
+      Math.round(finalHeight),
       0,
       0,
-      widthPx,
-      heightPx
+      Math.round(finalWidth),
+      Math.round(finalHeight)
     );
 
-    return canvas.toDataURL('image/jpeg', 0.99);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    console.log('✅ Cropped image generated:', {
+      originalCrop: safeCrop,
+      displaySize: { width: displayWidth, height: displayHeight },
+      naturalSize: { width: imageElement.naturalWidth, height: imageElement.naturalHeight },
+      scaleFactors: { scaleX, scaleY },
+      cropPx: { x: cropX, y: cropY, width: cropWidth, height: cropHeight },
+      finalCrop: { x: finalX, y: finalY, width: finalWidth, height: finalHeight },
+      dataUrlLength: dataUrl.length
+    });
+    
+    return dataUrl;
   };
 
   const handleCropComplete = (rawCrop) => {
@@ -275,11 +420,34 @@ const AddItineraryComponent = ({
   };
 
   const applyCrop = async () => {
-    const cropToUse = sanitizeCrop(completedCrop || crop);
-    if (!imgRef.current) return;
+    if (!imgRef.current || !imgRef.current.complete) {
+      alert('Please wait for the image to load completely.');
+      return;
+    }
+
+    // Use the current crop state (completedCrop is updated on drag end, crop is updated continuously)
+    const cropToUse = completedCrop && completedCrop.width ? completedCrop : crop;
+    
+    if (!cropToUse || !cropToUse.width || !cropToUse.height) {
+      alert('Please select a crop area before applying.');
+      return;
+    }
+
+    console.log('🔍 Applying crop:', {
+      cropToUse,
+      imageSize: { width: imgRef.current.width, height: imgRef.current.height },
+      naturalSize: { width: imgRef.current.naturalWidth, height: imgRef.current.naturalHeight }
+    });
 
     const croppedImageUrl = getCroppedImg(imgRef.current, cropToUse);
+    
+    if (!croppedImageUrl) {
+      alert('Failed to crop the image. Please try again.');
+      return;
+    }
+
     setPhotoPreview(croppedImageUrl);
+    
     try {
       const file = dataUrlToFile(croppedImageUrl);
       if (photoPublicId) {
@@ -289,7 +457,7 @@ const AddItineraryComponent = ({
       setUploadedPhoto(file);
       setCroppedPhoto(upload.url);
       setPhotoPublicId(upload.public_id);
-      console.log('✅ Photo cropped & uploaded successfully');
+      console.log('✅ Photo cropped & uploaded successfully:', upload.url);
     } catch (error) {
       console.error('Failed to upload cropped photo', error);
       alert('Failed to upload cropped photo. Please try again.');
@@ -348,13 +516,17 @@ const AddItineraryComponent = ({
     const normalizedTicketFare = ticketFare?.trim() || '';
     const ticketDisplayText = entryIsFree ? 'Free' : (normalizedTicketFare ? normalizedTicketFare : 'Paid');
     
+    const normalizedAttraction = selectedAttraction === 'Select Attractions'
+      ? 'Sightseeing & Photography'
+      : selectedAttraction;
+
     const entryData = {
       id: editingItineraryId || Date.now(),
       title: normalizedName || 'Itinerary Stop',
       placeName: normalizedName || 'Fujinimiya',
       location: normalizedName || 'Fujinimiya',
       description: description || 'Beautiful mountain views and traditional temples',
-      attractionType: selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
+      attractionType: normalizedAttraction,
       timeSpent: `${hours}h ${minutes}min`,
       isFree: entryIsFree,
       ticketFare: normalizedTicketFare,
@@ -363,11 +535,7 @@ const AddItineraryComponent = ({
       photo: photoUrlForEntry || null,
       photoPublicId: photoPublicId || (existingEntry?.photoPublicId || null),
       time: inferredTime,
-      activities: [
-        selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
-        'Food & Drink',
-        'Cultural visit'
-      ].filter(Boolean)
+      activities: normalizedAttraction ? [normalizedAttraction] : []
     };
 
     let updatedEntries;
@@ -428,7 +596,10 @@ const AddItineraryComponent = ({
     setEditingItineraryId(entry.id);
     setPlaceName(entry.placeName || entry.location || entry.title || '');
     setDescription(entry.description || '');
-    setSelectedAttraction(entry.attractionType || 'Select Attractions');
+    setSelectedAttraction(
+      entry.attractionType ||
+      (Array.isArray(entry.activities) && entry.activities.length ? entry.activities[0] : 'Select Attractions')
+    );
     // Parse timeSpent (e.g., "2h 30min" -> hours: "02", minutes: "30")
     const timeMatch = (entry.timeSpent || '').match(/(\d+)h\s*(\d+)min/);
     if (timeMatch) {
@@ -1330,20 +1501,44 @@ const AddItineraryComponent = ({
             {/* Crop Area */}
             <div className="p-6">
               <div className="flex justify-center mb-4">
-                <ReactCrop
-                  crop={crop}
-                  onChange={(c) => setCrop((prev) => sanitizeCrop({ ...prev, ...c }))}
-                  onComplete={handleCropComplete}
-                  aspect={1}
-                  circularCrop
-                >
-                  <img
-                    ref={imgRef}
-                    src={imageToCrop}
-                    alt="Crop preview"
-                    style={{ maxWidth: '100%', maxHeight: '400px' }}
-                  />
-                </ReactCrop>
+                {imageToCrop && (
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(c) => {
+                      if (c && typeof c === 'object') {
+                        // ReactCrop might return null or undefined, handle it
+                        const sanitized = sanitizeCrop(c);
+                        setCrop(sanitized);
+                        // Also update completedCrop immediately so it's always in sync
+                        setCompletedCrop(sanitized);
+                      }
+                    }}
+                    onComplete={(c) => {
+                      if (c && typeof c === 'object') {
+                        const sanitized = sanitizeCrop(c);
+                        setCompletedCrop(sanitized);
+                        // Keep crop state in sync
+                        setCrop(sanitized);
+                      }
+                    }}
+                    aspect={1}
+                    circularCrop
+                    minWidth={50}
+                    minHeight={50}
+                  >
+                    <img
+                      ref={imgRef}
+                      src={imageToCrop}
+                      alt="Crop preview"
+                      onLoad={onImageLoad}
+                      style={{ 
+                        maxWidth: '100%', 
+                        maxHeight: '500px',
+                        display: 'block'
+                      }}
+                    />
+                  </ReactCrop>
+                )}
               </div>
               <p className="text-sm text-gray-600 text-center mb-4">
                 Drag to adjust the circular crop area. The photo will be displayed in a circle on your itinerary.

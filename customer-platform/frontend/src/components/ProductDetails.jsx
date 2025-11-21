@@ -1370,26 +1370,33 @@ const ProductDetails = () => {
                       )}
                       
                       {/* Activities */}
-                      {(attractionType || activities.length > 0) && (
-                        <div className="mb-3">
-                          <p className="text-gray-600 font-bold mb-2">Activities:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {attractionType && (
-                              <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">{attractionType}</span>
-                            )}
-                            {activities.map((act, idx) => (
-                              <span key={idx} className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">{act}</span>
-                            ))}
-                            {!attractionType && activities.length === 0 && (
-                              <>
-                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Sightseeing & Photography</span>
-                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Food & Drink</span>
-                                <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">Cultural visit</span>
-                              </>
-                            )}
+                      {(() => {
+                        const badges = [];
+                        const seen = new Set();
+                        if (attractionType && !seen.has(attractionType)) {
+                          badges.push(attractionType);
+                          seen.add(attractionType);
+                        }
+                        (activities || []).forEach(act => {
+                          if (act && !seen.has(act)) {
+                            badges.push(act);
+                            seen.add(act);
+                          }
+                        });
+                        if (!badges.length) return null;
+                        return (
+                          <div className="mb-3">
+                            <p className="text-gray-600 font-bold mb-2">Activities:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {badges.map((badge, idx) => (
+                                <span key={idx} className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">
+                                  {badge}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                       
                       {/* Time and Ticket Info */}
                       <div className="flex items-center gap-2">

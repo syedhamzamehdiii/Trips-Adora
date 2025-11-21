@@ -21,11 +21,18 @@ class ProductCategory(str, Enum):
 
 
 class ItineraryItem(BaseModel):
-    time: str
+    time: Optional[str] = None
     title: str
-    description: str
-    icon: str  # pickup, sightseeing, dining, highlight, travel, dropoff
+    description: Optional[str] = None
+    icon: Optional[str] = None  # pickup, sightseeing, dining, highlight, travel, dropoff
     photo: Optional[str] = None  # Cloudinary URL for itinerary highlight image
+    location: Optional[str] = None
+    timeSpent: Optional[str] = None
+    isFree: Optional[bool] = None
+    ticketFare: Optional[str] = None
+    ticket: Optional[str] = None
+    attractionType: Optional[str] = None
+    activities: List[str] = Field(default_factory=list)
 
 
 class Highlight(BaseModel):
