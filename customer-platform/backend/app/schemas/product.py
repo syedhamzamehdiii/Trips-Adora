@@ -22,6 +22,8 @@ class ItineraryItem(BaseModel):
     location: Optional[str] = None
     timeSpent: Optional[str] = None
     isFree: Optional[bool] = None
+    ticketFare: Optional[str] = None
+    ticket: Optional[str] = None  # For backward compatibility
     photo: Optional[str] = None
     attractionType: Optional[str] = None
     activities: List[str] = []
@@ -32,6 +34,18 @@ class VehicleDetails(BaseModel):
     vehicle_model: Optional[str] = None
     vehicle_year: Optional[str] = None
     capacity: Optional[int] = None
+
+
+class Vehicle(BaseModel):
+    """Vehicle schema for product vehicles array"""
+    title: Optional[str] = None  # Vehicle title/name
+    type: Optional[str] = None  # vehicle_type
+    model: Optional[str] = None  # variant
+    year: Optional[str] = None
+    capacity: Optional[int] = None
+    currency: Optional[str] = None  # e.g., USD, EUR, JPY
+    amount: Optional[float] = None  # Price amount
+    pricing_type: Optional[str] = None  # e.g., Per Person, Per Hour, Per Trip
 
 
 class PickupDropoff(BaseModel):
@@ -104,6 +118,7 @@ class ProductResponse(BaseModel):
     itinerary: List[ItineraryItem] = []
     pickup_dropoff: Optional[PickupDropoff] = None
     vehicle_details: Optional[VehicleDetails] = None
+    vehicles: List[Vehicle] = []  # Array of vehicles from supplier_vehicle_options
     accessibility: Optional[Accessibility] = None
     faqs: List[FAQ] = []
     selling_points: List[str] = []

@@ -742,15 +742,44 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         hero_image: heroUrl || null,
         gallery_images: galleryImages,
         itinerary: Array.isArray(productData?.itineraries)
-          ? productData.itineraries.map(it => ({
-              time: (it?.time && String(it.time).trim()) ? it.time : '09:00',
-              title: (it?.title && String(it.title).trim()) ? it.title : 'Experience highlight',
-              description: (it?.description || '').toString(),
-              icon: (it?.lineIcon || it?.icon || 'sightseeing'),
-              photo: typeof it?.photo === 'string' && it.photo.startsWith('http')
-                ? it.photo
-                : (it?.photo?.url || it?.croppedPhoto || it?.photoPreview || null)
-            }))
+          ? productData.itineraries.map(it => {
+              // Preserve photo URL - handle string URLs (http/https/data), objects with url property, or null
+              let photoUrl = null;
+              if (it?.photo) {
+                if (typeof it.photo === 'string') {
+                  // Preserve if it's a URL (http, https, or data URL)
+                  photoUrl = (it.photo.startsWith('http') || it.photo.startsWith('data:') || it.photo.startsWith('/'))
+                    ? it.photo
+                    : null;
+                } else if (it.photo?.url) {
+                  photoUrl = it.photo.url;
+                }
+              }
+              // Fallback to other photo fields if main photo field is empty
+              if (!photoUrl) {
+                photoUrl = it?.croppedPhoto || it?.photoPreview || null;
+              }
+              
+              // Preserve all itinerary fields including ticketFare
+              const itineraryItem = {
+                time: (it?.time && String(it.time).trim()) ? it.time : '09:00',
+                title: (it?.title && String(it.title).trim()) || (it?.location && String(it.location).trim()) || (it?.placeName && String(it.placeName).trim()) || 'Experience highlight',
+                description: (it?.description || '').toString(),
+                icon: (it?.lineIcon || it?.icon || 'sightseeing'),
+                photo: photoUrl,
+                location: (it?.location || it?.placeName || it?.title || '').toString(),
+                placeName: (it?.placeName || it?.location || it?.title || '').toString(),
+                attractionType: it?.attractionType || '',
+                timeSpent: it?.timeSpent || '',
+                ticketFare: (it?.ticketFare && String(it.ticketFare).trim()) ? String(it.ticketFare).trim() : null,
+                ticket: it?.ticket || null,
+                isFree: it?.isFree !== undefined ? it.isFree : true,
+                activities: Array.isArray(it?.activities) ? it.activities : [],
+                photoPublicId: it?.photoPublicId || null
+              };
+              
+              return itineraryItem;
+            })
           : [],
         duration: productData?.duration || '',
         guide_type: productData?.guideType || '',
@@ -1114,18 +1143,42 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     { time: '20:30', title: 'Drop-off in Tokyo', description: 'Return to your hotel with unforgettable memories', icon: 'dropoff' }
   ];
 
-  const itineraryItems = productData?.itineraries && productData.itineraries.length > 0
-    ? productData.itineraries.map((itinerary, index) => ({
-        time: `${String(6 + index * 2).padStart(2, '0')}:00`, // Generate times starting from 06:00 with 2-hour intervals
-        title: itinerary.location,
-        description: itinerary.description,
-        attractionType: itinerary.attractionType,
-        timeSpent: itinerary.timeSpent,
-        isFree: itinerary.isFree,
-        photo: itinerary.photo, // Include cropped photo
-        icon: 'sightseeing'
-      }))
-    : defaultItineraryItems;
+  // Only use default items for preview display if no actual itinerary data exists
+  // When republishing, we should never use default items - use empty array instead
+  const hasActualItineraryData = productData?.itineraries && Array.isArray(productData.itineraries) && productData.itineraries.length > 0;
+  
+  const itineraryItems = hasActualItineraryData
+    ? productData.itineraries.map((itinerary, index) => {
+        // Preserve photo URL - handle string URLs (http/https/data), objects with url property
+        let photoUrl = null;
+        if (itinerary?.photo) {
+          if (typeof itinerary.photo === 'string') {
+            // Preserve if it's a URL (http, https, data URL, or relative path)
+            photoUrl = (itinerary.photo.startsWith('http') || itinerary.photo.startsWith('data:') || itinerary.photo.startsWith('/'))
+              ? itinerary.photo
+              : null;
+          } else if (itinerary.photo?.url) {
+            photoUrl = itinerary.photo.url;
+          }
+        }
+        // Fallback to other photo fields if main photo field is empty
+        if (!photoUrl) {
+          photoUrl = itinerary?.croppedPhoto || itinerary?.photoPreview || null;
+        }
+        
+        return {
+          time: itinerary.time || `${String(6 + index * 2).padStart(2, '0')}:00`,
+          title: itinerary.location || itinerary.placeName || itinerary.title || `Itinerary stop ${index + 1}`,
+          description: itinerary.description || '',
+          attractionType: itinerary.attractionType || 'Sightseeing & Photography',
+          timeSpent: itinerary.timeSpent || '',
+          isFree: itinerary.isFree !== undefined ? itinerary.isFree : true,
+          ticketFare: itinerary.ticketFare || '',
+          photo: photoUrl,
+          icon: 'sightseeing'
+        };
+      })
+    : []; // Return empty array instead of default items to prevent mock data from appearing after republishing
 
   // Use dynamic highlights from productData or fallback to defaults
   const defaultHighlights = [

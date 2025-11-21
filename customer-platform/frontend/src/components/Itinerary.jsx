@@ -32,11 +32,11 @@ export default function Itinerary({ items = [] }) {
                 </span>
               )}
             </div>
-            {step.ticket && (
+            {(step.ticketFare || step.ticket || step.isFree !== undefined) && (
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs font-semibold text-black">Ticket:</span>
                 <span className="px-2.5 py-0.5 bg-blue-100 text-blue-600 text-xs font-medium rounded-full">
-                  {step.ticket}
+                  {step.isFree !== false ? 'Free' : (step.ticketFare || step.ticket || 'Paid')}
                 </span>
               </div>
             )}

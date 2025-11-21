@@ -47,7 +47,12 @@ const TopPicksSection = () => {
           }
         }
       } catch (error) {
-        if (!cancelled) {
+        // Don't log abort errors - they're expected when components unmount
+        const isAbortError = error?.name === 'AbortError' || 
+                            error?.message?.includes('aborted') ||
+                            error?.message?.includes('signal is aborted');
+        
+        if (!cancelled && !isAbortError) {
           console.error('Error fetching top picks:', error)
           if (initialProducts.length === 0) {
             setProducts([])

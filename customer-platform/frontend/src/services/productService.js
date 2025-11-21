@@ -47,22 +47,76 @@ async function fetchJsonWithFallback(path, options = {}) {
   ].filter(Boolean);
 
   let lastError;
-  for (const url of endpoints) {
+  for (let i = 0; i < endpoints.length; i++) {
+    const url = endpoints[i];
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    const requestOptions = { ...options, signal: controller.signal };
+    
+    // Use provided signal if available, otherwise use our timeout controller's signal
+    // If both exist, create a merged signal that aborts when either is aborted
+    let signal = controller.signal;
+    let cleanupHandlers = [];
+    
+    if (options.signal) {
+      const mergedController = new AbortController();
+      const abortHandler = () => mergedController.abort();
+      
+      controller.signal.addEventListener('abort', abortHandler);
+      options.signal.addEventListener('abort', abortHandler);
+      cleanupHandlers = [
+        () => controller.signal.removeEventListener('abort', abortHandler),
+        () => options.signal.removeEventListener('abort', abortHandler)
+      ];
+      
+      signal = mergedController.signal;
+    }
+    
+    const requestOptions = { ...options, signal };
     try {
       const response = await fetch(url, requestOptions);
+      clearTimeout(timeout);
+      
       if (!response.ok) {
-        throw new Error(`Request to ${url} failed with status ${response.status}`);
+        // Only log non-404 errors for the fallback endpoint (expected to fail)
+        const isFallbackEndpoint = url.includes(FALLBACK_API_BASE_URL);
+        if (!isFallbackEndpoint || response.status !== 404) {
+          cleanupHandlers.forEach(cleanup => cleanup());
+          throw new Error(`Request to ${url} failed with status ${response.status}`);
+        }
+        // For fallback 404s, silently continue to next endpoint
+        cleanupHandlers.forEach(cleanup => cleanup());
+        continue;
       }
       const data = await response.json();
+      // Clean up event listeners
+      cleanupHandlers.forEach(cleanup => cleanup());
       return data;
     } catch (error) {
-      lastError = error;
-      console.warn(`[API] Request failed (${url}): ${error?.message || error}`);
-    } finally {
       clearTimeout(timeout);
+      // Clean up event listeners
+      cleanupHandlers.forEach(cleanup => cleanup());
+      
+      // Handle abort errors - they're expected when components unmount or timeouts occur
+      const isAbortError = error.name === 'AbortError' || 
+                          error.message?.includes('aborted') ||
+                          error.message?.includes('signal is aborted');
+      
+      if (isAbortError) {
+        // If this is the last endpoint and it was aborted, throw the error
+        // Otherwise, continue to next endpoint silently
+        if (i === endpoints.length - 1) {
+          throw error;
+        }
+        // Continue to next endpoint for abort errors (might be timeout, try next)
+        continue;
+      }
+      
+      lastError = error;
+      // Only log real errors, not expected 404s from fallback
+      const isFallbackEndpoint = url.includes(FALLBACK_API_BASE_URL);
+      if (!isFallbackEndpoint || (error.message && !error.message.includes('404'))) {
+        console.warn(`[API] Request failed (${url}): ${error?.message || error}`);
+      }
     }
   }
 
@@ -479,6 +533,9 @@ export const transformProductForFrontend = (product) => {
     duration: (typeof resolvedDuration === 'string' && resolvedDuration.trim()) ? resolvedDuration.trim() : '8 hours',
     groupSize: (resolvedGroupSize && String(resolvedGroupSize).trim()) ? String(resolvedGroupSize).trim() : 'Up to 12',
     price: price,
+    priceValue: product.price || product.revenue || 0,
+    currency: product.currency || 'USD',
+    priceUnit: product.price_unit || product.priceUnit || 'Per Group',
     oldPrice: oldPrice,
     location: (product.location && product.location.trim()) || (product.destination && product.destination.trim()) || 'Tokyo Japan',
     tags: ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],

@@ -11,6 +11,7 @@ from app.schemas.product import (
     ItineraryItem,
     PickupDropoff,
     VehicleDetails,
+    Vehicle,
     Accessibility,
     FAQ,
     CancellationPolicy,
@@ -205,6 +206,38 @@ async def get_product(product_id: str):
                     capacity=vd.get("capacity")
                 )
         
+        # Fetch vehicles from supplier_vehicle_options collection
+        vehicles = []
+        try:
+            from app.core.database import get_database
+            from bson import ObjectId
+            db = get_database()
+            vehicle_collection = db.supplier_vehicle_options
+            
+            # Find all active vehicles for this product
+            vehicle_docs = await vehicle_collection.find({
+                "product_id": str(product_id),
+                "is_active": True
+            }).sort("created_at", -1).to_list(length=100)
+            
+            # Map vehicles to frontend format
+            for v in vehicle_docs:
+                vehicles.append(Vehicle(
+                    title=v.get("title"),  # Primary display name
+                    type=v.get("vehicle_type"),
+                    model=v.get("variant"),
+                    year=v.get("year"),
+                    capacity=v.get("capacity"),
+                    currency=v.get("currency"),
+                    amount=v.get("amount"),
+                    pricing_type=v.get("pricing_type")
+                ))
+            
+            logger.info(f"🔍 [DEBUG] Fetched {len(vehicles)} vehicles for product {product_id}")
+        except Exception as e:
+            logger.warning(f"Could not fetch vehicles: {e}")
+            vehicles = []
+        
         # Format accessibility
         accessibility = None
         if product.get("accessibility"):
@@ -298,6 +331,14 @@ async def get_product(product_id: str):
             for item in source:
                 if not isinstance(item, dict):
                     continue
+                # Extract ticket fare - check multiple possible field names
+                ticket_fare_value = (
+                    item.get("ticketFare") or 
+                    item.get("ticket_fare") or 
+                    (item.get("ticket") if item.get("ticket") and item.get("ticket") != "Free" and item.get("ticket") != "Paid" else None) or
+                    None
+                )
+                
                 itinerary.append(
                     ItineraryItem(
                         location=item.get("location") or item.get("placeName") or item.get("title"),
@@ -306,7 +347,9 @@ async def get_product(product_id: str):
                         time=item.get("time"),
                         timeSpent=item.get("timeSpent"),
                         isFree=item.get("isFree", item.get("entryFree")),
-                        photo=item.get("photo") or item.get("croppedPhoto"),
+                        ticketFare=ticket_fare_value,
+                        ticket=item.get("ticket") or None,  # For backward compatibility
+                        photo=item.get("photo") or item.get("croppedPhoto") or item.get("photoPreview"),
                         attractionType=item.get("attractionType") or item.get("attractionsType"),
                         activities=_ensure_list(item.get("activities"))
                     )
@@ -439,6 +482,7 @@ async def get_product(product_id: str):
             itinerary=itinerary,
             pickup_dropoff=pickup_dropoff,
             vehicle_details=vehicle_details,
+            vehicles=vehicles,
             accessibility=accessibility,
             faqs=faqs,
             cancellation_policy=cancellation_policy,

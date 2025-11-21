@@ -147,9 +147,16 @@ const ProductDetails = () => {
         .slice(0,4)
       if (!cancelled) setRecommended(sorted)
     } catch (error) {
-      console.error('Error fetching product:', error)
-      if (!cancelled && !initialFromCache) {
-        setProduct(null)
+      // Don't log abort errors - they're expected when components unmount
+      const isAbortError = error?.name === 'AbortError' || 
+                          error?.message?.includes('aborted') ||
+                          error?.message?.includes('signal is aborted');
+      
+      if (!cancelled && !isAbortError) {
+        console.error('Error fetching product:', error)
+        if (!initialFromCache) {
+          setProduct(null)
+        }
       }
     } finally {
       if (!cancelled) {
@@ -826,15 +833,41 @@ const ProductDetails = () => {
                   {(product.vehicles || []).length > 0 ? (
                     product.vehicles.map((v, idx) => (
                       <div key={idx} className="border border-gray-200 rounded-lg p-3 sm:p-4">
-                        <p className="text-black font-bold text-sm sm:text-base mb-1">
-                          {v.model || v.type || 'Vehicle'} {v.year ? `(${v.year})` : ''}
-                        </p>
-                        {v.capacity && (
-                          <p className="text-gray-500 text-xs sm:text-sm">Up to {v.capacity} Passengers</p>
-                        )}
-                        {v.type && v.type !== v.model && (
-                          <p className="text-gray-500 text-xs sm:text-sm">Type: {v.type}</p>
-                        )}
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex-1">
+                            <p className="text-black font-bold text-sm sm:text-base mb-1">
+                              {v.title || v.model || v.type || 'Vehicle'} {v.year ? `(${v.year})` : ''}
+                            </p>
+                            {v.capacity && (
+                              <p className="text-gray-500 text-xs sm:text-sm mb-1">Up to {v.capacity} Passengers</p>
+                            )}
+                            {v.type && v.type !== v.model && v.title !== v.model && (
+                              <p className="text-gray-500 text-xs sm:text-sm">Type: {v.type}</p>
+                            )}
+                          </div>
+                          {v.amount && (
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-black font-bold text-base sm:text-lg">
+                                {(() => {
+                                  const currency = v.currency || 'USD';
+                                  const currencySymbol = 
+                                    currency === 'USD' ? '$' : 
+                                    currency === 'EUR' ? '€' : 
+                                    currency === 'JPY' ? '¥' : 
+                                    currency === 'GBP' ? '£' : 
+                                    currency + ' ';
+                                  const amount = typeof v.amount === 'number' 
+                                    ? v.amount % 1 === 0 ? v.amount.toString() : v.amount.toFixed(2).replace(/\.?0+$/, '')
+                                    : v.amount;
+                                  return currencySymbol + amount;
+                                })()}
+                              </p>
+                              {v.pricing_type && (
+                                <p className="text-gray-500 text-xs sm:text-sm mt-1">{v.pricing_type}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -1075,8 +1108,25 @@ const ProductDetails = () => {
                 <div className="flex items-baseline justify-start">
                   <span className="text-black font-bold text-sm sm:text-base">Total</span>
                   <div className="flex items-baseline gap-2 ml-2">
-                    <span className="text-xl sm:text-2xl font-bold text-[#00A63E]">$258</span>
-                    <span className="text-gray-600 text-xs sm:text-sm">Per Person</span>
+                    <span className="text-xl sm:text-2xl font-bold text-[#00A63E]">
+                      {(() => {
+                        const currency = product.currency || 'USD';
+                        const currencySymbol = 
+                          currency === 'USD' ? '$' : 
+                          currency === 'EUR' ? '€' : 
+                          currency === 'JPY' ? '¥' : 
+                          currency === 'GBP' ? '£' : 
+                          currency + ' ';
+                        const priceValue = product.priceValue || 0;
+                        const formattedPrice = typeof priceValue === 'number' 
+                          ? priceValue % 1 === 0 ? priceValue.toString() : priceValue.toFixed(2).replace(/\.?0+$/, '')
+                          : priceValue;
+                        return currencySymbol + formattedPrice;
+                      })()}
+                    </span>
+                    {product.priceUnit && (
+                      <span className="text-gray-600 text-xs sm:text-sm">{product.priceUnit}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1297,6 +1347,7 @@ const ProductDetails = () => {
                 const description = item.description || '';
                 const timeSpent = item.timeSpent || '';
                 const isFree = item.isFree !== false;
+                const ticketFare = item.ticketFare || item.ticket || '';
                 const photo = item.photo || null;
                 const attractionType = item.attractionType || '';
                 const activities = item.activities || [];
@@ -1342,11 +1393,9 @@ const ProductDetails = () => {
                       
                       {/* Time and Ticket Info */}
                       <div className="flex items-center gap-2">
-                        {isFree && (
-                          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-                            Ticket: Free
-                          </span>
-                        )}
+                        <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                          Ticket: {isFree ? 'Free' : (ticketFare ? ticketFare : 'Paid')}
+                        </span>
                         {timeSpent && (
                           <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
                             {timeSpent}

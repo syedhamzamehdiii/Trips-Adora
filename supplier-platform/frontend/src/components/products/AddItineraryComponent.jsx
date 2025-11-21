@@ -63,6 +63,7 @@ const AddItineraryComponent = ({
   const [showAttractionsDropdown, setShowAttractionsDropdown] = useState(false);
   const [selectedAttraction, setSelectedAttraction] = useState('Select Attractions');
   const [entryIsFree, setEntryIsFree] = useState(true);
+  const [ticketFare, setTicketFare] = useState('');
   const [hours, setHours] = useState('02');
   const [minutes, setMinutes] = useState('30');
   const [hasSavedItinerary, setHasSavedItinerary] = useState(false);
@@ -341,7 +342,12 @@ const AddItineraryComponent = ({
     const inferredTime = `${String(startHour % 24).padStart(2, '0')}:00`;
 
     const normalizedName = placeName?.trim() || '';
-    const photoUrlForEntry = croppedPhoto || photoPreview;
+    // Preserve existing photo URL if editing and photo hasn't changed
+    const existingEntry = editingItineraryId ? itineraryEntries.find(e => e.id === editingItineraryId) : null;
+    const photoUrlForEntry = croppedPhoto || photoPreview || (existingEntry?.photo || null);
+    const normalizedTicketFare = ticketFare?.trim() || '';
+    const ticketDisplayText = entryIsFree ? 'Free' : (normalizedTicketFare ? normalizedTicketFare : 'Paid');
+    
     const entryData = {
       id: editingItineraryId || Date.now(),
       title: normalizedName || 'Itinerary Stop',
@@ -351,11 +357,12 @@ const AddItineraryComponent = ({
       attractionType: selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
       timeSpent: `${hours}h ${minutes}min`,
       isFree: entryIsFree,
+      ticketFare: normalizedTicketFare,
+      ticket: ticketDisplayText,
       hasPhoto: Boolean(photoUrlForEntry),
       photo: photoUrlForEntry || null,
-      photoPublicId: photoPublicId || null,
+      photoPublicId: photoPublicId || (existingEntry?.photoPublicId || null),
       time: inferredTime,
-      ticket: entryIsFree ? 'Free' : 'Paid',
       activities: [
         selectedAttraction === 'Select Attractions' ? 'Sightseeing & Photography' : selectedAttraction,
         'Food & Drink',
@@ -401,6 +408,7 @@ const AddItineraryComponent = ({
     setHours('02');
     setMinutes('30');
     setEntryIsFree(true);
+    setTicketFare('');
     setUploadedPhoto(null);
     setPhotoPreview(null);
     setCroppedPhoto(null);
@@ -431,10 +439,44 @@ const AddItineraryComponent = ({
       setMinutes('30');
     }
     setEntryIsFree(entry.isFree !== false);
+    // Load ticket fare - if entry has ticketFare, use it, otherwise check if ticket is not "Free"
+    const savedTicketFare = entry.ticketFare || '';
+    setTicketFare(savedTicketFare);
+    // Preserve existing photo - check if it's a URL string or needs to be preserved
     if (entry.photo) {
-      setPhotoPreview(entry.photo);
-      setCroppedPhoto(entry.photo);
-      setPhotoPublicId(entry.photoPublicId || null);
+      let photoUrl = null;
+      // If photo is already a URL string, use it directly
+      if (typeof entry.photo === 'string') {
+        // Handle various URL formats: http, https, data URLs, and Cloudinary URLs
+        if (entry.photo.startsWith('http://') || entry.photo.startsWith('https://') || entry.photo.startsWith('data:')) {
+          photoUrl = entry.photo;
+        } else if (entry.photo.startsWith('/')) {
+          // Relative path - might need to be converted
+          photoUrl = entry.photo;
+        } else {
+          // Try to use it as-is - might be a valid URL without protocol
+          photoUrl = entry.photo;
+        }
+      } else if (entry.photo?.url) {
+        // Photo is an object with url property
+        photoUrl = entry.photo.url;
+      } else if (entry.photo?.secure_url) {
+        // Cloudinary secure URL
+        photoUrl = entry.photo.secure_url;
+      }
+      
+      // Set photo preview and cropped photo if we have a valid URL
+      if (photoUrl) {
+        setPhotoPreview(photoUrl);
+        setCroppedPhoto(photoUrl);
+        // Also preserve photoPublicId if available
+        setPhotoPublicId(entry.photoPublicId || entry.photo?.public_id || null);
+      } else {
+        // Fallback: try to use entry.photo directly
+        setPhotoPreview(entry.photo);
+        setCroppedPhoto(entry.photo);
+        setPhotoPublicId(entry.photoPublicId || null);
+      }
     } else {
       setPhotoPreview(null);
       setCroppedPhoto(null);
@@ -755,7 +797,7 @@ const AddItineraryComponent = ({
                               
                               <div className="flex items-center space-x-2">
                                 <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-                                  {entry.isFree ? 'Free' : 'Paid'}
+                                  Ticket: {entry.isFree ? 'Free' : (entry.ticketFare ? entry.ticketFare : entry.ticket || 'Paid')}
                                 </span>
                                 <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
                                   {entry.timeSpent}
@@ -951,7 +993,7 @@ const AddItineraryComponent = ({
                               {/* Tags Row */}
                               <div className="flex items-center space-x-2 mb-2">
                                 <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                  {entry.isFree ? 'Free' : 'Paid'}
+                                  Ticket: {entry.isFree ? 'Free' : (entry.ticketFare ? entry.ticketFare : entry.ticket || 'Paid')}
                                 </span>
                                 <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
                                   {entry.timeSpent}
@@ -1057,9 +1099,11 @@ const AddItineraryComponent = ({
                   setHours('02');
                   setMinutes('30');
                   setEntryIsFree(true);
+                  setTicketFare('');
                   setUploadedPhoto(null);
                   setPhotoPreview(null);
                   setCroppedPhoto(null);
+                  setPhotoPublicId(null);
                   if (photoInputRef.current) {
                     photoInputRef.current.value = '';
                   }
@@ -1159,8 +1203,11 @@ const AddItineraryComponent = ({
                 <div className="flex items-center space-x-4">
                   <input
                     type="text"
+                    value={ticketFare}
+                    onChange={(e) => setTicketFare(e.target.value)}
                     placeholder="Enter the ticket fare here.."
                     className="flex-1 px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={entryIsFree}
                   />
                   <div className="relative">
                     <button
@@ -1185,16 +1232,24 @@ const AddItineraryComponent = ({
                   <div className="border-2 border-gray-300 rounded-lg p-6">
                     <div className="flex flex-col items-center">
                       <div className="relative mb-4">
-                        <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg">
+                        <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg bg-gray-100">
                           <img 
                             src={photoPreview} 
                             alt="Cropped preview" 
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.error('Image failed to load:', photoPreview);
+                              // If image fails to load, try to set a placeholder or handle the error
+                              e.target.style.display = 'none';
+                            }}
+                            onLoad={() => {
+                              console.log('Image loaded successfully:', photoPreview);
+                            }}
                           />
                         </div>
                         <button
                           onClick={handleRemovePhoto}
-                          className="absolute top-0 right-0 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-md"
+                          className="absolute top-0 right-0 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-md z-10"
                         >
                           <FiX size={16} />
                         </button>
