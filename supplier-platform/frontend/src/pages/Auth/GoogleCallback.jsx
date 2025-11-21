@@ -41,7 +41,7 @@ const GoogleCallback = () => {
           updateUser(response.user);
           toast.success('Successfully signed in with Google!');
           if (!redirectToSupplierOnboarding()) {
-            navigate(ROUTES.DASHBOARD);
+          navigate(ROUTES.DASHBOARD);
           }
         } else {
           toast.error('Google authentication failed');

@@ -5,6 +5,8 @@ import LandingPage from './pages/LandingPage'
 import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
 import GoogleCallback from './pages/Auth/GoogleCallback'
+import ForgotPassword from './pages/Auth/ForgotPassword'
+import ResetPassword from './pages/Auth/ResetPassword'
 import SupplierRegistrationPage from './pages/SupplierRegistrationPage'
 import AboutUsPage from './pages/AboutUsPage'
 import ProductDetails from './components/ProductDetails'
@@ -61,46 +63,48 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/auth/google/callback" element={<GoogleCallback />} />
-          <Route path="/wishlist" element={<WishlistPage />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/search" element={<SearchResultsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/profile/wallet" element={<ProfileWallet />} />
-          <Route path="/profile/settings" element={<ProfileSettings />} />
-          <Route path="/profile/reviews" element={<ProfileReviews />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/profile/wallet/settings" element={<ProfileWalletSettings />} />
-          <Route path="/bookings" element={<BookingsPage />} />
-          <Route path="/booking-details" element={<BookingDetailsPage />} />
-          <Route path="/share-review" element={<ShareReviewPage />} />
-          <Route path="/customer-reviews" element={<CustomerReviews />} />
-          <Route path="/check-availability" element={<CheckAvailabilityPage />} />
-          <Route path="/choose-vehicle" element={<ChooseVehiclePage />} />
-          <Route path="/payment-details" element={<PaymentDetailsPage />} />
-          <Route path="/payment-success" element={<PaymentSuccessPage />} />
-          <Route path="/comparison/detail/:ids" element={<ProductComparisonDetail />} />
-          <Route path="/supplier-registration" element={<SupplierRegistrationPage />} />
-          <Route path="/about-us" element={<AboutUsPage />} />
-          <Route path="/product-details" element={<ProductDetails />} />
-          <Route path="/product-details/:id" element={<ProductDetails />} />
-          <Route path="/stays/:slug" element={<ProductDetails />} />
-          <Route path="/tours/:slug" element={<ProductDetails />} />
-          <Route path="/our-plans" element={<OurPlansPage />} />
-          <Route path="/top-attractions/tokyo" element={<TokyoPage />} />
-          <Route path="/top-attractions/kyoto" element={<KyotoPage />} />
-          <Route path="/top-attractions/osaka" element={<OsakaPage />} />
-          <Route path="/top-attractions/fukuoka" element={<FukuokaPage />} />
-          <Route path="/attractions/tokyo-skytree" element={<TokyoSkytreePage />} />
-          <Route path="/attractions/tokyo-tower" element={<TokyoTowerPage />} />
-          <Route path="/attractions/arashiyama-bamboo-grove" element={<ArashiyamaBambooGrovePage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/search" element={<SearchResultsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile/wallet" element={<ProfileWallet />} />
+        <Route path="/profile/settings" element={<ProfileSettings />} />
+        <Route path="/profile/reviews" element={<ProfileReviews />} />
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/profile/wallet/settings" element={<ProfileWalletSettings />} />
+        <Route path="/bookings" element={<BookingsPage />} />
+        <Route path="/booking-details" element={<BookingDetailsPage />} />
+        <Route path="/share-review" element={<ShareReviewPage />} />
+        <Route path="/customer-reviews" element={<CustomerReviews />} />
+        <Route path="/check-availability" element={<CheckAvailabilityPage />} />
+        <Route path="/choose-vehicle" element={<ChooseVehiclePage />} />
+        <Route path="/payment-details" element={<PaymentDetailsPage />} />
+        <Route path="/payment-success" element={<PaymentSuccessPage />} />
+        <Route path="/comparison/detail/:ids" element={<ProductComparisonDetail />} />
+        <Route path="/supplier-registration" element={<SupplierRegistrationPage />} />
+        <Route path="/about-us" element={<AboutUsPage />} />
+        <Route path="/product-details" element={<ProductDetails />} />
+        <Route path="/product-details/:id" element={<ProductDetails />} />
+        <Route path="/stays/:slug" element={<ProductDetails />} />
+        <Route path="/tours/:slug" element={<ProductDetails />} />
+        <Route path="/our-plans" element={<OurPlansPage />} />
+        <Route path="/top-attractions/tokyo" element={<TokyoPage />} />
+        <Route path="/top-attractions/kyoto" element={<KyotoPage />} />
+        <Route path="/top-attractions/osaka" element={<OsakaPage />} />
+        <Route path="/top-attractions/fukuoka" element={<FukuokaPage />} />
+        <Route path="/attractions/tokyo-skytree" element={<TokyoSkytreePage />} />
+        <Route path="/attractions/tokyo-tower" element={<TokyoTowerPage />} />
+        <Route path="/attractions/arashiyama-bamboo-grove" element={<ArashiyamaBambooGrovePage />} />
           <Route path="/Account_setting" element={<Account_setting />} />
-          <Route path="/blogs" element={<BlogsPage />} />
-          <Route path="/blogs/:id" element={<BlogDetailPage />} />
-          <Route path="/contact" element={<ContactUsPage />} />
-          <Route path="/faq" element={<CustomerFAQPage />} />
-          <Route path="/support" element={<CustomerSupportPage />} />
+        <Route path="/blogs" element={<BlogsPage />} />
+        <Route path="/blogs/:id" element={<BlogDetailPage />} />
+        <Route path="/contact" element={<ContactUsPage />} />
+        <Route path="/faq" element={<CustomerFAQPage />} />
+        <Route path="/support" element={<CustomerSupportPage />} />
           <Route path="/sitemap" element={<SitemapPage />} />
-          <Route path="/privacy" element={<CustomerPrivacyPolicy />} />
+        <Route path="/privacy" element={<CustomerPrivacyPolicy />} />
         <Route path="/supplier/about" element={<SupplierAboutPage />} />
         <Route path="/supplier/contact" element={<SupplierContactPage />} />
         <Route path="/supplier/faq" element={<SupplierFAQPage />} />

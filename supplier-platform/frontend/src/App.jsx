@@ -9,6 +9,8 @@ const GOOGLE_MAPS_LIBRARIES = ['places', 'geometry']
 // Import pages
 import Login from './pages/Auth/Login'
 import Register from './pages/Auth/Register'
+import ForgotPassword from './pages/Auth/ForgotPassword'
+import ResetPassword from './pages/Auth/ResetPassword'
 import GoogleCallback from './pages/Auth/GoogleCallback'
 import Dashboard from './pages/Dashboard/Dashboard'
 import CreateProductComponent from './components/products/CreateProductComponent'
@@ -57,6 +59,14 @@ function AppRoutes() {
         <Route 
           path="/register" 
           element={isAuthenticated ? <Navigate to="/dashboard" /> : <Register />} 
+        />
+        <Route 
+          path="/forgot-password" 
+          element={isAuthenticated ? <Navigate to="/dashboard" /> : <ForgotPassword />} 
+        />
+        <Route 
+          path="/reset-password" 
+          element={isAuthenticated ? <Navigate to="/dashboard" /> : <ResetPassword />} 
         />
         <Route 
           path="/auth/google/callback" 

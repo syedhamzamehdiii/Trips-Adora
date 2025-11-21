@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import authService from '@/services/authService'
 import googleAuthService from '@/services/googleAuthService'
-import { toast } from 'react-toastify'
+import { markSupplierOnboardingVerified } from '@/utils/onboardingRedirect'
 
 const AuthContext = createContext()
 
@@ -17,6 +17,88 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const hydrateBasicProfileFromUser = (userData) => {
+    if (!userData) return
+    try {
+      const fallbackName =
+        (userData.full_name ||
+          userData.business_name ||
+          userData.email?.split('@')[0] ||
+          'TripsAdora Supplier')
+          .toString()
+          .trim() || 'TripsAdora Supplier'
+
+      const fallbackCity = (userData.city || '').trim()
+      const fallbackCountry = (userData.country || '').trim()
+      const supplierCode =
+        userData.supplier_code ||
+        localStorage.getItem('supplier_id') ||
+        sessionStorage.getItem('supplier_id') ||
+        ''
+      const photo =
+        userData.avatar_url ||
+        userData.profile_photo ||
+        userData.photo_url ||
+        null
+
+      const existingRaw =
+        localStorage.getItem('account_settings') ||
+        sessionStorage.getItem('account_settings')
+
+      let parsed =
+        existingRaw && existingRaw !== 'undefined'
+          ? JSON.parse(existingRaw)
+          : null
+
+      if (!parsed || typeof parsed !== 'object') {
+        parsed = {}
+      } else {
+        parsed = { ...parsed }
+      }
+
+      parsed.editableInfo = { ...(parsed.editableInfo || {}) }
+      parsed.profileData = { ...(parsed.profileData || {}) }
+
+      let changed = !existingRaw
+
+      const ensureValue = (target, key, value) => {
+        if (!target[key] && value) {
+          target[key] = value
+          changed = true
+        }
+      }
+
+      ensureValue(parsed.editableInfo, 'publicName', fallbackName)
+      ensureValue(parsed.editableInfo, 'city', fallbackCity)
+      ensureValue(parsed.editableInfo, 'country', fallbackCountry)
+
+      ensureValue(parsed.profileData, 'publicName', fallbackName)
+      ensureValue(parsed.profileData, 'supplierCode', supplierCode)
+      ensureValue(parsed.profileData, 'contactValue', supplierCode)
+      if (!parsed.profileData.contactLabel) {
+        parsed.profileData.contactLabel = 'Supplier ID'
+        changed = true
+      }
+      ensureValue(parsed.profileData, 'city', fallbackCity)
+      ensureValue(parsed.profileData, 'country', fallbackCountry)
+
+      if (!parsed.globalUserPhoto && photo) {
+        parsed.globalUserPhoto = photo
+        changed = true
+      }
+
+      if (changed) {
+        const serialized = JSON.stringify(parsed)
+        localStorage.setItem('account_settings', serialized)
+        sessionStorage.setItem('account_settings', serialized)
+        window.dispatchEvent(new Event('account_settings_updated'))
+        window.dispatchEvent(new Event('accountSettingsUpdated'))
+      }
+    } catch (error) {
+      console.warn('Unable to hydrate profile from auth user', error)
+    }
+  }
 
   useEffect(() => {
     initializeAuth()
@@ -55,6 +137,8 @@ export const AuthProvider = ({ children }) => {
           
           if (userData) {
             persistSupplierId(userData?.supplier_code)
+            markSupplierOnboardingVerified()
+            hydrateBasicProfileFromUser(userData)
             setUser(userData)
           } else {
             // No user data returned, clear tokens
@@ -138,6 +222,8 @@ export const AuthProvider = ({ children }) => {
       
       if (result.success) {
         persistSupplierId(result.user?.supplier_code)
+        markSupplierOnboardingVerified()
+        hydrateBasicProfileFromUser(result.user)
         setUser(result.user)
         return { success: true }
       }
@@ -158,6 +244,8 @@ export const AuthProvider = ({ children }) => {
       
       if (result.success) {
         persistSupplierId(result.user?.supplier_code)
+        markSupplierOnboardingVerified()
+        hydrateBasicProfileFromUser(result.user)
         setUser(result.user)
         return { success: true }
       }
@@ -202,7 +290,10 @@ export const AuthProvider = ({ children }) => {
   }
 
   const updateUser = (userData) => {
+    if (!userData) return
     setUser(prev => ({ ...prev, ...userData }))
+    markSupplierOnboardingVerified()
+    hydrateBasicProfileFromUser(userData)
   }
 
   const value = {

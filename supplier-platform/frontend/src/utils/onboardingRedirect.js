@@ -1,25 +1,20 @@
-const CUSTOMER_APP_URL =
-  (import.meta?.env?.VITE_CUSTOMER_APP_URL || 'http://localhost:5174').replace(/\/$/, '')
+const setStorageFlag = (key, value) => {
+  try {
+    localStorage.setItem(key, value)
+    sessionStorage.setItem(key, value)
+  } catch (error) {
+    console.warn(`Unable to update ${key}`, error)
+  }
+}
+
+export const markSupplierOnboardingVerified = () => {
+  setStorageFlag('supplier_onboarding_status', 'verified')
+  setStorageFlag('supplier_requires_self_verification', 'false')
+}
 
 export const redirectToSupplierOnboarding = () => {
-  try {
-    const storedStatus =
-      localStorage.getItem('supplier_onboarding_status') ||
-      sessionStorage.getItem('supplier_onboarding_status')
-
-    if (storedStatus === 'verified') {
-      return false
-    }
-
-    if (!storedStatus) {
-      localStorage.setItem('supplier_onboarding_status', 'onboarding')
-      sessionStorage.setItem('supplier_onboarding_status', 'onboarding')
-    }
-  } catch (error) {
-    console.warn('Unable to access supplier onboarding status', error)
-  }
-
-  window.location.assign(`${CUSTOMER_APP_URL}/supplier-registration`)
-  return true
+  // Until admin verification flow is wired, auto-mark suppliers as verified
+  markSupplierOnboardingVerified()
+  return false
 }
 

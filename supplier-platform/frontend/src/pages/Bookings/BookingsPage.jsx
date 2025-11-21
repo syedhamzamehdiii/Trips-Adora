@@ -35,6 +35,21 @@ const BookingsPage = () => {
     status: 'All Status'
   });
 
+  const HIDDEN_BOOKINGS_KEY = 'supplier_hidden_booking_ids';
+  const [hiddenBookingIds, setHiddenBookingIds] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(HIDDEN_BOOKINGS_KEY) || '[]');
+      return Array.isArray(stored) ? stored : [];
+    } catch (_) {
+      return [];
+    }
+  });
+  const persistHiddenBookings = (ids) => {
+    setHiddenBookingIds(ids);
+    try {
+      localStorage.setItem(HIDDEN_BOOKINGS_KEY, JSON.stringify(ids));
+    } catch (_) {}
+  };
   const [bookings, setBookings] = useState([]);
   const [bookingStats, setBookingStats] = useState({ total: 0, by_status: {}, total_revenue: 0 });
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -119,12 +134,13 @@ const BookingsPage = () => {
   };
 
   const handleDeleteBooking = async (bookingId) => {
-    if (window.confirm('Are you sure you want to delete this booking?')) {
+    if (window.confirm('Are you sure you want to hide this booking from your view?')) {
       try {
-        // Note: Delete functionality would require a DELETE endpoint
-        // For now, just remove from local state
-        const updated = bookings.filter(b => b.id !== bookingId);
-        setBookings(updated);
+        const updatedHidden = hiddenBookingIds.includes(bookingId)
+          ? hiddenBookingIds
+          : [...hiddenBookingIds, bookingId];
+        persistHiddenBookings(updatedHidden);
+        setBookings(prev => prev.filter(b => b.id !== bookingId));
         window.dispatchEvent(new Event('supplier_bookings_updated'));
       } catch (e) {
         console.error('Error deleting booking:', e);
@@ -231,7 +247,8 @@ const BookingsPage = () => {
     return true;
   };
 
-  const filtered = bookings.filter(matchesFilters);
+  const visibleBookings = bookings.filter(b => !hiddenBookingIds.includes(b.id));
+  const filtered = visibleBookings.filter(matchesFilters);
   
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -246,7 +263,7 @@ const BookingsPage = () => {
 
   // Stats derived from API stats or calculated from bookings
   const allBookingStats = {
-    total: bookingStats.total || bookings.length,
+    total: bookingStats.total || visibleBookings.length,
     upcoming: (bookingStats.by_status?.confirmed || 0) + 
               (bookingStats.by_status?.pending || 0) + 
               (bookingStats.by_status?.customized || 0),

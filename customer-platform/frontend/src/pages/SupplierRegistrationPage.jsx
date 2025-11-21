@@ -9,9 +9,21 @@ const SupplierRegistrationPage = () => {
   const navigate = useNavigate();
   const initialSupplierStatus = useMemo(() => {
     try {
-      return localStorage.getItem('supplier_onboarding_status') || 'onboarding';
+      const stored =
+        localStorage.getItem('supplier_onboarding_status') ||
+        sessionStorage.getItem('supplier_onboarding_status');
+
+      if (stored === 'verified') {
+        return 'verified';
+      }
+
+      localStorage.setItem('supplier_onboarding_status', 'verified');
+      sessionStorage.setItem('supplier_onboarding_status', 'verified');
+      localStorage.setItem('supplier_requires_self_verification', 'false');
+      sessionStorage.setItem('supplier_requires_self_verification', 'false');
+      return 'verified';
     } catch (_) {
-      return 'onboarding';
+      return 'verified';
     }
   }, []);
   const [selectedBusinessType, setSelectedBusinessType] = useState('company');
@@ -122,16 +134,6 @@ const SupplierRegistrationPage = () => {
 
     setShowWelcomeScreen(supplierStatus === 'onboarding');
     setShowDashboardView(supplierStatus === 'pending_verification');
-
-    if (supplierStatus === 'verified') {
-      window.location.href = `${config.SUPPLIER_APP_URL}/dashboard`;
-    }
-  }, [supplierStatus]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('supplier_onboarding_status', supplierStatus);
-    } catch (_) {}
 
     if (supplierStatus === 'verified') {
       window.location.href = `${config.SUPPLIER_APP_URL}/dashboard`;

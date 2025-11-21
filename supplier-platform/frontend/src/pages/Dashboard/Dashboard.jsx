@@ -377,6 +377,38 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
+    if (!user) return;
+    setSidebarProfile((prev) => {
+      const fallbackName =
+        (user.full_name ||
+          user.business_name ||
+          user.email?.split('@')[0] ||
+          prev.name ||
+          'User')
+          .toString()
+          .trim();
+
+      const locationParts = [];
+      if (user.city) locationParts.push(user.city);
+      if (user.country) locationParts.push(user.country);
+      const fallbackLocation = locationParts.length ? locationParts.join(', ') : prev.location;
+
+      const supplierId =
+        user.supplier_code ||
+        localStorage.getItem('supplier_id') ||
+        sessionStorage.getItem('supplier_id') ||
+        prev.id;
+
+      return {
+        ...prev,
+        name: fallbackName || prev.name,
+        id: supplierId || prev.id,
+        location: fallbackLocation,
+      };
+    });
+  }, [user]);
+
+  useEffect(() => {
     let isMounted = true;
     const loadUnread = async () => {
       try {
@@ -778,7 +810,7 @@ const Dashboard = () => {
             <p className="text-xs text-white/80">{sidebarProfile.location}</p>
           </div>
           <div className="flex items-center mb-4">
-            <span className="text-xs text-white">Karwan Tours</span>
+            <span className="text-xs text-white">TripsAdora</span>
             <FiCheck className="ml-2 text-green-400" size={12} />
           </div>
           

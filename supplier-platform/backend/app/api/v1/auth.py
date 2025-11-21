@@ -7,7 +7,7 @@ import jwt
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, constr
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user
@@ -67,6 +67,33 @@ class UserResponse(BaseModel):
 
 class GoogleLogin(BaseModel):
     credential: str
+
+
+class VerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyCodeRequest(BaseModel):
+    email: EmailStr
+    code: constr(min_length=4, max_length=12)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: constr(min_length=4, max_length=128)
+    new_password: constr(min_length=6, max_length=128)
+
+
+class VerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyCodeRequest(BaseModel):
+    email: EmailStr
+    code: constr(min_length=4, max_length=12)
 
 
 
@@ -244,9 +271,9 @@ async def refresh_token(refresh_token: str):
 
 
 @router.post("/forgot-password")
-async def forgot_password(email: EmailStr):
+async def forgot_password(payload: ForgotPasswordRequest):
     """Send password reset email"""
-    user = await User.find_one(User.email == email)
+    user = await User.find_one(User.email == payload.email)
     
     if not user:
         # Don't reveal if user exists
@@ -259,7 +286,7 @@ async def forgot_password(email: EmailStr):
 
 
 @router.post("/reset-password")
-async def reset_password(token: str, new_password: str):
+async def reset_password(payload: ResetPasswordRequest):
     """Reset password"""
     # TODO: Verify reset token and update password
     
@@ -491,7 +518,7 @@ async def google_callback(request: GoogleCallbackRequest):
 
 
 @router.post("/send-verification-code")
-async def send_verification_code(email: EmailStr):
+async def send_verification_code(payload: VerificationRequest):
     """Send email verification code"""
     # TODO: Generate 6-digit code and send via email
     # For now, just return success message
@@ -500,7 +527,7 @@ async def send_verification_code(email: EmailStr):
 
 
 @router.post("/verify-code")
-async def verify_code(email: EmailStr, code: str):
+async def verify_code(payload: VerifyCodeRequest):
     """Verify email code"""
     # TODO: Verify the code
     # For now, just return success message

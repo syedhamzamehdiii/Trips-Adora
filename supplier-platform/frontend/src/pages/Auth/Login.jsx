@@ -41,7 +41,7 @@ const Login = () => {
       await login(data);
       const redirected = redirectToSupplierOnboarding();
       if (!redirected) {
-        toast.success('Login successful! Welcome back!');
+      toast.success('Login successful! Welcome back!');
       }
     } catch (error) {
       console.error('Login error:', error);
