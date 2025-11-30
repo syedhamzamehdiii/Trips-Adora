@@ -192,7 +192,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [selectedPickupLocation, setSelectedPickupLocation] = useState('');
   const [selectedDropoffLocation, setSelectedDropoffLocation] = useState('');
   const [showCalendar, setShowCalendar] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('01 Oct');
+  const [selectedDate, setSelectedDate] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showSelectVehicleModal, setShowSelectVehicleModal] = useState(false);
   const [selectedVehicleForTour, setSelectedVehicleForTour] = useState(null);
@@ -373,7 +373,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     setSelectedPickupMinute('00');
     setSelectedWeekDay('week days');
     setShowCalendar(false);
-    setSelectedDate('01 Oct');
+    setSelectedDate(null);
     setCurrentMonth(new Date());
     setShowSelectVehicleModal(false);
     setUseSamePickupLocation(true);
@@ -934,14 +934,100 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           if (draftData.selectedDropoffLocations) setSelectedDropoffLocations(draftData.selectedDropoffLocations);
           if (draftData.activePickupLocations) setActivePickupLocations(draftData.activePickupLocations);
           if (draftData.activeDropoffLocations) setActiveDropoffLocations(draftData.activeDropoffLocations);
+          
+          // Set useSamePickupLocation based on loaded data
+          // If dropoff locations exist and are different from pickup, toggle should be OFF
+          if (draftData.useSamePickupLocation !== undefined) {
+            setUseSamePickupLocation(draftData.useSamePickupLocation);
+          } else if (draftData.selectedDropoffLocations && draftData.selectedPickupLocations) {
+            // Check if dropoff locations are different from pickup locations
+            const pickupSet = new Set(draftData.selectedPickupLocations.map(l => String(l).toLowerCase()));
+            const dropoffSet = new Set(draftData.selectedDropoffLocations.map(l => String(l).toLowerCase()));
+            const areDifferent = pickupSet.size !== dropoffSet.size || 
+              !Array.from(pickupSet).every(loc => dropoffSet.has(loc));
+            setUseSamePickupLocation(!areDifferent);
+          }
           if (draftData.selectedPickupHour) setSelectedPickupHour(draftData.selectedPickupHour);
           if (draftData.selectedPickupMinute) setSelectedPickupMinute(draftData.selectedPickupMinute);
           if (draftData.selectedWeekDay) setSelectedWeekDay(draftData.selectedWeekDay);
           if (draftData.selectedDate) setSelectedDate(draftData.selectedDate);
           if (draftData.timeSlots) setTimeSlots(normalizeTimeSlots(draftData.timeSlots));
-          if (draftData.vehicleTimeAllocations) {
+          // Load vehicleTimeAllocations - prioritize from draft, but also check pickup_dropoff structure
+          if (Array.isArray(draftData.vehicleTimeAllocations) && draftData.vehicleTimeAllocations.length > 0) {
             console.log('✅ Loading vehicle-time allocations:', draftData.vehicleTimeAllocations.length);
             setVehicleTimeAllocations(draftData.vehicleTimeAllocations);
+          } else if (draftData.pickup_dropoff?.pickup_configurations && Array.isArray(draftData.pickup_dropoff.pickup_configurations) && draftData.pickup_dropoff.pickup_configurations.length > 0) {
+            // Convert pickup_configurations back to vehicleTimeAllocations format
+            const vehiclesList = Array.isArray(draftData.vehicles) && draftData.vehicles.length > 0
+              ? draftData.vehicles
+              : (draftData.selectedVehicleForTour ? [draftData.selectedVehicleForTour] : []);
+            
+            const convertedAllocations = draftData.pickup_dropoff.pickup_configurations.map(config => {
+              const pickupLocations = config.pickup_location
+                ? config.pickup_location.split(',').map(l => l.trim()).filter(Boolean)
+                : [];
+              
+              // Extract dropoff locations - if dropoff_location exists and is different from pickup, use it
+              let dropoffLocations = [];
+              if (config.dropoff_location && config.dropoff_location !== config.pickup_location) {
+                dropoffLocations = config.dropoff_location.split(',').map(l => l.trim()).filter(Boolean);
+              } else {
+                // If no dropoff_location or same as pickup, use pickup locations
+                dropoffLocations = pickupLocations.length > 0 ? pickupLocations : (config.pickup_location ? [config.pickup_location] : []);
+              }
+              
+              let vehicle = config.vehicle || null;
+              if (!vehicle && config.vehicle_id && vehiclesList.length > 0) {
+                vehicle = vehiclesList.find(v => {
+                  const vId = v.id || v._id;
+                  return vId && String(vId) === String(config.vehicle_id);
+                }) || null;
+              }
+              if (!vehicle && vehiclesList.length > 0) {
+                vehicle = vehiclesList[0];
+              }
+              
+              return {
+                id: Date.now() + Math.random(),
+                time: config.pickup_time || '',
+                pickup_time: config.pickup_time || '',
+                vehicle: vehicle,
+                vehicle_id: config.vehicle_id || vehicle?.id || vehicle?._id || null,
+                date: config.pickup_date || null,
+                pickup_date: config.pickup_date || null,
+                datetime: config.pickup_datetime || null,
+                pickup_datetime: config.pickup_datetime || null,
+                pickupLocations: pickupLocations.length > 0 ? pickupLocations : (config.pickup_location ? [config.pickup_location] : []),
+                pickupLocation: config.pickup_location || '',
+                pickup_location: config.pickup_location || '',
+                dropoffLocations: dropoffLocations,
+                dropoffLocation: config.dropoff_location || ''
+              };
+            });
+            
+            if (convertedAllocations.length > 0) {
+              console.log('✅ Loading vehicle-time allocations from pickup_configurations:', convertedAllocations.length);
+              setVehicleTimeAllocations(convertedAllocations);
+            }
+          }
+          // Load time slot configuration
+          if (draftData.startTime) setStartTime(draftData.startTime);
+          if (draftData.endTime) setEndTime(draftData.endTime);
+          if (draftData.duration) setDuration(draftData.duration);
+          if (draftData.applyToAllDays !== undefined) setApplyToAllDays(draftData.applyToAllDays);
+          
+          // Also load time slot configuration from pickup_dropoff if available
+          if (draftData.pickup_dropoff?.time_slot_configuration) {
+            const tsConfig = draftData.pickup_dropoff.time_slot_configuration;
+            if (tsConfig.start_time) setStartTime(tsConfig.start_time);
+            if (tsConfig.end_time) setEndTime(tsConfig.end_time);
+            if (tsConfig.duration) setDuration(String(tsConfig.duration));
+            if (tsConfig.apply_to_all_days !== undefined) setApplyToAllDays(tsConfig.apply_to_all_days);
+          }
+          
+          // Also load time slots from pickup_dropoff if available
+          if (draftData.pickup_dropoff?.time_slots_by_day && typeof draftData.pickup_dropoff.time_slots_by_day === 'object') {
+            setTimeSlots(normalizeTimeSlots(draftData.pickup_dropoff.time_slots_by_day));
           }
 
           const hydrateImagesFromBackend = async (targetId) => {
@@ -955,6 +1041,16 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
               }
               if (Array.isArray(hydratedDraft?.uploadedPhotos) && hydratedDraft.uploadedPhotos.length) {
                 setUploadedPhotos(hydratedDraft.uploadedPhotos);
+              }
+              // Also hydrate vehicleTimeAllocations from backend if available (vehicle-based data)
+              if (Array.isArray(hydratedDraft?.vehicleTimeAllocations) && hydratedDraft.vehicleTimeAllocations.length > 0) {
+                console.log('✅ Hydrating vehicleTimeAllocations from backend:', hydratedDraft.vehicleTimeAllocations.length);
+                setVehicleTimeAllocations(hydratedDraft.vehicleTimeAllocations);
+              }
+              // Also hydrate vehicles if available from backend
+              if (Array.isArray(hydratedDraft?.vehicles) && hydratedDraft.vehicles.length > 0) {
+                console.log('✅ Hydrating vehicles from backend:', hydratedDraft.vehicles.length);
+                setVehicles(hydratedDraft.vehicles);
               }
             } catch (hydrationError) {
               console.warn('Unable to hydrate draft images from backend:', hydrationError);
@@ -1118,12 +1214,18 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           selectedDropoffLocations,
           activePickupLocations,
           activeDropoffLocations,
+          useSamePickupLocation,
           selectedPickupHour,
           selectedPickupMinute,
           selectedWeekDay,
           selectedDate,
           timeSlots,
           vehicleTimeAllocations,
+          // Time slot configuration
+          startTime,
+          endTime,
+          duration,
+          applyToAllDays,
           
           // Current step
           step,
@@ -1188,6 +1290,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     selectedPickupLocations, selectedDropoffLocations, activePickupLocations, activeDropoffLocations,
     selectedPickupHour, selectedPickupMinute, selectedWeekDay, selectedDate, timeSlots,
     vehicleTimeAllocations, itineraries,
+    startTime, endTime, duration, applyToAllDays,
     step, internalDraftId, dbProductId, draftStorageKey
   ]);
 
@@ -1431,6 +1534,13 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours.toString().padStart(2, '0')} : ${mins.toString().padStart(2, '0')}`;
+  };
+
+  // Helper function to format time as HH:MM
+  const formatTimeString = (hours, minutes) => {
+    const formattedHour = String(hours || '00').padStart(2, '0');
+    const formattedMinute = String(minutes || '00').padStart(2, '0');
+    return `${formattedHour}:${formattedMinute}`;
   };
 
   // Generate time slots automatically
@@ -1756,7 +1866,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     if (!window.confirm('Are you sure you want to delete this vehicle?')) {
       return;
     }
-    const isLocalVehicle = vehicleId.startsWith('temp_vehicle_');
+    
+    // Check if vehicle ID is a valid MongoDB ObjectId (24 hex characters)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(vehicleId);
+    const isLocalVehicle = vehicleId.startsWith('temp_vehicle_') || !isValidObjectId;
+    
+    // Only try to delete from backend if:
+    // 1. We have a product context (resolvedVehicleContextId)
+    // 2. The vehicle ID is a valid MongoDB ObjectId (not a local/temp ID)
     if (resolvedVehicleContextId && !isLocalVehicle) {
       try {
         await vehicleService.remove(vehicleId);
@@ -1771,7 +1888,13 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         return;
       } catch (error) {
         console.error('Failed to delete vehicle option from database:', error);
-        alert(error?.message || 'Failed to delete vehicle.');
+        // If deletion fails (e.g., 404), it might be a local vehicle - fall through to local deletion
+        if (error?.response?.status === 404 || error?.message?.includes('not found')) {
+          console.warn('Vehicle not found in database, treating as local vehicle:', vehicleId);
+        } else {
+          alert(error?.message || 'Failed to delete vehicle.');
+          return; // Don't proceed with local deletion if there's a real error
+        }
       }
     }
 
@@ -2017,16 +2140,57 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       return;
     }
     
-    const timeString = `${selectedPickupHour}:${selectedPickupMinute}`;
+    // Get the pickup location(s) to associate with this allocation
+    // Use active pickup locations if any, otherwise use all selected pickup locations
+    const locationsForAllocation = activePickupLocations.length > 0 
+      ? activePickupLocations 
+      : selectedPickupLocations;
+    
+    if (locationsForAllocation.length === 0) {
+      alert('Please select at least one pickup location first!');
+      return;
+    }
+    
+    // Get the dropoff location(s) to associate with this allocation
+    // If "use same pickup location" toggle is ON, use pickup locations for dropoff
+    // Otherwise, use selected dropoff locations (or active ones if any)
+    let dropoffLocationsForAllocation = [];
+    if (useSamePickupLocation) {
+      // Use pickup locations as dropoff locations when toggle is ON
+      dropoffLocationsForAllocation = locationsForAllocation;
+    } else {
+      // Use dropoff locations when toggle is OFF
+      if (activeDropoffLocations.length > 0) {
+        dropoffLocationsForAllocation = activeDropoffLocations;
+      } else if (selectedDropoffLocations.length > 0) {
+        dropoffLocationsForAllocation = selectedDropoffLocations;
+      } else {
+        // Fallback: if no dropoff locations selected but toggle is OFF, warn user
+        alert('Please select drop-off locations or enable "Use same pick-up location for drop-off".');
+        return;
+      }
+    }
+    
+    // Format time as HH:MM with proper padding
+    const timeString = formatTimeString(selectedPickupHour, selectedPickupMinute);
+    
     const allocation = {
       id: Date.now(),
       time: timeString,
       vehicle: selectedVehicleForTour,
-      date: selectedDate
+      date: selectedDate,
+      pickupLocations: locationsForAllocation,  // Store pickup location(s) for this allocation
+      dropoffLocations: dropoffLocationsForAllocation  // Store dropoff location(s) for this allocation
     };
     
     setVehicleTimeAllocations(prev => [...prev, allocation]);
-    console.log('✅ Vehicle-time allocation added:', timeString, selectedVehicleForTour.title);
+    console.log('✅ Vehicle-time allocation added:', {
+      time: timeString,
+      vehicle: selectedVehicleForTour.title,
+      date: selectedDate,
+      pickupLocations: locationsForAllocation,
+      dropoffLocations: dropoffLocationsForAllocation
+    });
     
     // Reset for next allocation
     setSelectedVehicleForTour(null);
@@ -3070,6 +3234,39 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                </div>
              </div>
 
+             {/* Change Vehicle Section */}
+             <div className="mb-8">
+               <div className="bg-white border border-gray-200 rounded-lg p-6">
+                 <div className="flex items-center mb-4">
+                   <div className="flex items-center">
+                     <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center mr-3">
+                       <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                       </svg>
+                     </div>
+                     <h3 className="text-lg font-bold text-gray-900">Select Vehicle</h3>
+                   </div>
+                 </div>
+                 
+                 <p className="text-gray-600 mb-4">Please select a vehicle for this product before setting pickup and drop-off locations.</p>
+                 
+                 <div className="flex items-center gap-3">
+                   <button 
+                     onClick={() => setShowSelectVehicleModal(true)}
+                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+                   >
+                     {selectedVehicleForTour ? 'Change Vehicle' : 'Select Vehicle'}
+                   </button>
+                   {selectedVehicleForTour && (
+                     <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full">
+                       <FiCheckCircle className="text-green-600 flex-shrink-0" size={14} />
+                       <span className="text-sm font-medium text-green-700">Vehicle Selected: {selectedVehicleForTour.title}</span>
+                     </div>
+                   )}
+                 </div>
+               </div>
+             </div>
+
              {/* Header Section */}
              <div className="flex justify-between items-start mb-8">
                <div>
@@ -3573,7 +3770,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                        </svg>
-                       <span className="text-gray-700 font-medium">Starting date: {selectedDate}</span>
+                       <span className="text-gray-700 font-medium">Starting date: {selectedDate || 'no date selected'}</span>
                      </button>
                      
                      {/* Calendar Popup */}
@@ -3708,12 +3905,12 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                        </div>
                        <span className="text-gray-500 font-medium">Minutes</span>
                        
-                      <button 
-                        onClick={() => setShowSelectVehicleModal(true)}
-                        className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                      >
-                        {selectedVehicleForTour ? 'Change Vehicle' : 'Select Vehicle'}
-                       </button>
+                       {selectedVehicleForTour && (
+                         <div className="ml-4 inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full">
+                           <FiCheckCircle className="text-green-600 flex-shrink-0" size={14} />
+                           <span className="text-sm font-medium text-green-700">Vehicle Selected: {selectedVehicleForTour.title}</span>
+                         </div>
+                       )}
                      </div>
                    </div>
                    
@@ -3724,15 +3921,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                    >
                       Add new time
                    </button>
-                    {selectedVehicleForTour && (
-                      <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-sm">
-                          <FiCheckCircle className="text-green-600" size={16} />
-                          <span className="font-semibold text-green-900">Vehicle Selected:</span>
-                          <span className="text-green-700">{selectedVehicleForTour.title}</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
                  </div>
                </div>
@@ -3761,7 +3949,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                                 {allocation.date}
                               </span>
                             </div>
-                            <div className="flex items-center space-x-2 mt-1">
+                            <div className="flex items-center space-x-2 mt-1 flex-wrap">
                               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                               </svg>
@@ -3771,6 +3959,22 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                               <span className="text-xs text-gray-400">•</span>
                               <span className="text-xs text-gray-500">Max {allocation.vehicle.capacity} travelers</span>
                             </div>
+                            {/* Show pickup locations for this allocation */}
+                            {allocation.pickupLocations && allocation.pickupLocations.length > 0 && (
+                              <div className="flex items-center space-x-2 mt-2 flex-wrap">
+                                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span className="text-xs text-blue-600 font-medium">Pickup:</span>
+                                {allocation.pickupLocations.map((location, idx) => (
+                                  <span key={idx} className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                                    {location}
+                                    {idx < allocation.pickupLocations.length - 1 && ', '}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <button
@@ -4822,8 +5026,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             accessibility: accessibilityToggles,
             faqs: faqs.filter(faq => faq.question && faq.answer && faq.question.trim() && faq.answer.trim()),
             cancellationPolicy,
-            // Vehicle data - pass only the selected vehicle as an array
-            vehicles: selectedVehicleForTour ? [selectedVehicleForTour] : vehicles,
+            // Vehicle data - pass ALL vehicles so they can all be displayed and selected in preview
+            vehicles: Array.isArray(vehicles) && vehicles.length > 0 ? vehicles : (selectedVehicleForTour ? [selectedVehicleForTour] : []),
             // Vehicle form fields (for price extraction)
             productAmount: productAmount,
             currency: currency,
@@ -4831,13 +5035,27 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             // Location & Time data (now using arrays for multiple locations)
             pickupLocations: selectedPickupLocations,
             dropoffLocations: selectedDropoffLocations,
-            pickupTime: `${selectedPickupHour}:${selectedPickupMinute}`,
+            pickupTime: (() => {
+              // Priority 1: Extract from first vehicle-time allocation (the actual saved time)
+              if (Array.isArray(vehicleTimeAllocations) && vehicleTimeAllocations.length > 0) {
+                const firstAllocation = vehicleTimeAllocations[0];
+                if (firstAllocation?.time || firstAllocation?.pickup_time) {
+                  return firstAllocation.time || firstAllocation.pickup_time;
+                }
+              }
+              // Priority 2: Use current selected time
+              return formatTimeString(selectedPickupHour, selectedPickupMinute);
+            })(),
             weekDay: selectedWeekDay,
             selectedDate: selectedDate,
             // Time slots for all days
             timeSlots: timeSlots,
             vehicleTimeAllocations: vehicleTimeAllocations,
             applyToAllDays: applyToAllDays,
+            // Time slot configuration settings
+            startTime: startTime,
+            endTime: endTime,
+            duration: duration,
             itineraries: itineraries,
             // Provide draftId so AddItineraryComponent can preload existing itineraries
             draftId: internalDraftId,

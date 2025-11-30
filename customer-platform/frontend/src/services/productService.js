@@ -505,12 +505,78 @@ export const transformProductForFrontend = (product) => {
   }
 
   // Extract meeting points from pickup_dropoff
+  // IMPORTANT: Preserve the FULL pickup_dropoff structure including pickup_configurations
   const pickupDropoff = product.pickup_dropoff || {};
-  const meetingPoints = pickupDropoff.pickup_locations || 
-                       (Array.isArray(product.pickupLocations) ? product.pickupLocations : []);
-  const pickupTime = pickupDropoff.pickup_time || product.pickupTime || '';
+  
+  // Debug: Log pickup_dropoff structure in development - with ERROR level so it's visible
+  if (process.env.NODE_ENV === 'development') {
+    console.error('📦 [CUSTOMER FETCH] ========== PICKUP_DROPOFF DEBUG ==========');
+    console.error('📦 [CUSTOMER FETCH] Raw pickup_dropoff from API:', {
+      hasPickupDropoff: !!pickupDropoff,
+      keys: pickupDropoff ? Object.keys(pickupDropoff) : [],
+      hasPickupConfigs: !!pickupDropoff?.pickup_configurations,
+      configsCount: Array.isArray(pickupDropoff?.pickup_configurations) ? pickupDropoff.pickup_configurations.length : 0,
+      pickupConfigs: pickupDropoff?.pickup_configurations,
+      pickup_locations: pickupDropoff?.pickup_locations,
+      pickup_time: pickupDropoff?.pickup_time,
+      fullPickupDropoff: pickupDropoff,
+      // Also check if it's in the raw product
+      rawProductPickupDropoff: product.pickup_dropoff,
+      rawProductKeys: product ? Object.keys(product).filter(k => k.includes('pickup') || k.includes('vehicle')) : []
+    })
+    
+    // Also check custom_fields for vehicle_time_allocations
+    const customFields = product.custom_fields || product.customFields || {}
+    console.error('📦 [CUSTOMER FETCH] Custom fields check:', {
+      hasCustomFields: !!customFields,
+      customFieldsKeys: Object.keys(customFields),
+      hasVehicleTimeAllocations: !!customFields.vehicle_time_allocations,
+      vehicleTimeAllocationsCount: Array.isArray(customFields.vehicle_time_allocations) 
+        ? customFields.vehicle_time_allocations.length 
+        : 0,
+      vehicleTimeAllocations: customFields.vehicle_time_allocations
+    })
+    
+    // CRITICAL: Log the full raw product to see what the API returned
+    console.error('📦 [CUSTOMER FETCH] Full raw product from API (pickup_dropoff section):', 
+      JSON.stringify(product.pickup_dropoff || null, null, 2)
+    );
+    
+    if (!pickupDropoff?.pickup_configurations || !Array.isArray(pickupDropoff.pickup_configurations) || pickupDropoff.pickup_configurations.length === 0) {
+      console.error('❌ [CUSTOMER FETCH] WARNING: pickup_configurations is MISSING or EMPTY!');
+    } else {
+      console.error('✅ [CUSTOMER FETCH] pickup_configurations found:', pickupDropoff.pickup_configurations.length, 'configs');
+    }
+    console.error('📦 [CUSTOMER FETCH] ==========================================');
+  }
+  
+  // Extract pickup_locations - prioritize from pickup_dropoff.pickup_locations
+  const meetingPoints = Array.isArray(pickupDropoff.pickup_locations) && pickupDropoff.pickup_locations.length > 0
+    ? pickupDropoff.pickup_locations
+    : (Array.isArray(product.pickupLocations) ? product.pickupLocations : []);
+  // Extract pickup_time - prioritize from pickup_configurations, then legacy fields
+  const pickupTime = (() => {
+    // Priority 1: First pickup configuration time
+    if (Array.isArray(pickupDropoff.pickup_configurations) && pickupDropoff.pickup_configurations.length > 0) {
+      const firstConfig = pickupDropoff.pickup_configurations[0];
+      if (firstConfig?.pickup_time) {
+        return firstConfig.pickup_time;
+      }
+    }
+    // Priority 2: Legacy pickup_dropoff.pickup_time
+    if (pickupDropoff.pickup_time) {
+      return pickupDropoff.pickup_time;
+    }
+    // Priority 3: Product pickupTime field
+    if (product.pickupTime) {
+      return product.pickupTime;
+    }
+    return '';
+  })();
   const availableDays = pickupDropoff.available_days || product.availableDays || [];
-  const availableTimeSlots = pickupDropoff.available_time_slots || product.availableTimeSlots || [];
+  const availableTimeSlots = Array.isArray(pickupDropoff.available_time_slots) && pickupDropoff.available_time_slots.length > 0
+    ? pickupDropoff.available_time_slots
+    : (Array.isArray(product.availableTimeSlots) ? product.availableTimeSlots : []);
 
   const supplierBusinessName =
     product.supplier_business_name ||
@@ -563,6 +629,10 @@ export const transformProductForFrontend = (product) => {
                    (product.excludedItems ? (Array.isArray(product.excludedItems) ? product.excludedItems : [product.excludedItems]) : []),
     availableDays: availableDays,
     availableTimeSlots: availableTimeSlots,
+    // Include full pickup_dropoff structure for vehicle-based access
+    pickup_dropoff: pickupDropoff || null,
+    // Include custom_fields for fallback data access (vehicles_full, vehicle_time_allocations, etc.)
+    custom_fields: customFields || {},
     cancellationPolicy: product.cancellation_policy || product.cancellationPolicy || null,
     faqs: Array.isArray(product.faqs) ? product.faqs : [],
     // Supplier information

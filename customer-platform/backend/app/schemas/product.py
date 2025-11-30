@@ -46,6 +46,26 @@ class Vehicle(BaseModel):
     currency: Optional[str] = None  # e.g., USD, EUR, JPY
     amount: Optional[float] = None  # Price amount
     pricing_type: Optional[str] = None  # e.g., Per Person, Per Hour, Per Trip
+    duration: Optional[str] = None  # e.g., "7h", "Full Day", "8 hours"
+
+
+class PickupConfiguration(BaseModel):
+    """Configuration for a specific pickup location, vehicle, time, and date"""
+    pickup_location: str
+    dropoff_location: Optional[str] = None  # The selected dropoff location (if different from pickup)
+    vehicle_id: Optional[str] = None
+    vehicle: Optional[Dict[str, Any]] = None
+    pickup_time: str
+    pickup_date: Optional[str] = None
+    pickup_datetime: Optional[str] = None
+
+
+class TimeSlotConfiguration(BaseModel):
+    """Configuration for generating time slots"""
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    duration: Optional[int] = None
+    apply_to_all_days: bool = False
 
 
 class PickupDropoff(BaseModel):
@@ -56,6 +76,10 @@ class PickupDropoff(BaseModel):
     available_time_slots: List[str] = []
     pickup_locations: List[str] = []  # Support both singular and plural
     dropoff_locations: List[str] = []  # Support both singular and plural
+    # New fields for enhanced pickup management - MUST be included to preserve vehicle-based configs
+    pickup_configurations: List[PickupConfiguration] = []  # Multiple pickup configs (location + vehicle + time + date)
+    time_slot_configuration: Optional[TimeSlotConfiguration] = None
+    time_slots_by_day: Dict[str, List[str]] = {}
 
 
 class Accessibility(BaseModel):

@@ -77,11 +77,34 @@ export const transformApiProductToLocal = (apiProduct) => {
   const itinerariesFull = Array.isArray(customFields?.itineraries_full) ? customFields.itineraries_full : null;
   const pickupLocations = Array.isArray(customFields?.pickup_locations)
     ? customFields.pickup_locations
-    : (apiProduct.pickup_dropoff?.pickup_location ? [apiProduct.pickup_dropoff.pickup_location] : []);
+    : (Array.isArray(apiProduct.pickup_dropoff?.pickup_locations) && apiProduct.pickup_dropoff.pickup_locations.length > 0
+      ? apiProduct.pickup_dropoff.pickup_locations
+      : (apiProduct.pickup_dropoff?.pickup_location ? [apiProduct.pickup_dropoff.pickup_location] : []));
   const dropoffLocations = Array.isArray(customFields?.dropoff_locations)
     ? customFields.dropoff_locations
-    : (apiProduct.pickup_dropoff?.dropoff_location ? [apiProduct.pickup_dropoff.dropoff_location] : []);
-  const pickupTime = customFields?.pickup_time || apiProduct.pickup_dropoff?.pickup_time || '';
+    : (Array.isArray(apiProduct.pickup_dropoff?.dropoff_locations) && apiProduct.pickup_dropoff.dropoff_locations.length > 0
+      ? apiProduct.pickup_dropoff.dropoff_locations
+      : (apiProduct.pickup_dropoff?.dropoff_location ? [apiProduct.pickup_dropoff.dropoff_location] : []));
+  
+  // Extract pickup time: priority is pickup_configurations > legacy pickup_time field
+  const pickupTime = (() => {
+    // Priority 1: First pickup configuration time
+    if (Array.isArray(apiProduct.pickup_dropoff?.pickup_configurations) && apiProduct.pickup_dropoff.pickup_configurations.length > 0) {
+      const firstConfig = apiProduct.pickup_dropoff.pickup_configurations[0];
+      if (firstConfig?.pickup_time) {
+        return firstConfig.pickup_time;
+      }
+    }
+    // Priority 2: Custom fields pickup_time
+    if (customFields?.pickup_time) {
+      return customFields.pickup_time;
+    }
+    // Priority 3: Legacy pickup_dropoff.pickup_time
+    if (apiProduct.pickup_dropoff?.pickup_time) {
+      return apiProduct.pickup_dropoff.pickup_time;
+    }
+    return '';
+  })();
   const availableDays = customFields?.available_days || apiProduct.pickup_dropoff?.available_days || [];
   const availableTimeSlots = customFields?.time_slots
     ? (Array.isArray(customFields.time_slots) ? customFields.time_slots : Object.values(customFields.time_slots).flat())
@@ -125,6 +148,75 @@ export const transformApiProductToLocal = (apiProduct) => {
     availableTimeSlots,
     faqs: Array.isArray(apiProduct.faqs) ? apiProduct.faqs : [],
     cancellationPolicy: apiProduct.cancellation_policy || null,
+    // Include pickup_dropoff structure for vehicle-based access
+    pickup_dropoff: apiProduct.pickup_dropoff || null,
+    // Store vehicleTimeAllocations for easy access
+    vehicleTimeAllocations: (() => {
+      // Convert pickup_configurations back to vehicleTimeAllocations format
+      if (Array.isArray(apiProduct.pickup_dropoff?.pickup_configurations) && apiProduct.pickup_dropoff.pickup_configurations.length > 0) {
+        const vehiclesList = vehiclesFull && vehiclesFull.length
+          ? vehiclesFull
+          : (apiProduct.vehicle_details ? [{
+              id: `${apiProduct.id}-vehicle-0`,
+              title: apiProduct.vehicle_details.vehicle_model || 'Vehicle',
+              type: apiProduct.vehicle_details.vehicle_type || '',
+              model: apiProduct.vehicle_details.vehicle_model || '',
+              year: apiProduct.vehicle_details.vehicle_year || '',
+              attributes: '',
+              capacity: apiProduct.vehicle_details.capacity || null,
+              currency: apiProduct.currency || 'USD',
+              pricingType: apiProduct.price_unit || 'Per Group',
+              amount: apiProduct.price || 0,
+              duration: apiProduct.duration || '',
+              description: ''
+            }] : []);
+        
+        return apiProduct.pickup_dropoff.pickup_configurations.map(config => {
+          const pickupLocations = config.pickup_location
+            ? config.pickup_location.split(',').map(l => l.trim()).filter(Boolean)
+            : [];
+          
+          let vehicle = config.vehicle || null;
+          if (!vehicle && config.vehicle_id && vehiclesList.length > 0) {
+            vehicle = vehiclesList.find(v => {
+              const vId = v.id || v._id;
+              return vId && String(vId) === String(config.vehicle_id);
+            }) || null;
+          }
+          if (!vehicle && vehiclesList.length > 0) {
+            vehicle = vehiclesList[0];
+          }
+          
+          // Extract dropoff locations - split comma-separated string if present, or use pickup locations (same location)
+          const dropoffLocations = config.dropoff_location
+            ? config.dropoff_location.split(',').map(l => l.trim()).filter(Boolean)
+            : pickupLocations.length > 0 ? pickupLocations : (config.pickup_location ? [config.pickup_location] : []);
+          
+          return {
+            id: Date.now() + Math.random(),
+            time: config.pickup_time || '',
+            pickup_time: config.pickup_time || '',
+            vehicle: vehicle,
+            vehicle_id: config.vehicle_id || vehicle?.id || vehicle?._id || null,
+            date: config.pickup_date || null,
+            pickup_date: config.pickup_date || null,
+            datetime: config.pickup_datetime || null,
+            pickup_datetime: config.pickup_datetime || null,
+            pickupLocations: pickupLocations.length > 0 ? pickupLocations : (config.pickup_location ? [config.pickup_location] : []),
+            pickupLocation: config.pickup_location || '',
+            pickup_location: config.pickup_location || '',
+            dropoffLocations: dropoffLocations,
+            dropoffLocation: config.dropoff_location || config.pickup_location || '',
+            dropoff_location: config.dropoff_location || null
+          };
+        });
+      }
+      // Fallback to custom_fields.vehicle_time_allocations
+      if (Array.isArray(customFields?.vehicle_time_allocations) && customFields.vehicle_time_allocations.length > 0) {
+        return customFields.vehicle_time_allocations;
+      }
+      return [];
+    })(),
     // Store additional API data for reference (includes hero_image_url for summaries)
     _apiData: apiProduct
   };
@@ -214,11 +306,119 @@ export const transformLocalProductToApi = (localProduct, fullData = null) => {
       capacity: localProduct.vehicles[0].capacity || null
     } : null,
     pickup_dropoff: {
+      // New enhanced fields - build pickup_configurations first
+      pickup_configurations: Array.isArray(productData.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0
+        ? productData.vehicleTimeAllocations.map(allocation => {
+            // Format pickup time as HH:MM
+            let formattedTime = allocation.time || allocation.pickup_time || '';
+            if (formattedTime) {
+              // Ensure time is in HH:MM format
+              const timeParts = formattedTime.split(':');
+              if (timeParts.length >= 2) {
+                const hours = String(timeParts[0] || '00').padStart(2, '0');
+                const minutes = String(timeParts[1] || '00').padStart(2, '0');
+                formattedTime = `${hours}:${minutes}`;
+              }
+            }
+            
+            // Extract dropoff locations - use dropoff locations if provided, otherwise use pickup locations (same location)
+            const dropoffLocationsForConfig = Array.isArray(allocation.dropoffLocations) && allocation.dropoffLocations.length > 0
+              ? allocation.dropoffLocations
+              : (Array.isArray(allocation.pickupLocations) && allocation.pickupLocations.length > 0
+                ? allocation.pickupLocations
+                : []);
+            
+            return {
+              pickup_location: Array.isArray(allocation.pickupLocations) && allocation.pickupLocations.length > 0
+                ? allocation.pickupLocations.join(', ')  // Join multiple locations with comma
+                : (allocation.pickupLocation || allocation.pickup_location || ''),
+              dropoff_location: dropoffLocationsForConfig.length > 0
+                ? dropoffLocationsForConfig.join(', ')  // Join multiple dropoff locations with comma
+                : null,  // null if same as pickup (will be shown as same location in UI)
+              vehicle_id: allocation.vehicle?.id || allocation.vehicle_id || null,
+              vehicle: allocation.vehicle || null,
+              pickup_time: formattedTime,
+              pickup_date: allocation.date || allocation.pickup_date || null,
+              pickup_datetime: allocation.datetime || allocation.pickup_datetime || null
+            };
+          })
+        : [],
+      
+      // Legacy fields for backward compatibility - use first pickup configuration if available
       pickup_location: productData.selectedPickupLocations?.[0] || '',
       dropoff_location: productData.selectedDropoffLocations?.[0] || '',
-      pickup_time: productData.pickupTime || '',
+      pickup_time: (() => {
+        // Priority 1: Use first pickup configuration time
+        const firstConfig = Array.isArray(productData.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0
+          ? productData.vehicleTimeAllocations[0]
+          : null;
+        if (firstConfig && (firstConfig.time || firstConfig.pickup_time)) {
+          let timeStr = firstConfig.time || firstConfig.pickup_time || '';
+          if (timeStr && timeStr.includes(':')) {
+            const timeParts = timeStr.split(':');
+            if (timeParts.length >= 2) {
+              const hours = String(timeParts[0] || '00').padStart(2, '0');
+              const minutes = String(timeParts[1] || '00').padStart(2, '0');
+              return `${hours}:${minutes}`;
+            }
+          }
+          return timeStr;
+        }
+        // Priority 2: Use legacy pickupTime field
+        const timeStr = productData.pickupTime || '';
+        if (timeStr && timeStr.includes(':')) {
+          const timeParts = timeStr.split(':');
+          if (timeParts.length >= 2) {
+            const hours = String(timeParts[0] || '00').padStart(2, '0');
+            const minutes = String(timeParts[1] || '00').padStart(2, '0');
+            return `${hours}:${minutes}`;
+          }
+        }
+        return timeStr;
+      })(),
       available_days,
-      available_time_slots: productData.timeSlots ? Object.keys(productData.timeSlots) : []
+      available_time_slots: productData.timeSlots ? Object.keys(productData.timeSlots) : [],
+      
+      // New enhanced fields
+      pickup_locations: Array.isArray(productData.selectedPickupLocations) ? productData.selectedPickupLocations : [],
+      dropoff_locations: Array.isArray(productData.selectedDropoffLocations) ? productData.selectedDropoffLocations : [],
+      
+      // Time slot configuration settings
+      time_slot_configuration: {
+        start_time: productData.startTime || null,
+        end_time: productData.endTime || null,
+        duration: productData.duration ? parseInt(productData.duration) : null,
+        apply_to_all_days: productData.applyToAllDays || false
+      },
+      
+      // Time slots organized by day - normalize time format to HH:MM
+      time_slots_by_day: productData.timeSlots && typeof productData.timeSlots === 'object'
+        ? (() => {
+            const normalized = {};
+            Object.keys(productData.timeSlots).forEach(day => {
+              const slots = productData.timeSlots[day];
+              if (Array.isArray(slots)) {
+                normalized[day] = slots.map(slot => {
+                  if (typeof slot === 'string') {
+                    // Normalize time slot format (remove spaces, ensure HH:MM format)
+                    const cleaned = slot.replace(/\s+/g, '').trim();
+                    const parts = cleaned.split(':');
+                    if (parts.length >= 2) {
+                      const hours = String(parts[0] || '00').padStart(2, '0');
+                      const minutes = String(parts[1] || '00').padStart(2, '0');
+                      return `${hours}:${minutes}`;
+                    }
+                    return cleaned;
+                  }
+                  return slot;
+                }).filter(Boolean);
+              } else {
+                normalized[day] = [];
+              }
+            });
+            return normalized;
+          })()
+        : {}
     },
     price: parseFloat(localProduct.revenue || productData.vehicles?.[0]?.amount || productData.price || 0),
     currency: productData.vehicles?.[0]?.currency || 'USD',
@@ -276,13 +476,37 @@ export const transformApiProductToDraftPayload = (apiProduct) => {
   const itineraryFromCustom = Array.isArray(customFields?.itineraries_full) ? customFields.itineraries_full : null;
   const pickupLocations = Array.isArray(customFields?.pickup_locations)
     ? customFields.pickup_locations
-    : (apiProduct.pickup_dropoff?.pickup_location ? [apiProduct.pickup_dropoff.pickup_location] : []);
+    : (Array.isArray(apiProduct.pickup_dropoff?.pickup_locations) && apiProduct.pickup_dropoff.pickup_locations.length > 0
+      ? apiProduct.pickup_dropoff.pickup_locations
+      : (apiProduct.pickup_dropoff?.pickup_location ? [apiProduct.pickup_dropoff.pickup_location] : []));
   const dropoffLocations = Array.isArray(customFields?.dropoff_locations)
     ? customFields.dropoff_locations
-    : (apiProduct.pickup_dropoff?.dropoff_location ? [apiProduct.pickup_dropoff.dropoff_location] : []);
-  const pickupTime = customFields?.pickup_time || apiProduct.pickup_dropoff?.pickup_time || '';
+    : (Array.isArray(apiProduct.pickup_dropoff?.dropoff_locations) && apiProduct.pickup_dropoff.dropoff_locations.length > 0
+      ? apiProduct.pickup_dropoff.dropoff_locations
+      : (apiProduct.pickup_dropoff?.dropoff_location ? [apiProduct.pickup_dropoff.dropoff_location] : []));
+  
+  // Extract pickup time: priority is pickup_configurations > legacy pickup_time field
+  const pickupTime = (() => {
+    // Priority 1: First pickup configuration time
+    if (Array.isArray(apiProduct.pickup_dropoff?.pickup_configurations) && apiProduct.pickup_dropoff.pickup_configurations.length > 0) {
+      const firstConfig = apiProduct.pickup_dropoff.pickup_configurations[0];
+      if (firstConfig?.pickup_time) {
+        return firstConfig.pickup_time;
+      }
+    }
+    // Priority 2: Custom fields pickup_time
+    if (customFields?.pickup_time) {
+      return customFields.pickup_time;
+    }
+    // Priority 3: Legacy pickup_dropoff.pickup_time
+    if (apiProduct.pickup_dropoff?.pickup_time) {
+      return apiProduct.pickup_dropoff.pickup_time;
+    }
+    return '';
+  })();
+  
   const availableDays = customFields?.available_days || apiProduct.pickup_dropoff?.available_days || [];
-  const timeSlots = customFields?.time_slots || apiProduct.pickup_dropoff?.available_time_slots || {};
+  const timeSlots = customFields?.time_slots || apiProduct.pickup_dropoff?.time_slots_by_day || apiProduct.pickup_dropoff?.available_time_slots || {};
 
   const buildPhotoObject = (url, index) => {
     if (!url) return null;
@@ -383,7 +607,76 @@ export const transformApiProductToDraftPayload = (apiProduct) => {
     accessibilityToggles: apiProduct.accessibility || {},
     vehicles,
     selectedVehicleForTour: customFields?.selected_vehicle_for_tour || (vehicles.length ? vehicles[0] : null),
-    vehicleTimeAllocations: Array.isArray(customFields?.vehicle_time_allocations) ? customFields.vehicle_time_allocations : [],
+    vehicleTimeAllocations: (() => {
+      // Priority 1: Get from custom_fields.vehicle_time_allocations (if saved there)
+      if (Array.isArray(customFields?.vehicle_time_allocations) && customFields.vehicle_time_allocations.length > 0) {
+        return customFields.vehicle_time_allocations;
+      }
+      // Priority 2: Convert pickup_configurations from API back to vehicleTimeAllocations format
+      if (Array.isArray(apiProduct.pickup_dropoff?.pickup_configurations) && apiProduct.pickup_dropoff.pickup_configurations.length > 0) {
+        const vehicles = vehiclesFromCustom && vehiclesFromCustom.length
+          ? vehiclesFromCustom
+          : (apiProduct.vehicle_details ? [{
+              id: `${baseId}-vehicle-0`,
+              title: apiProduct.vehicle_details.vehicle_model || 'Vehicle',
+              type: apiProduct.vehicle_details.vehicle_type || '',
+              model: apiProduct.vehicle_details.vehicle_model || '',
+              year: apiProduct.vehicle_details.vehicle_year || '',
+              attributes: '',
+              capacity: apiProduct.vehicle_details.capacity || null,
+              currency: apiProduct.currency || 'USD',
+              pricingType: apiProduct.price_unit || 'Per Group',
+              amount: apiProduct.price || 0,
+              duration: apiProduct.duration || '',
+              description: ''
+            }] : []);
+        
+        return apiProduct.pickup_dropoff.pickup_configurations.map(config => {
+          // Split comma-separated pickup_location back to array
+          const pickupLocations = config.pickup_location
+            ? config.pickup_location.split(',').map(l => l.trim()).filter(Boolean)
+            : [];
+          
+          // Find matching vehicle from vehicles array
+          let vehicle = config.vehicle || null;
+          if (!vehicle && config.vehicle_id && vehicles.length > 0) {
+            vehicle = vehicles.find(v => {
+              const vId = v.id || v._id;
+              return vId && String(vId) === String(config.vehicle_id);
+            }) || null;
+          }
+          // If still no vehicle, use first vehicle
+          if (!vehicle && vehicles.length > 0) {
+            vehicle = vehicles[0];
+          }
+          
+          // Extract dropoff locations - split comma-separated string if present, or use pickup locations (same location)
+          const dropoffLocations = config.dropoff_location
+            ? config.dropoff_location.split(',').map(l => l.trim()).filter(Boolean)
+            : pickupLocations.length > 0 ? pickupLocations : (config.pickup_location ? [config.pickup_location] : []);
+          
+          return {
+            id: Date.now() + Math.random(), // Generate unique ID
+            time: config.pickup_time || '',
+            pickup_time: config.pickup_time || '',
+            vehicle: vehicle,
+            vehicle_id: config.vehicle_id || vehicle?.id || vehicle?._id || null,
+            date: config.pickup_date || null,
+            pickup_date: config.pickup_date || null,
+            datetime: config.pickup_datetime || null,
+            pickup_datetime: config.pickup_datetime || null,
+            pickupLocations: pickupLocations.length > 0 ? pickupLocations : (config.pickup_location ? [config.pickup_location] : []),
+            pickupLocation: config.pickup_location || '',
+            pickup_location: config.pickup_location || '',
+            dropoffLocations: dropoffLocations,
+            dropoffLocation: config.dropoff_location || config.pickup_location || '',
+            dropoff_location: config.dropoff_location || null
+          };
+        });
+      }
+      // Priority 3: Empty array if no data
+      return [];
+    })(),
     selectedPickupLocations: pickupLocations,
     selectedDropoffLocations: dropoffLocations,
     pickupTime,
@@ -397,6 +690,8 @@ export const transformApiProductToDraftPayload = (apiProduct) => {
     cancellationPolicy: apiProduct.cancellation_policy || null,
     destination: apiProduct.destination || '',
     duration: apiProduct.duration || '',
+    // Include pickup_dropoff structure for vehicle-based access
+    pickup_dropoff: apiProduct.pickup_dropoff || null,
     lastModified: new Date().toISOString(),
     step: 1,
     customFields

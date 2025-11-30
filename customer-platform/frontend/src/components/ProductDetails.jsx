@@ -1,6 +1,6 @@
 
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map, ChevronLeft, ChevronRight, X, Plus, Minus, AlertTriangle } from 'lucide-react'
+import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map as MapIcon, ChevronLeft, ChevronRight, X, Plus, Minus, AlertTriangle, Car } from 'lucide-react'
 import Itinerary from "../components/Itinerary"
 import share from "../../assests/share.png";
 import branch from "../../assests/middle.png";
@@ -44,6 +44,8 @@ const ProductDetails = () => {
   const [showVerifiedTooltip, setShowVerifiedTooltip] = useState(false)
   const [expandedFaqIndex, setExpandedFaqIndex] = useState(null)
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false)
+  const [selectedVehicleIndex, setSelectedVehicleIndex] = useState(null)
+  const [selectedMeetingPointIndex, setSelectedMeetingPointIndex] = useState(null)
   const quickDetailRef = useRef(null)
 
   const handleScrollToQuickDetail = useCallback(() => {
@@ -75,6 +77,745 @@ const ProductDetails = () => {
     setImagesLoaded(new Set())
     setIsPolicyModalOpen(false)
   }, [product?.id])
+
+  useEffect(() => {
+    if (Array.isArray(product?.vehicles) && product.vehicles.length > 0) {
+      setSelectedVehicleIndex((prev) => {
+        if (prev === null || prev >= product.vehicles.length) {
+          return 0
+        }
+        return prev
+      })
+    } else {
+      setSelectedVehicleIndex(null)
+    }
+  }, [product?.vehicles])
+
+  // Reset selected meeting point when vehicle changes
+  useEffect(() => {
+    setSelectedMeetingPointIndex(null)
+  }, [selectedVehicleIndex])
+
+  const selectedVehicle = useMemo(() => {
+    if (!Array.isArray(product?.vehicles) || selectedVehicleIndex === null) return null
+    return product.vehicles[selectedVehicleIndex] || null
+  }, [product?.vehicles, selectedVehicleIndex])
+
+  // Calculate tour time range from pickup time + vehicle duration
+  const calculateTourTimeRange = useCallback((pickupTime, duration) => {
+    if (!pickupTime) return null
+    
+    // Parse pickup time (format: "HH:MM" or "HH:MM:SS")
+    const pickupParts = pickupTime.split(':').map(Number)
+    if (pickupParts.length < 2 || isNaN(pickupParts[0]) || isNaN(pickupParts[1])) {
+      console.warn('Invalid pickup time format:', pickupTime)
+      return null
+    }
+    
+    let pickupHours = pickupParts[0]
+    let pickupMinutes = pickupParts[1]
+    
+    // Validate pickup time
+    if (pickupHours < 0 || pickupHours >= 24 || pickupMinutes < 0 || pickupMinutes >= 60) {
+      console.warn('Invalid pickup time values:', { pickupHours, pickupMinutes })
+      return null
+    }
+    
+    // Parse duration to hours
+    let durationHours = 0
+    if (duration) {
+      const durationStr = String(duration).trim().toLowerCase()
+      
+      // Handle "Full Day" - typically 12 hours (6 AM to 6 PM, or until next day)
+      if (durationStr === 'full day' || durationStr === 'fullday' || durationStr === 'full-day') {
+        durationHours = 12
+      } else {
+        // Extract hours from formats like "7h", "7 hours", "7", "7.5h", etc.
+        const hourMatch = durationStr.match(/(\d+\.?\d*)\s*h/i)
+        if (hourMatch) {
+          durationHours = parseFloat(hourMatch[1])
+        } else {
+          // Try parsing as plain number (assume hours)
+          const num = parseFloat(durationStr)
+          if (!isNaN(num) && num > 0) {
+            durationHours = num
+          }
+        }
+      }
+    }
+    
+    if (durationHours <= 0) {
+      console.warn('Invalid or missing duration:', duration)
+      return null
+    }
+    
+    // Calculate end time
+    let endHours = pickupHours + Math.floor(durationHours)
+    let endMinutes = pickupMinutes + Math.round((durationHours % 1) * 60)
+    
+    // Handle minute overflow
+    if (endMinutes >= 60) {
+      endHours += Math.floor(endMinutes / 60)
+      endMinutes = endMinutes % 60
+    }
+    
+    // Handle hour overflow (next day) - wrap around at 24 hours
+    if (endHours >= 24) {
+      endHours = endHours % 24
+    }
+    
+    // Format times (HH:MM)
+    const formatTime = (hours, mins) => {
+      const h = Math.floor(hours).toString().padStart(2, '0')
+      const m = Math.floor(mins).toString().padStart(2, '0')
+      return `${h}:${m}`
+    }
+    
+    const startTimeFormatted = formatTime(pickupHours, pickupMinutes)
+    const endTimeFormatted = formatTime(endHours, endMinutes)
+    
+    return `${startTimeFormatted} - ${endTimeFormatted}`
+  }, [])
+
+  // Get pickup configurations for selected vehicle
+  const selectedVehiclePickupConfigs = useMemo(() => {
+    if (!selectedVehicle) {
+      return []
+    }
+    
+    // Debug: Log what we have (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Finding pickup configs for vehicle:', {
+        selectedVehicleId: selectedVehicle.id || selectedVehicle._id,
+        selectedVehicleTitle: selectedVehicle.title || selectedVehicle.model,
+        selectedVehicleIndex,
+        selectedVehicle: selectedVehicle,
+        hasPickupDropoff: !!product?.pickup_dropoff,
+        hasPickupConfigs: !!product?.pickup_dropoff?.pickup_configurations,
+        configsCount: product?.pickup_dropoff?.pickup_configurations?.length || 0,
+        pickupDropoffKeys: product?.pickup_dropoff ? Object.keys(product.pickup_dropoff) : [],
+        pickupDropoffFull: product?.pickup_dropoff, // Log full object
+        hasCustomFields: !!product?.custom_fields,
+        hasVehicleTimeAllocations: !!(product?.custom_fields?.vehicle_time_allocations),
+        vehicleTimeAllocationsCount: Array.isArray(product?.custom_fields?.vehicle_time_allocations) 
+          ? product.custom_fields.vehicle_time_allocations.length 
+          : 0,
+        allVehicles: product?.vehicles?.map((v, idx) => ({
+          index: idx,
+          id: v.id || v._id,
+          title: v.title || v.model,
+          isSelected: idx === selectedVehicleIndex
+        })) || []
+      })
+      
+      // Log the actual pickup_dropoff structure
+      if (product?.pickup_dropoff) {
+        console.log('📦 pickup_dropoff structure:', JSON.stringify(product.pickup_dropoff, null, 2))
+      }
+      
+      // Log custom_fields if it exists
+      if (product?.custom_fields) {
+        console.log('📦 custom_fields keys:', Object.keys(product.custom_fields))
+        if (product.custom_fields.vehicle_time_allocations) {
+          console.log('📦 vehicle_time_allocations:', product.custom_fields.vehicle_time_allocations)
+        }
+      }
+    }
+    
+    // First try pickup_configurations from pickup_dropoff
+    if (product?.pickup_dropoff?.pickup_configurations && Array.isArray(product.pickup_dropoff.pickup_configurations)) {
+      const configs = product.pickup_dropoff.pickup_configurations
+      if (configs.length > 0) {
+        // Match configurations by vehicle_id, vehicle.id, or vehicle title/model
+        const vehicleId = selectedVehicle.id || selectedVehicle._id
+        const vehicleTitle = selectedVehicle.title || selectedVehicle.model
+        const vehicleModel = selectedVehicle.model || selectedVehicle.title
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Available configs:', configs.map((c, idx) => ({
+            index: idx,
+            vehicle_id: c.vehicle_id,
+            vehicle: c.vehicle ? {
+              id: c.vehicle.id || c.vehicle._id,
+              _id: c.vehicle._id,
+              title: c.vehicle.title,
+              model: c.vehicle.model
+            } : null,
+            pickup_location: c.pickup_location,
+            pickup_time: c.pickup_time
+          })))
+        }
+        
+        const matched = configs.filter((config, configIndex) => {
+          let matchedBy = null
+          
+          // Match by vehicle_id (direct comparison) - if both exist
+          if (config.vehicle_id && vehicleId) {
+            if (String(config.vehicle_id) === String(vehicleId)) {
+              matchedBy = 'vehicle_id'
+              if (process.env.NODE_ENV === 'development') {
+                console.log('✅ Matched by vehicle_id:', config.vehicle_id, '===', vehicleId)
+              }
+              return true
+            }
+          }
+          
+          // Match by vehicle.id in config.vehicle object
+          if (config.vehicle?.id && vehicleId) {
+            if (String(config.vehicle.id) === String(vehicleId)) {
+              matchedBy = 'vehicle.id'
+              if (process.env.NODE_ENV === 'development') {
+                console.log('✅ Matched by config.vehicle.id:', config.vehicle.id, '===', vehicleId)
+              }
+              return true
+            }
+          }
+          
+          // Match by vehicle._id in config.vehicle object
+          if (config.vehicle?._id && vehicleId) {
+            if (String(config.vehicle._id) === String(vehicleId)) {
+              matchedBy = 'vehicle._id'
+              if (process.env.NODE_ENV === 'development') {
+                console.log('✅ Matched by config.vehicle._id:', config.vehicle._id, '===', vehicleId)
+              }
+              return true
+            }
+          }
+          
+          // IMPORTANT: Match by vehicle title/model (case-insensitive) - works even without IDs
+          // This is the primary matching method when vehicles don't have IDs
+          if (vehicleTitle) {
+            // Check config.vehicle object first
+            if (config.vehicle) {
+              const configTitle = config.vehicle.title || config.vehicle.model
+              if (configTitle && vehicleTitle) {
+                const configTitleNormalized = String(configTitle).toLowerCase().trim()
+                const vehicleTitleNormalized = String(vehicleTitle).toLowerCase().trim()
+                if (configTitleNormalized === vehicleTitleNormalized) {
+                  matchedBy = 'title/model'
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('✅ Matched by title/model in config.vehicle:', configTitle, '===', vehicleTitle)
+                  }
+                  return true
+                }
+              }
+            }
+            
+            // Also check if vehicle_id is actually a title (string match)
+            if (config.vehicle_id && typeof config.vehicle_id === 'string') {
+              const vehicleIdNormalized = String(config.vehicle_id).toLowerCase().trim()
+              const vehicleTitleNormalized = String(vehicleTitle).toLowerCase().trim()
+              if (vehicleIdNormalized === vehicleTitleNormalized) {
+                matchedBy = 'vehicle_id as title'
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('✅ Matched by vehicle_id string (title):', config.vehicle_id, '===', vehicleTitle)
+                }
+                return true
+              }
+            }
+          }
+          
+          // STRICT Fallback: Match by position ONLY if:
+          // 1. No ID or title matching was possible (vehicleId is undefined/null AND vehicleTitle is missing)
+          // 2. We have exactly one config per vehicle (configs.length === vehicles.length)
+          // 3. The configIndex matches the selectedVehicleIndex exactly
+          // 4. This should ONLY be used as a last resort
+          if (selectedVehicleIndex !== null && 
+              configs.length > 0 &&
+              product?.vehicles &&
+              configs.length === product.vehicles.length &&
+              selectedVehicleIndex < configs.length &&
+              configIndex === selectedVehicleIndex &&
+              !vehicleId && // Only use array position if we don't have an ID
+              !vehicleTitle) { // Only use array position if we don't have a title
+            matchedBy = 'array position (last resort)'
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ Using array position fallback (no ID/title match possible):', configIndex, 'for vehicle index:', selectedVehicleIndex)
+            }
+            return true
+          }
+          
+          if (process.env.NODE_ENV === 'development' && !matchedBy) {
+            // Log why this config didn't match (only for debugging)
+            console.log('❌ Config did not match:', {
+              configIndex,
+              configVehicleId: config.vehicle_id,
+              configVehicleTitle: config.vehicle?.title || config.vehicle?.model,
+              selectedVehicleId: vehicleId,
+              selectedVehicleTitle: vehicleTitle,
+              pickupLocation: config.pickup_location,
+              pickupTime: config.pickup_time
+            })
+          }
+          
+          return false
+        })
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🎯 Matched configs for vehicle:', {
+            selectedVehicleTitle: vehicleTitle,
+            selectedVehicleId: vehicleId,
+            selectedVehicleIndex,
+            matchedCount: matched.length,
+            matchedConfigs: matched.map(m => ({
+              vehicle_id: m.vehicle_id,
+              vehicle_title: m.vehicle?.title || m.vehicle?.model,
+              pickup_location: m.pickup_location,
+              pickup_time: m.pickup_time
+            })),
+            allConfigsCount: configs.length,
+            allConfigs: configs.map((c, idx) => ({
+              index: idx,
+              vehicle_id: c.vehicle_id,
+              vehicle_title: c.vehicle?.title || c.vehicle?.model,
+              pickup_location: c.pickup_location,
+              pickup_time: c.pickup_time
+            }))
+          })
+        }
+        
+        if (matched.length > 0) {
+          // CRITICAL: Double-check that all matched configs actually belong to the selected vehicle
+          // This prevents showing configs from other vehicles if matching logic was too broad
+          const verifiedMatches = matched.filter(config => {
+            // Verify by vehicle_id
+            if (config.vehicle_id && vehicleId && String(config.vehicle_id) === String(vehicleId)) {
+              return true
+            }
+            // Verify by vehicle.id
+            if (config.vehicle?.id && vehicleId && String(config.vehicle.id) === String(vehicleId)) {
+              return true
+            }
+            // Verify by vehicle._id
+            if (config.vehicle?._id && vehicleId && String(config.vehicle._id) === String(vehicleId)) {
+              return true
+            }
+            // Verify by title/model
+            if (vehicleTitle && config.vehicle) {
+              const configTitle = config.vehicle.title || config.vehicle.model
+              if (configTitle && String(configTitle).toLowerCase().trim() === String(vehicleTitle).toLowerCase().trim()) {
+                return true
+              }
+            }
+            // Verify by vehicle_id as title
+            if (vehicleTitle && config.vehicle_id && typeof config.vehicle_id === 'string') {
+              if (String(config.vehicle_id).toLowerCase().trim() === String(vehicleTitle).toLowerCase().trim()) {
+                return true
+              }
+            }
+            // If we matched by array position (last resort), verify it still matches
+            if (selectedVehicleIndex !== null && configs.length === product?.vehicles?.length) {
+              const configIndex = configs.indexOf(config)
+              if (configIndex === selectedVehicleIndex) {
+                return true
+              }
+            }
+            return false
+          })
+          
+          if (process.env.NODE_ENV === 'development' && verifiedMatches.length !== matched.length) {
+            console.warn('⚠️ Some matched configs were filtered out during verification:', {
+              originalCount: matched.length,
+              verifiedCount: verifiedMatches.length,
+              filtered: matched.length - verifiedMatches.length
+            })
+          }
+          
+          // CRITICAL: Final safety check - ensure all matched configs belong to the same vehicle
+          // If we have multiple matches, verify they all reference the same vehicle
+          if (verifiedMatches.length > 1) {
+            const firstConfigVehicleRef = verifiedMatches[0].vehicle_id || verifiedMatches[0].vehicle?.id || verifiedMatches[0].vehicle?._id || verifiedMatches[0].vehicle?.title || verifiedMatches[0].vehicle?.model
+            const allSameVehicle = verifiedMatches.every(config => {
+              const configVehicleRef = config.vehicle_id || config.vehicle?.id || config.vehicle?._id || config.vehicle?.title || config.vehicle?.model
+              if (!firstConfigVehicleRef || !configVehicleRef) return true // Skip check if refs are missing
+              return String(firstConfigVehicleRef).toLowerCase().trim() === String(configVehicleRef).toLowerCase().trim()
+            })
+            
+            if (!allSameVehicle && process.env.NODE_ENV === 'development') {
+              console.error('❌ ERROR: Matched configs belong to different vehicles! Filtering to first match only.', {
+                firstConfigVehicle: firstConfigVehicleRef,
+                allConfigs: verifiedMatches.map(c => ({
+                  vehicle_id: c.vehicle_id,
+                  vehicle_title: c.vehicle?.title || c.vehicle?.model,
+                  pickup_location: c.pickup_location,
+                  pickup_time: c.pickup_time
+                }))
+              })
+              // Return only the first match if configs belong to different vehicles
+              return [verifiedMatches[0]]
+            }
+          }
+          
+          return verifiedMatches
+        } else {
+          // No match found - log warning in development
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️ No matching configs found for vehicle:', {
+              vehicleId,
+              vehicleTitle,
+              vehicleModel,
+              selectedVehicleIndex,
+              availableConfigs: configs.map((c, idx) => ({
+                index: idx,
+                vehicle_id: c.vehicle_id,
+                vehicle: c.vehicle
+              }))
+            })
+          }
+        }
+      }
+    }
+    
+    // Fallback: check if there are vehicleTimeAllocations in custom_fields
+    // This is for backward compatibility or when data comes from a different source
+    const customFields = product?.custom_fields || {}
+    const vehicleTimeAllocations = customFields.vehicle_time_allocations || []
+    
+    if (Array.isArray(vehicleTimeAllocations) && vehicleTimeAllocations.length > 0) {
+      // Filter allocations for the selected vehicle
+      const vehicleId = selectedVehicle.id || selectedVehicle._id
+      const vehicleTitle = selectedVehicle.title || selectedVehicle.model
+      
+      const matchedAllocations = vehicleTimeAllocations.filter(alloc => {
+        // Match by vehicle.id or vehicle_id
+        if (vehicleId) {
+          const allocVehicleId = alloc.vehicle?.id || alloc.vehicle_id
+          if (allocVehicleId && String(allocVehicleId) === String(vehicleId)) {
+            return true
+          }
+        }
+        
+        // Match by title/model
+        if (vehicleTitle) {
+          const allocTitle = alloc.vehicle?.title || alloc.vehicle?.model
+          if (allocTitle && String(allocTitle).toLowerCase().trim() === String(vehicleTitle).toLowerCase().trim()) {
+            return true
+          }
+        }
+        
+        // Match by index if arrays are same length
+        if (selectedVehicleIndex !== null && 
+            vehicleTimeAllocations.length === (product?.vehicles?.length || 0) &&
+            vehicleTimeAllocations.indexOf(alloc) === selectedVehicleIndex) {
+          return true
+        }
+        
+        return false
+      })
+      
+      if (matchedAllocations.length > 0) {
+        // Convert vehicleTimeAllocations format to pickup_configurations format
+        const convertedConfigs = matchedAllocations.map(alloc => ({
+          pickup_location: Array.isArray(alloc.pickupLocations) 
+            ? alloc.pickupLocations.join(', ') 
+            : (alloc.pickupLocation || alloc.pickup_location || ''),
+          vehicle_id: alloc.vehicle?.id || alloc.vehicle_id || null,
+          vehicle: alloc.vehicle || null,
+          pickup_time: alloc.time || alloc.pickup_time || '',
+          pickup_date: alloc.date || alloc.pickup_date || null,
+          pickup_datetime: alloc.datetime || alloc.pickup_datetime || null
+        }))
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Found vehicleTimeAllocations in custom_fields, converted to configs:', convertedConfigs)
+        }
+        
+        return convertedConfigs
+      } else if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Found vehicleTimeAllocations but none matched selected vehicle')
+      }
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('⚠️ No pickup_configurations found in pickup_dropoff and no vehicleTimeAllocations in custom_fields')
+    }
+    return []
+  }, [selectedVehicle, product?.pickup_dropoff?.pickup_configurations, selectedVehicleIndex, product?.vehicles, product?.custom_fields])
+
+  // Get pickup time for selected vehicle (must be declared before selectedVehicleMeetingPoints)
+  const selectedVehiclePickupTime = useMemo(() => {
+    // Priority 1: First pickup configuration time for selected vehicle
+    if (selectedVehiclePickupConfigs.length > 0) {
+      const firstConfig = selectedVehiclePickupConfigs[0]
+      if (firstConfig?.pickup_time) {
+        return firstConfig.pickup_time
+      }
+    }
+    // Priority 2: First pickup configuration time (any vehicle)
+    if (product?.pickup_dropoff?.pickup_configurations && 
+        Array.isArray(product.pickup_dropoff.pickup_configurations) && 
+        product.pickup_dropoff.pickup_configurations.length > 0) {
+      const firstConfig = product.pickup_dropoff.pickup_configurations[0]
+      if (firstConfig?.pickup_time) {
+        return firstConfig.pickup_time
+      }
+    }
+    // Priority 3: Legacy pickupTime field
+    if (product?.pickupTime) {
+      return product.pickupTime
+    }
+    // Priority 4: pickup_dropoff.pickup_time
+    if (product?.pickup_dropoff?.pickup_time) {
+      return product.pickup_dropoff.pickup_time
+    }
+    return null
+  }, [selectedVehiclePickupConfigs, product?.pickup_dropoff?.pickup_configurations, product?.pickupTime, product?.pickup_dropoff?.pickup_time])
+
+  // Get dropoff locations for selected vehicle (similar to meeting points)
+  const selectedVehicleDropoffLocations = useMemo(() => {
+    const configs = selectedVehiclePickupConfigs;
+    
+    if (configs.length === 0) {
+      // If we have pickup_configurations but none matched, don't show fallback data
+      // This ensures we only show vehicle-specific data
+      const hasAnyConfigs = product?.pickup_dropoff?.pickup_configurations && 
+                            Array.isArray(product.pickup_dropoff.pickup_configurations) &&
+                            product.pickup_dropoff.pickup_configurations.length > 0
+      
+      if (hasAnyConfigs) {
+        // We have configs but none matched - return empty to avoid showing wrong data
+        return [];
+      }
+      
+      // Only use fallback if we don't have pickup_configurations at all
+      // Fallback to product.dropoffLocations or pickupLocations (same as pickup)
+      if (Array.isArray(product?.pickup_dropoff?.dropoff_locations) && product.pickup_dropoff.dropoff_locations.length > 0) {
+        return product.pickup_dropoff.dropoff_locations.map(loc => ({
+          name: typeof loc === 'string' ? loc : (loc.name || loc),
+          time: selectedVehiclePickupTime || null,
+          address: typeof loc === 'string' ? loc : (loc.address || loc)
+        }));
+      }
+      // If no dropoff locations, use pickup locations (same location)
+      if (Array.isArray(product?.pickup_dropoff?.pickup_locations) && product.pickup_dropoff.pickup_locations.length > 0) {
+        return product.pickup_dropoff.pickup_locations.map(loc => ({
+          name: typeof loc === 'string' ? loc : (loc.name || loc),
+          time: selectedVehiclePickupTime || null,
+          address: typeof loc === 'string' ? loc : (loc.address || loc)
+        }));
+      }
+      return [];
+    }
+    
+    // Extract unique dropoff locations from configurations
+    // Group by location name and collect all times for that location
+    const locationsMap = new Map();
+    
+    configs.forEach(config => {
+      // Check if dropoff_location exists and is different from pickup_location
+      if (config.dropoff_location && config.dropoff_location !== config.pickup_location) {
+        // dropoff_location can be a comma-separated string or single location
+        const dropoffLocs = config.dropoff_location.split(',').map(l => l.trim()).filter(Boolean);
+        dropoffLocs.forEach(loc => {
+          const locationKey = loc.toLowerCase();
+          if (!locationsMap.has(locationKey)) {
+            locationsMap.set(locationKey, {
+              name: loc,
+              time: config.pickup_time || null,
+              address: config.dropoff_location,
+              times: new Set()
+            });
+          }
+          // Add time to the set of times for this location
+          if (config.pickup_time) {
+            locationsMap.get(locationKey).times.add(config.pickup_time);
+          }
+        });
+      } else {
+        // No dropoff_location specified or same as pickup - use pickup locations (same location)
+        if (config.pickup_location) {
+          const pickupLocs = config.pickup_location.split(',').map(l => l.trim()).filter(Boolean);
+          pickupLocs.forEach(loc => {
+            const locationKey = loc.toLowerCase();
+            if (!locationsMap.has(locationKey)) {
+              locationsMap.set(locationKey, {
+                name: loc,
+                time: config.pickup_time || null,
+                address: config.pickup_location,
+                times: new Set()
+              });
+            }
+            // Add time to the set of times for this location
+            if (config.pickup_time) {
+              locationsMap.get(locationKey).times.add(config.pickup_time);
+            }
+          });
+        }
+      }
+    });
+    
+    // Convert map to array and use the first time for each location
+    const locations = Array.from(locationsMap.values()).map(loc => {
+      const timeArray = Array.from(loc.times);
+      return {
+        name: loc.name,
+        time: timeArray.length > 0 ? timeArray[0] : loc.time,
+        address: loc.address
+      };
+    });
+    
+    return locations;
+  }, [selectedVehiclePickupConfigs, product?.pickup_dropoff?.dropoff_locations, product?.pickup_dropoff?.pickup_locations, selectedVehiclePickupTime]);
+
+  // Get meeting points (pickup locations) for selected vehicle (must be declared after selectedVehiclePickupTime)
+  const selectedVehicleMeetingPoints = useMemo(() => {
+    const configs = selectedVehiclePickupConfigs
+    
+    if (configs.length === 0) {
+      // If we have pickup_configurations but none matched, don't show fallback data
+      // This ensures we only show vehicle-specific data
+      const hasAnyConfigs = product?.pickup_dropoff?.pickup_configurations && 
+                            Array.isArray(product.pickup_dropoff.pickup_configurations) &&
+                            product.pickup_dropoff.pickup_configurations.length > 0
+      
+      if (hasAnyConfigs) {
+        // We have configs but none matched - return empty to avoid showing wrong data
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('⚠️ No matching configs found - returning empty meeting points to avoid showing wrong vehicle data')
+        }
+        return []
+      }
+      
+      // Only use fallback if we don't have pickup_configurations at all
+      // Fallback to product.meetingPoints if no configurations exist
+      if (Array.isArray(product?.pickup_dropoff?.pickup_locations) && product.pickup_dropoff.pickup_locations.length > 0) {
+        return product.pickup_dropoff.pickup_locations.map(loc => ({
+          name: typeof loc === 'string' ? loc : (loc.name || loc),
+          time: selectedVehiclePickupTime || null,
+          address: typeof loc === 'string' ? loc : (loc.address || loc)
+        }))
+      }
+      return Array.isArray(product?.meetingPoints) ? product.meetingPoints : []
+    }
+    
+    // Extract unique pickup locations from configurations
+    // Group by location name and collect all times for that location
+    const locationsMap = new Map()
+    
+    configs.forEach(config => {
+      if (config.pickup_location) {
+        // pickup_location can be a comma-separated string or single location
+        const locs = config.pickup_location.split(',').map(l => l.trim()).filter(Boolean)
+        locs.forEach(loc => {
+          const locationKey = loc.toLowerCase()
+          if (!locationsMap.has(locationKey)) {
+            locationsMap.set(locationKey, {
+              name: loc,
+              time: config.pickup_time || null,
+              address: config.pickup_location,
+              times: new Set()
+            })
+          }
+          // Add time to the set of times for this location
+          if (config.pickup_time) {
+            locationsMap.get(locationKey).times.add(config.pickup_time)
+          }
+        })
+      }
+    })
+    
+    // Convert map to array and use the most common time or first time for each location
+    const locations = Array.from(locationsMap.values()).map(loc => {
+      // If multiple times exist, use the first one (or could use most common)
+      const timeArray = Array.from(loc.times)
+      return {
+        name: loc.name,
+        time: timeArray.length > 0 ? timeArray[0] : loc.time,
+        address: loc.address
+      }
+    })
+    
+    return locations.length > 0 ? locations : (Array.isArray(product?.meetingPoints) ? product.meetingPoints : [])
+  }, [selectedVehiclePickupConfigs, product?.meetingPoints, product?.pickup_dropoff?.pickup_locations, selectedVehiclePickupTime])
+
+  // Get selected meeting point
+  const selectedMeetingPoint = useMemo(() => {
+    if (selectedMeetingPointIndex === null || !Array.isArray(selectedVehicleMeetingPoints)) return null
+    return selectedVehicleMeetingPoints[selectedMeetingPointIndex] || null
+  }, [selectedMeetingPointIndex, selectedVehicleMeetingPoints])
+
+  // Get tour time range for current vehicle - updates when vehicle selection changes
+  const tourTimeRange = useMemo(() => {
+    const pickupTime = selectedVehiclePickupTime
+    // Priority: selected vehicle duration > product duration > first vehicle duration
+    const duration = selectedVehicle?.duration || 
+                     product?.duration || 
+                     (Array.isArray(product?.vehicles) && product.vehicles.length > 0 ? product.vehicles[0]?.duration : null) ||
+                     null
+    
+    const timeRange = calculateTourTimeRange(pickupTime, duration)
+    
+    // Debug logging for troubleshooting - log vehicle details
+    if (pickupTime) {
+      console.log('📅 Tour time calculation:', {
+        pickupTime,
+        duration,
+        selectedVehicleIndex,
+        vehicleTitle: selectedVehicle?.title || selectedVehicle?.model || 'N/A',
+        selectedVehicleDuration: selectedVehicle?.duration || 'N/A',
+        selectedVehicleId: selectedVehicle?.id || selectedVehicle?._id || 'N/A',
+        pickupConfigsCount: selectedVehiclePickupConfigs.length,
+        allVehiclesDuration: Array.isArray(product?.vehicles) ? product.vehicles.map(v => ({ 
+          title: v.title || v.model, 
+          duration: v.duration || 'N/A',
+          id: v.id || v._id || 'N/A'
+        })) : [],
+        productDuration: product?.duration || 'N/A',
+        calculatedTimeRange: timeRange
+      })
+    }
+    
+    return timeRange
+  }, [
+    selectedVehiclePickupTime,
+    selectedVehicle?.duration,
+    selectedVehicleIndex,
+    selectedVehicle?.title,
+    selectedVehicle?.model,
+    selectedVehicle?.id,
+    selectedVehicle?._id,
+    selectedVehiclePickupConfigs,
+    product?.duration,
+    product?.vehicles,
+    calculateTourTimeRange
+  ])
+
+  const getCurrencySymbol = useCallback((currency) => {
+    if (!currency) return ''
+    const code = currency.toUpperCase()
+    switch (code) {
+      case 'USD': return '$'
+      case 'EUR': return '€'
+      case 'JPY': return '¥'
+      case 'GBP': return '£'
+      default: return code + ' '
+    }
+  }, [])
+
+  const formatAmount = useCallback((value) => {
+    if (value === null || value === undefined) return '—'
+    if (typeof value === 'number') {
+      return value % 1 === 0 ? value.toString() : value.toFixed(2).replace(/\.?0+$/, '')
+    }
+    return value
+  }, [])
+
+  const pricingDetails = useMemo(() => {
+    if (selectedVehicle?.amount) {
+      const currency = selectedVehicle.currency || product?.currency || 'USD'
+      return {
+        displayAmount: `${getCurrencySymbol(currency)}${formatAmount(selectedVehicle.amount)}`,
+        unit: selectedVehicle.pricing_type || product?.priceUnit || ''
+      }
+    }
+
+    const currency = product?.currency || 'USD'
+    const baseAmount = product?.priceValue ?? product?.price ?? 0
+    return {
+      displayAmount: `${getCurrencySymbol(currency)}${formatAmount(baseAmount)}`,
+      unit: product?.priceUnit || ''
+    }
+  }, [selectedVehicle, product, getCurrencySymbol, formatAmount])
 
   const fetchProduct = useCallback(async () => {
     let cancelled = false
@@ -828,48 +1569,102 @@ const ProductDetails = () => {
 
               {/* Vehicles Available */}
               <div>
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-3 sm:mb-4">Vehicles available</h2>
+                <div className="flex flex-col gap-1 mb-3 sm:mb-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black">Vehicles available</h2>
+                    {Array.isArray(product.vehicles) && product.vehicles.length > 1 && (
+                      <span className="text-xs font-semibold text-[#1d236b] bg-[#eef2ff] border border-[#d7deff] rounded-full px-3 py-1">
+                        {product.vehicles.length} options
+                      </span>
+                    )}
+                  </div>
+                  {selectedVehicleIndex !== null && product.vehicles?.[selectedVehicleIndex] && (
+                    <p className="text-xs sm:text-sm text-[#1d236b] font-medium">
+                      Selected: {product.vehicles[selectedVehicleIndex].title || product.vehicles[selectedVehicleIndex].model || 'Preferred vehicle'}
+                    </p>
+                  )}
+                </div>
                 <div className="space-y-3 sm:space-y-4">
                   {(product.vehicles || []).length > 0 ? (
-                    product.vehicles.map((v, idx) => (
-                      <div key={idx} className="border border-gray-200 rounded-lg p-3 sm:p-4">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="flex-1">
-                            <p className="text-black font-bold text-sm sm:text-base mb-1">
-                              {v.title || v.model || v.type || 'Vehicle'} {v.year ? `(${v.year})` : ''}
-                            </p>
-                            {v.capacity && (
-                              <p className="text-gray-500 text-xs sm:text-sm mb-1">Up to {v.capacity} Passengers</p>
-                            )}
-                            {v.type && v.type !== v.model && v.title !== v.model && (
-                              <p className="text-gray-500 text-xs sm:text-sm">Type: {v.type}</p>
-                            )}
-                          </div>
-                          {v.amount && (
-                            <div className="text-right flex-shrink-0">
-                              <p className="text-black font-bold text-base sm:text-lg">
-                                {(() => {
-                                  const currency = v.currency || 'USD';
-                                  const currencySymbol = 
-                                    currency === 'USD' ? '$' : 
-                                    currency === 'EUR' ? '€' : 
-                                    currency === 'JPY' ? '¥' : 
-                                    currency === 'GBP' ? '£' : 
-                                    currency + ' ';
-                                  const amount = typeof v.amount === 'number' 
-                                    ? v.amount % 1 === 0 ? v.amount.toString() : v.amount.toFixed(2).replace(/\.?0+$/, '')
-                                    : v.amount;
-                                  return currencySymbol + amount;
-                                })()}
-                              </p>
-                              {v.pricing_type && (
-                                <p className="text-gray-500 text-xs sm:text-sm mt-1">{v.pricing_type}</p>
-                              )}
+                    <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                      {product.vehicles.map((v, idx) => {
+                        const isSelected = selectedVehicleIndex === idx
+                        const currency = v.currency || 'USD'
+                        const currencySymbol =
+                          currency === 'USD' ? '$' :
+                          currency === 'EUR' ? '€' :
+                          currency === 'JPY' ? '¥' :
+                          currency === 'GBP' ? '£' :
+                          currency + ' '
+                        const amount = typeof v.amount === 'number'
+                          ? v.amount % 1 === 0 ? v.amount.toString() : v.amount.toFixed(2).replace(/\.?0+$/, '')
+                          : (v.amount || '—')
+
+                        return (
+                          <button
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => setSelectedVehicleIndex(idx)}
+                            key={idx}
+                            className={`w-full text-left rounded-2xl border-2 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1d236b] ${
+                              isSelected
+                                ? 'border-[#1d236b] bg-gradient-to-r from-[#eef2ff] to-white shadow-lg'
+                                : 'border-gray-200 bg-white hover:border-[#1d236b]/60 hover:shadow-md'
+                            }`}
+                          >
+                            <div className="p-3 sm:p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3 flex-1">
+                                  <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center ${isSelected ? 'bg-white text-[#1d236b] shadow-inner' : 'bg-gray-100 text-gray-500'}`}>
+                                    <Car className="w-5 h-5" />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <p className="text-black font-semibold text-sm sm:text-base">
+                                      {v.title || v.model || v.type || 'Vehicle'} {v.year ? `(${v.year})` : ''}
+                                    </p>
+                                    {v.capacity && (
+                                      <p className="text-gray-500 text-xs sm:text-sm flex items-center gap-1">
+                                        <UsersRound className="w-3.5 h-3.5 text-[#1d236b]" />
+                                        Up to {v.capacity} passengers
+                                      </p>
+                                    )}
+                                    {v.type && v.type !== v.model && v.title !== v.model && (
+                                      <p className="text-gray-500 text-xs sm:text-sm">Type: {v.type}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                {v.amount && (
+                                  <div className="text-right flex-shrink-0">
+                                    <p className="text-black font-bold text-base sm:text-lg">
+                                      {currencySymbol + amount}
+                                    </p>
+                                    <p className="text-gray-500 text-xs sm:text-sm mt-1 uppercase tracking-wide">
+                                      {v.pricing_type || 'Per trip'}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                {v.features && v.features.length > 0 && v.features.slice(0,3).map((feature, featureIdx) => (
+                                  <span
+                                    key={featureIdx}
+                                    className="text-xs font-medium text-gray-600 bg-gray-100 rounded-full px-2 py-1"
+                                  >
+                                    {feature}
+                                  </span>
+                                ))}
+                                {isSelected && (
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#1d236b] bg-[#dfe7ff] border border-[#c5d1ff] rounded-full px-2 py-1">
+                                    <Check className="w-3 h-3" />
+                                    Selected
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
+                          </button>
+                        )
+                      })}
+                    </div>
                   ) : (
                     <p className="text-gray-500 text-sm">No vehicles listed</p>
                   )}
@@ -1033,7 +1828,7 @@ const ProductDetails = () => {
                     <img src={branch} alt="Compare" className="w-5.h-5" />
                   </button>
                   <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900">
-                    <Map className="w-5 h-5" />
+                    <MapIcon className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -1109,23 +1904,10 @@ const ProductDetails = () => {
                   <span className="text-black font-bold text-sm sm:text-base">Total</span>
                   <div className="flex items-baseline gap-2 ml-2">
                     <span className="text-xl sm:text-2xl font-bold text-[#00A63E]">
-                      {(() => {
-                        const currency = product.currency || 'USD';
-                        const currencySymbol = 
-                          currency === 'USD' ? '$' : 
-                          currency === 'EUR' ? '€' : 
-                          currency === 'JPY' ? '¥' : 
-                          currency === 'GBP' ? '£' : 
-                          currency + ' ';
-                        const priceValue = product.priceValue || 0;
-                        const formattedPrice = typeof priceValue === 'number' 
-                          ? priceValue % 1 === 0 ? priceValue.toString() : priceValue.toFixed(2).replace(/\.?0+$/, '')
-                          : priceValue;
-                        return currencySymbol + formattedPrice;
-                      })()}
+                      {pricingDetails.displayAmount}
                     </span>
-                    {product.priceUnit && (
-                      <span className="text-gray-600 text-xs sm:text-sm">{product.priceUnit}</span>
+                    {pricingDetails.unit && (
+                      <span className="text-gray-600 text-xs sm:text-sm">{pricingDetails.unit}</span>
                     )}
                   </div>
                 </div>
@@ -1136,12 +1918,25 @@ const ProductDetails = () => {
                 <button 
                   onClick={() => navigate('/check-availability', { 
                     state: { 
+                      productId: product.id,
                       name: product.name,
                       price: product.price,
                       image: product.image,
                       location: product.location,
                       rating: product.rating,
-                      duration: product.duration
+                      duration: product.duration,
+                      // Pass pickup_dropoff data for available days and time slots
+                      pickup_dropoff: product.pickup_dropoff || null,
+                      availableDays: product.pickup_dropoff?.available_days || [],
+                      timeSlotsByDay: product.pickup_dropoff?.time_slots_by_day || {},
+                      // Pass selected vehicle and meeting point information
+                      selectedVehicleIndex: selectedVehicleIndex,
+                      selectedVehicle: selectedVehicle,
+                      selectedMeetingPointIndex: selectedMeetingPointIndex,
+                      selectedMeetingPoint: selectedMeetingPoint,
+                      selectedVehicleMeetingPoints: selectedVehicleMeetingPoints,
+                      // Pass full product for reference
+                      product: product
                     } 
                   })}
                   className="bg-[#34A853] text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-sm sm:text-base whitespace-nowrap shadow-md hover:bg-[#2d8f47] transition"
@@ -1247,35 +2042,56 @@ const ProductDetails = () => {
         )}
 
         {/* Meeting Points - Full width - Matching supplier design */}
-        {Array.isArray(product.meetingPoints) && product.meetingPoints.length > 0 && (
+        {selectedVehicleMeetingPoints.length > 0 && (
           <div className="mt-8 sm:mt-12">
             <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black mb-2">Meeting Points</h2>
             <p className="text-gray-500 text-sm sm:text-base mb-4">Choose your convenient pickup location</p>
             <div className="rounded-lg p-3 sm:p-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {product.meetingPoints.map((loc, idx) => {
+                {selectedVehicleMeetingPoints.map((loc, idx) => {
                   const locationName = typeof loc === 'string' ? loc : (loc.name || loc || 'Pickup Location');
                   const address = typeof loc === 'object' ? (loc.address || '') : '';
-                  const time = product.pickupTime || (typeof loc === 'object' ? loc.time : '') || '8:00 AM';
+                  // Use time from the location object (from configuration) first, then fallback to selectedVehiclePickupTime
+                  const time = (typeof loc === 'object' && loc.time) 
+                    ? loc.time 
+                    : (selectedVehiclePickupTime || product.pickupTime || '08:00');
+                  const isSelected = selectedMeetingPointIndex === idx;
                   
                   return (
-                    <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedMeetingPointIndex(idx)}
+                      className={`bg-white border-2 rounded-lg p-4 shadow-sm transition-all duration-200 text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0E1DC4] ${
+                        isSelected
+                          ? 'border-[#0E1DC4] bg-gradient-to-r from-[#E5EDFF] to-white shadow-md'
+                          : 'border-gray-200 hover:border-[#0E1DC4]/60 hover:shadow-md'
+                      }`}
+                      aria-pressed={isSelected}
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 flex-1">
-                          <MapPin className="w-5 h-5 text-[#0E1DC4] mt-1 flex-shrink-0" />
+                          <MapPin className={`w-5 h-5 mt-1 flex-shrink-0 ${isSelected ? 'text-[#0E1DC4]' : 'text-[#0E1DC4]'}`} />
                           <div className="flex-1">
                             <h3 className="font-bold text-black text-sm sm:text-base mb-1">{locationName}</h3>
-                            {address && (
+                            {address && address !== locationName && (
                               <p className="text-gray-500 text-xs sm:text-sm">{address}</p>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1 flex-shrink-0">
-                          <Clock className="w-4 h-4 text-gray-600" />
-                          <span className="text-gray-700 text-xs sm:text-sm font-medium">{time}</span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className={`flex items-center gap-1 rounded-full px-2 py-1 ${isSelected ? 'bg-[#0E1DC4]/10' : 'bg-gray-100'}`}>
+                            <Clock className={`w-4 h-4 ${isSelected ? 'text-[#0E1DC4]' : 'text-gray-600'}`} />
+                            <span className={`text-xs sm:text-sm font-medium ${isSelected ? 'text-[#0E1DC4]' : 'text-gray-700'}`}>{time}</span>
+                          </div>
+                          {isSelected && (
+                            <div className="w-6 h-6 rounded-full bg-[#0E1DC4] flex items-center justify-center flex-shrink-0">
+                              <Check className="w-4 h-4 text-white" />
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1309,7 +2125,9 @@ const ProductDetails = () => {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-bold text-black">One day Tour</h3>
-                  <p className="text-sm text-gray-600">(06:00 - 23:15)</p>
+                  <p className="text-sm text-gray-600">
+                    {tourTimeRange ? `(${tourTimeRange})` : (selectedVehiclePickupTime ? `(${selectedVehiclePickupTime} - --:--)` : '(Select vehicle to see time)')}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1320,7 +2138,7 @@ const ProductDetails = () => {
               <div className="absolute left-4 top-8 bottom-8 w-0.5 bg-gray-300"></div>
 
               {/* Pick-up Location */}
-              {Array.isArray(product.meetingPoints) && product.meetingPoints.length > 0 && (
+              {selectedVehicleMeetingPoints.length > 0 && (
                 <div className="flex items-start mb-8 relative">
                   <div className="w-8 h-8 border-2 border-green-700 bg-green-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
                     <MapPin className="w-4 h-4 text-green-700" />
@@ -1328,14 +2146,14 @@ const ProductDetails = () => {
                   <div className="flex-1">
                     <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">Pick-up</h3>
                     <div className="flex flex-wrap gap-2 mb-1">
-                      {product.meetingPoints.slice(0, 3).map((loc, idx) => (
+                      {selectedVehicleMeetingPoints.slice(0, 3).map((loc, idx) => (
                         <span key={idx} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
                           {typeof loc === 'string' ? loc : (loc.name || loc)}
                         </span>
                       ))}
                     </div>
-                    {product.pickupTime && (
-                      <p className="text-sm text-gray-600">Time: {product.pickupTime}</p>
+                    {selectedVehiclePickupTime && (
+                      <p className="text-sm text-gray-600">Time: {selectedVehiclePickupTime}</p>
                     )}
                   </div>
                 </div>
@@ -1413,6 +2231,42 @@ const ProductDetails = () => {
                   </div>
                 );
               })}
+
+              {/* Drop-off Location */}
+              {selectedVehicleDropoffLocations.length > 0 && (
+                <div className="flex items-start mb-8 relative">
+                  <div className="w-8 h-8 border-2 border-red-700 bg-red-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                    <MapPin className="w-4 h-4 text-red-700" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">Drop-off</h3>
+                    <div className="flex flex-wrap gap-2 mb-1">
+                      {selectedVehicleDropoffLocations.slice(0, 3).map((loc, idx) => {
+                        const locationName = typeof loc === 'string' ? loc : (loc.name || loc);
+                        // Check if dropoff location is same as pickup location
+                        const isSameAsPickup = selectedVehicleMeetingPoints.some(pickupLoc => {
+                          const pickupName = typeof pickupLoc === 'string' ? pickupLoc : (pickupLoc.name || pickupLoc);
+                          return pickupName.toLowerCase() === locationName.toLowerCase();
+                        });
+                        
+                        return (
+                          <span 
+                            key={idx} 
+                            className={`px-3 py-1 rounded-full text-sm ${
+                              isSameAsPickup 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                            title={isSameAsPickup ? 'Same as pickup location' : 'Different dropoff location'}
+                          >
+                            {locationName}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Finished - Return */}
               <div className="flex items-start mb-8 relative">

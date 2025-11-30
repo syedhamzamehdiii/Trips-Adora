@@ -10,6 +10,8 @@ from app.schemas.product import (
     IncludedExcluded,
     ItineraryItem,
     PickupDropoff,
+    PickupConfiguration,
+    TimeSlotConfiguration,
     VehicleDetails,
     Vehicle,
     Accessibility,
@@ -230,7 +232,8 @@ async def get_product(product_id: str):
                     capacity=v.get("capacity"),
                     currency=v.get("currency"),
                     amount=v.get("amount"),
-                    pricing_type=v.get("pricing_type")
+                    pricing_type=v.get("pricing_type"),
+                    duration=v.get("duration")  # Vehicle duration (e.g., "7h", "Full Day", "8 hours")
                 ))
             
             logger.info(f"🔍 [DEBUG] Fetched {len(vehicles)} vehicles for product {product_id}")
@@ -375,6 +378,9 @@ async def get_product(product_id: str):
         pd = product.get("pickup_dropoff")
         available_days = []
         available_time_slots = []
+        pickup_configurations = []  # CRITICAL: Preserve pickup_configurations
+        time_slot_configuration = None
+        time_slots_by_day = {}
         
         if isinstance(pd, dict):
             # Support both singular and plural field names
@@ -386,22 +392,74 @@ async def get_product(product_id: str):
             # Also extract available_days and available_time_slots
             available_days = pd.get("available_days", [])
             available_time_slots = pd.get("available_time_slots", [])
+            
+            # CRITICAL: Preserve pickup_configurations from the original pickup_dropoff object
+            raw_configs = pd.get("pickup_configurations")
+            if raw_configs:
+                if isinstance(raw_configs, list) and len(raw_configs) > 0:
+                    pickup_configurations = raw_configs  # Pydantic will validate/convert dicts to PickupConfiguration objects
+                    logger.info(f"🔍 [DEBUG] Found {len(pickup_configurations)} pickup_configurations in pickup_dropoff")
+                else:
+                    pickup_configurations = []
+                    logger.warning(f"⚠️ [DEBUG] pickup_configurations is not a valid list: {type(raw_configs)}")
+            else:
+                pickup_configurations = []
+                logger.warning(f"⚠️ [DEBUG] pickup_configurations MISSING in pickup_dropoff dict! Keys: {list(pd.keys())}")
+            
+            # Preserve time_slot_configuration if present
+            raw_time_slot_config = pd.get("time_slot_configuration")
+            if raw_time_slot_config:
+                if isinstance(raw_time_slot_config, dict):
+                    time_slot_configuration = raw_time_slot_config  # Pydantic will validate/convert to TimeSlotConfiguration
+                else:
+                    time_slot_configuration = None
+            
+            # Preserve time_slots_by_day if present
+            raw_time_slots_by_day = pd.get("time_slots_by_day")
+            if raw_time_slots_by_day:
+                if isinstance(raw_time_slots_by_day, dict):
+                    time_slots_by_day = raw_time_slots_by_day
+                else:
+                    time_slots_by_day = {}
+            else:
+                time_slots_by_day = {}
 
         # Remove falsy values while preserving order
         pickup_locations = [loc for loc in pickup_locations if loc]
         dropoff_locations = [loc for loc in dropoff_locations if loc]
         
-        pickup_dropoff = (
-            PickupDropoff(
+        # CRITICAL: Create PickupDropoff with ALL fields including pickup_configurations
+        pickup_dropoff = None
+        if pd or pickup_locations or dropoff_locations or pickup_time:
+            try:
+                # Create PickupDropoff with ALL fields including pickup_configurations
+                pickup_dropoff = PickupDropoff(
+                    pickup_location=pickup_locations[0] if pickup_locations else None,
+                    dropoff_location=dropoff_locations[0] if dropoff_locations else None,
+                    pickup_time=pickup_time,
+                    available_days=available_days if isinstance(available_days, list) else [],
+                    available_time_slots=available_time_slots if isinstance(available_time_slots, list) else [],
+                    pickup_locations=pickup_locations,
+                    dropoff_locations=dropoff_locations,
+                    # CRITICAL: Include pickup_configurations to preserve vehicle-based configs
+                    pickup_configurations=pickup_configurations,
+                    time_slot_configuration=time_slot_configuration,
+                    time_slots_by_day=time_slots_by_day if isinstance(time_slots_by_day, dict) else {}
+                )
+                
+                logger.info(f"✅ [DEBUG] Created PickupDropoff with {len(pickup_configurations)} pickup_configurations")
+            except Exception as e:
+                logger.error(f"❌ [DEBUG] Error creating PickupDropoff: {e}")
+                import traceback
+                traceback.print_exc()
+                # Fallback to basic PickupDropoff if there's an error
+                pickup_dropoff = PickupDropoff(
                 pickup_locations=pickup_locations,
                 pickup_time=pickup_time,
                 dropoff_locations=dropoff_locations,
                 available_days=available_days if isinstance(available_days, list) else [],
                 available_time_slots=available_time_slots if isinstance(available_time_slots, list) else []
-            )
-            if (pickup_locations or dropoff_locations or pickup_time)
-            else None
-        )
+                ) if (pickup_locations or dropoff_locations or pickup_time) else None
         
         # Fetch supplier information (business_name)
         supplier_id = product.get("supplier_id")

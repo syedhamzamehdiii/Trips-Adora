@@ -199,7 +199,24 @@ const buildCustomFieldsPayload = ({
   itineraries_full: Array.isArray(productData?.itineraries) ? productData.itineraries : [],
   pickup_locations: productData?.pickupLocations || productData?.selectedPickupLocations || [],
   dropoff_locations: productData?.dropoffLocations || productData?.selectedDropoffLocations || [],
-  pickup_time: productData?.pickupTime || '',
+  pickup_time: (() => {
+    // Priority 1: First vehicle-time allocation time
+    if (Array.isArray(existingVehicleAllocations) && existingVehicleAllocations.length > 0) {
+      const firstAllocation = existingVehicleAllocations[0];
+      if (firstAllocation?.time || firstAllocation?.pickup_time) {
+        return firstAllocation.time || firstAllocation.pickup_time || '';
+      }
+    }
+    // Priority 2: From productData vehicleTimeAllocations
+    if (Array.isArray(productData?.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0) {
+      const firstAllocation = productData.vehicleTimeAllocations[0];
+      if (firstAllocation?.time || firstAllocation?.pickup_time) {
+        return firstAllocation.time || firstAllocation.pickup_time || '';
+      }
+    }
+    // Priority 3: Legacy pickupTime field
+    return productData?.pickupTime || '';
+  })(),
   available_days: availableDays || [],
   time_slots: productData?.timeSlots || {},
   cover_image_backup: heroUrl || null,
@@ -215,7 +232,97 @@ const buildEmptyCancellationPolicy = () => ({
 
 const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) => {
   const navigate = useNavigate();
-  const [selectedDay, setSelectedDay] = useState('Tuesday');
+  
+  // CRITICAL DEBUG: Log productData when component first receives it (at "final look")
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎬 [FINAL LOOK] MountFujiTourPage received productData:', {
+        hasProductData: !!productData,
+        productDataKeys: productData ? Object.keys(productData) : [],
+        hasVehicleTimeAllocations: Array.isArray(productData?.vehicleTimeAllocations),
+        vehicleTimeAllocationsCount: Array.isArray(productData?.vehicleTimeAllocations) 
+          ? productData.vehicleTimeAllocations.length 
+          : 0,
+        vehicleTimeAllocations: productData?.vehicleTimeAllocations,
+        hasVehicles: Array.isArray(productData?.vehicles),
+        vehiclesCount: Array.isArray(productData?.vehicles) ? productData.vehicles.length : 0,
+        vehicles: productData?.vehicles,
+        hasPickupLocations: Array.isArray(productData?.pickupLocations),
+        pickupLocationsCount: Array.isArray(productData?.pickupLocations) ? productData.pickupLocations.length : 0,
+        pickupLocations: productData?.pickupLocations,
+        pickupTime: productData?.pickupTime,
+        hasPickupDropoff: !!productData?.pickup_dropoff,
+        pickupDropoff: productData?.pickup_dropoff,
+        // Check for vehicle-time allocation related keys
+        relatedKeys: productData ? Object.keys(productData).filter(k => 
+          k.toLowerCase().includes('vehicle') || 
+          k.toLowerCase().includes('pickup') || 
+          k.toLowerCase().includes('time') || 
+          k.toLowerCase().includes('allocation')
+        ) : []
+      })
+      
+      // Specifically check vehicleTimeAllocations structure
+      if (Array.isArray(productData?.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0) {
+        console.log('✅ [FINAL LOOK] vehicleTimeAllocations DETAILS:', productData.vehicleTimeAllocations.map((alloc, idx) => ({
+          index: idx,
+          id: alloc.id,
+          time: alloc.time,
+          pickup_time: alloc.pickup_time,
+          vehicle_id: alloc.vehicle_id,
+          vehicle: alloc.vehicle ? {
+            id: alloc.vehicle.id || alloc.vehicle._id,
+            title: alloc.vehicle.title,
+            model: alloc.vehicle.model,
+            type: alloc.vehicle.type
+          } : null,
+          pickupLocations: alloc.pickupLocations,
+          pickupLocation: alloc.pickupLocation,
+          pickup_location: alloc.pickup_location,
+          date: alloc.date,
+          pickup_date: alloc.pickup_date,
+          datetime: alloc.datetime,
+          fullAllocation: alloc // Include full object for inspection
+        })))
+        
+        // Also show the full array structure
+        console.log('✅ [FINAL LOOK] vehicleTimeAllocations FULL ARRAY:', JSON.stringify(productData.vehicleTimeAllocations, null, 2))
+      } else {
+        console.warn('⚠️ [FINAL LOOK] NO vehicleTimeAllocations found in productData!')
+        console.warn('⚠️ [FINAL LOOK] This means pickup_configurations will be EMPTY when publishing!')
+      }
+    }
+  }, [productData]) // Only run when productData changes
+  
+  // Initialize selectedDay from available days
+  const [selectedDay, setSelectedDay] = useState(() => {
+    // Try to get from productData first
+    if (Array.isArray(productData?.pickup_dropoff?.available_days) && productData.pickup_dropoff.available_days.length > 0) {
+      return productData.pickup_dropoff.available_days[0];
+    }
+    if (Array.isArray(productData?.availableDays) && productData.availableDays.length > 0) {
+      return productData.availableDays[0];
+    }
+    if (productData?.weekDay) {
+      return productData.weekDay;
+    }
+    return 'Tuesday'; // Default fallback
+  });
+  
+  // Update selectedDay when available days change
+  useEffect(() => {
+    if (Array.isArray(productData?.pickup_dropoff?.available_days) && productData.pickup_dropoff.available_days.length > 0) {
+      if (!productData.pickup_dropoff.available_days.includes(selectedDay)) {
+        setSelectedDay(productData.pickup_dropoff.available_days[0]);
+      }
+    } else if (Array.isArray(productData?.availableDays) && productData.availableDays.length > 0) {
+      if (!productData.availableDays.includes(selectedDay)) {
+        setSelectedDay(productData.availableDays[0]);
+      }
+    } else if (productData?.weekDay && selectedDay !== productData.weekDay) {
+      setSelectedDay(productData.weekDay);
+    }
+  }, [productData?.pickup_dropoff?.available_days, productData?.availableDays, productData?.weekDay, selectedDay]);
   const [selectedTime, setSelectedTime] = useState('08:00');
   const [language, setLanguage] = useState('US English');
   const [currency, setCurrency] = useState('$ USD - US Dollar');
@@ -225,6 +332,7 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [selectedVehicleIndex, setSelectedVehicleIndex] = useState(null);
   const [previewProfile, setPreviewProfile] = useState({
     name: 'User',
     id: FALLBACK_SUPPLIER_ID,
@@ -329,6 +437,265 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+
+  // Initialize selected vehicle index when vehicles are available
+  useEffect(() => {
+    if (Array.isArray(productData?.vehicles) && productData.vehicles.length > 0) {
+      setSelectedVehicleIndex((prev) => {
+        if (prev === null || prev >= productData.vehicles.length) {
+          return 0;
+        }
+        return prev;
+      });
+    } else {
+      setSelectedVehicleIndex(null);
+    }
+  }, [productData?.vehicles]);
+
+  const selectedVehicle = useMemo(() => {
+    if (!Array.isArray(productData?.vehicles) || selectedVehicleIndex === null) return null;
+    return productData.vehicles[selectedVehicleIndex] || null;
+  }, [productData?.vehicles, selectedVehicleIndex]);
+
+  // Get pickup configurations for selected vehicle
+  const selectedVehiclePickupConfigs = useMemo(() => {
+    if (!selectedVehicle || !productData?.pickup_dropoff?.pickup_configurations) {
+      return [];
+    }
+    
+    const configs = productData.pickup_dropoff.pickup_configurations;
+    if (!Array.isArray(configs) || configs.length === 0) {
+      return [];
+    }
+    
+    // Match configurations by vehicle_id, vehicle.id, or vehicle title/model
+    const vehicleId = selectedVehicle.id || selectedVehicle._id;
+    const vehicleTitle = selectedVehicle.title || selectedVehicle.model;
+    
+    return configs.filter(config => {
+      // Match by vehicle_id
+      if (config.vehicle_id && vehicleId && String(config.vehicle_id) === String(vehicleId)) {
+        return true;
+      }
+      // Match by vehicle.id in config.vehicle object
+      if (config.vehicle?.id && vehicleId && String(config.vehicle.id) === String(vehicleId)) {
+        return true;
+      }
+      // Match by vehicle title/model in config.vehicle object
+      if (config.vehicle && vehicleTitle) {
+        const configTitle = config.vehicle.title || config.vehicle.model;
+        if (configTitle && String(configTitle).toLowerCase() === String(vehicleTitle).toLowerCase()) {
+          return true;
+        }
+      }
+      // Also match by checking vehicleTimeAllocations for direct vehicle reference
+      if (Array.isArray(productData?.vehicleTimeAllocations)) {
+        const matchingAllocation = productData.vehicleTimeAllocations.find(alloc => {
+          const allocVehicleId = alloc.vehicle?.id || alloc.vehicle_id;
+          const allocVehicleTitle = alloc.vehicle?.title || alloc.vehicle?.model;
+          return (allocVehicleId && vehicleId && String(allocVehicleId) === String(vehicleId)) ||
+                 (allocVehicleTitle && vehicleTitle && String(allocVehicleTitle).toLowerCase() === String(vehicleTitle).toLowerCase());
+        });
+        if (matchingAllocation && (matchingAllocation.time === config.pickup_time || matchingAllocation.pickup_time === config.pickup_time)) {
+          return true;
+        }
+      }
+      return false;
+    });
+  }, [selectedVehicle, productData?.pickup_dropoff?.pickup_configurations, productData?.vehicleTimeAllocations]);
+
+  // Get pickup locations (meeting points) for selected vehicle
+  const selectedVehiclePickupLocations = useMemo(() => {
+    const configs = selectedVehiclePickupConfigs;
+    
+    if (configs.length === 0) {
+      // Fallback to productData.pickupLocations if no configurations for this vehicle
+      // But also check vehicleTimeAllocations for this vehicle
+      if (Array.isArray(productData?.vehicleTimeAllocations) && selectedVehicle) {
+        const vehicleId = selectedVehicle.id || selectedVehicle._id;
+        const vehicleTitle = selectedVehicle.title || selectedVehicle.model;
+        
+        const matchingAllocations = productData.vehicleTimeAllocations.filter(alloc => {
+          const allocVehicleId = alloc.vehicle?.id || alloc.vehicle_id;
+          const allocVehicleTitle = alloc.vehicle?.title || alloc.vehicle?.model;
+          return (allocVehicleId && vehicleId && String(allocVehicleId) === String(vehicleId)) ||
+                 (allocVehicleTitle && vehicleTitle && String(allocVehicleTitle).toLowerCase() === String(vehicleTitle).toLowerCase());
+        });
+        
+        if (matchingAllocations.length > 0) {
+          const locations = [];
+          const seen = new Set();
+          matchingAllocations.forEach(alloc => {
+            if (Array.isArray(alloc.pickupLocations)) {
+              alloc.pickupLocations.forEach(loc => {
+                if (!seen.has(loc)) {
+                  seen.add(loc);
+                  locations.push(loc);
+                }
+              });
+            } else if (alloc.pickupLocation && !seen.has(alloc.pickupLocation)) {
+              seen.add(alloc.pickupLocation);
+              locations.push(alloc.pickupLocation);
+            }
+          });
+          if (locations.length > 0) {
+            return locations;
+          }
+        }
+      }
+      return Array.isArray(productData?.pickupLocations) ? productData.pickupLocations : [];
+    }
+    
+    // Extract unique pickup locations from configurations
+    const locations = [];
+    const seen = new Set();
+    
+    configs.forEach(config => {
+      if (config.pickup_location) {
+        // pickup_location can be a comma-separated string or single location
+        const locs = config.pickup_location.split(',').map(l => l.trim()).filter(Boolean);
+        locs.forEach(loc => {
+          if (!seen.has(loc)) {
+            seen.add(loc);
+            locations.push(loc);
+          }
+        });
+      }
+    });
+    
+    return locations.length > 0 ? locations : (Array.isArray(productData?.pickupLocations) ? productData.pickupLocations : []);
+  }, [selectedVehiclePickupConfigs, productData?.pickupLocations, productData?.vehicleTimeAllocations, selectedVehicle]);
+
+  // Get dropoff locations for selected vehicle (similar to pickup locations)
+  const selectedVehicleDropoffLocations = useMemo(() => {
+    const configs = selectedVehiclePickupConfigs;
+    
+    if (configs.length === 0) {
+      // Fallback to productData.dropoffLocations or vehicleTimeAllocations for this vehicle
+      if (Array.isArray(productData?.vehicleTimeAllocations) && selectedVehicle) {
+        const vehicleId = selectedVehicle.id || selectedVehicle._id;
+        const vehicleTitle = selectedVehicle.title || selectedVehicle.model;
+        
+        const matchingAllocations = productData.vehicleTimeAllocations.filter(alloc => {
+          const allocVehicleId = alloc.vehicle?.id || alloc.vehicle_id;
+          const allocVehicleTitle = alloc.vehicle?.title || alloc.vehicle?.model;
+          return (allocVehicleId && vehicleId && String(allocVehicleId) === String(vehicleId)) ||
+                 (allocVehicleTitle && vehicleTitle && String(allocVehicleTitle).toLowerCase() === String(vehicleTitle).toLowerCase());
+        });
+        
+        if (matchingAllocations.length > 0) {
+          const locations = [];
+          const seen = new Set();
+          matchingAllocations.forEach(alloc => {
+            // Check dropoffLocations first, fallback to pickupLocations if same
+            const dropoffLocs = Array.isArray(alloc.dropoffLocations) && alloc.dropoffLocations.length > 0
+              ? alloc.dropoffLocations
+              : (Array.isArray(alloc.pickupLocations) ? alloc.pickupLocations : []);
+            
+            dropoffLocs.forEach(loc => {
+              if (!seen.has(loc)) {
+                seen.add(loc);
+                locations.push(loc);
+              }
+            });
+          });
+          if (locations.length > 0) {
+            return locations;
+          }
+        }
+      }
+      // Fallback to productData.dropoffLocations or pickupLocations (same as pickup)
+      return Array.isArray(productData?.dropoffLocations) && productData.dropoffLocations.length > 0
+        ? productData.dropoffLocations
+        : (Array.isArray(productData?.pickupLocations) ? productData.pickupLocations : []);
+    }
+    
+    // Extract unique dropoff locations from configurations
+    // If dropoff_location is not specified or same as pickup, use pickup locations
+    const locations = [];
+    const seen = new Set();
+    
+    configs.forEach(config => {
+      // Check if dropoff_location exists and is different from pickup_location
+      if (config.dropoff_location && config.dropoff_location !== config.pickup_location) {
+        // dropoff_location can be a comma-separated string or single location
+        const dropoffLocs = config.dropoff_location.split(',').map(l => l.trim()).filter(Boolean);
+        dropoffLocs.forEach(loc => {
+          if (!seen.has(loc)) {
+            seen.add(loc);
+            locations.push(loc);
+          }
+        });
+      } else {
+        // No dropoff_location specified or same as pickup - use pickup locations
+        if (config.pickup_location) {
+          const pickupLocs = config.pickup_location.split(',').map(l => l.trim()).filter(Boolean);
+          pickupLocs.forEach(loc => {
+            if (!seen.has(loc)) {
+              seen.add(loc);
+              locations.push(loc);
+            }
+          });
+        }
+      }
+    });
+    
+    return locations.length > 0 ? locations : (Array.isArray(productData?.dropoffLocations) && productData.dropoffLocations.length > 0
+      ? productData.dropoffLocations
+      : (Array.isArray(productData?.pickupLocations) ? productData.pickupLocations : []));
+  }, [selectedVehiclePickupConfigs, productData?.dropoffLocations, productData?.pickupLocations, productData?.vehicleTimeAllocations, selectedVehicle]);
+
+  // Get pickup time for selected vehicle
+  const selectedVehiclePickupTime = useMemo(() => {
+    // Priority 1: First pickup configuration time for selected vehicle
+    if (selectedVehiclePickupConfigs.length > 0) {
+      const firstConfig = selectedVehiclePickupConfigs[0];
+      if (firstConfig?.pickup_time) {
+        return firstConfig.pickup_time;
+      }
+    }
+    // Priority 2: Check vehicleTimeAllocations for this specific vehicle
+    if (Array.isArray(productData?.vehicleTimeAllocations) && selectedVehicle) {
+      const vehicleId = selectedVehicle.id || selectedVehicle._id;
+      const vehicleTitle = selectedVehicle.title || selectedVehicle.model;
+      
+      const matchingAllocation = productData.vehicleTimeAllocations.find(alloc => {
+        const allocVehicleId = alloc.vehicle?.id || alloc.vehicle_id;
+        const allocVehicleTitle = alloc.vehicle?.title || alloc.vehicle?.model;
+        return (allocVehicleId && vehicleId && String(allocVehicleId) === String(vehicleId)) ||
+               (allocVehicleTitle && vehicleTitle && String(allocVehicleTitle).toLowerCase() === String(vehicleTitle).toLowerCase());
+      });
+      
+      if (matchingAllocation?.time || matchingAllocation?.pickup_time) {
+        return matchingAllocation.time || matchingAllocation.pickup_time;
+      }
+    }
+    // Priority 3: First pickup configuration time (any vehicle)
+    if (productData?.pickup_dropoff?.pickup_configurations && 
+        Array.isArray(productData.pickup_dropoff.pickup_configurations) && 
+        productData.pickup_dropoff.pickup_configurations.length > 0) {
+      const firstConfig = productData.pickup_dropoff.pickup_configurations[0];
+      if (firstConfig?.pickup_time) {
+        return firstConfig.pickup_time;
+      }
+    }
+    // Priority 4: First vehicle-time allocation (any vehicle)
+    if (Array.isArray(productData?.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0) {
+      const firstAllocation = productData.vehicleTimeAllocations[0];
+      if (firstAllocation?.time || firstAllocation?.pickup_time) {
+        return firstAllocation.time || firstAllocation.pickup_time;
+      }
+    }
+    // Priority 5: Legacy pickupTime field
+    if (productData?.pickupTime) {
+      return productData.pickupTime;
+    }
+    // Priority 6: pickup_dropoff.pickup_time
+    if (productData?.pickup_dropoff?.pickup_time) {
+      return productData.pickup_dropoff.pickup_time;
+    }
+    return null;
+  }, [selectedVehiclePickupConfigs, productData?.pickup_dropoff?.pickup_configurations, productData?.vehicleTimeAllocations, productData?.pickupTime, productData?.pickup_dropoff?.pickup_time, selectedVehicle]);
 
   const profileInitials = useMemo(() => {
     if (!previewProfile?.name) return 'US';
@@ -495,13 +862,135 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
             : null
         } : null,
         pickup_dropoff: {
+          // Legacy fields for backward compatibility
           pickup_location: productData?.pickupLocations?.[0] || '',
           dropoff_location: productData?.dropoffLocations?.[0] || '',
-          pickup_time: productData?.pickupTime || '',
+          pickup_time: (() => {
+            // Priority 1: First vehicle-time allocation time
+            if (Array.isArray(productData?.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0) {
+              const firstAllocation = productData.vehicleTimeAllocations[0];
+              if (firstAllocation?.time || firstAllocation?.pickup_time) {
+                let timeStr = firstAllocation.time || firstAllocation.pickup_time || '';
+                // Ensure time is in HH:MM format
+                if (timeStr && timeStr.includes(':')) {
+                  const timeParts = timeStr.split(':');
+                  if (timeParts.length >= 2) {
+                    const hours = String(timeParts[0] || '00').padStart(2, '0');
+                    const minutes = String(timeParts[1] || '00').padStart(2, '0');
+                    return `${hours}:${minutes}`;
+                  }
+                }
+                return timeStr;
+              }
+            }
+            // Priority 2: Legacy pickupTime field
+            const timeStr = productData?.pickupTime || '';
+            if (timeStr && timeStr.includes(':')) {
+              const timeParts = timeStr.split(':');
+              if (timeParts.length >= 2) {
+                const hours = String(timeParts[0] || '00').padStart(2, '0');
+                const minutes = String(timeParts[1] || '00').padStart(2, '0');
+                return `${hours}:${minutes}`;
+              }
+            }
+            return timeStr;
+          })(),
           available_days: normalizedAvailableDays,
           available_time_slots: productData?.timeSlots
             ? Object.values(productData.timeSlots).flat().filter(Boolean)
-            : []
+            : [],
+          
+          // New enhanced fields - vehicle-based pickup configurations
+          pickup_locations: Array.isArray(productData?.pickupLocations) ? productData.pickupLocations : [],
+          dropoff_locations: Array.isArray(productData?.dropoffLocations) ? productData.dropoffLocations : [],
+          
+          // Pickup configurations: location + vehicle + time + date (vehicle-based)
+          pickup_configurations: Array.isArray(productData?.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0
+            ? productData.vehicleTimeAllocations.map(allocation => {
+                // Format pickup time as HH:MM
+                let formattedTime = allocation.time || allocation.pickup_time || '';
+                if (formattedTime) {
+                  const timeParts = formattedTime.split(':');
+                  if (timeParts.length >= 2) {
+                    const hours = String(timeParts[0] || '00').padStart(2, '0');
+                    const minutes = String(timeParts[1] || '00').padStart(2, '0');
+                    formattedTime = `${hours}:${minutes}`;
+                  }
+                }
+                
+                // Extract pickup locations - can be array or comma-separated string
+                let pickupLocationStr = '';
+                if (Array.isArray(allocation.pickupLocations) && allocation.pickupLocations.length > 0) {
+                  pickupLocationStr = allocation.pickupLocations.join(', ');
+                } else if (allocation.pickupLocation) {
+                  pickupLocationStr = allocation.pickupLocation;
+                } else if (allocation.pickup_location) {
+                  pickupLocationStr = allocation.pickup_location;
+                }
+                
+                // Extract dropoff locations - use dropoff locations if provided, otherwise use pickup locations (same location)
+                let dropoffLocationStr = null;
+                const dropoffLocationsForConfig = Array.isArray(allocation.dropoffLocations) && allocation.dropoffLocations.length > 0
+                  ? allocation.dropoffLocations
+                  : (Array.isArray(allocation.pickupLocations) && allocation.pickupLocations.length > 0
+                    ? allocation.pickupLocations
+                    : []);
+                
+                if (dropoffLocationsForConfig.length > 0) {
+                  dropoffLocationStr = dropoffLocationsForConfig.join(', ');
+                  // Only set dropoff_location if it's different from pickup (otherwise null = same location)
+                  if (dropoffLocationStr === pickupLocationStr) {
+                    dropoffLocationStr = null;
+                  }
+                }
+                
+                return {
+                  pickup_location: pickupLocationStr,
+                  dropoff_location: dropoffLocationStr,  // null if same as pickup (will be shown as same location in UI)
+                  vehicle_id: allocation.vehicle?.id || allocation.vehicle_id || null,
+                  vehicle: allocation.vehicle || null,
+                  pickup_time: formattedTime,
+                  pickup_date: allocation.date || allocation.pickup_date || null,
+                  pickup_datetime: allocation.datetime || allocation.pickup_datetime || null
+                };
+              })
+            : [],
+          
+          // Time slot configuration settings
+          time_slot_configuration: {
+            start_time: productData?.startTime || null,
+            end_time: productData?.endTime || null,
+            duration: productData?.duration ? parseInt(productData.duration) : null,
+            apply_to_all_days: productData?.applyToAllDays || false
+          },
+          
+          // Time slots organized by day - normalize time format to HH:MM
+          time_slots_by_day: productData?.timeSlots && typeof productData.timeSlots === 'object'
+            ? (() => {
+                const normalized = {};
+                Object.keys(productData.timeSlots).forEach(day => {
+                  const slots = productData.timeSlots[day];
+                  if (Array.isArray(slots)) {
+                    normalized[day] = slots.map(slot => {
+                      if (typeof slot === 'string') {
+                        const cleaned = slot.replace(/\s+/g, '').trim();
+                        const parts = cleaned.split(':');
+                        if (parts.length >= 2) {
+                          const hours = String(parts[0] || '00').padStart(2, '0');
+                          const minutes = String(parts[1] || '00').padStart(2, '0');
+                          return `${hours}:${minutes}`;
+                        }
+                        return cleaned;
+                      }
+                      return slot;
+                    }).filter(Boolean);
+                  } else {
+                    normalized[day] = [];
+                  }
+                });
+                return normalized;
+              })()
+            : {}
         },
         cancellation_policy: normalizedCancellationPolicy,
         faqs: normalizedFaqs,
@@ -632,7 +1121,17 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         selectedVehicleForTour,
         selectedPickupLocations: productData?.pickupLocations || [],
         selectedDropoffLocations: productData?.dropoffLocations || [],
-        pickupTime: productData?.pickupTime || '',
+        pickupTime: (() => {
+          // Priority 1: First vehicle-time allocation time
+          if (Array.isArray(productData?.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0) {
+            const firstAllocation = productData.vehicleTimeAllocations[0];
+            if (firstAllocation?.time || firstAllocation?.pickup_time) {
+              return firstAllocation.time || firstAllocation.pickup_time || '';
+            }
+          }
+          // Priority 2: Legacy pickupTime field
+          return productData?.pickupTime || '';
+        })(),
         selectedWeekDay: productData?.weekDay || '',
         selectedDate: productData?.selectedDate || '',
         itineraries: productData?.itineraries || [],
@@ -798,6 +1297,20 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         : null;
 
       // Prepare product data for API (matching ProductCreate schema)
+      // CRITICAL DEBUG: Log productData before building apiProductData
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [PUBLISH] productData received:', {
+          hasVehicleTimeAllocations: Array.isArray(productData?.vehicleTimeAllocations),
+          vehicleTimeAllocationsCount: Array.isArray(productData?.vehicleTimeAllocations) 
+            ? productData.vehicleTimeAllocations.length 
+            : 0,
+          vehicleTimeAllocations: productData?.vehicleTimeAllocations,
+          hasVehicles: Array.isArray(productData?.vehicles),
+          vehiclesCount: Array.isArray(productData?.vehicles) ? productData.vehicles.length : 0,
+          productDataKeys: productData ? Object.keys(productData) : []
+        })
+      }
+      
       const apiProductData = {
         title: publishTitle || 'Untitled Product',
         category: normalizedCategory,
@@ -829,13 +1342,135 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
           capacity: productData.vehicles[0]?.capacity ?? null
         } : null,
         pickup_dropoff: {
+          // Legacy fields for backward compatibility
           pickup_location: (productData?.pickupLocations && productData.pickupLocations[0]) ? String(productData.pickupLocations[0]) : '',
           dropoff_location: (productData?.dropoffLocations && productData.dropoffLocations[0]) ? String(productData.dropoffLocations[0]) : '',
-          pickup_time: (productData?.pickupTime || '').toString(),
+          pickup_time: (() => {
+            // Priority 1: First vehicle-time allocation time
+            if (Array.isArray(productData?.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0) {
+              const firstAllocation = productData.vehicleTimeAllocations[0];
+              if (firstAllocation?.time || firstAllocation?.pickup_time) {
+                let timeStr = (firstAllocation.time || firstAllocation.pickup_time || '').toString();
+                // Ensure time is in HH:MM format
+                if (timeStr && timeStr.includes(':')) {
+                  const timeParts = timeStr.split(':');
+                  if (timeParts.length >= 2) {
+                    const hours = String(timeParts[0] || '00').padStart(2, '0');
+                    const minutes = String(timeParts[1] || '00').padStart(2, '0');
+                    return `${hours}:${minutes}`;
+                  }
+                }
+                return timeStr;
+              }
+            }
+            // Priority 2: Legacy pickupTime field
+            const timeStr = (productData?.pickupTime || '').toString();
+            if (timeStr && timeStr.includes(':')) {
+              const timeParts = timeStr.split(':');
+              if (timeParts.length >= 2) {
+                const hours = String(timeParts[0] || '00').padStart(2, '0');
+                const minutes = String(timeParts[1] || '00').padStart(2, '0');
+                return `${hours}:${minutes}`;
+              }
+            }
+            return timeStr;
+          })(),
           available_days: availableDays,
           available_time_slots: productData?.timeSlots
             ? Object.values(productData.timeSlots).flat().filter(Boolean)
-            : []
+            : [],
+          
+          // New enhanced fields - vehicle-based pickup configurations
+          pickup_locations: Array.isArray(productData?.pickupLocations) ? productData.pickupLocations : [],
+          dropoff_locations: Array.isArray(productData?.dropoffLocations) ? productData.dropoffLocations : [],
+          
+          // Pickup configurations: location + vehicle + time + date (vehicle-based)
+          pickup_configurations: Array.isArray(productData?.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0
+            ? productData.vehicleTimeAllocations.map(allocation => {
+                // Format pickup time as HH:MM
+                let formattedTime = allocation.time || allocation.pickup_time || '';
+                if (formattedTime) {
+                  const timeParts = formattedTime.split(':');
+                  if (timeParts.length >= 2) {
+                    const hours = String(timeParts[0] || '00').padStart(2, '0');
+                    const minutes = String(timeParts[1] || '00').padStart(2, '0');
+                    formattedTime = `${hours}:${minutes}`;
+                  }
+                }
+                
+                // Extract pickup locations - can be array or comma-separated string
+                let pickupLocationStr = '';
+                if (Array.isArray(allocation.pickupLocations) && allocation.pickupLocations.length > 0) {
+                  pickupLocationStr = allocation.pickupLocations.join(', ');
+                } else if (allocation.pickupLocation) {
+                  pickupLocationStr = allocation.pickupLocation;
+                } else if (allocation.pickup_location) {
+                  pickupLocationStr = allocation.pickup_location;
+                }
+                
+                // Extract dropoff locations - use dropoff locations if provided, otherwise use pickup locations (same location)
+                let dropoffLocationStr = null;
+                const dropoffLocationsForConfig = Array.isArray(allocation.dropoffLocations) && allocation.dropoffLocations.length > 0
+                  ? allocation.dropoffLocations
+                  : (Array.isArray(allocation.pickupLocations) && allocation.pickupLocations.length > 0
+                    ? allocation.pickupLocations
+                    : []);
+                
+                if (dropoffLocationsForConfig.length > 0) {
+                  dropoffLocationStr = dropoffLocationsForConfig.join(', ');
+                  // Only set dropoff_location if it's different from pickup (otherwise null = same location)
+                  if (dropoffLocationStr === pickupLocationStr) {
+                    dropoffLocationStr = null;
+                  }
+                }
+                
+                return {
+                  pickup_location: pickupLocationStr,
+                  dropoff_location: dropoffLocationStr,  // null if same as pickup (will be shown as same location in UI)
+                  vehicle_id: allocation.vehicle?.id || allocation.vehicle_id || null,
+                  vehicle: allocation.vehicle || null,
+                  pickup_time: formattedTime,
+                  pickup_date: allocation.date || allocation.pickup_date || null,
+                  pickup_datetime: allocation.datetime || allocation.pickup_datetime || null
+                };
+              })
+            : [],
+          
+          // Time slot configuration settings
+          time_slot_configuration: {
+            start_time: productData?.startTime || null,
+            end_time: productData?.endTime || null,
+            duration: productData?.duration ? parseInt(productData.duration) : null,
+            apply_to_all_days: productData?.applyToAllDays || false
+          },
+          
+          // Time slots organized by day - normalize time format to HH:MM
+          time_slots_by_day: productData?.timeSlots && typeof productData.timeSlots === 'object'
+            ? (() => {
+                const normalized = {};
+                Object.keys(productData.timeSlots).forEach(day => {
+                  const slots = productData.timeSlots[day];
+                  if (Array.isArray(slots)) {
+                    normalized[day] = slots.map(slot => {
+                      if (typeof slot === 'string') {
+                        const cleaned = slot.replace(/\s+/g, '').trim();
+                        const parts = cleaned.split(':');
+                        if (parts.length >= 2) {
+                          const hours = String(parts[0] || '00').padStart(2, '0');
+                          const minutes = String(parts[1] || '00').padStart(2, '0');
+                          return `${hours}:${minutes}`;
+                        }
+                        return cleaned;
+                      }
+                      return slot;
+                    }).filter(Boolean);
+                  } else {
+                    normalized[day] = [];
+                  }
+                });
+                return normalized;
+              })()
+            : {}
         },
         cancellation_policy: normalizedCancellationPolicy,
         faqs: normalizedFaqs,
@@ -917,6 +1552,49 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         availableDays,
       });
 
+      // Debug: Log pickup_dropoff structure before sending to API
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📤 [PUBLISH] About to send product to API with pickup_dropoff:', {
+          hasPickupDropoff: !!apiProductData.pickup_dropoff,
+          pickupDropoffKeys: apiProductData.pickup_dropoff ? Object.keys(apiProductData.pickup_dropoff) : [],
+          hasPickupConfigs: !!(apiProductData.pickup_dropoff?.pickup_configurations),
+          pickupConfigsCount: Array.isArray(apiProductData.pickup_dropoff?.pickup_configurations) 
+            ? apiProductData.pickup_dropoff.pickup_configurations.length 
+            : 0,
+          pickupConfigs: apiProductData.pickup_dropoff?.pickup_configurations,
+          fullPickupDropoff: apiProductData.pickup_dropoff,
+          sourceVehicleTimeAllocations: productData?.vehicleTimeAllocations,
+          sourceVehicles: productData?.vehicles,
+          // Detailed breakdown of pickup_configurations
+          pickupConfigsDetails: Array.isArray(apiProductData.pickup_dropoff?.pickup_configurations)
+            ? apiProductData.pickup_dropoff.pickup_configurations.map((config, idx) => ({
+                index: idx,
+                pickup_location: config.pickup_location,
+                vehicle_id: config.vehicle_id,
+                vehicle: config.vehicle,
+                pickup_time: config.pickup_time,
+                pickup_date: config.pickup_date
+              }))
+            : []
+        })
+        
+        // Also log the full pickup_dropoff as JSON to see exact structure
+        if (apiProductData.pickup_dropoff) {
+          console.log('📤 [PUBLISH] pickup_dropoff JSON:', JSON.stringify(apiProductData.pickup_dropoff, null, 2))
+        }
+        
+        // Warn if pickup_configurations is empty
+        if (!Array.isArray(apiProductData.pickup_dropoff?.pickup_configurations) || 
+            apiProductData.pickup_dropoff.pickup_configurations.length === 0) {
+          console.error('❌ [PUBLISH] WARNING: pickup_configurations is EMPTY or MISSING!', {
+            hasPickupDropoff: !!apiProductData.pickup_dropoff,
+            pickupDropoffKeys: apiProductData.pickup_dropoff ? Object.keys(apiProductData.pickup_dropoff) : [],
+            sourceVehicleTimeAllocationsCount: Array.isArray(productData?.vehicleTimeAllocations) 
+              ? productData.vehicleTimeAllocations.length 
+              : 0
+          })
+        }
+      }
       console.log('apiProductData ->', apiProductData);
 
       // Save to database (required - no localStorage fallback)
@@ -944,13 +1622,122 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
 
       let dbProductId = existingProductId;
 
+      // Store publish debug info in localStorage BEFORE API calls (so it persists after redirect)
+      const publishDebugInfo = {
+        timestamp: new Date().toISOString(),
+        productId: existingProductId || 'new',
+        pickupDropoff: apiProductData.pickup_dropoff,
+        pickupConfigurationsCount: Array.isArray(apiProductData.pickup_dropoff?.pickup_configurations) 
+          ? apiProductData.pickup_dropoff.pickup_configurations.length 
+          : 0,
+        pickupConfigurations: apiProductData.pickup_dropoff?.pickup_configurations || [],
+        sourceVehicleTimeAllocations: productData?.vehicleTimeAllocations || [],
+        sourceVehicleTimeAllocationsCount: Array.isArray(productData?.vehicleTimeAllocations) 
+          ? productData.vehicleTimeAllocations.length 
+          : 0,
+        apiProductDataKeys: Object.keys(apiProductData),
+        pickupDropoffKeys: apiProductData.pickup_dropoff ? Object.keys(apiProductData.pickup_dropoff) : []
+      };
+      
+      // Store in localStorage with timestamp so we can check later
+      try {
+        localStorage.setItem('last_publish_debug', JSON.stringify(publishDebugInfo));
+        console.log('💾 [PUBLISH] Debug info saved to localStorage as "last_publish_debug"');
+      } catch (e) {
+        console.warn('⚠️ Could not save debug info to localStorage:', e);
+      }
+      
+      // Log to console with ERROR level so it's more visible
+      console.error('📤 [PUBLISH] ========== PUBLISH DEBUG INFO ==========');
+      console.error('📤 [PUBLISH] Product ID:', existingProductId || 'new');
+      console.error('📤 [PUBLISH] pickup_configurations count:', publishDebugInfo.pickupConfigurationsCount);
+      console.error('📤 [PUBLISH] pickup_configurations:', publishDebugInfo.pickupConfigurations);
+      console.error('📤 [PUBLISH] Source vehicleTimeAllocations count:', publishDebugInfo.sourceVehicleTimeAllocationsCount);
+      console.error('📤 [PUBLISH] Full pickup_dropoff:', JSON.stringify(publishDebugInfo.pickupDropoff, null, 2));
+      console.error('📤 [PUBLISH] ==========================================');
+      console.error('💾 [PUBLISH] Check localStorage.getItem("last_publish_debug") to see this data after page reload');
+
       if (existingProductId) {
         console.log('♻️ Updating existing product before publish:', existingProductId);
-        await productService.updateProduct(existingProductId, apiProductData);
+        const updatedProduct = await productService.updateProduct(existingProductId, apiProductData);
+        
+        // Log response to see what was actually saved
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ [PUBLISH] Update response:', {
+            id: updatedProduct?.id,
+            pickup_dropoff: updatedProduct?.pickup_dropoff,
+            pickupConfigurationsInResponse: updatedProduct?.pickup_dropoff?.pickup_configurations,
+            pickupConfigurationsCount: Array.isArray(updatedProduct?.pickup_dropoff?.pickup_configurations)
+              ? updatedProduct.pickup_dropoff.pickup_configurations.length
+              : 0
+          });
+          
+          // Store response in localStorage too - with full details
+          try {
+            const responseDebug = {
+              timestamp: new Date().toISOString(),
+              action: 'update',
+              productId: existingProductId,
+              response: {
+                pickup_dropoff: updatedProduct?.pickup_dropoff,
+                pickupConfigurations: updatedProduct?.pickup_dropoff?.pickup_configurations,
+                pickupConfigurationsCount: Array.isArray(updatedProduct?.pickup_dropoff?.pickup_configurations)
+                  ? updatedProduct.pickup_dropoff.pickup_configurations.length
+                  : 0,
+                pickupDropoffKeys: updatedProduct?.pickup_dropoff ? Object.keys(updatedProduct.pickup_dropoff) : [],
+                fullResponse: updatedProduct // Store full response for debugging
+              }
+            };
+            localStorage.setItem('last_publish_response', JSON.stringify(responseDebug));
+            console.log('✅ [PUBLISH] Stored update response to localStorage:', {
+              pickupConfigurationsCount: responseDebug.response.pickupConfigurationsCount,
+              pickupDropoffKeys: responseDebug.response.pickupDropoffKeys
+            });
+          } catch (e) {
+            console.warn('⚠️ Could not save response to localStorage:', e);
+          }
+        }
       } else {
         const createdProduct = await productService.createProduct(apiProductData);
         dbProductId = createdProduct.id;
         console.log('✅ Product saved to database with ID:', dbProductId);
+        
+        // Log response to see what was actually saved
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ [PUBLISH] Create response:', {
+            id: createdProduct?.id,
+            pickup_dropoff: createdProduct?.pickup_dropoff,
+            pickupConfigurationsInResponse: createdProduct?.pickup_dropoff?.pickup_configurations,
+            pickupConfigurationsCount: Array.isArray(createdProduct?.pickup_dropoff?.pickup_configurations)
+              ? createdProduct.pickup_dropoff.pickup_configurations.length
+              : 0
+          });
+          
+          // Store response in localStorage too - with full details
+          try {
+            const responseDebug = {
+              timestamp: new Date().toISOString(),
+              action: 'create',
+              productId: dbProductId,
+              response: {
+                pickup_dropoff: createdProduct?.pickup_dropoff,
+                pickupConfigurations: createdProduct?.pickup_dropoff?.pickup_configurations,
+                pickupConfigurationsCount: Array.isArray(createdProduct?.pickup_dropoff?.pickup_configurations)
+                  ? createdProduct.pickup_dropoff.pickup_configurations.length
+                  : 0,
+                pickupDropoffKeys: createdProduct?.pickup_dropoff ? Object.keys(createdProduct.pickup_dropoff) : [],
+                fullResponse: createdProduct // Store full response for debugging
+              }
+            };
+            localStorage.setItem('last_publish_response', JSON.stringify(responseDebug));
+            console.log('✅ [PUBLISH] Stored create response to localStorage:', {
+              pickupConfigurationsCount: responseDebug.response.pickupConfigurationsCount,
+              pickupDropoffKeys: responseDebug.response.pickupDropoffKeys
+            });
+          } catch (e) {
+            console.warn('⚠️ Could not save response to localStorage:', e);
+          }
+        }
       }
 
       if (!dbProductId) {
@@ -1043,7 +1830,17 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         timeSlots: productData?.timeSlots || {},
         selectedPickupLocations: productData?.pickupLocations || [],
         selectedDropoffLocations: productData?.dropoffLocations || [],
-        pickupTime: productData?.pickupTime || '',
+        pickupTime: (() => {
+          // Priority 1: First vehicle-time allocation time
+          if (Array.isArray(productData?.vehicleTimeAllocations) && productData.vehicleTimeAllocations.length > 0) {
+            const firstAllocation = productData.vehicleTimeAllocations[0];
+            if (firstAllocation?.time || firstAllocation?.pickup_time) {
+              return firstAllocation.time || firstAllocation.pickup_time || '';
+            }
+          }
+          // Priority 2: Legacy pickupTime field
+          return productData?.pickupTime || '';
+        })(),
         selectedWeekDay: productData?.weekDay || '',
         selectedDate: productData?.selectedDate || '',
         itineraries: productData?.itineraries || [],
@@ -1084,6 +1881,14 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     // Close publish modal and show success modal
     setShowPublishModal(false);
     setShowSuccessModal(true);
+      
+      // Before redirect, log final message with instructions to check localStorage
+      console.error('📋 [PUBLISH] ========== PUBLISH COMPLETE ==========');
+      console.error('📋 [PUBLISH] Page will redirect in 2 seconds...');
+      console.error('📋 [PUBLISH] To view publish debug data, run in console:');
+      console.error('📋 [PUBLISH]   JSON.parse(localStorage.getItem("last_publish_debug"))');
+      console.error('📋 [PUBLISH]   JSON.parse(localStorage.getItem("last_publish_response"))');
+      console.error('📋 [PUBLISH] =======================================');
       
       // Force reload after 2 seconds to show the new product
       setTimeout(() => {
@@ -1171,8 +1976,73 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
     );
   };
 
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  const timeSlots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
+  // Get available days from productData
+  const availableDays = useMemo(() => {
+    // Priority 1: From pickup_dropoff.available_days
+    if (Array.isArray(productData?.pickup_dropoff?.available_days) && productData.pickup_dropoff.available_days.length > 0) {
+      return productData.pickup_dropoff.available_days;
+    }
+    // Priority 2: From productData.availableDays
+    if (Array.isArray(productData?.availableDays) && productData.availableDays.length > 0) {
+      return productData.availableDays;
+    }
+    // Priority 3: From productData.weekDay (single day)
+    if (productData?.weekDay) {
+      return [productData.weekDay];
+    }
+    // Fallback to default days
+    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  }, [productData?.pickup_dropoff?.available_days, productData?.availableDays, productData?.weekDay]);
+
+  // Get time slots for selected vehicle and selected day
+  const timeSlotsForSelectedDay = useMemo(() => {
+    // Priority 1: From pickup_dropoff.time_slots_by_day for selected day
+    if (productData?.pickup_dropoff?.time_slots_by_day && typeof productData.pickup_dropoff.time_slots_by_day === 'object') {
+      const slotsForDay = productData.pickup_dropoff.time_slots_by_day[selectedDay];
+      if (Array.isArray(slotsForDay) && slotsForDay.length > 0) {
+        // Format time slots to HH:MM if needed
+        return slotsForDay.map(slot => {
+          if (typeof slot === 'string') {
+            // Remove spaces and ensure HH:MM format
+            const cleaned = slot.replace(/\s+/g, '').trim();
+            if (cleaned.includes(':')) {
+              const parts = cleaned.split(':');
+              if (parts.length >= 2) {
+                const hours = String(parts[0] || '00').padStart(2, '0');
+                const minutes = String(parts[1] || '00').padStart(2, '0');
+                return `${hours}:${minutes}`;
+              }
+            }
+            return cleaned;
+          }
+          return slot;
+        }).filter(Boolean);
+      }
+    }
+    // Priority 2: From productData.timeSlots for selected day
+    if (productData?.timeSlots && typeof productData.timeSlots === 'object') {
+      const slotsForDay = productData.timeSlots[selectedDay];
+      if (Array.isArray(slotsForDay) && slotsForDay.length > 0) {
+        return slotsForDay.map(slot => {
+          if (typeof slot === 'string') {
+            const cleaned = slot.replace(/\s+/g, '').trim();
+            if (cleaned.includes(':')) {
+              const parts = cleaned.split(':');
+              if (parts.length >= 2) {
+                const hours = String(parts[0] || '00').padStart(2, '0');
+                const minutes = String(parts[1] || '00').padStart(2, '0');
+                return `${hours}:${minutes}`;
+              }
+            }
+            return cleaned;
+          }
+          return slot;
+        }).filter(Boolean);
+      }
+    }
+    // Fallback to default time slots
+    return ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
+  }, [productData?.pickup_dropoff?.time_slots_by_day, productData?.timeSlots, selectedDay]);
 
   // Use dynamic itineraries from productData or fallback to defaults
   const defaultItineraryItems = [
@@ -1633,28 +2503,57 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
 
             {/* Vehicle & Pricing */}
             <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <div className="flex items-center space-x-2 mb-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-2">
                 <FiTruck size={20} className="text-blue-600" />
                 <h3 className="text-xl font-bold text-gray-900">Vehicle & Pricing</h3>
+                </div>
+                {Array.isArray(productData?.vehicles) && productData.vehicles.length > 1 && (
+                  <span className="text-sm text-gray-500">
+                    {selectedVehicleIndex !== null && selectedVehicleIndex < productData.vehicles.length
+                      ? `Vehicle ${selectedVehicleIndex + 1} of ${productData.vehicles.length}`
+                      : `${productData.vehicles.length} vehicles available`}
+                  </span>
+                )}
               </div>
               {productData?.vehicles && productData.vehicles.length > 0 ? (
-                productData.vehicles.map((vehicle, index) => (
-                  <div key={vehicle.id || index} className="mb-6 last:mb-0">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  {productData.vehicles.map((vehicle, index) => {
+                    const isSelected = selectedVehicleIndex === index;
+                    const vehicleId = vehicle.id || vehicle._id || index;
+                    
+                    return (
+                      <button
+                        key={vehicleId}
+                        type="button"
+                        onClick={() => setSelectedVehicleIndex(index)}
+                        className={`w-full text-left rounded-xl border-2 transition-all duration-200 p-4 ${
+                          isSelected
+                            ? 'border-blue-600 bg-blue-50 shadow-md'
+                            : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+                        }`}
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="flex items-start space-x-3">
-                        <FiTruck size={20} className="text-blue-600 mt-1" />
+                            <FiTruck size={20} className={`mt-1 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
                         <div>
-                          <h4 className="font-semibold text-gray-900">Vehicle Details</h4>
-                          <p className="text-gray-600">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-gray-900">
                             {vehicle.title || (vehicle.type && vehicle.model ? `${vehicle.type} ${vehicle.model.replace('-', ' ')}` : 'Vehicle')}
-                          </p>
+                                </h4>
+                                {isSelected && (
+                                  <span className="px-2 py-0.5 bg-blue-600 text-white text-xs font-medium rounded-full">
+                                    Selected
+                                  </span>
+                                )}
+                              </div>
                           {vehicle.year && <p className="text-sm text-gray-500">{vehicle.year} model</p>}
                           {vehicle.attributes && <p className="text-sm text-gray-500">{vehicle.attributes}</p>}
                           {vehicle.capacity && <p className="text-sm text-gray-500">Best for up to {vehicle.capacity} travelers</p>}
                         </div>
                       </div>
                       <div className="flex items-start space-x-3">
-                        <FiClock size={20} className="text-blue-600 mt-1" />
+                            <FiClock size={20} className={`mt-1 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
                         <div>
                           <h4 className="font-semibold text-gray-900">Duration</h4>
                           <p className="text-gray-600">{vehicle.duration || 'N/A'}</p>
@@ -1662,9 +2561,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                       </div>
                     </div>
                     {(vehicle.currency || vehicle.amount || vehicle.pricingType) && (
-                      <div className="mt-6 flex items-center space-x-3">
+                          <div className="mt-4 flex items-center space-x-3">
                         {(vehicle.currency || vehicle.amount) && (
-                          <span className="text-2xl font-bold text-gray-900">
+                              <span className={`text-2xl font-bold ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>
                             {vehicle.currency || '$'} {vehicle.amount || '0'}
                           </span>
                         )}
@@ -1676,8 +2575,10 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     {vehicle.description && (
                       <p className="text-sm text-gray-600 mt-3">{vehicle.description}</p>
                     )}
+                      </button>
+                    );
+                  })}
                   </div>
-                ))
               ) : (
                 <div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1716,7 +2617,16 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 <div>
                   <div className="mb-4">
                     <h4 className="font-bold text-black mb-2">Pick-up</h4>
-                    {productData?.pickupLocations && productData.pickupLocations.length > 0 ? (
+                    {selectedVehiclePickupLocations.length > 0 ? (
+                      <div className="space-y-2">
+                        {selectedVehiclePickupLocations.map((location, index) => (
+                          <div key={index} className="flex items-center">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                            <p className="text-gray-700">{location}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : productData?.pickupLocations && productData.pickupLocations.length > 0 ? (
                       <div className="space-y-2">
                         {productData.pickupLocations.map((location, index) => (
                           <div key={index} className="flex items-center">
@@ -1731,15 +2641,33 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                       <p className="text-gray-500">Shibuya Crossing (Tokyo)</p>
                     </div>
                     )}
-                    {productData?.pickupTime && (
+                    {selectedVehiclePickupTime && (
                       <p className="text-sm text-gray-600 mt-2">
-                        Time: {productData.pickupTime}
+                        Time: {selectedVehiclePickupTime}
                       </p>
                     )}
                   </div>
                   <div>
                     <h4 className="font-bold text-black mb-2">Drop-off</h4>
-                    {productData?.dropoffLocations && productData.dropoffLocations.length > 0 ? (
+                    {selectedVehicleDropoffLocations.length > 0 ? (
+                      <div className="space-y-2">
+                        {selectedVehicleDropoffLocations.map((location, index) => {
+                          // Check if dropoff location is same as pickup location
+                          const isSameAsPickup = selectedVehiclePickupLocations.some(pickupLoc => 
+                            String(pickupLoc).toLowerCase() === String(location).toLowerCase()
+                          );
+                          return (
+                            <div key={index} className="flex items-center">
+                              <div className={`w-2 h-2 rounded-full mr-2 ${isSameAsPickup ? 'bg-blue-500' : 'bg-green-500'}`}></div>
+                              <p className={`text-gray-700 ${isSameAsPickup ? 'italic' : ''}`}>
+                                {location}
+                                {isSameAsPickup && <span className="text-xs text-gray-500 ml-1">(same as pickup)</span>}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : productData?.dropoffLocations && productData.dropoffLocations.length > 0 ? (
                       <div className="space-y-2">
                         {productData.dropoffLocations.map((location, index) => (
                           <div key={index} className="flex items-center">
@@ -1775,7 +2703,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                   <div className="mb-4">
                     <h4 className="font-bold text-black mb-2">Available Days</h4>
                     <div className="flex flex-wrap gap-2">
-                      {days.map((day) => (
+                      {availableDays.length > 0 ? (
+                        availableDays.map((day) => (
                         <button
                           key={day}
                           onClick={() => setSelectedDay(day)}
@@ -1787,13 +2716,17 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                         >
                           {day}
                         </button>
-                      ))}
+                        ))
+                      ) : (
+                        <p className="text-gray-500 text-sm">No available days set</p>
+                      )}
                     </div>
                   </div>
                   <div>
-                    <h4 className="font-bold text-black mb-2">Time Slots</h4>
+                    <h4 className="font-bold text-black mb-2">Time Slots {selectedDay ? `(${selectedDay})` : ''}</h4>
+                    {timeSlotsForSelectedDay.length > 0 ? (
                     <div className="grid grid-cols-6 gap-2">
-                      {timeSlots.map((time) => (
+                        {timeSlotsForSelectedDay.map((time) => (
                         <button
                           key={time}
                           onClick={() => setSelectedTime(time)}
@@ -1807,6 +2740,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                         </button>
                       ))}
                     </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">No time slots available for {selectedDay || 'selected day'}</p>
+                    )}
                   </div>
                 </div>
               </div>

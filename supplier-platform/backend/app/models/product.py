@@ -69,12 +69,39 @@ class VehicleDetails(BaseModel):
     capacity: Optional[int] = None
 
 
+class PickupConfiguration(BaseModel):
+    """Configuration for a specific pickup location, vehicle, time, and date"""
+    pickup_location: str  # The selected area/location
+    dropoff_location: Optional[str] = None  # The selected dropoff location (if different from pickup)
+    vehicle_id: Optional[str] = None  # Reference to the vehicle (can be vehicle title/id)
+    vehicle: Optional[Dict[str, Any]] = None  # Full vehicle details
+    pickup_time: str  # Time in HH:MM format
+    pickup_date: Optional[str] = None  # Date string (e.g., "01 Oct")
+    pickup_datetime: Optional[str] = None  # Full datetime if needed
+
+
+class TimeSlotConfiguration(BaseModel):
+    """Configuration for generating time slots"""
+    start_time: Optional[str] = None  # Start time for slot generation (HH:MM)
+    end_time: Optional[str] = None  # End time for slot generation (HH:MM)
+    duration: Optional[int] = None  # Duration between slots in minutes
+    apply_to_all_days: bool = False  # Whether to apply same slots to all days
+
+
 class PickupDropoff(BaseModel):
-    pickup_location: str
-    dropoff_location: str
-    pickup_time: str
+    # Legacy fields for backward compatibility
+    pickup_location: Optional[str] = None
+    dropoff_location: Optional[str] = None
+    pickup_time: Optional[str] = None
     available_days: List[str] = []  # Monday, Tuesday, etc.
     available_time_slots: List[str] = []
+    
+    # New fields for enhanced pickup management
+    pickup_locations: List[str] = []  # All available pickup locations
+    dropoff_locations: List[str] = []  # All available dropoff locations
+    pickup_configurations: List[PickupConfiguration] = []  # Multiple pickup configs (location + vehicle + time + date)
+    time_slot_configuration: Optional[TimeSlotConfiguration] = None  # Settings for time slot generation
+    time_slots_by_day: Dict[str, List[str]] = {}  # Time slots organized by day (Monday, Tuesday, etc.)
 
 
 class Accessibility(BaseModel):
