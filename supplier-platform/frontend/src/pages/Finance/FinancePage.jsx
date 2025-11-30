@@ -284,7 +284,7 @@ const FinancePage = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading && (
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="mb-6 rounded-lg border border-[#1d236b]/30 bg-[#1d236b]/10 px-4 py-2 text-sm text-[#1d236b]">
             Loading the latest finance data…
           </div>
         )}
@@ -412,7 +412,7 @@ const FinancePage = () => {
                       <td className="px-4 py-3 text-gray-700">{r.netPrice}</td>
                       <td className="px-4 py-3 text-gray-700">{r.netPayable}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs ${r.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{r.status}</span>
+                        <span className={`px-2 py-1 rounded-full text-xs ${r.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-[#1d236b]/20 text-[#1d236b]'}`}>{r.status}</span>
                       </td>
                     </tr>
                   ))}
@@ -608,33 +608,33 @@ const PaymentSettingsFirstTime = () => {
         <div className="mb-4">
           <div className="text-sm font-medium text-gray-900 mb-2">Select Payment Method</div>
           <div className="space-y-3">
-            <button onClick={() => setMethod('paypal')} className={`w-full text-left px-4 py-3 rounded-lg border ${method==='paypal' ? 'border-blue-600 ring-2 ring-blue-100' : 'border-gray-300'} `}>
+            <button onClick={() => setMethod('paypal')} className={`w-full text-left px-4 py-3 rounded-lg border ${method==='paypal' ? 'border-[#1d236b] ring-2 ring-[#1d236b]/20' : 'border-gray-300'} `}>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-semibold text-gray-900">Paypal</div>
                   <div className="text-xs text-gray-500">Receive Payments via PayPal</div>
                 </div>
-                <span className={`w-4 h-4 rounded-full border ${method==='paypal' ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}></span>
+                <span className={`w-4 h-4 rounded-full border ${method==='paypal' ? 'bg-[#1d236b] border-[#1d236b]' : 'border-gray-300'}`}></span>
               </div>
             </button>
 
-            <button onClick={() => setMethod('bank')} className={`w-full text-left px-4 py-3 rounded-lg border ${method==='bank' ? 'border-blue-600 ring-2 ring-blue-100' : 'border-gray-300'} `}>
+            <button onClick={() => setMethod('bank')} className={`w-full text-left px-4 py-3 rounded-lg border ${method==='bank' ? 'border-[#1d236b] ring-2 ring-[#1d236b]/20' : 'border-gray-300'} `}>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-semibold text-gray-900">Bank Transfer</div>
                   <div className="text-xs text-gray-500">Direct bank account transfer</div>
                 </div>
-                <span className={`w-4 h-4 rounded-full border ${method==='bank' ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}></span>
+                <span className={`w-4 h-4 rounded-full border ${method==='bank' ? 'bg-[#1d236b] border-[#1d236b]' : 'border-gray-300'}`}></span>
               </div>
             </button>
 
-            <button onClick={() => setMethod('payoneer')} className={`w-full text-left px-4 py-3 rounded-lg border ${method==='payoneer' ? 'border-blue-600 ring-2 ring-blue-100' : 'border-gray-300'} `}>
+            <button onClick={() => setMethod('payoneer')} className={`w-full text-left px-4 py-3 rounded-lg border ${method==='payoneer' ? 'border-[#1d236b] ring-2 ring-[#1d236b]/20' : 'border-gray-300'} `}>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-semibold text-gray-900">Payoneer</div>
                   <div className="text-xs text-gray-500">Get directly in Payoneer</div>
                 </div>
-                <span className={`w-4 h-4 rounded-full border ${method==='payoneer' ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}></span>
+                <span className={`w-4 h-4 rounded-full border ${method==='payoneer' ? 'bg-[#1d236b] border-[#1d236b]' : 'border-gray-300'}`}></span>
               </div>
             </button>
           </div>

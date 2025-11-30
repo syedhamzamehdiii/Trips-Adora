@@ -16,7 +16,7 @@ const SitemapPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <HeaderLandingPage />
+      <HeaderLandingPage backgroundVariant="white" />
       
       {/* Hero Section with Heading */}
       <div className="bg-gradient-to-r from-[#1d236b] to-[#2d3a8f] text-white pt-24 pb-12 mb-12">

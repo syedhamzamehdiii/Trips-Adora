@@ -164,18 +164,30 @@ const Dashboard = () => {
     // Load profile from cache instantly
     const loadProfile = () => {
       try {
+        // Get name from auth user first (Google sign-in or registration)
+        const authName = user?.full_name?.trim() || user?.business_name?.trim() || user?.name?.trim() || null;
+        
         let saved = localStorage.getItem('account_settings') || sessionStorage.getItem('account_settings');
         const supplierId =
+          user?.supplier_code ||
           localStorage.getItem('supplier_id') ||
           sessionStorage.getItem('supplier_id') ||
           'N/A';
         if (saved) {
           const data = JSON.parse(saved);
           setSidebarProfile({
-            name: data.editableInfo?.publicName || 'Edward William',
-            photo: data.globalUserPhoto || null,
+            name: authName || data.editableInfo?.publicName?.trim() || data.profileData?.publicName?.trim() || 'User',
+            photo: data.globalUserPhoto || user?.avatar_url || user?.profile_photo || null,
             id: supplierId,
-            location: data.editableInfo?.city && data.editableInfo?.country ? `${data.editableInfo.city}, ${data.editableInfo.country}` : 'Notting Hill, London'
+            location: data.editableInfo?.city && data.editableInfo?.country ? `${data.editableInfo.city}, ${data.editableInfo.country}` : (user?.city && user?.country ? `${user.city}, ${user.country}` : 'Notting Hill, London')
+          });
+        } else if (authName) {
+          // If no saved settings but we have auth user, use that
+          setSidebarProfile({
+            name: authName,
+            photo: user?.avatar_url || user?.profile_photo || null,
+            id: supplierId,
+            location: user?.city && user?.country ? `${user.city}, ${user.country}` : 'Notting Hill, London'
           });
         }
       } catch (_) {}
@@ -358,14 +370,15 @@ const Dashboard = () => {
     loadPopularActivities();
     
     // Listen for updates
-    window.addEventListener('account_settings_updated', loadProfile);
-    window.addEventListener('accountSettingsUpdated', loadProfile);
-    window.addEventListener('storage', loadProfile);
     const handleProductsUpdated = () => {
       loadDashboardData();
       loadDraftProducts();
       loadPopularActivities();
     };
+    
+    window.addEventListener('account_settings_updated', loadProfile);
+    window.addEventListener('accountSettingsUpdated', loadProfile);
+    window.addEventListener('storage', loadProfile);
     window.addEventListener('products_updated', handleProductsUpdated);
     
     return () => {
@@ -374,7 +387,7 @@ const Dashboard = () => {
       window.removeEventListener('storage', loadProfile);
       window.removeEventListener('products_updated', handleProductsUpdated);
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -616,7 +629,7 @@ const Dashboard = () => {
                               e.stopPropagation();
                               handleMarkAllRead();
                             }}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-[#1d236b] hover:text-[#151a4a] hover:bg-[#1d236b]/10 rounded-lg transition-colors font-medium"
                           >
                             <FiCheck className="w-3 h-3" />
                             Mark as read
@@ -628,8 +641,8 @@ const Dashboard = () => {
                           <div className="text-center text-sm text-gray-500 py-6">No recent notifications</div>
                         ) : (
                           notifications.slice(0, 3).map((n) => {
-                            const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
-                            const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
+                            const typeColor = n.type === 'booking' ? 'bg-[#1d236b]' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
+                            const bgColor = n.type === 'booking' ? 'bg-[#1d236b]/10' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
                             return (
                               <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} cursor-pointer hover:opacity-90 transition-opacity`} onClick={() => markAsRead(n.id)}>
                                 <div className={`w-2 h-2 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
@@ -652,7 +665,7 @@ const Dashboard = () => {
                                   e.stopPropagation();
                                   handleMarkAllRead();
                                 }}
-                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                className="text-sm text-[#1d236b] hover:text-[#151a4a] font-medium"
                               >
                                 Mark all as read
                               </button>
@@ -667,7 +680,7 @@ const Dashboard = () => {
                             setShowNotifications(false);
                             setShowAllNotificationsModal(true);
                           }} 
-                          className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400" 
+                          className="text-sm text-[#1d236b] hover:text-[#151a4a] font-medium disabled:text-gray-400" 
                           disabled={notifications.length === 0}
                         >
                           View all notifications
@@ -759,7 +772,7 @@ const Dashboard = () => {
                     </span>
                   )}
                   </div>
-                <div className="text-xs text-white">ID {sidebarProfile.id}</div>
+                <div className="text-xs text-white">{sidebarProfile.name}</div>
               </button>
               
                 {/* Settings Dropdown */}
@@ -833,7 +846,7 @@ const Dashboard = () => {
         </div>
 
         {/* My Activity Chart */}
-        <div className="mb-6 bg-white/10 rounded-xl border border-blue-300/30 p-5">
+        <div className="mb-6 bg-white/10 rounded-xl border border-[#1d236b]/30 p-5">
           <h3 className="font-semibold mb-5 text-white text-sm text-center">My Activity</h3>
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-center">
@@ -893,7 +906,7 @@ const Dashboard = () => {
         </div>
 
         {/* Account Stability Chart */}
-        <div className="mb-6 bg-white/10 rounded-xl border border-blue-300/30 p-5">
+        <div className="mb-6 bg-white/10 rounded-xl border border-[#1d236b]/30 p-5">
           <h3 className="font-semibold mb-5 text-white text-sm text-center">Account Stability</h3>
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-center">
@@ -981,7 +994,7 @@ const Dashboard = () => {
         {/* Help Button */}
         <button 
           onClick={() => navigate('/faq')}
-          className="w-full text-white py-4 px-6 rounded-xl transition-colors text-sm font-medium flex items-center justify-center space-x-3 bg-[#1d236b] hover:bg-[#1a1f5a] shadow-lg border border-blue-300/20"
+          className="w-full text-white py-4 px-6 rounded-xl transition-colors text-sm font-medium flex items-center justify-center space-x-3 bg-[#1d236b] hover:bg-[#1a1f5a] shadow-lg border border-[#1d236b]/30"
         >
           <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
             <FiHelpCircle size={16} />
@@ -1275,7 +1288,7 @@ const Dashboard = () => {
                       e.stopPropagation();
                       handleMarkAllRead();
                     }}
-                    className="inline-flex items-center gap-1 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                    className="inline-flex items-center gap-1 px-4 py-2 text-sm text-[#1d236b] hover:text-[#151a4a] hover:bg-[#1d236b]/10 rounded-lg transition-colors font-medium"
                   >
                     <FiCheck className="w-4 h-4" />
                     Mark as read
@@ -1322,7 +1335,7 @@ const Dashboard = () => {
                           </p>
                         </div>
                         {!n.read && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
+                          <div className="w-2 h-2 bg-[#1d236b] rounded-full flex-shrink-0 mt-2"></div>
                         )}
                       </div>
                     );

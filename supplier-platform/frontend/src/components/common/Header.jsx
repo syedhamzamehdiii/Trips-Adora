@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { FiX, FiCheck, FiTrash2, FiMessageSquare } from 'react-icons/fi';
 import { getUnreadCount as getChatUnreadCount } from '@/services/chatService';
 import { useSettings } from '@/context/SettingsContext';
+import { useAuth } from '@/context/AuthContext';
 import notificationService from '@/services/notificationService';
 
 const Header = ({ activePage = '' }) => {
   const navigate = useNavigate();
   const { profile } = useSettings(); // Use global settings context
+  const { user } = useAuth(); // Also get user from auth context for name fallback
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAllNotificationsModal, setShowAllNotificationsModal] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -365,7 +367,7 @@ const Header = ({ activePage = '' }) => {
                             e.stopPropagation();
                             handleMarkAllRead();
                           }}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-[#1d236b] hover:text-[#151a4a] hover:bg-[#1d236b]/10 rounded-lg transition-colors font-medium"
                         >
                           <FiCheck className="w-3 h-3" />
                           Mark as read
@@ -377,8 +379,8 @@ const Header = ({ activePage = '' }) => {
                         <div className="text-center text-sm text-gray-500 py-6">No recent notifications</div>
                       ) : (
                         notifications.slice(0, 3).map((n) => {
-                          const typeColor = n.type === 'booking' ? 'bg-blue-500' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
-                          const bgColor = n.type === 'booking' ? 'bg-blue-50' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
+                          const typeColor = n.type === 'booking' ? 'bg-[#1d236b]' : n.type === 'cancellation' ? 'bg-red-500' : n.type === 'payment' ? 'bg-green-500' : n.type === 'review' ? 'bg-yellow-500' : 'bg-gray-400';
+                          const bgColor = n.type === 'booking' ? 'bg-[#1d236b]/10' : n.type === 'cancellation' ? 'bg-red-50' : n.type === 'payment' ? 'bg-green-50' : n.type === 'review' ? 'bg-yellow-50' : 'bg-gray-50';
                           return (
                             <div key={n.id} className={`flex items-start space-x-3 p-3 rounded-lg ${bgColor} ${n.read ? 'opacity-70' : ''} cursor-pointer hover:opacity-90 transition-opacity`} onClick={() => markAsRead(n.id)}>
                               <div className={`w-2 h-2 ${typeColor} rounded-full mt-2 flex-shrink-0`}></div>
@@ -401,7 +403,7 @@ const Header = ({ activePage = '' }) => {
                                 e.stopPropagation();
                                 handleMarkAllRead();
                               }}
-                              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                              className="text-sm text-[#1d236b] hover:text-[#151a4a] font-medium"
                             >
                               Mark all as read
                             </button>
@@ -416,7 +418,7 @@ const Header = ({ activePage = '' }) => {
                           setShowNotifications(false);
                           setShowAllNotificationsModal(true);
                         }} 
-                        className="text-sm text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400" 
+                        className="text-sm text-[#1d236b] hover:text-[#151a4a] font-medium disabled:text-gray-400" 
                         disabled={notifications.length === 0}
                       >
                         View all notifications
@@ -474,17 +476,17 @@ const Header = ({ activePage = '' }) => {
             {/* User Profile */}
             <div className="flex items-center space-x-2 bg-[#1d236b] text-white px-4 py-2 rounded-full cursor-pointer hover:bg-[#2a2f7f] transition-colors">
               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center overflow-hidden">
-                {profile.photo ? (
-                  <img src={profile.photo} alt="Profile" className="w-full h-full object-cover" />
+                {(profile.photo || user?.avatar_url) ? (
+                  <img src={profile.photo || user?.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-sm font-medium text-[#1d236b]">
-                    {profile.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
+                    {(profile.name || user?.full_name || user?.business_name || user?.name || 'User').split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
                   </span>
                 )}
               </div>
               <div>
-                <div className="text-sm font-medium">{profile.name}</div>
-                <div className="text-xs text-blue-200">ID {profile.id}</div>
+                <div className="text-sm font-medium">{profile.name || user?.full_name || user?.business_name || user?.name || 'User'}</div>
+                <div className="text-xs text-white/80">{profile.name || user?.full_name || user?.business_name || user?.name || 'User'}</div>
               </div>
             </div>
           </div>
@@ -505,7 +507,7 @@ const Header = ({ activePage = '' }) => {
                       e.stopPropagation();
                       handleMarkAllRead();
                     }}
-                    className="inline-flex items-center gap-1 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+                    className="inline-flex items-center gap-1 px-4 py-2 text-sm text-[#1d236b] hover:text-[#151a4a] hover:bg-[#1d236b]/10 rounded-lg transition-colors font-medium"
                   >
                     <FiCheck className="w-4 h-4" />
                     Mark as read
@@ -552,7 +554,7 @@ const Header = ({ activePage = '' }) => {
                           </p>
                         </div>
                         {!n.read && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
+                          <div className="w-2 h-2 bg-[#1d236b] rounded-full flex-shrink-0 mt-2"></div>
                         )}
                       </div>
                     );

@@ -259,7 +259,7 @@ const BookingRevenueChart = () => {
                       />
                       <div className={`w-5 h-5 border-2 rounded flex items-center justify-center ${
                         selectedPeriod === 'Semi annually'
-                          ? 'border-blue-600 bg-blue-600'
+                          ? 'border-[#1d236b] bg-[#1d236b]'
                           : 'border-gray-300 bg-white'
                       }`}>
                         {selectedPeriod === 'Semi annually' && (
@@ -308,7 +308,7 @@ const BookingRevenueChart = () => {
                     className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm text-gray-900"
                   >
                     <span>Add manually</span>
-                    <FiCalendar className="w-4 h-4 text-blue-600" />
+                    <FiCalendar className="w-4 h-4 text-[#1d236b]" />
                   </button>
                 ) : (
                   <div className="mt-3 space-y-2">
@@ -360,7 +360,7 @@ const BookingRevenueChart = () => {
                           } catch (_) {}
                         }}
                         disabled={!manualMonth}
-                        className={`px-3 py-1.5 text-sm rounded text-white ${manualMonth ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                        className={`px-3 py-1.5 text-sm rounded text-white ${manualMonth ? 'bg-[#1d236b] hover:bg-[#151a4a]' : 'bg-gray-400 cursor-not-allowed'}`}
                       >
                         Save
                       </button>
@@ -381,7 +381,7 @@ const BookingRevenueChart = () => {
           {/* Toggle Switch */}
           <div 
             onClick={() => setShowCountries(!showCountries)}
-            className={`relative w-11 h-6 ${showCountries ? 'bg-blue-500' : 'bg-gray-300'} rounded-full cursor-pointer transition-colors`}
+            className={`relative w-11 h-6 ${showCountries ? 'bg-[#1d236b]' : 'bg-gray-300'} rounded-full cursor-pointer transition-colors`}
           >
             <div 
               className={`absolute top-0.5 ${showCountries ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full shadow transition-all`}
@@ -400,7 +400,7 @@ const BookingRevenueChart = () => {
             {showInfo && (
               <div className="absolute left-0 mt-2 w-80 max-w-xs bg-white border border-gray-200 rounded-lg shadow-xl p-4 z-50">
                 <div className="flex items-start space-x-2">
-                  <div className="w-5 h-5 flex items-center justify-center rounded-full bg-blue-50 text-blue-600 border border-blue-200 flex-shrink-0">i</div>
+                  <div className="w-5 h-5 flex items-center justify-center rounded-full bg-[#1d236b]/10 text-[#1d236b] border border-[#1d236b]/30 flex-shrink-0">i</div>
                   <p className="text-sm text-gray-700">
                     Use the Country button to switch views. When OFF, only Bookings vs. Revenue is displayed.
                     When ON, the top 4 countries will also be shown along with their booking counts.

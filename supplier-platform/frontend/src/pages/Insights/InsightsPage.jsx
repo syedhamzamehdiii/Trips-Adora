@@ -346,7 +346,7 @@ const InsightsPage = () => {
               onClick={() => setActiveTab('overview')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 activeTab === 'overview' 
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -356,7 +356,7 @@ const InsightsPage = () => {
               onClick={() => setActiveTab('feedback')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 activeTab === 'feedback' 
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -410,12 +410,12 @@ const InsightsPage = () => {
                                   setShowCountryDropdown(false);
                                 }}
                                 className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center space-x-3 ${
-                                  selectedCountryOption === option ? 'bg-blue-50' : ''
+                                  selectedCountryOption === option ? 'bg-[#1d236b]/10' : ''
                                 }`}
                               >
                                 <div className={`w-4 h-4 border-2 rounded ${
                                   selectedCountryOption === option 
-                                    ? 'bg-blue-600 border-blue-600' 
+                                    ? 'bg-[#1d236b] border-[#1d236b]' 
                                     : 'border-gray-300'
                                 }`}>
                                   {selectedCountryOption === option && (
@@ -424,7 +424,7 @@ const InsightsPage = () => {
                                     </div>
                                   )}
                                 </div>
-                                <span className={selectedCountryOption === option ? 'text-blue-600 font-medium' : 'text-gray-700'}>
+                                <span className={selectedCountryOption === option ? 'text-[#1d236b] font-medium' : 'text-gray-700'}>
                                   {option}
                                 </span>
                               </button>
@@ -485,7 +485,7 @@ const InsightsPage = () => {
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   />
                   <path
-                    className="text-blue-600"
+                    className="text-[#1d236b]"
                     stroke="currentColor"
                     strokeWidth="3"
                     strokeDasharray={`${cancellationRate * 2}, 100`}
@@ -581,14 +581,14 @@ const InsightsPage = () => {
             <div className={`border border-gray-200 rounded-lg p-4 ${
               performanceMetrics.priceAlignment.status === 'Excellent' ? 'bg-green-50' :
               performanceMetrics.priceAlignment.status === 'Good' ? 'bg-yellow-50' :
-              'bg-blue-50'
+              'bg-[#1d236b]/10'
             }`}>
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium text-gray-900">Price Alignment ({performanceMetrics.priceAlignment.value}%)</h4>
                 <FiDollarSign className={`${
                   performanceMetrics.priceAlignment.status === 'Excellent' ? 'text-green-600' :
                   performanceMetrics.priceAlignment.status === 'Good' ? 'text-yellow-600' :
-                  'text-blue-600'
+                  'text-[#1d236b]'
                 }`} size={20} />
               </div>
               <p className="text-sm text-gray-600">
@@ -602,14 +602,14 @@ const InsightsPage = () => {
             <div className={`border border-gray-200 rounded-lg p-4 ${
               performanceMetrics.customerReviews.status === 'Excellent' ? 'bg-yellow-50' :
               performanceMetrics.customerReviews.status === 'Good' ? 'bg-green-50' :
-              'bg-blue-50'
+              'bg-[#1d236b]/10'
             }`}>
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium text-gray-900">Customer Reviews ({performanceMetrics.customerReviews.value}/5)</h4>
                 <FiStar className={`${
                   performanceMetrics.customerReviews.status === 'Excellent' ? 'text-yellow-600' :
                   performanceMetrics.customerReviews.status === 'Good' ? 'text-green-600' :
-                  'text-blue-600'
+                  'text-[#1d236b]'
                 }`} size={20} />
               </div>
               <p className="text-sm text-gray-600">
@@ -621,14 +621,14 @@ const InsightsPage = () => {
               </p>
             </div>
             <div className={`border border-gray-200 rounded-lg p-4 ${
-              performanceMetrics.responseTime.status === 'Excellent' ? 'bg-blue-50' :
+              performanceMetrics.responseTime.status === 'Excellent' ? 'bg-[#1d236b]/10' :
               performanceMetrics.responseTime.status === 'Good' ? 'bg-green-50' :
               'bg-red-50'
             }`}>
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium text-gray-900">Response Time ({performanceMetrics.responseTime.value})</h4>
                 <FiClock className={`${
-                  performanceMetrics.responseTime.status === 'Excellent' ? 'text-blue-600' :
+                  performanceMetrics.responseTime.status === 'Excellent' ? 'text-[#1d236b]' :
                   performanceMetrics.responseTime.status === 'Good' ? 'text-green-600' :
                   'text-red-600'
                 }`} size={20} />
@@ -721,9 +721,9 @@ const InsightsPage = () => {
             );
           } else {
             return (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+              <div className="bg-[#1d236b]/10 border border-[#1d236b]/30 rounded-lg p-4 mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                  <div className="w-6 h-6 bg-[#1d236b] rounded-full flex items-center justify-center">
                     <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
@@ -744,7 +744,7 @@ const InsightsPage = () => {
             {productPerformance.map((product, index) => (
               <div key={index} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg">
                 <div className="flex items-center space-x-4">
-                  <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">
+                  <div className="w-8 h-8 bg-[#1d236b]/20 text-[#1d236b] rounded-full flex items-center justify-center text-sm font-bold">
                     {product.rank}
                   </div>
                   <div>
@@ -873,7 +873,7 @@ const InsightsPage = () => {
         {/* Keep Growing Section */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-gray-200 rounded-lg p-8 text-center mb-8">
           <div className="flex justify-center mb-4">
-            <FiRefreshCw size={48} className="text-blue-600" />
+            <FiRefreshCw size={48} className="text-[#1d236b]" />
           </div>
           <h3 className="text-2xl font-bold text-gray-900 mb-4">Keep growing with fresh insights</h3>
           <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
