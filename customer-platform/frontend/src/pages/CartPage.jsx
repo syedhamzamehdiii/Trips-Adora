@@ -144,7 +144,7 @@ const CartPage = () => {
                       {/* Check Availability Button */}
                       <div className="flex justify-center">
                         <button 
-                          onClick={() => navigate('/check-availability', { state: item })}
+                          onClick={() => navigate('/check-availability', { state: { ...item, from: 'cart' } })}
                           className="text-white px-8 py-2 rounded-lg font-semibold transition" 
                           style={{ backgroundColor: '#1d236b' }}
                         >
