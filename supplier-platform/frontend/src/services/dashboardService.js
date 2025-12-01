@@ -32,9 +32,14 @@ const setCachedOverview = (data) => {
   }
 };
 
-export const getOverview = async (useCache = true) => {
-  // Return cached data immediately if available and fresh
-  if (useCache) {
+export const getOverview = async (useCache = true, supplierCode = null) => {
+  // Build URL with supplier_code if provided
+  const url = supplierCode 
+    ? `${BASE_PATH}/overview?supplier_code=${encodeURIComponent(supplierCode)}`
+    : `${BASE_PATH}/overview`;
+  
+  // Return cached data immediately if available and fresh (only if no supplier_code specified)
+  if (useCache && !supplierCode) {
     const cached = getCachedOverview();
     if (cached) {
       // Fetch fresh data in background
@@ -48,8 +53,10 @@ export const getOverview = async (useCache = true) => {
   }
   
   // Fetch fresh data
-  const data = await apiService.get(`${BASE_PATH}/overview`);
-  setCachedOverview(data);
+  const data = await apiService.get(url);
+  if (!supplierCode) {
+    setCachedOverview(data);
+  }
   return data;
 };
 

@@ -1,6 +1,6 @@
 from beanie import Document
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, Dict
 from datetime import datetime
 from enum import Enum
 
@@ -23,6 +23,19 @@ class User(Document):
     role: UserRole = UserRole.SUPPLIER
     is_active: bool = True
     is_verified: bool = False
+    permissions: Dict[str, bool] = Field(
+        default_factory=lambda: {
+            "productsManagement": False,
+            "customersFeedbacks": False,
+            "finance": False
+        },
+        description="User permissions/roles assigned by supplier"
+    )
+    # List of supplier codes this user can access (for team members/collaborators)
+    supplier_access: Dict[str, Dict[str, bool]] = Field(
+        default_factory=dict,
+        description="Map of supplier_code -> permissions for suppliers this user can access"
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -62,5 +75,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     is_verified: bool
+    permissions: Optional[Dict[str, bool]] = None
+    supplier_access: Optional[Dict[str, Dict[str, bool]]] = None
     created_at: datetime
     updated_at: datetime

@@ -178,6 +178,13 @@ class Product(Document):
     rating: Optional[float] = Field(None, ge=0, le=5)
     reviews_count: int = Field(default=0)
     
+    # Availability controls (shared with customer platform)
+    inactive_dates: List[str] = Field(default_factory=list, description="Dates (YYYY-MM-DD) when the entire product is not bookable")
+    vehicle_inactive_dates: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Map of vehicle_id -> list of dates (YYYY-MM-DD) when that vehicle is not available"
+    )
+    
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

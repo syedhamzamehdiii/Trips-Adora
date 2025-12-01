@@ -9,6 +9,7 @@ const FinancePage = () => {
   const [bookings, setBookings] = useState([])
   const [rows, setRows] = useState([])
   const [summary, setSummary] = useState({ totalEarning: 0, pendingPayout: 0, lossFromCancellation: 0, paidThisMonth: 0 })
+  const [backendFinance, setBackendFinance] = useState(null)
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -47,7 +48,16 @@ const FinancePage = () => {
         const bookingItems = Array.isArray(overview?.bookings?.items)
           ? overview.bookings.items
           : []
-        setBookings(bookingItems)
+
+        // Normalize status/payout fields and keep a consistent shape
+        const normalized = bookingItems.map(b => ({
+          ...b,
+          status: (b.status || '').toLowerCase(),
+          payout_status: (b.payout_status || b.payoutStatus || '').toLowerCase(),
+        }))
+
+        setBackendFinance(overview?.finance || null)
+        setBookings(normalized)
       } catch (err) {
         if (!isMounted) return
         setBookings([])
@@ -74,10 +84,14 @@ const FinancePage = () => {
   useEffect(() => {
     // Table rows (bookings for payout)
     const derivedRows = (bookings || []).map((b, idx) => {
-      const retail = parseAmount(b.amount)
+      const retail = parseAmount(b.amount ?? b.total_amount)
       const net = Math.max(0, retail * 0.8)
       const payable = net
-      const payoutStatus = b.payoutStatus || ((b.status === 'Confirmed' || b.status === 'Completed' || b.status === 'Pending') ? 'Ready for Payout' : (b.status === 'Refund/Dispute' || b.status === 'Refund' ? 'Refund' : 'Paid'))
+      const status = (b.status || '').toLowerCase()
+      const payoutStatus = b.payout_status || ''
+      const isPaid = payoutStatus === 'paid'
+      const isReady = !isPaid && ['confirmed', 'completed', 'pending', 'customized'].includes(status)
+      const payoutLabel = isPaid ? 'Paid' : (isReady ? 'Ready for Payout' : 'Paid')
       return {
         bookingRef: b.referenceCode || `BK-${idx+1}`,
         leadTraveller: b.customerName || 'N/A',
@@ -86,20 +100,23 @@ const FinancePage = () => {
         retailPrice: `$${retail.toFixed(0)}`,
         netPrice: `$${net.toFixed(0)}`,
         netPayable: `$${payable.toFixed(0)}`,
-        status: payoutStatus === 'Paid' ? 'Paid' : 'Ready for Payout',
+        status: payoutLabel,
       }
     })
     setRows(derivedRows)
 
     // Summary cards
     const totals = (bookings || []).reduce((acc, b) => {
-      const amt = parseAmount(b.amount)
+      const amt = parseAmount(b.amount ?? b.total_amount)
       const monthKey = toMonthKey(b.bookedOn || b.travelDate)
-      if (b.status === 'Canceled' || b.status === 'Cancelled' || b.status === 'Refund/Dispute' || b.status === 'Refund') {
+      const status = (b.status || '').toLowerCase()
+      const payoutStatus = (b.payout_status || '').toLowerCase()
+
+      if (['canceled', 'cancelled', 'refund/dispute', 'refund'].includes(status)) {
         acc.lossFromCancellation += amt
       }
-      const paid = (b.payoutStatus === 'Paid')
-      const ready = !paid && (b.status === 'Confirmed' || b.status === 'Completed' || b.status === 'Pending')
+      const paid = payoutStatus === 'paid'
+      const ready = !paid && ['confirmed', 'completed', 'pending', 'customized'].includes(status)
       if (ready) acc.pendingPayout += amt * 0.8
       if (paid) acc.totalPaid += amt * 0.8
       acc.totalEarning += amt
@@ -115,10 +132,10 @@ const FinancePage = () => {
     const currentMonth = totals.byMonth[currentKey] || { paid: 0 }
 
     setSummary({
-      totalEarning: totals.totalEarning,
-      pendingPayout: totals.pendingPayout,
-      lossFromCancellation: totals.lossFromCancellation,
-      paidThisMonth: currentMonth.paid,
+      totalEarning: backendFinance?.total_earning ?? totals.totalEarning,
+      pendingPayout: backendFinance?.pending_payout ?? totals.pendingPayout,
+      lossFromCancellation: backendFinance?.loss_from_cancellation ?? totals.lossFromCancellation,
+      paidThisMonth: backendFinance?.paid_this_month ?? currentMonth.paid,
     })
 
     // Chart for last 4 months
@@ -130,7 +147,7 @@ const FinancePage = () => {
       { month: 'Dec', series1: 0, series2: 0 },
       { month: 'Jan', series1: 0, series2: 0 },
     ])
-  }, [bookings])
+  }, [bookings, backendFinance])
 
   const [searchTerm, setSearchTerm] = useState('')
   const filteredRows = useMemo(() => {

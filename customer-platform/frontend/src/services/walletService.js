@@ -16,12 +16,9 @@ const handleResponse = async (response) => {
 const getCachedWallet = (userId) => {
   try {
     const cached = localStorage.getItem(`${CACHE_KEY_PREFIX}${userId}`);
-    const timestamp = localStorage.getItem(`${CACHE_TIMESTAMP_PREFIX}${userId}`);
-    if (cached && timestamp) {
-      const age = Date.now() - parseInt(timestamp, 10);
-      if (age < CACHE_TTL) {
-        return JSON.parse(cached);
-      }
+    if (cached) {
+      // Always return cached data, even if expired
+      return JSON.parse(cached);
     }
   } catch (_) {
     // Ignore cache errors
@@ -38,16 +35,21 @@ const setCachedWallet = (userId, data) => {
   }
 };
 
+// Synchronous function to get cached wallet immediately (for initial render)
+export const getCachedWalletSync = (userId) => {
+  return getCachedWallet(userId);
+};
+
 export const getWallet = async (userId, useCache = true) => {
   if (!userId) {
     throw new Error('userId is required to fetch wallet data');
   }
   
-  // Return cached data immediately if available and fresh
+  // Always return cached data immediately if available (even if expired)
   if (useCache) {
     const cached = getCachedWallet(userId);
     if (cached) {
-      // Fetch fresh data in background
+      // Refresh in background (don't await)
       fetch(`${API_BASE_URL}/wallet/${encodeURIComponent(userId)}`)
         .then(handleResponse)
         .then(data => setCachedWallet(userId, data))
@@ -58,7 +60,7 @@ export const getWallet = async (userId, useCache = true) => {
     }
   }
   
-  // Fetch fresh data
+  // If no cache → make API call
   const response = await fetch(`${API_BASE_URL}/wallet/${encodeURIComponent(userId)}`);
   const data = await handleResponse(response);
   setCachedWallet(userId, data);
@@ -174,7 +176,8 @@ export default {
   setDefaultPaymentMethod,
   removePaymentMethod,
   addBankAccount,
-  removeBankAccount
+  removeBankAccount,
+  getCachedWalletSync
 };
 
 

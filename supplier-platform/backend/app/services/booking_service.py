@@ -80,6 +80,51 @@ class SupplierBookingService:
             # Fetch bookings
             cursor = collection.find(query).sort("created_at", -1).skip(skip).limit(limit)
             bookings = await cursor.to_list(length=limit)
+
+            # Attach review aggregates per product from customer_reviews (shared DB)
+            try:
+                product_ids = list({
+                    b.get("product_id")
+                    for b in bookings
+                    if b.get("product_id")
+                })
+
+                rating_by_product: Dict[str, Dict[str, Any]] = {}
+                if product_ids:
+                    db = get_database()
+                    reviews_coll = db.get_collection("customer_reviews")
+                    pipeline = [
+                        {"$match": {"product_id": {"$in": product_ids}}},
+                        {
+                            "$group": {
+                                "_id": "$product_id",
+                                "avg_rating": {"$avg": "$rating"},
+                                "count": {"$sum": 1},
+                            }
+                        },
+                    ]
+                    review_docs = await reviews_coll.aggregate(pipeline).to_list(length=None)
+                    for doc in review_docs:
+                        pid = str(doc.get("_id"))
+                        rating_by_product[pid] = {
+                            "avg_rating": float(doc.get("avg_rating") or 0.0),
+                            "count": int(doc.get("count") or 0),
+                        }
+
+                # Merge rating info into each booking's metadata so frontend can use it
+                for b in bookings:
+                    pid = b.get("product_id")
+                    if not pid:
+                        continue
+                    stats = rating_by_product.get(pid)
+                    if not stats:
+                        continue
+                    metadata = b.get("metadata") or {}
+                    metadata["avg_rating"] = stats["avg_rating"]
+                    metadata["review_count"] = stats["count"]
+                    b["metadata"] = metadata
+            except Exception as agg_err:
+                logger.error(f"Error aggregating review data for supplier {supplier_id}: {agg_err}")
             
             # Serialize bookings
             return [SupplierBookingService._serialize_booking(booking) for booking in bookings]

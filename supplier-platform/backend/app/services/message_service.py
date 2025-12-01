@@ -1,6 +1,6 @@
 # app/services/message_service.py
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson import ObjectId
 from app.core.database import get_database
 from app.models.message import Message, MessageSender, MessageType
@@ -404,15 +404,75 @@ class MessageService:
         """Delete an entire conversation for a supplier."""
         try:
             if not MessageService._conversation_contains_user(conversation_id, "supplier", supplier_id):
-                logger.warning("Supplier %s unauthorized to delete conversation %s", supplier_id, conversation_id)
+                logger.warning(
+                    "Supplier %s unauthorized to delete conversation %s",
+                    supplier_id,
+                    conversation_id,
+                )
                 return False
 
             db = get_database()
             await db.messages.delete_many({"conversation_id": conversation_id})
             return True
         except Exception as exc:
-            logger.error("Error deleting conversation %s for supplier %s: %s", conversation_id, supplier_id, exc)
+            logger.error(
+                "Error deleting conversation %s for supplier %s: %s",
+                conversation_id,
+                supplier_id,
+                exc,
+            )
             return False
+
+    @staticmethod
+    async def get_supplier_reply_stats(supplier_id: str, days: int = 14) -> List[Dict[str, Any]]:
+        """
+        Aggregate number of replies sent by the supplier per day for the last N days.
+        Used for response analytics in the supplier dashboard.
+        """
+        try:
+            db = get_database()
+            collection = db.messages
+
+            # Only supplier-sent messages
+            match_stage: Dict[str, Any] = {
+                "sender_id": supplier_id,
+                "sender_type": MessageSender.SUPPLIER,
+            }
+
+            # Optional date filter for last N days
+            if days and days > 0:
+                since = datetime.utcnow() - timedelta(days=days)
+                match_stage["created_at"] = {"$gte": since}
+
+            pipeline = [
+                {"$match": match_stage},
+                {
+                    "$group": {
+                        "_id": {
+                            "$dateToString": {
+                                "format": "%Y-%m-%d",
+                                "date": "$created_at",
+                            }
+                        },
+                        "replies": {"$sum": 1},
+                    }
+                },
+                {"$sort": {"_id": 1}},
+            ]
+
+            stats: List[Dict[str, Any]] = []
+            async for doc in collection.aggregate(pipeline):
+                stats.append(
+                    {
+                        "date": doc.get("_id"),
+                        "replies": int(doc.get("replies", 0)),
+                    }
+                )
+
+            return stats
+        except Exception as exc:
+            logger.error("Error fetching reply stats for supplier %s: %s", supplier_id, exc)
+            return []
 
     @staticmethod
     async def get_unread_count(supplier_id: str) -> int:

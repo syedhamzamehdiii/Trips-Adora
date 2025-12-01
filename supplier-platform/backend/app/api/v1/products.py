@@ -1,6 +1,6 @@
 # app/api/v1/products.py
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pymongo.errors import DocumentTooLarge
 import math
 
@@ -18,9 +18,16 @@ from app.schemas.product import (
 )
 from app.services.product_service import ProductService
 from app.core.dependencies import get_current_user
+from pydantic import BaseModel
 
 
 router = APIRouter(prefix="/products", tags=["products"])
+
+
+class ProductAvailabilityUpdate(BaseModel):
+    inactive_dates: Optional[List[str]] = None
+    vehicle_id: Optional[str] = None
+    vehicle_inactive_dates: Optional[List[str]] = None
 
 
 @router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
@@ -351,6 +358,57 @@ async def delete_product(
         )
     
     return None
+
+
+@router.put("/{product_id}/availability", response_model=ProductResponse)
+async def update_product_availability(
+    product_id: str,
+    payload: ProductAvailabilityUpdate,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update availability information for a product:
+    - inactive_dates: dates when the whole product is not available
+    - vehicle_inactive_dates for a specific vehicle_id
+    """
+    from app.models.product import Product  # local import to avoid circular
+
+    product = await ProductService.get_product_by_id_and_supplier(
+        product_id=product_id,
+        supplier_id=str(current_user.id),
+    )
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found or you don't have permission to update it",
+        )
+
+    # Load Beanie document to update fields safely
+    beanie_product = await Product.get(product_id)
+    if not beanie_product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
+
+    # Update product-level inactive dates
+    if payload.inactive_dates is not None:
+        beanie_product.inactive_dates = list({d.strip() for d in payload.inactive_dates if d})
+
+    # Update vehicle-level inactive dates
+    if payload.vehicle_id and payload.vehicle_inactive_dates is not None:
+        vid = str(payload.vehicle_id)
+        existing: Dict[str, List[str]] = beanie_product.vehicle_inactive_dates or {}
+        existing[vid] = list({d.strip() for d in payload.vehicle_inactive_dates if d})
+        beanie_product.vehicle_inactive_dates = existing
+
+    await beanie_product.save()
+
+    # Return updated product in existing response format
+    return ProductResponse(
+        **beanie_product.model_dump(mode="json", exclude={"id"}, exclude_none=False),
+        id=str(beanie_product.id),
+    )
 
 
 @router.post("/{product_id}/publish", response_model=ProductResponse)

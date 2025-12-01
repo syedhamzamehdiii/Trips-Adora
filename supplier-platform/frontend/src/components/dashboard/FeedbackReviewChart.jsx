@@ -1,33 +1,181 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from 'recharts';
+import { FiCalendar } from 'react-icons/fi';
 
 const FeedbackReviewChart = () => {
   const [showCountries, setShowCountries] = useState(true);
-  
   const [data, setData] = useState([]);
+  const [countryRatings, setCountryRatings] = useState([]);
+
+  // Three-dots menu + info like overview chart
+  const [showMenuDropdown, setShowMenuDropdown] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualMonth, setManualMonth] = useState('');
+  const [manualFeedbacks, setManualFeedbacks] = useState('');
+  const [manualRating, setManualRating] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState('Semi annually');
+  const menuRef = useRef(null);
+  const infoRef = useRef(null);
+
+  // Parse helper
+  const parseAmountNumber = (v) => {
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') return parseFloat(v.replace(/[^0-9.]/g, '')) || 0;
+    return 0;
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenuDropdown(false);
+      }
+    };
+
+    if (showMenuDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMenuDropdown]);
+
+  // Close info when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (infoRef.current && !infoRef.current.contains(event.target)) {
+        setShowInfo(false);
+      }
+    };
+
+    if (showInfo) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showInfo]);
 
   useEffect(() => {
     const build = () => {
       try {
         const bookingsRaw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
         const productsRaw = localStorage.getItem('all_products');
+        const manualRaw = localStorage.getItem('insights_manual_feedbacks');
         const bookings = bookingsRaw ? JSON.parse(bookingsRaw) : [];
         const products = productsRaw ? JSON.parse(productsRaw) : [];
+        const manual = manualRaw ? JSON.parse(manualRaw) : [];
 
         const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         const now = new Date();
-        const labels = Array.from({ length: 6 }).map((_,i) => months[(now.getMonth()-5+i+12)%12]);
-        const counters = new Map(labels.map(m => [m, { feedbacks: 0 }]));
+
+        // Period length
+        let monthCount = 6;
+        if (selectedPeriod === 'Annually') {
+          monthCount = 12;
+        }
+
+        const labels = Array.from({ length: monthCount }).map((_,i) => months[(now.getMonth()-(monthCount-1)+i+12)%12]);
+        const counters = new Map(labels.map(m => [m, { feedbacks: 0, ratingSum: 0, ratingCount: 0 }]));
         const parseDate = (s) => { if (!s) return null; const d = new Date(s); return isNaN(d)? new Date(Date.parse(s)) : d; };
+
+        // Count feedbacks based on completed or rated bookings
         (bookings||[]).forEach(b => {
           const d = parseDate(b.travelDate || b.bookedOn);
           if (!d) return; const key = months[d.getMonth()];
-          if (!counters.has(key)) return; counters.get(key).feedbacks += (b.status === 'Completed' ? 1 : 0);
+          if (!counters.has(key)) return;
+          const entry = counters.get(key);
+          const r = parseFloat(
+            b.rating ||
+            b.reviewScore ||
+            (b.metadata && (b.metadata.avg_rating || b.metadata.averageRating || b.metadata.rating))
+          );
+          // If booking is completed or has a rating, treat it as feedback
+          const status = (b.status || '').toLowerCase();
+          if (status === 'completed' || !isNaN(r) && r > 0) {
+            entry.feedbacks += 1;
+          }
+          if (!isNaN(r) && r > 0) {
+            entry.ratingSum += r;
+            entry.ratingCount += 1;
+          }
         });
-        const ratings = (products||[]).map(p => parseFloat(p.ratings)).filter(n => !isNaN(n) && n>0);
-        const avgRating = ratings.length>0 ? (ratings.reduce((a,b)=>a+b,0)/ratings.length) : 4.2;
-        const out = labels.map(m => ({ month: m, feedbacks: counters.get(m)?.feedbacks || 0, reviews: Math.max(3.0, Math.min(5.0, avgRating)) }));
+
+        // Product average ratings (to keep trend even if bookings missing)
+        (products||[]).forEach(p => {
+          const r = parseFloat(p.ratings);
+          if (!isNaN(r) && r > 0) {
+            const key = labels[labels.length-1];
+            if (!counters.has(key)) return;
+            const entry = counters.get(key);
+            entry.ratingSum += r;
+            entry.ratingCount += 1;
+          }
+        });
+
+        // Manual overrides
+        (manual||[]).forEach(m => {
+          const key = m.month;
+          if (!counters.has(key)) return;
+          const entry = counters.get(key);
+          const f = parseInt(m.feedbacks || 0, 10);
+          const r = parseFloat(m.rating || 0);
+          if (!isNaN(f)) entry.feedbacks += f;
+          if (!isNaN(r) && r > 0) {
+            entry.ratingSum += r;
+            entry.ratingCount += 1;
+          }
+        });
+
+        const out = labels.map(m => {
+          const entry = counters.get(m) || { feedbacks: 0, ratingSum: 0, ratingCount: 0 };
+          const avg = entry.ratingCount > 0 ? (entry.ratingSum / entry.ratingCount) : 0;
+          return {
+            month: m,
+            feedbacks: entry.feedbacks,
+            reviews: Math.max(0, Math.min(5.0, avg || 0))
+          };
+        });
         setData(out);
+
+        // Build top-country ratings (real-time, based on bookings ratings)
+        const countryMap = new Map(); // country -> { sum, count }
+        (bookings || []).forEach(b => {
+          const email = (b.customerEmail || '').toLowerCase();
+          let country = 'Unknown';
+          if (email.includes('jp') || email.includes('japan')) country = 'Japan';
+          else if (email.includes('uk') || email.includes('co.uk')) country = 'United Kingdom';
+          else if (email.includes('us') || email.includes('.com')) country = 'United States';
+          else if (email.includes('in') || email.includes('india')) country = 'India';
+          else if (email.includes('fr') || email.includes('france')) country = 'France';
+          else if (email.includes('de') || email.includes('germany')) country = 'Germany';
+          else if (email.includes('ca') || email.includes('canada')) country = 'Canada';
+          else if (email.includes('cn') || email.includes('china')) country = 'China';
+          else if (email.includes('ae') || email.includes('uae')) country = 'UAE';
+          else country = 'United States';
+
+          const r = parseFloat(b.rating || b.reviewScore);
+          if (isNaN(r) || r <= 0) return;
+
+          const entry = countryMap.get(country) || { sum: 0, count: 0 };
+          entry.sum += r;
+          entry.count += 1;
+          countryMap.set(country, entry);
+        });
+
+        const topCountries = Array.from(countryMap.entries())
+          .map(([name, v]) => ({
+            name,
+            rating: v.count > 0 ? (v.sum / v.count) : 0
+          }))
+          .sort((a, b) => b.rating - a.rating)
+          .slice(0, 4)
+          .map(c => ({ name: c.name, rating: Number(c.rating.toFixed(1)) }));
+
+        setCountryRatings(topCountries);
       } catch (_) {}
     };
     build();
@@ -39,30 +187,21 @@ const FeedbackReviewChart = () => {
       window.removeEventListener('bookings_updated', build);
       window.removeEventListener('products_updated', build);
     };
-  }, []);
+  }, [selectedPeriod]);
 
   const CustomTooltip = ({ active, payload, label }) => {
-    if (active && showCountries) {
+    if (active && showCountries && countryRatings.length > 0) {
+      const year = new Date().getFullYear();
       return (
         <div className="bg-gradient-to-br from-orange-500 to-orange-700 text-white p-3 rounded-lg shadow-lg">
-          <p className="text-xs opacity-90 mb-2">Jan 11, 2024</p>
+          <p className="text-xs opacity-90 mb-2">{label} {year}</p>
           <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="mr-4">Japan</span>
-              <span className="font-semibold">4.7</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="mr-4">England</span>
-              <span className="font-semibold">4.9</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="mr-4">India</span>
-              <span className="font-semibold">4.5</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="mr-4">US</span>
-              <span className="font-semibold">4.8</span>
-            </div>
+            {countryRatings.map((c, idx) => (
+              <div key={idx} className="flex justify-between text-xs">
+                <span className="mr-4">{c.name}</span>
+                <span className="font-semibold">{c.rating}</span>
+              </div>
+            ))}
           </div>
         </div>
       );
@@ -109,10 +248,150 @@ const FeedbackReviewChart = () => {
       {/* Header */}
       <div className="mb-6 relative">
         {/* Menu dots */}
-        <div className="absolute top-0 right-0 flex flex-col gap-1 cursor-pointer">
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+        <div ref={menuRef} className="absolute top-0 right-0">
+          <button
+            onClick={() => setShowMenuDropdown(!showMenuDropdown)}
+            className="flex flex-col gap-1 cursor-pointer p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+          </button>
+
+          {/* Dropdown Menu */}
+          {showMenuDropdown && (
+            <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Feedbacks for the period</h3>
+                
+                {/* Period Options */}
+                <div className="space-y-3 mb-4">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="radio"
+                        name="period_feedback"
+                        value="Semi annually"
+                        checked={selectedPeriod === 'Semi annually'}
+                        onChange={(e) => {
+                          setSelectedPeriod(e.target.value);
+                          setShowMenuDropdown(false);
+                        }}
+                        className="sr-only"
+                      />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center ${
+                        selectedPeriod === 'Semi annually'
+                          ? 'border-[#1d236b] bg-[#1d236b]'
+                          : 'border-gray-300 bg-white'
+                      }`}>
+                        {selectedPeriod === 'Semi annually' && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-sm text-gray-900">Semi annually</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="radio"
+                        name="period_feedback"
+                        value="Annually"
+                        checked={selectedPeriod === 'Annually'}
+                        onChange={(e) => {
+                          setSelectedPeriod(e.target.value);
+                          setShowMenuDropdown(false);
+                        }}
+                        className="sr-only"
+                      />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center ${
+                        selectedPeriod === 'Annually'
+                          ? 'border-[#1d236b] bg-[#1d236b]'
+                          : 'border-gray-300 bg-white'
+                      }`}>
+                        {selectedPeriod === 'Annually' && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-sm text-gray-900">Annually</span>
+                  </label>
+                </div>
+
+                {/* Add manually */}
+                {!showManualForm ? (
+                  <button 
+                    onClick={() => setShowManualForm(true)}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm text-gray-900"
+                  >
+                    <span>Add manually</span>
+                    <FiCalendar className="w-4 h-4 text-[#1d236b]" />
+                  </button>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      <select 
+                        value={manualMonth} 
+                        onChange={(e)=>setManualMonth(e.target.value)}
+                        className="col-span-1 px-2 py-2 border border-gray-300 rounded"
+                      >
+                        <option value="">Month</option>
+                        {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map(m=> (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                      <input 
+                        type="number" 
+                        placeholder="Feedbacks" 
+                        value={manualFeedbacks}
+                        onChange={(e)=>setManualFeedbacks(e.target.value)}
+                        className="col-span-1 px-2 py-2 border border-gray-300 rounded"
+                      />
+                      <input 
+                        type="number" 
+                        placeholder="Rating (1-5)" 
+                        step="0.1"
+                        value={manualRating}
+                        onChange={(e)=>setManualRating(e.target.value)}
+                        className="col-span-1 px-2 py-2 border border-gray-300 rounded"
+                      />
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        onClick={() => { setShowManualForm(false); setManualMonth(''); setManualFeedbacks(''); setManualRating(''); }}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          try {
+                            const manualRaw = localStorage.getItem('insights_manual_feedbacks');
+                            const list = manualRaw ? JSON.parse(manualRaw) : [];
+                            const entry = { month: manualMonth, feedbacks: Number(manualFeedbacks||0), rating: Number(manualRating||0), ts: Date.now() };
+                            const updated = Array.isArray(list) ? [...list, entry] : [entry];
+                            localStorage.setItem('insights_manual_feedbacks', JSON.stringify(updated));
+                            setShowManualForm(false);
+                            setManualMonth(''); setManualFeedbacks(''); setManualRating('');
+                            window.dispatchEvent(new Event('insights_updated'));
+                          } catch (_) {}
+                        }}
+                        disabled={!manualMonth}
+                        className={`px-3 py-1.5 text-sm rounded text-white ${manualMonth ? 'bg-[#1d236b] hover:bg-[#151a4a]' : 'bg-gray-400 cursor-not-allowed'}`}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         
         <h1 className="text-xl font-semibold text-gray-900 mb-2">
@@ -130,10 +409,26 @@ const FeedbackReviewChart = () => {
               className={`absolute top-0.5 ${showCountries ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full shadow transition-all`}
             ></div>
           </div>
-          
           {/* Info icon */}
-          <div className="w-4 h-4 border border-gray-400 rounded-full flex items-center justify-center cursor-pointer">
-            <span className="text-xs text-gray-400">i</span>
+          <div ref={infoRef} className="relative">
+            <button
+              onClick={() => setShowInfo(!showInfo)}
+              className="w-4 h-4 border border-gray-400 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors"
+              aria-label="Toggle feedback info"
+            >
+              <span className="text-xs text-gray-400">i</span>
+            </button>
+            {showInfo && (
+              <div className="absolute left-0 mt-2 w-80 max-w-xs bg-white border border-gray-200 rounded-lg shadow-xl p-4 z-50">
+                <div className="flex items-start space-x-2">
+                  <div className="w-5 h-5 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 border border-orange-200 flex-shrink-0">i</div>
+                  <p className="text-sm text-gray-700">
+                    This chart shows how many completed trips received feedback each month and the average review rating.
+                    Use the menu to change the period or add manual feedback data if some reviews were collected offline.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

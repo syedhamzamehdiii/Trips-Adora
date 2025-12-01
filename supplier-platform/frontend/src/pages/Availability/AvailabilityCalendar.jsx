@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiUpload, FiPlus, FiFilter, FiSearch, FiTruck, FiMapPin, FiUsers, FiClock, FiPower, FiCalendar, FiRefreshCw, FiChevronDown, FiCheck } from 'react-icons/fi';
+import { FiUpload, FiPlus, FiFilter, FiSearch, FiTruck, FiPower, FiCalendar, FiRefreshCw, FiChevronDown } from 'react-icons/fi';
 import Footer from '@/components/common/Footer';
 import Calendar from '@/components/common/Calendar';
 import productService from '@/services/productService';
@@ -9,9 +9,8 @@ const AvailabilityCalendar = () => {
   const [productOptions, setProductOptions] = useState([]);
   const [vehicleOptions, setVehicleOptions] = useState([]);
   const [tourOptions, setTourOptions] = useState([]);
-  const [groupSizeOptions, setGroupSizeOptions] = useState([]);
-  const [timeSlotOptions, setTimeSlotOptions] = useState([]);
   const [products, setProducts] = useState([]);
+  const [vehiclesList, setVehiclesList] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [totalSelectedProducts, setTotalSelectedProducts] = useState(0);
@@ -20,19 +19,18 @@ const AvailabilityCalendar = () => {
   const [totalVehicles, setTotalVehicles] = useState(0);
   const [availableVehicles, setAvailableVehicles] = useState(0);
 
+  // View mode: 'product' or 'vehicle'
+  const [viewMode, setViewMode] = useState('product');
+
   // Filter states
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
   const [showTourDropdown, setShowTourDropdown] = useState(false);
-  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
-  const [showTimeDropdown, setShowTimeDropdown] = useState(false);
 
   // Selected options state
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [selectedTours, setSelectedTours] = useState([]);
-  const [selectedGroupSizes, setSelectedGroupSizes] = useState([]);
-  const [selectedTimeSlots, setSelectedTimeSlots] = useState([]);
 
   // Calendar modal state
   const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -179,188 +177,96 @@ const AvailabilityCalendar = () => {
       });
       console.log('📦 Found products for availability (Published + Draft):', relevantProducts.length);
 
-      // Extract unique data for filters
-      const uniqueVehicles = new Map();
-      const uniqueTours = new Map();
-      const uniqueGroupSizes = new Set();
-      const uniqueTimeSlots = new Set();
+      // Build product options and helper maps
+      const productNameById = {};
+      const productOptionsArray = relevantProducts.map((product, index) => {
+        const id = product.id || `product-${index + 1}`;
+        const name = product.name || product.title || `Product ${index + 1}`;
+        productNameById[id] = name;
+        return { id, name };
+      });
+
+      // Build vehicle list and filter options directly from products (and their saved payloads)
+      const allVehiclesForView = [];
+      const uniqueVehicleNames = new Map();
 
       relevantProducts.forEach((product, index) => {
-        // Product names for product filter
-        // (handled separately below)
+        const productId = product.id || `product-${index + 1}`;
+        const productName = productNameById[productId];
 
-        // Extract vehicles (use title/model/type for display)
-        const addVehiclesToSet = (vehiclesArr) => {
-          vehiclesArr.forEach(vehicle => {
-            const displayName = getVehicleDisplayName(vehicle);
-            if (displayName) {
-              const key = displayName.toLowerCase();
-              if (!uniqueVehicles.has(key)) {
-                uniqueVehicles.set(key, {
-                  id: `vehicle-${uniqueVehicles.size + 1}`,
-                  name: displayName,
-                });
-              }
-            }
-          });
-        };
+        // Prefer vehicles saved on the product (from backend)
+        let vehiclesArray = Array.isArray(product.vehicles) ? product.vehicles : [];
 
-        // Extract vehicles from vehicle_details.vehicles or product.vehicles
-        const vehiclesArray = product.vehicle_details?.vehicles || product.vehicles || [];
-        if (Array.isArray(vehiclesArray) && vehiclesArray.length > 0) {
-          addVehiclesToSet(vehiclesArray);
-        } else {
-          // Fallback: check if there is a full draft payload for this product id
+        // Fallback: look into full/draft payloads saved in localStorage
+        if (!vehiclesArray.length) {
+          const fullKey = product.id ? `product_full_${product.id}` : null;
           const draftKey = product.id ? `product_draft_${product.id}` : null;
-          if (draftKey && localStorage.getItem(draftKey)) {
-            try {
-              const draftPayload = JSON.parse(localStorage.getItem(draftKey));
-              const draftVehicles = draftPayload?.vehicle_details?.vehicles || draftPayload?.vehicles || [];
-              if (Array.isArray(draftVehicles) && draftVehicles.length > 0) {
-                addVehiclesToSet(draftVehicles);
-              }
-            } catch (e) {
-              console.warn('Unable to parse draft payload for vehicles', e);
+          let payload = null;
+          try {
+            if (fullKey && localStorage.getItem(fullKey)) {
+              payload = JSON.parse(localStorage.getItem(fullKey));
+            } else if (draftKey && localStorage.getItem(draftKey)) {
+              payload = JSON.parse(localStorage.getItem(draftKey));
             }
+          } catch (_) {
+            payload = null;
+          }
+
+          if (payload && Array.isArray(payload.vehicles)) {
+            vehiclesArray = payload.vehicles;
           }
         }
 
-        // Extract tours (product titles/categories)
-        if (product.name || product.title) {
-          const tourKey = product.name || product.title;
-          if (!uniqueTours.has(tourKey)) {
-            uniqueTours.set(tourKey, {
-              id: `tour-${uniqueTours.size + 1}`,
-              name: tourKey
+        if (Array.isArray(vehiclesArray) && vehiclesArray.length > 0) {
+          vehiclesArray.forEach((vehicle, vIndex) => {
+            const displayName = getVehicleDisplayName(vehicle);
+            if (!displayName) return;
+
+            // Add to flattened vehicle list
+            allVehiclesForView.push({
+              id: vehicle.id || `${productId}-vehicle-${vIndex + 1}`,
+              name: displayName,
+              type: vehicle.type || vehicle.vehicle_type || 'Vehicle',
+              model: vehicle.model || vehicle.model_name || '',
+              capacity: vehicle.capacity || null,
+              productId,
+              productName,
+              isActive: true,
             });
-          }
-        }
 
-        // Extract group sizes (from vehicle capacity)
-        const vehiclesForGroupSize = product.vehicle_details?.vehicles || product.vehicles || [];
-        if (Array.isArray(vehiclesForGroupSize)) {
-          vehiclesForGroupSize.forEach(vehicle => {
-            if (vehicle.capacity) {
-              uniqueGroupSizes.add(`${vehicle.capacity} Person`);
-            }
-          });
-        }
-
-        // Extract time slots helpers
-        const addTimeSlots = (allocations) => {
-          allocations.forEach(allocation => {
-            if (allocation && allocation.time) {
-              uniqueTimeSlots.add(allocation.time);
-            }
-          });
-        };
-        const addTimeSlotsFromGenerated = (timeSlotsObj) => {
-          if (!timeSlotsObj || typeof timeSlotsObj !== 'object') return;
-          Object.values(timeSlotsObj).forEach(dayArr => {
-            if (Array.isArray(dayArr)) {
-              dayArr.forEach(t => {
-                if (typeof t === 'string' && t.trim()) {
-                  uniqueTimeSlots.add(t.trim());
-                }
+            // Track unique names for Vehicle Type filter
+            const key = displayName.toLowerCase();
+            if (!uniqueVehicleNames.has(key)) {
+              uniqueVehicleNames.set(key, {
+                id: key,
+                name: displayName,
               });
             }
           });
-        };
-
-        // Extract time slots from multiple possible locations
-        // 1) From pickup_dropoff.available_time_slots (if stored there)
-        const pickupDropoff = product.pickup_dropoff || product.pickupDropoff;
-        if (Array.isArray(pickupDropoff?.available_time_slots) && pickupDropoff.available_time_slots.length > 0) {
-          pickupDropoff.available_time_slots.forEach(slot => {
-            if (typeof slot === 'string' && slot.trim()) {
-              uniqueTimeSlots.add(slot.trim());
-            }
-          });
-        }
-        // Also check for time_slots object format
-        if (pickupDropoff?.time_slots && typeof pickupDropoff.time_slots === 'object') {
-          addTimeSlotsFromGenerated(pickupDropoff.time_slots);
-        }
-        // 2) From vehicle-time allocations saved on publish (custom_fields or direct)
-        if (Array.isArray(product.vehicleTimeAllocations) && product.vehicleTimeAllocations.length > 0) {
-          addTimeSlots(product.vehicleTimeAllocations);
-        }
-        // 3) From generated timeSlots stored on the product (if any)
-        if (product.timeSlots) {
-          addTimeSlotsFromGenerated(product.timeSlots);
-        }
-        // 4) From custom_fields (might store time slots)
-        if (product.custom_fields?.timeSlots) {
-          addTimeSlotsFromGenerated(product.custom_fields.timeSlots);
-        }
-        if (Array.isArray(product.custom_fields?.vehicleTimeAllocations)) {
-          addTimeSlots(product.custom_fields.vehicleTimeAllocations);
-        }
-        // 5) Fallbacks to localStorage for backward compatibility
-        if (uniqueTimeSlots.size === 0) {
-          const fullKey = product.id ? `product_full_${product.id}` : null;
-          if (fullKey && localStorage.getItem(fullKey)) {
-            try {
-              const full = JSON.parse(localStorage.getItem(fullKey));
-              if (full && Array.isArray(full.vehicleTimeAllocations) && full.vehicleTimeAllocations.length > 0) {
-                addTimeSlots(full.vehicleTimeAllocations);
-              }
-              if (full && full.timeSlots) {
-                addTimeSlotsFromGenerated(full.timeSlots);
-              }
-            } catch (e) {
-              console.warn('Unable to parse full published payload for time slots', e);
-            }
-          }
-          const draftKeyTs = product.id ? `product_draft_${product.id}` : null;
-          if (draftKeyTs && localStorage.getItem(draftKeyTs)) {
-            try {
-              const draft = JSON.parse(localStorage.getItem(draftKeyTs));
-              if (draft && Array.isArray(draft.vehicleTimeAllocations) && draft.vehicleTimeAllocations.length > 0) {
-                addTimeSlots(draft.vehicleTimeAllocations);
-              }
-              if (draft && draft.timeSlots) {
-                addTimeSlotsFromGenerated(draft.timeSlots);
-              }
-            } catch (e) {
-              console.warn('Unable to parse draft payload for time slots', e);
-            }
-          }
         }
       });
 
-      // Convert to arrays for display
-      const productOptionsArray = relevantProducts.map((product, index) => ({
-        id: product.id || `product-${index + 1}`,
-        name: product.name || product.title || `Product ${index + 1}`
-      }));
-
-      const vehicleOptionsArray = Array.from(uniqueVehicles.values());
-      const tourOptionsArray = Array.from(uniqueTours.values());
-      const groupSizeOptionsArray = Array.from(uniqueGroupSizes).map((size, index) => ({
-        id: `group-${index + 1}`,
-        name: size
-      }));
-      const timeSlotOptionsArray = Array.from(uniqueTimeSlots).sort().map((time, index) => ({
-        id: `time-${index + 1}`,
-        name: time
-      }));
+      const vehicleOptionsArray = Array.from(uniqueVehicleNames.values());
+      const tourOptionsArray = []; // Tours filter currently unused
 
       // Set filter options
       setProductOptions(productOptionsArray);
       setVehicleOptions(vehicleOptionsArray);
       setTourOptions(tourOptionsArray);
-      setGroupSizeOptions(groupSizeOptionsArray);
-      setTimeSlotOptions(timeSlotOptionsArray);
 
-      // Create product list for display (respect real status)
+      // Create product list for display (product-centric view)
+      // Pre-compute vehicle counts per product
+      const vehicleCountByProductId = allVehiclesForView.reduce((acc, vehicle) => {
+        const pid = vehicle.productId;
+        if (!pid) return acc;
+        acc[pid] = (acc[pid] || 0) + 1;
+        return acc;
+      }, {});
+
       const productList = relevantProducts.map((product, index) => {
-        // Extract vehicles from vehicle_details if available
-        const vehicleDetails = product.vehicle_details;
-        const vehiclesArray = vehicleDetails?.vehicles || product.vehicles || [];
-        const vehicleCount = Array.isArray(vehiclesArray) ? vehiclesArray.length : 0;
-        const vehicleType = vehiclesArray?.[0] ? getVehicleDisplayName(vehiclesArray[0]) : 'N/A';
-        const groupSize = vehiclesArray?.[0]?.capacity ? `1-${vehiclesArray[0].capacity} People` : 'N/A';
+        const productId = product.id || `product-${index + 1}`;
+        const vehicleCount = vehicleCountByProductId[productId] || 0;
+        const categoryLabel = product.category || 'Tour';
         
         // Check status (handle both string and enum values)
         const statusStr = typeof product.status === 'string' 
@@ -369,26 +275,27 @@ const AvailabilityCalendar = () => {
         const isPublished = statusStr.toLowerCase() === 'published';
         
         return {
-          id: product.id || `product-${index + 1}`,
-          name: product.name || product.title || `Product ${index + 1}`,
+          id: productId,
+          name: productNameById[productId],
           status: isPublished ? 'Active' : 'Inactive',
-          details: `${vehicleType} > ${product.category || 'Tour'} > ${groupSize}`,
-          vehicles: `${vehicleCount}/${vehicleCount} available`,
+          // Show only high-level product info in the Availability list;
+          // detailed vehicle info is handled in the product preview/editor.
+          details: categoryLabel,
+          vehicles: vehicleCount > 0 ? `${vehicleCount} vehicle${vehicleCount > 1 ? 's' : ''}` : 'No vehicles',
           isActive: isPublished,
-          vehiclesRaw: Array.isArray(vehiclesArray) ? vehiclesArray : []
+          vehiclesRaw: [] // Detailed vehicle info handled in vehicle view
         };
       });
 
       setProducts(productList);
 
+      setVehiclesList(allVehiclesForView);
+
       // Update stats
       const totalCount = productList.length;
       const activeCount = productList.filter(p => p.isActive).length;
       const inactiveCount = productList.filter(p => !p.isActive).length;
-      const totalVehiclesCount = relevantProducts.reduce((sum, p) => {
-        const vehicles = p.vehicle_details?.vehicles || p.vehicles || [];
-        return sum + (Array.isArray(vehicles) ? vehicles.length : 0);
-      }, 0);
+      const totalVehiclesCount = allVehiclesForView.length;
 
       setTotalSelectedProducts(totalCount);
       setActiveProducts(activeCount);
@@ -401,8 +308,6 @@ const AvailabilityCalendar = () => {
         products: totalCount,
         vehicles: vehicleOptionsArray.length,
         tours: tourOptionsArray.length,
-        groupSizes: groupSizeOptionsArray.length,
-        timeSlots: timeSlotOptionsArray.length
       });
     } catch (error) {
       console.error('❌ Error loading real-time data:', error);
@@ -445,8 +350,6 @@ const AvailabilityCalendar = () => {
         setShowProductDropdown(false);
         setShowVehicleDropdown(false);
         setShowTourDropdown(false);
-        setShowGroupDropdown(false);
-        setShowTimeDropdown(false);
       }
     };
 
@@ -460,7 +363,7 @@ const AvailabilityCalendar = () => {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedProducts, selectedVehicles, selectedTours, selectedGroupSizes, selectedTimeSlots]);
+  }, [selectedProducts, selectedVehicles, selectedTours]);
 
   const handleToggleProduct = (productId, nextActive = null) => {
     // Determine next state
@@ -534,19 +437,27 @@ const AvailabilityCalendar = () => {
       }
     }
 
-    // Group size filter
-    if (selectedGroupSizes.length > 0) {
-      const groupMatch = groupSizeOptions.some(opt => 
-        selectedGroupSizes.includes(opt.id) && product.details?.includes(opt.name.replace(' Person', ''))
+    return true;
+  });
+
+  // Apply filters to vehicles (vehicle-centric view)
+  const filteredVehicles = vehiclesList.filter(vehicle => {
+    // Filter by selected products (which products' vehicles to show)
+    if (selectedProducts.length > 0 && !selectedProducts.includes(vehicle.productId)) {
+      return false;
+    }
+
+    // Filter by selected vehicle types/names
+    if (selectedVehicles.length > 0) {
+      const vehicleMatch = vehicleOptions.some(opt =>
+        selectedVehicles.includes(opt.id) &&
+        vehicle.name?.toLowerCase().includes(opt.name.toLowerCase())
       );
-      if (!groupMatch) {
+      if (!vehicleMatch) {
         return false;
       }
     }
 
-    // Time slots filter (would need to be added to product data)
-    // For now, we'll skip this as time slots aren't in the product details
-    
     return true;
   });
 
@@ -656,9 +567,43 @@ const AvailabilityCalendar = () => {
 
         {/* Bulk Selection Filters */}
         <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <FiFilter className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Bulk Selection Filters</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <FiFilter className="w-5 h-5 text-gray-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Selection Filters</h3>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('product');
+                  // Clear vehicle filters when switching back to product mode
+                  setSelectedVehicles([]);
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                  viewMode === 'product'
+                    ? 'bg-[#1d236b] text-white border-[#1d236b]'
+                    : 'bg-white text-gray-700 border-gray-300'
+                }`}
+              >
+                Products
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('vehicle');
+                  // Clear product filters when switching to vehicle mode
+                  setSelectedProducts([]);
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                  viewMode === 'vehicle'
+                    ? 'bg-[#1d236b] text-white border-[#1d236b]'
+                    : 'bg-white text-gray-700 border-gray-300'
+                }`}
+              >
+                Vehicles
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* Product Name Filter */}
@@ -667,7 +612,12 @@ const AvailabilityCalendar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowProductDropdown(!showProductDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white"
+                  className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white ${
+                    viewMode === 'vehicle'
+                      ? 'border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  disabled={viewMode === 'vehicle'}
                 >
                   <div className="flex items-center space-x-2">
                     <FiSearch className="w-4 h-4 text-gray-400" />
@@ -678,7 +628,7 @@ const AvailabilityCalendar = () => {
                   <FiChevronDown className="w-4 h-4 text-gray-400" />
                 </button>
                 
-                {showProductDropdown && (
+                {showProductDropdown && viewMode === 'product' && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                     <div className="py-2">
                       {productOptions.length > 0 ? (
@@ -724,7 +674,12 @@ const AvailabilityCalendar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowVehicleDropdown(!showVehicleDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white"
+                  className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white ${
+                    viewMode === 'product'
+                      ? 'border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  disabled={viewMode === 'product'}
                 >
                   <div className="flex items-center space-x-2">
                     <FiTruck className="w-4 h-4 text-gray-400" />
@@ -735,7 +690,7 @@ const AvailabilityCalendar = () => {
                   <FiChevronDown className="w-4 h-4 text-gray-400" />
                 </button>
                 
-                {showVehicleDropdown && (
+                {showVehicleDropdown && viewMode === 'vehicle' && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                     <div className="py-2">
                       {vehicleOptions.length > 0 ? (
@@ -777,128 +732,22 @@ const AvailabilityCalendar = () => {
 
             {/* Tour Options Filter - removed per requirements */}
 
-            {/* Group Size Filter */}
-            <div className="relative dropdown-container">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Group Size</label>
-              <div className="relative">
-                <button
-                  onClick={() => setShowGroupDropdown(!showGroupDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white"
-                >
-                  <div className="flex items-center space-x-2">
-                    <FiUsers className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-700">
-                      {getDisplayText(groupSizeOptions, selectedGroupSizes, "All Size")}
-                    </span>
-                  </div>
-                  <FiChevronDown className="w-4 h-4 text-gray-400" />
-                </button>
-                
-                {showGroupDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                    <div className="py-2">
-                      {groupSizeOptions.length > 0 ? (
-                        <>
-                      <label 
-                        className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
-                        onClick={() => handleSelectAll(groupSizeOptions, setSelectedGroupSizes, selectedGroupSizes)}
-                      >
-                        <input 
-                          type="checkbox" 
-                          className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
-                          checked={selectedGroupSizes.length === groupSizeOptions.length}
-                          onChange={() => {}} // Handled by onClick
-                        />
-                        <span>Select All ({groupSizeOptions.length})</span>
-                      </label>
-                      {groupSizeOptions.map((option) => (
-                        <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
-                            checked={selectedGroupSizes.includes(option.id)}
-                            onChange={() => handleOptionToggle(option.id, selectedGroupSizes, setSelectedGroupSizes)}
-                          />
-                          <span className="text-sm text-gray-700">{option.name}</span>
-                        </label>
-                      ))}
-                        </>
-                      ) : (
-                        <div className="px-3 py-4 text-center text-gray-500 text-sm">
-                          No group sizes available
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Time Slots Filter */}
-            <div className="relative dropdown-container">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Time Slots</label>
-              <div className="relative">
-                <button
-                  onClick={() => setShowTimeDropdown(!showTimeDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white"
-                >
-                  <div className="flex items-center space-x-2">
-                    <FiClock className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-700">
-                      {getDisplayText(timeSlotOptions, selectedTimeSlots, "All Time")}
-                    </span>
-                  </div>
-                  <FiChevronDown className="w-4 h-4 text-gray-400" />
-                </button>
-                
-                {showTimeDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                    <div className="py-2">
-                      {timeSlotOptions.length > 0 ? (
-                        <>
-                      <label 
-                        className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
-                        onClick={() => handleSelectAll(timeSlotOptions, setSelectedTimeSlots, selectedTimeSlots)}
-                      >
-                        <input 
-                          type="checkbox" 
-                          className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
-                          checked={selectedTimeSlots.length === timeSlotOptions.length}
-                          onChange={() => {}} // Handled by onClick
-                        />
-                        <span>Select All ({timeSlotOptions.length})</span>
-                      </label>
-                      {timeSlotOptions.map((option) => (
-                        <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
-                            checked={selectedTimeSlots.includes(option.id)}
-                            onChange={() => handleOptionToggle(option.id, selectedTimeSlots, setSelectedTimeSlots)}
-                          />
-                          <span className="text-sm text-gray-700">{option.name}</span>
-                        </label>
-                      ))}
-                        </>
-                      ) : (
-                        <div className="px-3 py-4 text-center text-gray-500 text-sm">
-                          No time slots available
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* Group Size and Time Slots filters removed per requirements */}
           </div>
         </div>
 
-        {/* Selected Products Status */}
+        {/* Selected Status Summary (shared for both modes, but text is product-focused) */}
         <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Selected Products Status</h3>
-              <p className="text-gray-600">Manage availability for {totalSelectedProducts} selected products.</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {viewMode === 'product' ? 'Selected Products Status' : 'Selected Vehicles Status'}
+              </h3>
+              <p className="text-gray-600">
+                {viewMode === 'product'
+                  ? `Manage availability for ${totalSelectedProducts} selected products.`
+                  : `Manage availability for ${filteredVehicles.length} selected vehicles.`}
+              </p>
             </div>
             <div className="flex space-x-2">
               <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
@@ -915,13 +764,7 @@ const AvailabilityCalendar = () => {
         <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
           <div className="flex justify-between items-start mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Bulk Actions</h3>
-            <button 
-              onClick={() => setShowCalendarModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-50 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm"
-            >
-              <FiCalendar className="w-4 h-4" />
-              <span>Manage Calendar</span>
-            </button>
+            
           </div>
           <div className="flex items-center space-x-4">
             <button 
@@ -943,31 +786,19 @@ const AvailabilityCalendar = () => {
           </div>
         </div>
 
-        {/* Individual Product Control - Only show if filters are selected */}
-        {(selectedProducts.length > 0 || selectedVehicles.length > 0 || 
-          selectedTours.length > 0 || selectedGroupSizes.length > 0 || 
-          selectedTimeSlots.length > 0) && (
+        {/* Individual Product control (product mode) */}
+        {viewMode === 'product' && (selectedProducts.length > 0 || selectedVehicles.length > 0 || 
+          selectedTours.length > 0) && (
         <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Individual Product control</h3>
-            <span className="text-gray-600">{filteredProducts.length} Products</span>
-          </div>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Individual Product control</h3>
+              <span className="text-gray-600">{filteredProducts.length} Products</span>
+            </div>
           <div className="space-y-4">
             {currentProducts.map((product) => (
               <div key={product.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h4 className="font-semibold text-gray-900">{product.name}</h4>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      product.isActive 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {product.status}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-1">{product.details}</p>
-                  <p className="text-xs text-gray-500">Vehicles: {product.vehicles}</p>
+                  <h4 className="font-semibold text-gray-900">{product.name}</h4>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="text-right">
@@ -1056,6 +887,68 @@ const AvailabilityCalendar = () => {
         </div>
         )}
 
+        {/* Individual Vehicle control (vehicle mode) */}
+        {viewMode === 'vehicle' && filteredVehicles.length > 0 && (
+          <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Individual Vehicle control</h3>
+              <span className="text-gray-600">{filteredVehicles.length} Vehicles</span>
+            </div>
+            <div className="space-y-4">
+              {filteredVehicles.map((vehicle) => (
+                <div key={vehicle.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-1">
+                      <h4 className="font-semibold text-gray-900">{vehicle.name}</h4>
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
+                        {vehicle.type}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      {vehicle.model && <span className="mr-2">{vehicle.model}</span>}
+                      {vehicle.capacity && <span>{vehicle.capacity} pax</span>}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Product: {vehicle.productName}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-gray-700">Status</div>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <FiPower className={`w-4 h-4 ${vehicle.isActive ? 'text-green-600' : 'text-red-600'}`} />
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={vehicle.isActive}
+                            onChange={(e) => {
+                              if (!e.target.checked) {
+                                // Open calendar and mark this vehicle as pending
+                                setShowCalendarModal(true);
+                                window.__pendingInactiveVehicleId = vehicle.id;
+                                window.__pendingInactiveVehicleProductId = vehicle.productId;
+                              } else {
+                                // Re-activate immediately (no dates)
+                                setVehiclesList(prev =>
+                                  prev.map(v =>
+                                    v.id === vehicle.id ? { ...v, isActive: true } : v
+                                  )
+                                );
+                              }
+                            }}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#1d236b]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1d236b]"></div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Status Summary */}
         <div className="bg-[#1d236b]/10 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Summary</h3>
@@ -1082,9 +975,32 @@ const AvailabilityCalendar = () => {
         onApply={(dates) => {
           try {
             const productId = window.__pendingInactiveProductId;
+            const vehicleId = window.__pendingInactiveVehicleId;
+            const vehicleProductId = window.__pendingInactiveVehicleProductId;
+
             if (productId) {
-              localStorage.setItem(`product_inactive_dates_${productId}`, JSON.stringify(dates));
+              // Persist product-level inactive dates to backend
+              productService.updateAvailability(productId, { inactive_dates: dates }).catch(() => {});
               delete window.__pendingInactiveProductId;
+            }
+
+            if (vehicleId && vehicleProductId) {
+              // Persist vehicle-level inactive dates to backend
+              productService
+                .updateAvailability(vehicleProductId, {
+                  vehicle_id: vehicleId,
+                  vehicle_inactive_dates: dates,
+                })
+                .catch(() => {});
+              delete window.__pendingInactiveVehicleId;
+              delete window.__pendingInactiveVehicleProductId;
+
+              // Mark this vehicle as inactive in UI
+              setVehiclesList(prev =>
+                prev.map(v =>
+                  v.id === vehicleId ? { ...v, isActive: false } : v
+                )
+              );
             }
           } catch (e) {}
           setShowCalendarModal(false);

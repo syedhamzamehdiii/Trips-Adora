@@ -26,6 +26,8 @@ import Footer from '@/components/common/Footer';
 import BookingRevenueChart from '@/components/dashboard/BookingRevenueChart';
 import FeedbackReviewChart from '@/components/dashboard/FeedbackReviewChart';
 import ResponseInsightsChart from '@/components/dashboard/ResponseInsightsChart';
+import bookingService from '@/services/bookingService';
+import productService from '@/services/productService';
 
 const InsightsPage = () => {
   const navigate = useNavigate();
@@ -59,7 +61,7 @@ const InsightsPage = () => {
     };
   }, [showCountryDropdown, showChartDropdown]);
 
-  // Real-time stats sourced from storage
+  // Real-time stats (use snapshot from localStorage for instant load)
   const [summaryStats, setSummaryStats] = useState([
     { number: '00', label: 'Booking this month' },
     { number: '00', label: 'Total Bookings' },
@@ -94,6 +96,23 @@ const InsightsPage = () => {
     cancellationRate: { value: '0.0', status: 'Excellent', description: 'Well below 60% suspension threshold' }
   });
 
+  // Load last insights snapshot synchronously for instant render
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('insights_snapshot_v1');
+      if (!raw) return;
+      const snap = JSON.parse(raw);
+      if (Array.isArray(snap.summaryStats)) setSummaryStats(snap.summaryStats);
+      if (Array.isArray(snap.countryData)) setCountryData(snap.countryData);
+      if (Array.isArray(snap.productPerformance)) setProductPerformance(snap.productPerformance);
+      if (typeof snap.cancellationRate === 'number') setCancellationRate(snap.cancellationRate);
+      if (typeof snap.safetyMargin === 'number') setSafetyMargin(snap.safetyMargin);
+      if (snap.performanceMetrics) setPerformanceMetrics(prev => ({ ...prev, ...snap.performanceMetrics }));
+    } catch (_) {
+      // Ignore snapshot errors and fall back to defaults
+    }
+  }, []);
+
   // Helper to parse numbers from currency strings
   const parseAmountNumber = (v) => {
     if (typeof v === 'number') return v;
@@ -101,17 +120,45 @@ const InsightsPage = () => {
     return 0;
   };
 
-  // Load real-time data from storage
+  // Load real-time data from backend (bookings + products)
   useEffect(() => {
-    const load = () => {
+    const load = async () => {
       try {
-        const bookingsRaw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
-        const allProductsRaw = localStorage.getItem('all_products');
-        const bookings = bookingsRaw ? JSON.parse(bookingsRaw) : [];
-        const products = allProductsRaw ? JSON.parse(allProductsRaw) : [];
+        // Fetch bookings and products from backend APIs
+        const [bookingsResp, productsResp] = await Promise.all([
+          bookingService.getBookings({ limit: 500, skip: 0 }),
+          productService.getMyProducts({ summary: true }),
+        ]);
 
-        // Summary: total bookings
-        const totalBookings = Array.isArray(bookings) ? bookings.length : 0;
+        const rawBookings = Array.isArray(bookingsResp?.bookings) ? bookingsResp.bookings : [];
+        const bookingStats = bookingsResp?.stats || {};
+        const bookings = rawBookings.map((booking) => ({
+          id: booking.id,
+          productId: booking.product_id,
+          booking: booking.title || booking.tour_name || 'Booking',
+          customerEmail: booking.customer_email || '',
+          bookedOn: booking.created_at || null,
+          travelDate: booking.start_date || null,
+          status: booking.status || 'pending',
+          amount: booking.total_amount || 0,
+          currency: booking.currency || 'USD',
+          rating: booking.metadata?.rating || null,
+          reviewScore: booking.metadata?.reviewScore || null,
+          metadata: booking.metadata || {},
+        }));
+
+        const products = Array.isArray(productsResp?.products)
+          ? productsResp.products
+          : Array.isArray(productsResp?.items)
+          ? productsResp.items
+          : Array.isArray(productsResp)
+          ? productsResp
+          : [];
+
+        // Summary: total bookings (prefer backend stats for consistency)
+        const totalBookings = typeof bookingStats.total === 'number'
+          ? bookingStats.total
+          : (Array.isArray(bookings) ? bookings.length : 0);
 
         // Summary: bookings this month (by travelDate or bookedOn)
         const now = new Date();
@@ -129,9 +176,10 @@ const InsightsPage = () => {
           return isSameMonth(td || bd || null);
         }).length;
 
-        // Summary: cancellation rate
-        const cancelled = (bookings || []).filter(b => (b.status === 'Canceled' || b.status === 'Cancelled' || b.status === 'Refund/Dispute')).length;
-        const cancellationRate = totalBookings > 0 ? ((cancelled / totalBookings) * 100) : 0;
+        // Summary: cancellation rate (use backend stats so it matches supplier bookings)
+        const cancelledFromStats =
+          (bookingStats.by_status && (bookingStats.by_status.cancelled ?? bookingStats.by_status.canceled)) || 0;
+        const cancellationRate = totalBookings > 0 ? ((cancelledFromStats / totalBookings) * 100) : 0;
 
         // Summary: average rating from multiple real-time sources
         const ratings = [];
@@ -154,9 +202,13 @@ const InsightsPage = () => {
             }
           }
         } catch (_) {}
-        // 3) bookings reviews if stored as rating per booking
+        // 3) bookings reviews if stored as rating per booking or metadata from customer reviews
         (bookings || []).forEach(b => {
-          const n = parseFloat(b.rating || b.reviewScore);
+          const n = parseFloat(
+            b.rating ||
+            b.reviewScore ||
+            (b.metadata && (b.metadata.avg_rating || b.metadata.averageRating || b.metadata.rating))
+          );
           if (!isNaN(n) && n > 0) ratings.push(n);
         });
         const avgRating = ratings.length > 0 ? (ratings.reduce((a,b)=>a+b,0)/ratings.length) : 0.0;
@@ -249,9 +301,10 @@ const InsightsPage = () => {
         setProductPerformance(top);
 
         // Calculate cancellation rate for circular progress
-        const cancelledCount = (bookings || []).filter(b => 
-          b.status === 'Canceled' || b.status === 'Cancelled' || b.status === 'Refund/Dispute'
-        ).length;
+        const cancelledCount = (bookings || []).filter(b => {
+          const s = (b.status || '').toLowerCase();
+          return s === 'canceled' || s === 'cancelled' || s === 'refund/dispute' || s === 'refund' || s === 'refunded';
+        }).length;
         const bookingCount = (bookings || []).length;
         const currentRate = bookingCount > 0 ? ((cancelledCount / bookingCount) * 100) : 0;
         const safetyMarginRemaining = Math.max(0, 50 - currentRate);
@@ -281,7 +334,7 @@ const InsightsPage = () => {
         // 4. Cancellation Rate (already calculated)
         const cancelStatus = currentRate <= 3 ? 'Excellent' : currentRate <= 10 ? 'Good' : currentRate <= 30 ? 'Fair' : 'Needs Improvement';
 
-        setPerformanceMetrics({
+        const newPerformanceMetrics = {
           priceAlignment: {
             value: Math.round(priceAlignment),
             status: priceStatus,
@@ -303,22 +356,61 @@ const InsightsPage = () => {
             status: cancelStatus,
             description: 'Well below 60% suspension threshold'
           }
-        });
+        };
+        setPerformanceMetrics(newPerformanceMetrics);
+
+        // Persist snapshot for instant loads next time
+        try {
+          const snapshot = {
+            summaryStats: [
+              { number: String(bookingsThisMonth), label: 'Booking this month' },
+              { number: String(totalBookings), label: 'Total Bookings' },
+              { number: `${cancellationRate.toFixed(1)}%`, label: 'Cancellation Rate' },
+              { number: avgRating.toFixed(1), label: 'Average Rating' }
+            ],
+            countryData: countryList,
+            productPerformance: top,
+            cancellationRate: currentRate,
+            safetyMargin: safetyMarginRemaining,
+            performanceMetrics: newPerformanceMetrics,
+          };
+          localStorage.setItem('insights_snapshot_v1', JSON.stringify(snapshot));
+        } catch (_) {
+          // Non-fatal if snapshot fails
+        }
+
+        // Persist normalized bookings and products for charts that still read from storage
+        // (e.g., BookingRevenueChart). This keeps them real-time but backed by the DB.
+        try {
+          localStorage.setItem('bookings', JSON.stringify(bookings));
+          localStorage.setItem('all_products', JSON.stringify(products));
+          window.dispatchEvent(new Event('bookings_updated'));
+          window.dispatchEvent(new Event('products_updated'));
+        } catch (e) {
+          // Non-fatal if storage fails
+        }
       } catch (e) {
         // Fallbacks are already set
       }
     };
 
     load();
-    window.addEventListener('storage', load);
-    window.addEventListener('bookings_updated', load);
-    window.addEventListener('products_updated', load);
-    window.addEventListener('reviews_updated', load);
+
+    const handleRefresh = () => {
+      load();
+    };
+
+    window.addEventListener('storage', handleRefresh);
+    window.addEventListener('bookings_updated', handleRefresh);
+    window.addEventListener('products_updated', handleRefresh);
+    window.addEventListener('reviews_updated', handleRefresh);
+    window.addEventListener('supplier_bookings_updated', handleRefresh);
     return () => {
-      window.removeEventListener('storage', load);
-      window.removeEventListener('bookings_updated', load);
-      window.removeEventListener('products_updated', load);
-      window.removeEventListener('reviews_updated', load);
+      window.removeEventListener('storage', handleRefresh);
+      window.removeEventListener('bookings_updated', handleRefresh);
+      window.removeEventListener('products_updated', handleRefresh);
+      window.removeEventListener('reviews_updated', handleRefresh);
+      window.removeEventListener('supplier_bookings_updated', handleRefresh);
     };
   }, [selectedCountryOption]);
 

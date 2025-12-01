@@ -523,7 +523,7 @@ const DashboardLayout = ({ children }) => {
               onClick={() => navigate('/availability')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 location.pathname === '/availability'
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -533,7 +533,7 @@ const DashboardLayout = ({ children }) => {
               onClick={() => navigate('/bookings')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 isBookingsPage
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -543,7 +543,7 @@ const DashboardLayout = ({ children }) => {
               onClick={() => navigate('/insights')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 isInsightsPage
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -553,7 +553,7 @@ const DashboardLayout = ({ children }) => {
               onClick={() => navigate('/finance')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 location.pathname === '/finance'
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >

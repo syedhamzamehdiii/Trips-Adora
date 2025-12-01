@@ -1,7 +1,7 @@
 import { FiCheck, FiTrendingUp, FiHelpCircle, FiChevronDown, FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { getUnreadCount as getChatUnreadCount } from '@/services/chatService';
 import CreateProductComponent from '@/components/products/CreateProductComponent';
@@ -15,6 +15,8 @@ import dashboardService from '@/services/dashboardService';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const supplierCodeParam = searchParams.get('supplier_code');
   const [showListingsDropdown, setShowListingsDropdown] = useState(false);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -203,7 +205,7 @@ const Dashboard = () => {
       }
       setDashboardError(null);
       try {
-        const overview = await dashboardService.getOverview(true); // Use cache
+        const overview = await dashboardService.getOverview(true, supplierCodeParam || null); // Use cache, pass supplier_code if provided
         const transformed = transformOverviewToDashboardState(overview, dashboardData);
         setDashboardData(transformed);
         hasLoadedOnceRef.current = true;

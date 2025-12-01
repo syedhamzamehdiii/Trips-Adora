@@ -154,10 +154,10 @@ const Calendar = ({ isOpen, onClose, onApply, initialSelectedDates = [] }) => {
 
           {/* Year and Month Selectors */}
           <div className="flex flex-col items-center space-y-2">
-            <div className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium">
+            <div className="bg-[#1d236b] text-white px-4 py-2 rounded-lg font-medium">
               {currentDate.getFullYear()}
             </div>
-            <div className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium">
+            <div className="bg-[#1d236b] text-white px-4 py-2 rounded-lg font-medium">
               {months[currentDate.getMonth()]}
             </div>
           </div>
@@ -180,7 +180,7 @@ const Calendar = ({ isOpen, onClose, onApply, initialSelectedDates = [] }) => {
             <div
               key={day}
               className={`text-center text-sm font-medium py-2 ${
-                index >= 5 ? 'text-blue-500' : 'text-gray-500'
+                index >= 5 ? 'text-[#1d236b]' : 'text-gray-500'
               }`}
             >
               {day}
@@ -209,10 +209,10 @@ const Calendar = ({ isOpen, onClose, onApply, initialSelectedDates = [] }) => {
                   onMouseEnter={() => handleMouseEnter(day)}
                   className={`text-sm font-medium py-2 rounded-lg transition-colors ${
                     isSelected
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[#1d236b] text-white'
                       : day.isCurrentMonth
                       ? day.isWeekend
-                        ? 'text-blue-500 hover:bg-blue-50'
+                        ? 'text-[#1d236b] hover:bg-[#1d236b]/5'
                         : 'text-gray-500 hover:bg-gray-50'
                       : 'text-gray-300 hover:bg-gray-50'
                   }`}
@@ -235,7 +235,7 @@ const Calendar = ({ isOpen, onClose, onApply, initialSelectedDates = [] }) => {
           {onApply && (
             <button
               onClick={() => onApply(Array.from(selectedDates).sort())}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-6 py-2 bg-[#1d236b] text-white rounded-lg hover:bg-[#151a4a] transition-colors"
             >
               Apply
             </button>

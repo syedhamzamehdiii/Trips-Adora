@@ -16,12 +16,9 @@ const handleResponse = async (response) => {
 const getCachedProfile = (userId) => {
   try {
     const cached = localStorage.getItem(`${CACHE_KEY_PREFIX}${userId}`);
-    const timestamp = localStorage.getItem(`${CACHE_TIMESTAMP_PREFIX}${userId}`);
-    if (cached && timestamp) {
-      const age = Date.now() - parseInt(timestamp, 10);
-      if (age < CACHE_TTL) {
-        return JSON.parse(cached);
-      }
+    if (cached) {
+      // Always return cached data, even if expired
+      return JSON.parse(cached);
     }
   } catch (_) {
     // Ignore cache errors
@@ -105,22 +102,23 @@ export const getProfile = async (userId, useCache = true) => {
     throw new Error('userId is required to fetch profile data');
   }
   
-  // Return cached data immediately if available and fresh
+  // Always return cached data immediately if available (even if expired)
   if (useCache) {
     const cached = getCachedProfile(userId);
     if (cached) {
-      // Fetch fresh data in background
+      // Refresh in background (don't await)
       fetch(`${API_BASE_URL}/profile/${encodeURIComponent(userId)}`)
         .then(handleResponse)
         .then(data => setCachedProfile(userId, data))
         .catch(() => {
           // Ignore background fetch errors
         });
-      return cached;
+      // Return immediately resolved Promise to avoid microtask delay
+      return Promise.resolve(cached);
     }
   }
   
-  // Fetch fresh data
+  // If no cache → make API call
   const response = await fetch(`${API_BASE_URL}/profile/${encodeURIComponent(userId)}`);
   const data = await handleResponse(response);
   setCachedProfile(userId, data);

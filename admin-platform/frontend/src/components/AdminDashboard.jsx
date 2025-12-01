@@ -53,7 +53,7 @@ const AdminDashboard = () => {
       <aside className="w-64 bg-[#2E3F74] text-white flex flex-col">
         {/* Branding */}
         <div className="px-5 pt-6 pb-4 border-b border-white/10">
-          <h1 className="text-xl font-bold tracking-tight">Trip Adora</h1>
+          <h1 className="text-xl font-bold tracking-tight">Trips Adora</h1>
           <p className="text-xs text-green-400 mt-1 font-semibold">Admin</p>
         </div>
 

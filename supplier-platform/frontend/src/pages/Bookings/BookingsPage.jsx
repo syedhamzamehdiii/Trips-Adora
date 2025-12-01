@@ -16,6 +16,7 @@ import Footer from '@/components/common/Footer';
 import ShareTripModal from '@/components/modals/ShareTripModal';
 import BookingDetailsModal from '@/components/modals/BookingDetailsModal';
 import bookingService from '@/services/bookingService';
+import dashboardService from '@/services/dashboardService';
 
 const BookingsPage = () => {
   const navigate = useNavigate();
@@ -35,6 +36,8 @@ const BookingsPage = () => {
     status: 'All Status'
   });
 
+  const BOOKINGS_CACHE_KEY = 'supplier_bookings_cache';
+  const BOOKINGS_STATS_CACHE_KEY = 'supplier_bookings_stats_cache';
   const HIDDEN_BOOKINGS_KEY = 'supplier_hidden_booking_ids';
   const [hiddenBookingIds, setHiddenBookingIds] = useState(() => {
     try {
@@ -77,9 +80,52 @@ const BookingsPage = () => {
     };
   }, []);
 
+  // Load cached bookings immediately for instant render
+  useEffect(() => {
+    try {
+      // 1) From dedicated bookings cache
+      const cachedRaw = localStorage.getItem(BOOKINGS_CACHE_KEY);
+      const statsRaw = localStorage.getItem(BOOKINGS_STATS_CACHE_KEY);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw);
+        if (Array.isArray(cached)) {
+          const normalized = cached.map(normalizeBooking);
+          setBookings(normalized);
+          setIsLoading(false);
+        }
+      }
+      if (statsRaw) {
+        const stats = JSON.parse(statsRaw);
+        if (stats && typeof stats === 'object') {
+          setBookingStats(stats);
+        }
+      }
+
+      // 2) Fallback: use dashboard overview snapshot if available
+      if (!cachedRaw) {
+        const overview = dashboardService.getCachedOverviewSync();
+        const items = overview?.bookings?.items;
+        if (Array.isArray(items) && items.length) {
+          const normalized = items.map(normalizeBooking);
+          setBookings(normalized);
+          setIsLoading(false);
+          const total = overview.bookings.total ?? normalized.length;
+          setBookingStats(prev => ({
+            total,
+            by_status: prev.by_status || {},
+            total_revenue: prev.total_revenue || 0,
+          }));
+        }
+      }
+    } catch (_) {
+      // ignore cache errors, we will fetch fresh data
+    }
+  }, [normalizeBooking]);
+
   // Fetch bookings from API
   const fetchBookings = useCallback(async () => {
-    setIsLoading(true);
+    // Only show the big loading state if we have no data yet
+    setIsLoading(prev => (bookings.length === 0 ? true : prev));
     setError(null);
     try {
       // Normalize status filter - handle "Cancelled" vs "cancelled"
@@ -96,9 +142,15 @@ const BookingsPage = () => {
       const bookingsList = Array.isArray(response?.bookings) ? response.bookings : [];
       const normalized = bookingsList.map(normalizeBooking);
       setBookings(normalized);
+      try {
+        localStorage.setItem(BOOKINGS_CACHE_KEY, JSON.stringify(bookingsList));
+      } catch (_) {}
       
       if (response?.stats) {
         setBookingStats(response.stats);
+        try {
+          localStorage.setItem(BOOKINGS_STATS_CACHE_KEY, JSON.stringify(response.stats));
+        } catch (_) {}
       }
     } catch (err) {
       console.error('Error fetching bookings:', err);
@@ -107,7 +159,7 @@ const BookingsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters.status, normalizeBooking]);
+  }, [filters.status, normalizeBooking, bookings.length]);
 
   // Load bookings on mount and when filters change
   useEffect(() => {
