@@ -10,6 +10,7 @@ import CreateProductComponent from '@/components/products/CreateProductComponent
 const ChatPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const CONVERSATIONS_CACHE_KEY = 'supplier_chat_conversations';
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -24,6 +25,22 @@ const ChatPage = () => {
   const dropdownRef = useRef(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Load cached conversations immediately for instant UI
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(CONVERSATIONS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          setConversations(parsed);
+          setLoading(false);
+        }
+      }
+    } catch (_) {
+      // ignore cache errors
+    }
+  }, []);
 
   useEffect(() => {
     loadConversations();
@@ -76,8 +93,12 @@ const ChatPage = () => {
   const loadConversations = async () => {
     try {
       const data = await getConversations();
-      setConversations(data.conversations || []);
+      const convs = data.conversations || [];
+      setConversations(convs);
       setLoading(false);
+      try {
+        localStorage.setItem(CONVERSATIONS_CACHE_KEY, JSON.stringify(convs));
+      } catch (_) {}
     } catch (error) {
       console.error('Error loading conversations:', error);
       setLoading(false);
@@ -219,7 +240,7 @@ const ChatPage = () => {
               onClick={() => navigate('/availability')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 location.pathname === '/availability'
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -229,7 +250,7 @@ const ChatPage = () => {
               onClick={() => navigate('/bookings')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 isBookingsPage
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -239,7 +260,7 @@ const ChatPage = () => {
               onClick={() => navigate('/insights')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 isInsightsPage
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -249,7 +270,7 @@ const ChatPage = () => {
               onClick={() => navigate('/finance')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 location.pathname === '/finance'
-                  ? 'bg-blue-600 text-white' 
+                  ? 'bg-[#1d236b] text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >

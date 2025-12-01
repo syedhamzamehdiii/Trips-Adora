@@ -14,18 +14,22 @@ class VehicleService:
     async def list_for_supplier(
         supplier_id: str, product_id: Optional[str] = None
     ) -> List[SupplierVehicle]:
+        """
+        List vehicles for a supplier.
+
+        - When product_id is provided, returns vehicles tied to that specific product.
+        - When product_id is omitted/empty, returns all active vehicles for the supplier
+          across all products. This is used by the Availability Calendar when the user
+          wants to manage availability per vehicle instead of per product.
+        """
+
         # Base query with supplier and active status
-        query = {"supplier_id": supplier_id, "is_active": True}
-        
-        # If product_id is provided and is a non-empty string, filter strictly by it
-        # This ensures vehicles from different products don't leak into other products
+        query: dict = {"supplier_id": supplier_id, "is_active": True}
+
+        # Optionally scope to a specific product
         if product_id and isinstance(product_id, str) and product_id.strip():
-            # Strict filter: only return vehicles with this exact product_id
             query["product_id"] = product_id.strip()
-        else:
-            # If no valid product_id is provided, return empty list to prevent showing all vehicles
-            return []
-        
+
         return await SupplierVehicle.find(query).sort("-created_at").to_list()
 
     @staticmethod

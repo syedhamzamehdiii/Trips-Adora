@@ -1,53 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
+import { getResponseAnalytics } from '@/services/chatService';
 
 export default function ResponseInsightsChart() {
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    const build = () => {
+    const build = async () => {
       try {
-        const bookingsRaw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
-        const bookings = bookingsRaw ? JSON.parse(bookingsRaw) : [];
-        const parseDate = (s) => { if (!s) return null; const d = new Date(s); return isNaN(d)? new Date(Date.parse(s)) : d; };
-        const byDay = new Map();
-        (bookings||[]).forEach(b => {
-          const bd = parseDate(b.bookedOn);
-          const td = parseDate(b.travelDate);
-          if (!bd || !td) return;
-          const key = bd.toLocaleString('en-US', { month: 'short', day: '2-digit' });
-          const diffDays = Math.max(1, Math.min(50, Math.round((td - bd) / (1000*60*60*24))));
-          const arr = byDay.get(key) || [];
-          arr.push(diffDays);
-          byDay.set(key, arr);
+        const stats = await getResponseAnalytics();
+        const out = (stats || []).map(item => {
+          const d = new Date(item.date);
+          const label = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+          return {
+            date: label,
+            value: Number(item.replies || 0),
+          };
         });
-        const out = Array.from(byDay.entries()).slice(-6).map(([k,arr]) => ({ date: k, value: Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) }));
-        if (out.length === 0) {
+
+        // Ensure we always show a small window even if there is little data
+        let filled = out.slice(-6);
+        if (filled.length === 0) {
           const today = new Date();
-          for (let i=5;i>=0;i--) {
-            const d = new Date(today); d.setDate(today.getDate()-i);
-            out.push({ date: d.toLocaleString('en-US', { month:'short', day:'2-digit'}), value: 42 });
+          filled = [];
+          for (let i = 5; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            filled.push({
+              date: d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
+              value: 0,
+            });
           }
         }
-        setData(out);
-      } catch (_) {}
+        setData(filled);
+      } catch (e) {
+        // If analytics fail, keep empty chart
+        console.error('Failed to load response analytics:', e);
+      }
     };
     build();
-    window.addEventListener('storage', build);
-    window.addEventListener('bookings_updated', build);
-    return () => {
-      window.removeEventListener('storage', build);
-      window.removeEventListener('bookings_updated', build);
-    };
   }, []);
 
   return (
     <div className="w-full mx-auto bg-white mt-8">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-normal text-gray-900">Insights of your response</h2>
-        <button className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded-full hover:bg-blue-700 transition-colors">
-          See reviews
-        </button>
+        <p className="text-sm text-gray-500">Replies you sent to customer messages (per day)</p>
       </div>
       
       <div className="border border-gray-200 rounded-lg p-6">
@@ -65,8 +63,7 @@ export default function ResponseInsightsChart() {
               axisLine={false}
               tickLine={false}
               tick={{ fill: '#666', fontSize: 12 }}
-              domain={[27, 47]}
-              ticks={[27, 37, 42, 47, 54]}
+              allowDecimals={false}
             />
             <Tooltip 
               contentStyle={{ 
@@ -90,4 +87,5 @@ export default function ResponseInsightsChart() {
     </div>
   );
 }
+
 

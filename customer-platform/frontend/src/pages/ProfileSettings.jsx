@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
-import { getProfile, updateProfile } from '../services/profileService'
+import { getProfile, updateProfile, getCachedProfileSync } from '../services/profileService'
 
 const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
@@ -48,18 +48,17 @@ const TabBar = () => {
 }
 
 const ProfileSettings = () => {
-  const [profile, setProfile] = useState(null)
+  // Compute userId synchronously for initial state
+  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
+  
+  // Initialize profile from cache immediately (synchronous, even if expired)
+  const initialProfile = getCachedProfileSync(userId)
+  const [profile, setProfile] = useState(initialProfile)
   const [form, setForm] = useState(initialForm)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [saveMessage, setSaveMessage] = useState(null)
-
-  // Compute userId synchronously for initial state
-  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
-
-  const hasLoadedOnceRef = useRef(false)
 
   const hydrateForm = useCallback((incomingProfile) => {
     const user = incomingProfile?.user || {}
@@ -93,62 +92,30 @@ const ProfileSettings = () => {
     })
   }, [])
 
-  // Load cached profile immediately on mount (synchronous)
-  const [initialProfile] = useState(() => {
-    try {
-      const cached = localStorage.getItem(`customer_profile_cache_${userId}`);
-      const timestamp = localStorage.getItem(`customer_profile_cache_ts_${userId}`);
-      if (cached && timestamp) {
-        const age = Date.now() - parseInt(timestamp, 10);
-        if (age < 5 * 60 * 1000) { // 5 minutes
-          return JSON.parse(cached);
-        }
-      }
-    } catch (_) {
-      // Ignore cache errors
-    }
-    return null;
-  })
-
-  // Set initial profile from cache if available
+  // Hydrate form from initial cached profile
   useEffect(() => {
     if (initialProfile) {
-      setProfile(initialProfile)
       hydrateForm(initialProfile)
-      setLoading(false)
-      hasLoadedOnceRef.current = true
     }
-  }, [initialProfile, hydrateForm])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount
 
   const fetchProfile = useCallback(async () => {
-    // Only show loading if we don't have cached data
-    if (!initialProfile) {
-      setLoading(true)
-    }
     setError(null)
     try {
-      const data = await getProfile(userId, true) // Use cache
+      const data = await getProfile(userId, true) // Always returns cached immediately, refreshes in background
       setProfile(data)
       hydrateForm(data)
-      hasLoadedOnceRef.current = true
     } catch (err) {
-      // Only show error if we don't have cached data
-      if (!initialProfile) {
-        setError(err?.message || 'Unable to load settings right now.')
-      }
-    } finally {
-      setLoading(false)
+      // Only show error if we don't have any cached data
+      setError(err?.message || 'Unable to load settings right now.')
     }
-  }, [hydrateForm, userId, initialProfile])
+  }, [hydrateForm, userId])
 
   useEffect(() => {
-    // If we have cached data, fetch fresh in background
-    if (initialProfile) {
-      fetchProfile() // This will fetch in background
-    } else {
-      // No cache, fetch immediately
-      fetchProfile()
-    }
+    // Always fetch fresh data in background (getProfile returns cached immediately)
+    fetchProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run once on mount
 
   useEffect(() => {
@@ -273,7 +240,7 @@ const ProfileSettings = () => {
                 onChange={handleChange('firstName')}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                 placeholder="John"
-                disabled={loading || saving}
+                disabled={saving}
                 required
               />
             </div>
@@ -284,7 +251,7 @@ const ProfileSettings = () => {
                 onChange={handleChange('lastName')}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                 placeholder="Doe"
-                disabled={loading || saving}
+                disabled={saving}
               />
             </div>
 
@@ -296,7 +263,7 @@ const ProfileSettings = () => {
                 onChange={handleChange('email')}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                 placeholder="john.doe@example.com"
-                disabled={loading || saving}
+                disabled={saving}
                 required
               />
             </div>
@@ -308,7 +275,7 @@ const ProfileSettings = () => {
                 onChange={handleChange('phone')}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                 placeholder="+1 (555) 123-4567"
-                disabled={loading || saving}
+                disabled={saving}
               />
             </div>
             <div>
@@ -318,7 +285,7 @@ const ProfileSettings = () => {
                 value={form.dateOfBirth}
                 onChange={handleChange('dateOfBirth')}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                disabled={loading || saving}
+                disabled={saving}
               />
             </div>
 
@@ -329,7 +296,7 @@ const ProfileSettings = () => {
                 onChange={handleChange('street')}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                 placeholder="123 Main Street"
-                disabled={loading || saving}
+                disabled={saving}
               />
             </div>
             <div>
@@ -339,7 +306,7 @@ const ProfileSettings = () => {
                 onChange={handleChange('zip')}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                 placeholder="10001"
-                disabled={loading || saving}
+                disabled={saving}
               />
             </div>
 
@@ -350,7 +317,7 @@ const ProfileSettings = () => {
                 onChange={handleChange('country')}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                 placeholder="United States"
-                disabled={loading || saving}
+                disabled={saving}
               />
             </div>
             <div>
@@ -359,7 +326,7 @@ const ProfileSettings = () => {
                 value={form.language}
                 onChange={handleChange('language')}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                disabled={loading || saving}
+                disabled={saving}
               >
                 <option value="en">English</option>
                 <option value="ja">Japanese</option>
@@ -373,7 +340,7 @@ const ProfileSettings = () => {
             <button
               type="submit"
               className="px-5 py-2 rounded-lg bg-[#1f3661] text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-              disabled={saving || loading}
+              disabled={saving}
             >
               {saving ? 'Saving...' : 'Save changes!'}
             </button>

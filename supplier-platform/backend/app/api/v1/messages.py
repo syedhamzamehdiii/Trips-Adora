@@ -141,3 +141,15 @@ async def get_unread_count(
     count = await MessageService.get_unread_count(supplier_id)
     return UnreadCountResponse(unread_count=count)
 
+
+@router.get("/response-analytics")
+async def get_response_analytics(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get simple reply analytics for the supplier: number of replies sent per day.
+    """
+    supplier_id = str(current_user.id)
+    stats = await MessageService.get_supplier_reply_stats(supplier_id, days=30)
+    return {"items": stats}
+

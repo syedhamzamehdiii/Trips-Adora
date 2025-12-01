@@ -1,13 +1,13 @@
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 from uuid import uuid4
 
 import jwt
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr, constr
+from pydantic import BaseModel, EmailStr, constr, Field
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user
@@ -19,7 +19,9 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User, UserRole
+from app.models.invitation import SupplierInvitation, InvitationCreate, InvitationResponse
 from app.services.settings_service import SupplierSettingsService
+from app.services.email_service import send_invitation_email
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +63,32 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     is_verified: bool
+    permissions: Optional[Dict[str, bool]] = None
     created_at: datetime
     updated_at: datetime
+
+
+class UserInvite(BaseModel):
+    email: EmailStr
+    full_name: str
+    permissions: Dict[str, bool] = Field(
+        default_factory=lambda: {
+            "productsManagement": False,
+            "customersFeedbacks": False,
+            "finance": False
+        }
+    )
+
+
+class GrantSupplierAccess(BaseModel):
+    email: EmailStr
+    permissions: Dict[str, bool] = Field(
+        default_factory=lambda: {
+            "productsManagement": False,
+            "customersFeedbacks": False,
+            "finance": False
+        }
+    )
 
 
 class GoogleLogin(BaseModel):
@@ -150,6 +176,8 @@ def _user_response(user: User) -> UserResponse:
         role=user.role.value,
         is_active=user.is_active,
         is_verified=user.is_verified,
+        permissions=user.permissions if hasattr(user, 'permissions') else None,
+        supplier_access=user.supplier_access if hasattr(user, 'supplier_access') else None,
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
@@ -223,6 +251,229 @@ async def login(user_data: UserLogin):
         "token": access_token,
         "refresh_token": refresh_token,
         "user": _user_response(user),
+    }
+
+
+@router.post("/invite", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def invite_user(invite_data: UserInvite):
+    """Invite a new user to the supplier platform (called by admin)"""
+    # Check if user already exists
+    existing_user = await User.find_one(User.email == invite_data.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Generate a temporary password (user will need to reset it on first login)
+    import secrets
+    import string
+    temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+    
+    supplier_code = await _generate_supplier_code()
+
+    # Create new user with invited permissions
+    user = User(
+        email=invite_data.email,
+        hashed_password=get_password_hash(temp_password),
+        full_name=invite_data.full_name,
+        business_name=invite_data.full_name,  # Use full_name as business_name if not provided
+        supplier_code=supplier_code,
+        role=UserRole.SUPPLIER,
+        is_active=True,
+        is_verified=True,  # Mark as verified since admin invited them
+        permissions=invite_data.permissions,
+    )
+    
+    await user.insert()
+    await _sync_supplier_code_to_settings(str(user.id), supplier_code)
+    
+    # In a real implementation, you would send an email with the temporary password
+    # For now, we'll return it (in production, send via email)
+    return {
+        "message": "User invited successfully",
+        "email": user.email,
+        "temp_password": temp_password,  # Remove this in production, send via email instead
+        "user": _user_response(user),
+    }
+
+
+@router.post("/grant-access", response_model=InvitationResponse, status_code=status.HTTP_201_CREATED)
+async def grant_supplier_access(
+    access_data: GrantSupplierAccess,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Grant another user access to your supplier account via email invitation.
+    Creates an invitation token and sends an email with a magic link.
+    When the user clicks the link, they'll be automatically granted access.
+    """
+    if not current_user.supplier_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You must have a supplier account to grant access"
+        )
+    
+    # Check if there's already a pending invitation for this email and supplier
+    existing_invitation = await SupplierInvitation.find_one(
+        SupplierInvitation.email == access_data.email,
+        SupplierInvitation.supplier_code == current_user.supplier_code,
+        SupplierInvitation.is_used == False,
+        SupplierInvitation.expires_at > datetime.utcnow()
+    )
+    
+    if existing_invitation:
+        # Resend the existing invitation
+        invitation = existing_invitation
+    else:
+        # Create new invitation
+        invitation = SupplierInvitation(
+            email=access_data.email,
+            supplier_code=current_user.supplier_code,
+            inviter_user_id=str(current_user.id),
+            permissions=access_data.permissions
+        )
+        await invitation.insert()
+    
+    # Generate invitation link
+    frontend_url = settings.SUPPLIER_FRONTEND_URL or "http://localhost:5173"
+    invitation_link = f"{frontend_url}/auth/invitation/{invitation.token}"
+    
+    # Send invitation email
+    inviter_name = current_user.full_name or current_user.business_name or current_user.email.split('@')[0]
+    email_sent = await send_invitation_email(
+        email=access_data.email,
+        invitation_link=invitation_link,
+        supplier_code=current_user.supplier_code,
+        inviter_name=inviter_name,
+        permissions=access_data.permissions
+    )
+    
+    return InvitationResponse(
+        token=invitation.token,
+        email=invitation.email,
+        supplier_code=invitation.supplier_code,
+        invitation_link=invitation_link,
+        expires_at=invitation.expires_at,
+        message=f"Invitation sent to {access_data.email}. " + 
+                ("Email sent successfully." if email_sent else "Email service not configured - invitation link generated.")
+    )
+
+
+@router.get("/invitation/{token}", response_model=dict)
+async def accept_invitation(token: str):
+    """
+    Accept supplier access invitation via magic link.
+    Validates the token, grants access, and returns login credentials.
+    """
+    # Find the invitation
+    invitation = await SupplierInvitation.find_one(SupplierInvitation.token == token)
+    
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired invitation link"
+        )
+    
+    # Check if invitation is already used
+    if invitation.is_used:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invitation has already been used"
+        )
+    
+    # Check if invitation is expired
+    if invitation.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invitation has expired. Please request a new one."
+        )
+    
+    # Find or create the user
+    user = await User.find_one(User.email == invitation.email)
+    
+    if not user:
+        # Create new user account
+        import secrets
+        import string
+        temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+        
+        # Extract name from email
+        full_name = invitation.email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
+        
+        user = User(
+            email=invitation.email,
+            hashed_password=get_password_hash(temp_password),
+            full_name=full_name,
+            business_name=full_name,
+            role=UserRole.SUPPLIER,
+            is_active=True,
+            is_verified=True,
+            supplier_access={invitation.supplier_code: invitation.permissions}
+        )
+        await user.insert()
+    else:
+        # User exists - grant access to the supplier account
+        if not user.supplier_access:
+            user.supplier_access = {}
+        
+        user.supplier_access[invitation.supplier_code] = invitation.permissions
+        user.updated_at = datetime.utcnow()
+        await user.save()
+    
+    # Mark invitation as used
+    invitation.is_used = True
+    invitation.used_at = datetime.utcnow()
+    await invitation.save()
+    
+    # Create login tokens for the user
+    access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    
+    # Get supplier owner info for context
+    supplier_owner = await User.find_one(User.supplier_code == invitation.supplier_code)
+    supplier_name = supplier_owner.business_name or supplier_owner.full_name if supplier_owner else invitation.supplier_code
+    
+    return {
+        "message": f"Access granted to {invitation.supplier_code}",
+        "token": access_token,
+        "refresh_token": refresh_token,
+        "user": _user_response(user),
+        "supplier_code": invitation.supplier_code,
+        "supplier_name": supplier_name,
+        "permissions": invitation.permissions,
+        "redirect_url": f"/dashboard?supplier_code={invitation.supplier_code}"
+    }
+
+
+@router.get("/my-suppliers", response_model=dict)
+async def get_my_supplier_access(current_user: User = Depends(get_current_user)):
+    """
+    Get list of supplier accounts the current user can access.
+    Returns both the user's own supplier_code and any granted access.
+    """
+    suppliers = []
+    
+    # Add user's own supplier account
+    if current_user.supplier_code:
+        suppliers.append({
+            "supplier_code": current_user.supplier_code,
+            "is_owner": True,
+            "permissions": current_user.permissions or {}
+        })
+    
+    # Add granted access suppliers
+    if current_user.supplier_access:
+        for supplier_code, permissions in current_user.supplier_access.items():
+            suppliers.append({
+                "supplier_code": supplier_code,
+                "is_owner": False,
+                "permissions": permissions
+            })
+    
+    return {
+        "suppliers": suppliers,
+        "current_supplier": current_user.supplier_code
     }
 
 

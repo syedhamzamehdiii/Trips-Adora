@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Mail, Phone, MapPin, CalendarDays, ArrowLeft, Heart, Gift } from 'lucide-react'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import EditProfileModal from '../components/EditProfileModal'
-import { getProfile, updateProfile } from '../services/profileService'
+import { getProfile, updateProfile, getCachedProfileSync } from '../services/profileService'
 
 const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
@@ -87,9 +87,13 @@ const formatRelativeTime = (value) => {
 
 const ProfilePage = () => {
   const location = useLocation()
-  const [profile, setProfile] = useState(null)
-  const [wishlist, setWishlist] = useState([])
-  const [loading, setLoading] = useState(true)
+  // Compute userId synchronously for initial state
+  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
+  
+  // Initialize profile from cache immediately (synchronous, even if expired)
+  const [profile, setProfile] = useState(() => {
+    return getCachedProfileSync(userId) || null
+  })
   const [error, setError] = useState(null)
   const [copied, setCopied] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -97,45 +101,10 @@ const ProfilePage = () => {
   const [saveError, setSaveError] = useState(null)
   const [saveMessage, setSaveMessage] = useState(null)
 
-  // Compute userId synchronously for initial state
-  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
-
-  const hasLoadedOnceRef = useRef(false)
-
-  // Load cached profile immediately on mount (synchronous)
-  const [initialProfile] = useState(() => {
-    try {
-      const cached = localStorage.getItem(`customer_profile_cache_${userId}`);
-      const timestamp = localStorage.getItem(`customer_profile_cache_ts_${userId}`);
-      if (cached && timestamp) {
-        const age = Date.now() - parseInt(timestamp, 10);
-        if (age < 5 * 60 * 1000) { // 5 minutes
-          return JSON.parse(cached);
-        }
-      }
-    } catch (_) {
-      // Ignore cache errors
-    }
-    return null;
-  })
-
-  // Set initial profile from cache if available
-  useEffect(() => {
-    if (initialProfile) {
-      setProfile(initialProfile)
-      setLoading(false)
-      hasLoadedOnceRef.current = true
-    }
-  }, [initialProfile])
-
   const fetchProfile = useCallback(async () => {
-    // Only show loading if we don't have cached data
-    if (!initialProfile && !hasLoadedOnceRef.current) {
-      setLoading(true)
-    }
-    setError(null)
     try {
-      const data = await getProfile(userId, true) // Use cache
+      const data = await getProfile(userId, true) // Always returns cached immediately, refreshes in background
+      // Update profile and localStorage
       setProfile(data)
       try {
         if (data?.user?.name) {
@@ -148,28 +117,37 @@ const ProfilePage = () => {
           localStorage.setItem('customer_profile_avatar', data.user.avatar_url)
         }
       } catch (_) {}
-      hasLoadedOnceRef.current = true
     } catch (err) {
-      // Only show error if we don't have cached data
-      if (!initialProfile && !hasLoadedOnceRef.current) {
-        setError(err?.message || 'Unable to load profile information.')
-      }
-    } finally {
-      setLoading(false)
+      // Only set error if we don't have any profile data
+      setError(prev => prev || err?.message || 'Unable to load profile information.')
     }
-  }, [userId, initialProfile])
+  }, [userId])
 
   useEffect(() => {
-    // If we have cached data, fetch fresh in background
-    if (initialProfile) {
-      fetchProfile() // This will fetch in background
-    } else {
-      // No cache, fetch immediately
-      fetchProfile()
-    }
+    // Defer background refresh until after initial render completes
+    // This ensures the page renders instantly with cached data
+    // Use setTimeout with 0ms to defer to next event loop tick
+    const timeoutId = setTimeout(() => {
+      fetchProfile().catch(() => {
+        // Ignore errors - we already have cached data
+      })
+    }, 0)
+    return () => clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run once on mount
 
-  const hydrateWishlist = useCallback(async () => {
+  // Initialize wishlist from localStorage immediately (synchronous)
+  const [wishlist, setWishlist] = useState(() => {
+    try {
+      const stored = localStorage.getItem('wishlist')
+      const parsed = stored ? JSON.parse(stored) : []
+      return Array.isArray(parsed) ? parsed : []
+    } catch (err) {
+      return []
+    }
+  })
+
+  const hydrateWishlist = useCallback(() => {
     try {
       const stored = localStorage.getItem('wishlist')
       const parsed = stored ? JSON.parse(stored) : []
@@ -182,10 +160,6 @@ const ProfilePage = () => {
       setWishlist([])
     }
   }, [])
-
-  useEffect(() => {
-    hydrateWishlist()
-  }, [hydrateWishlist])
 
   useEffect(() => {
     const handleProfileRefresh = () => {
@@ -424,7 +398,7 @@ const ProfilePage = () => {
           </div>
         </div>
 
-        {error ? (
+        {error && !profile ? (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-red-700">
             <p className="font-semibold mb-3">We couldn&apos;t load your profile data.</p>
             <p className="text-sm mb-4">{error}</p>
@@ -436,9 +410,19 @@ const ProfilePage = () => {
               Try again
             </button>
           </div>
-        ) : loading || !profile ? (
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-10 text-center text-gray-500">
-            Loading your profile...
+        ) : !profile ? (
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-10">
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                <div className="bg-gray-100 rounded-2xl p-6 h-64"></div>
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="h-32 bg-gray-100 rounded-2xl"></div>
+                  <div className="h-32 bg-gray-100 rounded-2xl"></div>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

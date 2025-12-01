@@ -133,3 +133,27 @@ export const getUnreadCount = async () => {
   }
 };
 
+/**
+ * Get simple reply analytics for supplier (replies sent per day)
+ */
+export const getResponseAnalytics = async () => {
+  try {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/messages/response-analytics`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch response analytics');
+    }
+
+    const data = await response.json();
+    return Array.isArray(data?.items) ? data.items : [];
+  } catch (error) {
+    console.error('Error fetching response analytics:', error);
+    return [];
+  }
+};
+

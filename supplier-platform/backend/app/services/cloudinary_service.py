@@ -7,6 +7,7 @@ import cloudinary.uploader
 import cloudinary.api
 from typing import Optional, Dict, Any, List
 from fastapi import UploadFile, HTTPException, status
+from io import BytesIO
 import logging
 from app.core.config import settings
 
@@ -74,9 +75,6 @@ async def upload_image(
                 detail="File size must be less than 10MB"
             )
         
-        # Reset file pointer
-        await file.seek(0)
-        
         # Default transformation: optimize and convert to WebP if possible
         default_transformation = {
             "quality": "auto",
@@ -87,13 +85,25 @@ async def upload_image(
         if transformation:
             default_transformation.update(transformation)
         
-        # Upload to Cloudinary
+        # Upload to Cloudinary using bytes directly
+        # Create BytesIO from file content and ensure it's at position 0
+        file_stream = BytesIO(file_content)
+        file_stream.seek(0)
+        
+        # Build upload options
+        upload_options = {
+            "folder": folder,
+            "resource_type": "image",
+            "transformation": [default_transformation]
+        }
+        if public_id:
+            upload_options["public_id"] = public_id
+        
+        # Upload to Cloudinary - BytesIO should work, but if it doesn't, 
+        # the error will be logged with full details
         upload_result = cloudinary.uploader.upload(
-            file.file,
-            folder=folder,
-            public_id=public_id,
-            transformation=[default_transformation],
-            resource_type="image"
+            file_stream,
+            **upload_options
         )
         
         return {
@@ -109,10 +119,13 @@ async def upload_image(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error uploading image to Cloudinary: {e}")
+        error_msg = str(e)
+        error_type = type(e).__name__
+        logger.error(f"Error uploading image to Cloudinary: {error_type}: {error_msg}")
+        logger.exception("Full traceback:")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload image: {str(e)}"
+            detail=f"Failed to upload image: {error_msg}"
         )
 
 

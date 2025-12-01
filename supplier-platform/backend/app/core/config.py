@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: Optional[str] = None
     CLOUDINARY_API_SECRET: Optional[str] = None
     
+    # Optional: exchange rate API (used by finance features if configured)
+    EXCHANGE_RATE_API_KEY: Optional[str] = None
+    
+    # Frontend URL for invitation links
+    FRONTEND_URL: str = "http://localhost:5173"
+    SUPPLIER_FRONTEND_URL: str = "http://localhost:5173"
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

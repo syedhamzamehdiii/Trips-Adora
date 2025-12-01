@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
@@ -7,7 +7,8 @@ import {
   addPaymentMethod,
   getWallet,
   removeBankAccount,
-  removePaymentMethod
+  removePaymentMethod,
+  getCachedWalletSync
 } from '../services/walletService'
 
 const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
@@ -76,8 +77,13 @@ const formatAmountLabel = (transaction) => {
 
 const ProfileWallet = () => {
   const navigate = useNavigate()
-  const [wallet, setWallet] = useState(null)
-  const [loading, setLoading] = useState(true)
+  // Compute userId synchronously for initial state
+  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
+  
+  // Initialize wallet from cache immediately (synchronous, even if expired)
+  const [wallet, setWallet] = useState(() => {
+    return getCachedWalletSync(userId) || null
+  })
   const [error, setError] = useState(null)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [method, setMethod] = useState('bank')
@@ -95,65 +101,20 @@ const ProfileWallet = () => {
   const [paypalEmail, setPaypalEmail] = useState('')
   const [payoneerEmail, setPayoneerEmail] = useState('')
 
-  // Compute userId synchronously for initial state
-  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
-
-  const hasLoadedOnceRef = useRef(false)
-
-  // Load cached wallet immediately on mount (synchronous)
-  const [initialWallet] = useState(() => {
-    try {
-      const cached = localStorage.getItem(`customer_wallet_cache_${userId}`);
-      const timestamp = localStorage.getItem(`customer_wallet_cache_ts_${userId}`);
-      if (cached && timestamp) {
-        const age = Date.now() - parseInt(timestamp, 10);
-        if (age < 5 * 60 * 1000) { // 5 minutes
-          return JSON.parse(cached);
-        }
-      }
-    } catch (_) {
-      // Ignore cache errors
-    }
-    return null;
-  })
-
-  // Set initial wallet from cache if available
-  useEffect(() => {
-    if (initialWallet) {
-      setWallet(initialWallet)
-      setLoading(false)
-      hasLoadedOnceRef.current = true
-    }
-  }, [initialWallet])
-
   const fetchWallet = useCallback(async () => {
-    // Only show loading if we don't have cached data
-    if (!initialWallet) {
-      setLoading(true)
-    }
     setError(null)
     try {
-      const data = await getWallet(userId, true) // Use cache
+      const data = await getWallet(userId, true) // Always returns cached immediately, refreshes in background
       setWallet(data)
-      hasLoadedOnceRef.current = true
     } catch (err) {
-      // Only show error if we don't have cached data
-      if (!initialWallet) {
-        setError(err?.message || 'Unable to load wallet information.')
-      }
-    } finally {
-      setLoading(false)
+      // Show error (getWallet always returns cached if available, so this is rare)
+      setError(err?.message || 'Unable to load wallet information.')
     }
-  }, [userId, initialWallet])
+  }, [userId])
 
   useEffect(() => {
-    // If we have cached data, fetch fresh in background
-    if (initialWallet) {
-      fetchWallet() // This will fetch in background
-    } else {
-      // No cache, fetch immediately
-      fetchWallet()
-    }
+    // Always fetch fresh data in background (getWallet returns cached immediately)
+    fetchWallet()
   }, []) // Only run once on mount
 
   useEffect(() => {
@@ -300,7 +261,7 @@ const handleRemoveDigital = async (method) => {
         <h2 className="text-lg font-semibold text-gray-900 mb-2">My Wallet</h2>
         <p className="text-sm text-gray-600 mb-4">Manage your balance, payment history, and banking information</p>
 
-        {error ? (
+        {error && !wallet ? (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-red-700 mb-6">
             <p className="font-semibold mb-3">We couldn&apos;t load your wallet data.</p>
             <p className="text-sm mb-4">{error}</p>
@@ -312,9 +273,17 @@ const handleRemoveDigital = async (method) => {
               Try again
             </button>
           </div>
-        ) : loading ? (
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-10 text-center text-gray-500">
-            Loading wallet information...
+        ) : !wallet ? (
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-10">
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="h-24 bg-gray-100 rounded-xl"></div>
+                <div className="h-24 bg-gray-100 rounded-xl"></div>
+                <div className="h-24 bg-gray-100 rounded-xl"></div>
+              </div>
+            </div>
           </div>
         ) : (
           <>

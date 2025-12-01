@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 
-const RoleManagementModal = ({ isOpen, onClose }) => {
+const RoleManagementModal = ({ isOpen, onClose, onRoleSelected }) => {
   const [roleAccess, setRoleAccess] = useState({
-    productsManagement: true,
-    customersFeedbacks: true,
-    finance: true,
+    productsManagement: false,
+    customersFeedbacks: false,
+    finance: false,
   });
 
   const handleToggle = (key) => {
@@ -12,8 +12,10 @@ const RoleManagementModal = ({ isOpen, onClose }) => {
   };
 
   const handleUpdate = () => {
-    // Handle update logic here
-    console.log('Updating role access:', roleAccess);
+    // Return selected roles to parent
+    if (onRoleSelected) {
+      onRoleSelected(roleAccess);
+    }
     onClose();
   };
 
@@ -29,7 +31,7 @@ const RoleManagementModal = ({ isOpen, onClose }) => {
         className="bg-white rounded-lg shadow-xl w-full max-w-md p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-bold text-gray-900 mb-2">Role and management:</h2>
+        <h2 className="text-lg font-bold text-gray-900 mb-2">Role and login access</h2>
         <p className="text-sm text-gray-500 mb-6">Enable this option to give access to holders.</p>
 
         <div className="space-y-6">

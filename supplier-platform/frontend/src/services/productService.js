@@ -98,6 +98,21 @@ const productService = {
   },
 
   /**
+   * Update product availability (inactive dates and vehicle-level inactive dates)
+   * @param {string} productId
+   * @param {Object} availabilityData
+   */
+  updateAvailability: async (productId, availabilityData) => {
+    try {
+      const response = await api.put(`/products/${productId}/availability`, availabilityData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating product availability:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Delete a product
    * @param {string} productId - Product ID
    * @returns {Promise} API response

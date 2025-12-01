@@ -13,6 +13,7 @@ import Register from './pages/Auth/Register'
 import ForgotPassword from './pages/Auth/ForgotPassword'
 import ResetPassword from './pages/Auth/ResetPassword'
 import GoogleCallback from './pages/Auth/GoogleCallback'
+import InvitationAcceptance from './pages/Auth/InvitationAcceptance'
 import Dashboard from './pages/Dashboard/Dashboard'
 import CreateProductComponent from './components/products/CreateProductComponent'
 import Products from './pages/Products/Products'
@@ -72,6 +73,10 @@ function AppRoutes() {
         <Route 
           path="/auth/google/callback" 
           element={<GoogleCallback />} 
+        />
+        <Route 
+          path="/auth/invitation/:token" 
+          element={<InvitationAcceptance />} 
         />
         
         {/* Protected Routes */}

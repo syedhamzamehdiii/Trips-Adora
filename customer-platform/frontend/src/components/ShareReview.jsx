@@ -1,20 +1,38 @@
 import React, { useMemo, useState } from 'react'
 import { FiX } from 'react-icons/fi'
+import { createReview } from '../services/reviewService'
 
-const months = [
-  'January 2025','February 2025','March 2025','April 2025','May 2025','June 2025',
-  'July 2025','August 2025','September 2025','October 2025','November 2025','December 2025'
+// Month/year helpers for a compact selector
+const monthNames = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December'
 ]
 
+const buildYearOptions = () => {
+  const now = new Date()
+  const startYear = now.getFullYear() - 3
+  const endYear = now.getFullYear() + 2
+  const options = []
+  for (let year = startYear; year <= endYear; year++) {
+    options.push(year)
+  }
+  return { options, currentYear: now.getFullYear(), currentMonthIndex: now.getMonth() }
+}
+
+const { options: yearOptions, currentYear, currentMonthIndex } = buildYearOptions()
+
 const companionOptions = ['Business','Couples','Family','Friends','Solo']
+const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
 const ShareReview = ({ booking, onClose }) => {
-  const [search, setSearch] = useState('')
   const [rating, setRating] = useState(0) // 1-5 pandas
-  const [visitMonth, setVisitMonth] = useState('November 2025')
+  const [visitMonthIndex, setVisitMonthIndex] = useState(currentMonthIndex)
+  const [visitYear, setVisitYear] = useState(currentYear)
   const [companions, setCompanions] = useState(new Set())
   const [title, setTitle] = useState('')
   const [review, setReview] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
 
   const selectedCompanions = useMemo(() => Array.from(companions), [companions])
 
@@ -28,7 +46,55 @@ const ShareReview = ({ booking, onClose }) => {
   }
 
   const handleSubmit = () => {
-    console.log('Review submitted:', { search, rating, visitMonth, selectedCompanions, title, review, booking })
+    if (submitting) return
+    setError(null)
+
+    if (!review.trim() || rating <= 0) {
+      setError('Please rate your experience and write a short review before submitting.')
+      return
+    }
+
+    setSubmitting(true)
+
+    const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
+
+    // Derive visited_at from selected month/year (use first day of month)
+    let visited_at = new Date()
+    try {
+      visited_at = new Date(visitYear, visitMonthIndex, 1)
+    } catch (_) {}
+
+    const payload = {
+      product_id: booking?.productId || booking?.product_id || null,
+      product_title: booking?.tourName || booking?.title || undefined,
+      booking_id: booking?.bookingId || booking?.id || undefined,
+      rating,
+      title: title || undefined,
+      content: review.trim(),
+      visited_at: visited_at.toISOString(),
+      author: {
+        name: localStorage.getItem('customer_profile_name') || undefined,
+        email: localStorage.getItem('customer_profile_email') || undefined,
+        avatar_url: localStorage.getItem('customer_profile_avatar') || undefined
+      },
+      metadata: {
+        companions: selectedCompanions
+      }
+    }
+
+    // Fire-and-forget API call so UI closes immediately
+    ;(async () => {
+      try {
+        await createReview(userId, payload)
+        window.dispatchEvent(new CustomEvent('customer_reviews_updated'))
+      } catch (e) {
+        console.error('Failed to submit review:', e)
+      } finally {
+        setSubmitting(false)
+      }
+    })()
+
+    // Close modal right away – no waiting
     if (onClose) onClose()
   }
 
@@ -47,16 +113,13 @@ const ShareReview = ({ booking, onClose }) => {
         )}
       </div>
 
-      {/* Search input */}
-      <div className="mb-8">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search which tour did you do?"
-          className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2"
-          style={{ '--tw-ring-color': '#1d236b' }}
-        />
-      </div>
+      {/* We already know which tour from the booking, so no search bar */}
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Panda rating */}
       <div className="mb-8">
@@ -70,21 +133,38 @@ const ShareReview = ({ booking, onClose }) => {
         </div>
       </div>
 
-      {/* Visit month */}
+      {/* Visit month/year */}
       <div className="mb-8">
         <label className="block text-sm font-semibold text-gray-900 mb-3">When did you visit?</label>
-        <div className="relative inline-block">
+        <div className="flex items-center gap-3">
+          {/* Month */}
+          <div className="relative inline-block">
+            <select
+              value={visitMonthIndex}
+              onChange={(e) => setVisitMonthIndex(Number(e.target.value))}
+              className="appearance-none w-36 px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': '#1d236b' }}
+            >
+              {monthNames.map((m, idx) => (
+                <option key={m} value={idx}>{m}</option>
+              ))}
+            </select>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">▾</span>
+          </div>
+          {/* Year */}
+          <div className="relative inline-block">
           <select
-            value={visitMonth}
-            onChange={(e) => setVisitMonth(e.target.value)}
-            className="appearance-none w-56 px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2"
+              value={visitYear}
+              onChange={(e) => setVisitYear(Number(e.target.value))}
+              className="appearance-none w-28 px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2"
             style={{ '--tw-ring-color': '#1d236b' }}
           >
-            {months.map(m => (
-              <option key={m} value={m}>{m}</option>
+              {yearOptions.map(y => (
+                <option key={y} value={y}>{y}</option>
             ))}
           </select>
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">▾</span>
+          </div>
         </div>
       </div>
 
@@ -135,7 +215,8 @@ const ShareReview = ({ booking, onClose }) => {
       <div className="flex justify-end">
         <button
           onClick={handleSubmit}
-          className="px-6 py-3 rounded-lg text-white font-semibold"
+          disabled={submitting}
+          className={`px-6 py-3 rounded-lg text-white font-semibold ${submitting ? 'opacity-60 cursor-not-allowed' : ''}`}
           style={{ backgroundColor: '#1d236b' }}
         >
           Submit Review
