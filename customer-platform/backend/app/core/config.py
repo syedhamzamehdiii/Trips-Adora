@@ -48,6 +48,10 @@ class Settings(BaseSettings):
         "https://yourdomain.com",
         "https://yourdomain.com/auth/google/callback"
     ]
+
+    # Currency conversion (ExchangeRate-API)
+    EXCHANGE_RATE_API_KEY: Optional[str] = None
+    EXCHANGE_RATE_API_BASE_URL: str = "https://v6.exchangerate-api.com/v6"
     
     class Config:
         env_file = ".env"

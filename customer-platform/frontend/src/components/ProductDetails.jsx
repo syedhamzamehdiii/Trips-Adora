@@ -284,19 +284,57 @@ const ProductDetails = () => {
           
           // IMPORTANT: Match by vehicle title/model (case-insensitive) - works even without IDs
           // This is the primary matching method when vehicles don't have IDs
-          if (vehicleTitle) {
+          // Check both title and model separately to handle cases where one matches but the other doesn't
+          if (vehicleTitle || vehicleModel) {
             // Check config.vehicle object first
             if (config.vehicle) {
-              const configTitle = config.vehicle.title || config.vehicle.model
-              if (configTitle && vehicleTitle) {
-                const configTitleNormalized = String(configTitle).toLowerCase().trim()
-                const vehicleTitleNormalized = String(vehicleTitle).toLowerCase().trim()
-                if (configTitleNormalized === vehicleTitleNormalized) {
-                  matchedBy = 'title/model'
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log('✅ Matched by title/model in config.vehicle:', configTitle, '===', vehicleTitle)
+              // Check if config.vehicle.title matches selected vehicle title or model
+              if (config.vehicle.title) {
+                const configTitleNormalized = String(config.vehicle.title).toLowerCase().trim()
+                if (vehicleTitle) {
+                  const vehicleTitleNormalized = String(vehicleTitle).toLowerCase().trim()
+                  if (configTitleNormalized === vehicleTitleNormalized) {
+                    matchedBy = 'title'
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log('✅ Matched by title in config.vehicle:', config.vehicle.title, '===', vehicleTitle)
+                    }
+                    return true
                   }
-                  return true
+                }
+                if (vehicleModel) {
+                  const vehicleModelNormalized = String(vehicleModel).toLowerCase().trim()
+                  if (configTitleNormalized === vehicleModelNormalized) {
+                    matchedBy = 'title (matches model)'
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log('✅ Matched by title (matches model) in config.vehicle:', config.vehicle.title, '===', vehicleModel)
+                    }
+                    return true
+                  }
+                }
+              }
+              
+              // Check if config.vehicle.model matches selected vehicle title or model
+              if (config.vehicle.model) {
+                const configModelNormalized = String(config.vehicle.model).toLowerCase().trim()
+                if (vehicleTitle) {
+                  const vehicleTitleNormalized = String(vehicleTitle).toLowerCase().trim()
+                  if (configModelNormalized === vehicleTitleNormalized) {
+                    matchedBy = 'model (matches title)'
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log('✅ Matched by model (matches title) in config.vehicle:', config.vehicle.model, '===', vehicleTitle)
+                    }
+                    return true
+                  }
+                }
+                if (vehicleModel) {
+                  const vehicleModelNormalized = String(vehicleModel).toLowerCase().trim()
+                  if (configModelNormalized === vehicleModelNormalized) {
+                    matchedBy = 'model'
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log('✅ Matched by model in config.vehicle:', config.vehicle.model, '===', vehicleModel)
+                    }
+                    return true
+                  }
                 }
               }
             }
@@ -390,11 +428,27 @@ const ProductDetails = () => {
             if (config.vehicle?._id && vehicleId && String(config.vehicle._id) === String(vehicleId)) {
               return true
             }
-            // Verify by title/model
-            if (vehicleTitle && config.vehicle) {
-              const configTitle = config.vehicle.title || config.vehicle.model
-              if (configTitle && String(configTitle).toLowerCase().trim() === String(vehicleTitle).toLowerCase().trim()) {
-                return true
+            // Verify by title/model - check both title and model separately
+            if (config.vehicle) {
+              // Check if config.vehicle.title matches selected vehicle title or model
+              if (config.vehicle.title) {
+                const configTitleNormalized = String(config.vehicle.title).toLowerCase().trim()
+                if (vehicleTitle && String(vehicleTitle).toLowerCase().trim() === configTitleNormalized) {
+                  return true
+                }
+                if (vehicleModel && String(vehicleModel).toLowerCase().trim() === configTitleNormalized) {
+                  return true
+                }
+              }
+              // Check if config.vehicle.model matches selected vehicle title or model
+              if (config.vehicle.model) {
+                const configModelNormalized = String(config.vehicle.model).toLowerCase().trim()
+                if (vehicleTitle && String(vehicleTitle).toLowerCase().trim() === configModelNormalized) {
+                  return true
+                }
+                if (vehicleModel && String(vehicleModel).toLowerCase().trim() === configModelNormalized) {
+                  return true
+                }
               }
             }
             // Verify by vehicle_id as title
@@ -1589,13 +1643,8 @@ const ProductDetails = () => {
                     <div className="grid grid-cols-1 gap-3 sm:gap-4">
                       {product.vehicles.map((v, idx) => {
                         const isSelected = selectedVehicleIndex === idx
-                        const currency = v.currency || 'USD'
-                        const currencySymbol =
-                          currency === 'USD' ? '$' :
-                          currency === 'EUR' ? '€' :
-                          currency === 'JPY' ? '¥' :
-                          currency === 'GBP' ? '£' :
-                          currency + ' '
+                        // Always display prices in USD for customers
+                        const currencySymbol = '$'
                         const amount = typeof v.amount === 'number'
                           ? v.amount % 1 === 0 ? v.amount.toString() : v.amount.toFixed(2).replace(/\.?0+$/, '')
                           : (v.amount || '—')
@@ -1936,7 +1985,9 @@ const ProductDetails = () => {
                       selectedMeetingPoint: selectedMeetingPoint,
                       selectedVehicleMeetingPoints: selectedVehicleMeetingPoints,
                       // Pass full product for reference
-                      product: product
+                      product: product,
+                      // Remember where we came from so back button works correctly
+                      from: 'product-details'
                     } 
                   })}
                   className="bg-[#34A853] text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full font-medium text-sm sm:text-base whitespace-nowrap shadow-md hover:bg-[#2d8f47] transition"

@@ -464,9 +464,54 @@ export const transformProductForFrontend = (product) => {
   }
   
   // Don't use fallback image - let component handle missing images gracefully
-  
-  const price = product.price ? `$${product.price}${product.price_unit === 'Per Person' ? '/person' : ''}` : (product.revenue ? `$${product.revenue}` : '$0');
-  const oldPrice = product.price ? `$${Math.round(product.price * 1.2)}` : (product.revenue ? `$${Math.round(product.revenue * 1.2)}` : '$250');
+
+  // --- Pricing: always show minimum USD price across base product and vehicles ---
+  const unit = product.price_unit || product.priceUnit || 'Per Group';
+
+  // Base product price coming from backend (already normalized to USD)
+  const basePriceValueRaw = product.price != null ? Number(product.price) : Number(product.revenue || 0);
+  const basePriceValue = Number.isFinite(basePriceValueRaw) && basePriceValueRaw > 0 ? basePriceValueRaw : 0;
+
+  // Ensure vehicles array is available before computing min price (may be overwritten below)
+  let vehicles = product.vehicles || [];
+
+  // Collect numeric vehicle amounts (already in USD from backend currency service)
+  const vehicleAmounts = Array.isArray(vehicles)
+    ? vehicles
+        .map(v => {
+          if (v && v.amount != null) {
+            const n = Number(v.amount);
+            return Number.isFinite(n) && n > 0 ? n : null;
+          }
+          return null;
+        })
+        .filter(v => v != null)
+    : [];
+
+  let effectivePriceValue = basePriceValue;
+  if (vehicleAmounts.length > 0) {
+    const minVehicleAmount = Math.min(...vehicleAmounts);
+    if (!effectivePriceValue || minVehicleAmount < effectivePriceValue) {
+      effectivePriceValue = minVehicleAmount;
+    }
+  }
+
+  if (!effectivePriceValue) {
+    effectivePriceValue = 0;
+  }
+
+  const formattedPriceNumber =
+    effectivePriceValue % 1 === 0
+      ? effectivePriceValue.toString()
+      : effectivePriceValue.toFixed(2);
+
+  const price =
+    `$${formattedPriceNumber}` +
+    (unit === 'Per Person' || unit === 'Per person' ? '/person' : '');
+
+  const oldPriceBase = effectivePriceValue || basePriceValue || Number(product.revenue || 0) || 0;
+  const oldPriceValue = oldPriceBase > 0 ? Math.round(oldPriceBase * 1.2) : 0;
+  const oldPrice = oldPriceValue > 0 ? `$${oldPriceValue}` : '$0';
   const reviewsCount = product.reviews_count || 0;
   const reviewsText = reviewsCount >= 1000 ? `${(reviewsCount / 1000).toFixed(1)}k reviews` : reviewsCount >= 100 ? `${reviewsCount} reviews` : '384 reviews';
 
@@ -483,7 +528,7 @@ export const transformProductForFrontend = (product) => {
     : '';
 
   // Transform vehicle_details to vehicles array
-  let vehicles = product.vehicles || [];
+  vehicles = product.vehicles || vehicles || [];
   const vehiclesFromCustomFields = Array.isArray(customFields?.vehicles_full) ? customFields.vehicles_full : null;
   if (product.vehicle_details && !vehicles.length) {
     // Convert vehicle_details object to vehicles array format

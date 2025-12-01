@@ -20,6 +20,7 @@ from app.schemas.product import (
     CancellationTier,
 )
 from app.services.product_service import ProductService
+from app.services.currency_service import convert_to_usd
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -49,9 +50,13 @@ async def get_published_products(
         
         total_pages = math.ceil(total / page_size) if total > 0 else 0
         
-        # Format products for response
+        # Format products for response (normalize price to USD)
         formatted_products = []
         for product in products:
+            original_price = product.get("price", 0.0)
+            original_currency = product.get("currency", "USD")
+            price_usd = await convert_to_usd(original_price, original_currency)
+
             formatted_products.append(ProductResponse(
                 id=product.get("id", ""),
                 title=product.get("title", ""),
@@ -60,8 +65,8 @@ async def get_published_products(
                 category=product.get("category", "tour"),
                 images=product.get("images", []),
                 hero_image=product.get("hero_image"),
-                price=product.get("price", 0.0),
-                currency=product.get("currency", "USD"),
+                price=price_usd,
+                currency="USD",
                 price_unit=product.get("price_unit", "Per Group"),
                 destination=product.get("destination"),
                 duration=product.get("duration"),
@@ -102,6 +107,10 @@ async def get_top_picks(
         
         formatted_products = []
         for product in products:
+            original_price = product.get("price", 0.0)
+            original_currency = product.get("currency", "USD")
+            price_usd = await convert_to_usd(original_price, original_currency)
+
             formatted_products.append(ProductResponse(
                 id=product.get("id", ""),
                 title=product.get("title", ""),
@@ -110,8 +119,8 @@ async def get_top_picks(
                 category=product.get("category", "tour"),
                 images=product.get("images", []),
                 hero_image=product.get("hero_image"),
-                price=product.get("price", 0.0),
-                currency=product.get("currency", "USD"),
+                price=price_usd,
+                currency="USD",
                 price_unit=product.get("price_unit", "Per Group"),
                 destination=product.get("destination"),
                 duration=product.get("duration"),
@@ -210,6 +219,7 @@ async def get_product(product_id: str):
         
         # Fetch vehicles from supplier_vehicle_options collection
         vehicles = []
+        vehicle_docs = []  # Store vehicle docs for later use in populating pickup_configurations
         try:
             from app.core.database import get_database
             from bson import ObjectId
@@ -224,14 +234,18 @@ async def get_product(product_id: str):
             
             # Map vehicles to frontend format
             for v in vehicle_docs:
+                original_amount = v.get("amount")
+                original_currency = v.get("currency")
+                amount_usd = await convert_to_usd(original_amount, original_currency)
+
                 vehicles.append(Vehicle(
                     title=v.get("title"),  # Primary display name
                     type=v.get("vehicle_type"),
                     model=v.get("variant"),
                     year=v.get("year"),
                     capacity=v.get("capacity"),
-                    currency=v.get("currency"),
-                    amount=v.get("amount"),
+                    currency="USD",
+                    amount=amount_usd,
                     pricing_type=v.get("pricing_type"),
                     duration=v.get("duration")  # Vehicle duration (e.g., "7h", "Full Day", "8 hours")
                 ))
@@ -240,6 +254,7 @@ async def get_product(product_id: str):
         except Exception as e:
             logger.warning(f"Could not fetch vehicles: {e}")
             vehicles = []
+            vehicle_docs = []
         
         # Format accessibility
         accessibility = None
@@ -397,7 +412,51 @@ async def get_product(product_id: str):
             raw_configs = pd.get("pickup_configurations")
             if raw_configs:
                 if isinstance(raw_configs, list) and len(raw_configs) > 0:
-                    pickup_configurations = raw_configs  # Pydantic will validate/convert dicts to PickupConfiguration objects
+                    # Populate vehicle objects in each configuration if missing
+                    populated_configs = []
+                    for config in raw_configs:
+                        config_dict = config if isinstance(config, dict) else config.model_dump() if hasattr(config, 'model_dump') else {}
+                        
+                        # If vehicle object is missing but vehicle_id exists, populate it
+                        if not config_dict.get("vehicle") and config_dict.get("vehicle_id"):
+                            try:
+                                from app.core.database import get_database
+                                from bson import ObjectId
+                                db = get_database()
+                                vehicle_collection = db.supplier_vehicle_options
+                                
+                                vehicle_id = config_dict.get("vehicle_id")
+                                vehicle_doc = await vehicle_collection.find_one({
+                                    "_id": ObjectId(vehicle_id) if ObjectId.is_valid(vehicle_id) else vehicle_id,
+                                    "is_active": True
+                                })
+                                
+                                if vehicle_doc:
+                                    config_dict["vehicle"] = {
+                                        "id": str(vehicle_doc.get("_id")),
+                                        "productId": str(vehicle_doc.get("product_id", "")),
+                                        "title": vehicle_doc.get("title"),
+                                        "type": vehicle_doc.get("vehicle_type"),
+                                        "model": vehicle_doc.get("variant"),
+                                        "year": vehicle_doc.get("year"),
+                                        "attributes": vehicle_doc.get("attributes"),
+                                        "capacity": vehicle_doc.get("capacity"),
+                                        "currency": vehicle_doc.get("currency"),
+                                        "pricingType": vehicle_doc.get("pricing_type"),
+                                        "amount": vehicle_doc.get("amount"),
+                                        "duration": vehicle_doc.get("duration"),
+                                        "description": vehicle_doc.get("description"),
+                                        "isActive": vehicle_doc.get("is_active", True),
+                                        "createdAt": vehicle_doc.get("created_at").isoformat() if vehicle_doc.get("created_at") else None,
+                                        "updatedAt": vehicle_doc.get("updated_at").isoformat() if vehicle_doc.get("updated_at") else None
+                                    }
+                                    logger.info(f"✅ [DEBUG] Populated vehicle for config with vehicle_id: {vehicle_id}")
+                            except Exception as e:
+                                logger.warning(f"⚠️ [DEBUG] Could not populate vehicle for config: {e}")
+                        
+                        populated_configs.append(config_dict)
+                    
+                    pickup_configurations = populated_configs
                     logger.info(f"🔍 [DEBUG] Found {len(pickup_configurations)} pickup_configurations in pickup_dropoff")
                 else:
                     pickup_configurations = []
@@ -405,6 +464,77 @@ async def get_product(product_id: str):
             else:
                 pickup_configurations = []
                 logger.warning(f"⚠️ [DEBUG] pickup_configurations MISSING in pickup_dropoff dict! Keys: {list(pd.keys())}")
+            
+            # CRITICAL: If pickup_configurations is empty but we have vehicles, 
+            # try to reconstruct from vehicle_time_allocations in custom_fields
+            if not pickup_configurations and vehicles and len(vehicles) > 0:
+                try:
+                    vehicle_time_allocations = custom_fields.get("vehicle_time_allocations")
+                    if vehicle_time_allocations and isinstance(vehicle_time_allocations, list):
+                        logger.info(f"🔍 [DEBUG] Attempting to reconstruct pickup_configurations from vehicle_time_allocations")
+                        for allocation in vehicle_time_allocations:
+                            if not isinstance(allocation, dict):
+                                continue
+                            
+                            # Find matching vehicle
+                            vehicle_id = allocation.get("vehicle_id") or allocation.get("vehicleId")
+                            vehicle_obj = None
+                            
+                            if vehicle_id:
+                                # Try to find vehicle by ID
+                                for v in vehicle_docs:
+                                    if str(v.get("_id")) == str(vehicle_id):
+                                        vehicle_obj = {
+                                            "id": str(v.get("_id")),
+                                            "productId": str(v.get("product_id", "")),
+                                            "title": v.get("title"),
+                                            "type": v.get("vehicle_type"),
+                                            "model": v.get("variant"),
+                                            "year": v.get("year"),
+                                            "attributes": v.get("attributes"),
+                                            "capacity": v.get("capacity"),
+                                            "currency": v.get("currency"),
+                                            "pricingType": v.get("pricing_type"),
+                                            "amount": v.get("amount"),
+                                            "duration": v.get("duration"),
+                                            "description": v.get("description"),
+                                            "isActive": v.get("is_active", True),
+                                            "createdAt": v.get("created_at").isoformat() if v.get("created_at") else None,
+                                            "updatedAt": v.get("updated_at").isoformat() if v.get("updated_at") else None
+                                        }
+                                        break
+                            
+                            # Extract pickup locations
+                            pickup_locs = allocation.get("pickupLocations") or allocation.get("pickup_locations") or []
+                            if isinstance(pickup_locs, str):
+                                pickup_locs = [loc.strip() for loc in pickup_locs.split(",") if loc.strip()]
+                            elif not isinstance(pickup_locs, list):
+                                pickup_locs = []
+                            
+                            # Extract dropoff locations
+                            dropoff_locs = allocation.get("dropoffLocations") or allocation.get("dropoff_locations") or []
+                            if isinstance(dropoff_locs, str):
+                                dropoff_locs = [loc.strip() for loc in dropoff_locs.split(",") if loc.strip()]
+                            elif not isinstance(dropoff_locs, list):
+                                dropoff_locs = pickup_locs  # Default to pickup locations
+                            
+                            # Create config for each pickup location
+                            for pickup_loc in pickup_locs:
+                                if pickup_loc:
+                                    pickup_configurations.append({
+                                        "pickup_location": pickup_loc,
+                                        "dropoff_location": dropoff_locs[0] if dropoff_locs else None,
+                                        "vehicle_id": vehicle_id,
+                                        "vehicle": vehicle_obj,
+                                        "pickup_time": allocation.get("pickupTime") or allocation.get("pickup_time") or pickup_time or "00:00",
+                                        "pickup_date": allocation.get("pickupDate") or allocation.get("pickup_date"),
+                                        "pickup_datetime": allocation.get("pickupDateTime") or allocation.get("pickup_datetime")
+                                    })
+                        
+                        if pickup_configurations:
+                            logger.info(f"✅ [DEBUG] Reconstructed {len(pickup_configurations)} pickup_configurations from vehicle_time_allocations")
+                except Exception as e:
+                    logger.warning(f"⚠️ [DEBUG] Could not reconstruct pickup_configurations from vehicle_time_allocations: {e}")
             
             # Preserve time_slot_configuration if present
             raw_time_slot_config = pd.get("time_slot_configuration")
@@ -507,6 +637,11 @@ async def get_product(product_id: str):
             except Exception as e:
                 logger.warning(f"Could not fetch supplier information: {e}")
         
+        # Normalize product base price to USD
+        original_price = product.get("price", 0.0)
+        original_currency = product.get("currency", "USD")
+        price_usd = await convert_to_usd(original_price, original_currency)
+
         # Create response
         response = ProductResponse(
             id=product.get("id", ""),
@@ -517,8 +652,8 @@ async def get_product(product_id: str):
             images=product.get("images", []),
             hero_image=product.get("hero_image"),
             gallery_images=gallery_images,
-            price=product.get("price", 0.0),
-            currency=product.get("currency", "USD"),
+            price=price_usd,
+            currency="USD",
             price_unit=product.get("price_unit", "Per Group"),
             destination=product.get("destination"),
             duration=product.get("duration"),

@@ -1,11 +1,41 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { SettingsProvider } from './context/SettingsContext'
-import { LoadScript } from '@react-google-maps/api'
+import { useLoadScript } from '@react-google-maps/api'
 import ScrollToTop from './components/common/ScrollToTop'
 
 // Google Maps libraries configuration (defined once to prevent re-loading)
 const GOOGLE_MAPS_LIBRARIES = ['places', 'geometry']
+const GOOGLE_MAPS_API_KEY = "AIzaSyCVM4pEynAGwWoPR4Nqg76jSXze_9_GE-c"
+
+// Suppress duplicate custom element warnings from Google Maps Platform
+if (typeof window !== 'undefined') {
+  // Filter out Google Maps Platform duplicate element warnings
+  const originalError = console.error;
+  console.error = function(...args) {
+    const message = args[0]?.toString() || '';
+    // Suppress the "Element with name" warnings from Google Maps
+    if (message.includes('Element with name') && message.includes('already defined')) {
+      return; // Suppress these warnings
+    }
+    originalError.apply(console, args);
+  };
+
+  // Also wrap customElements.define to prevent duplicate registrations
+  const originalDefine = window.customElements.define;
+  window.customElements.define = function(name, constructor, options) {
+    if (!customElements.get(name)) {
+      try {
+        originalDefine.call(customElements, name, constructor, options);
+      } catch (error) {
+        // Ignore duplicate definition errors
+        if (!error.message?.includes('already been defined')) {
+          throw error;
+        }
+      }
+    }
+  };
+}
 
 // Import pages
 import Login from './pages/Auth/Login'
@@ -206,19 +236,39 @@ function AppRoutes() {
 }
 
 function App() {
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: GOOGLE_MAPS_LIBRARIES,
+  })
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600">Error loading Google Maps</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading Maps...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <LoadScript
-      googleMapsApiKey="AIzaSyCVM4pEynAGwWoPR4Nqg76jSXze_9_GE-c"
-      libraries={GOOGLE_MAPS_LIBRARIES}
-      loadingElement={<div>Loading Maps...</div>}
-    >
-      <AuthProvider>
-        <SettingsProvider>
-          <GlobalCacheSync />
-          <AppRoutes />
-        </SettingsProvider>
-      </AuthProvider>
-    </LoadScript>
+    <AuthProvider>
+      <SettingsProvider>
+        <GlobalCacheSync />
+        <AppRoutes />
+      </SettingsProvider>
+    </AuthProvider>
   )
 }
 

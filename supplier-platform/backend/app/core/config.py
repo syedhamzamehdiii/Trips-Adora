@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     CLOUDINARY_CLOUD_NAME: Optional[str] = None
     CLOUDINARY_API_KEY: Optional[str] = None
     CLOUDINARY_API_SECRET: Optional[str] = None
+
+    # Currency conversion (ExchangeRate-API)
+    EXCHANGE_RATE_API_KEY: Optional[str] = None
+    EXCHANGE_RATE_API_BASE_URL: str = "https://v6.exchangerate-api.com/v6"
     
     # Optional: exchange rate API (used by finance features if configured)
     EXCHANGE_RATE_API_KEY: Optional[str] = None

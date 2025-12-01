@@ -17,6 +17,7 @@ from app.schemas.product import (
     ProductStatusUpdate
 )
 from app.services.product_service import ProductService
+from app.services.currency_service import convert_to_usd
 from app.core.dependencies import get_current_user
 from pydantic import BaseModel
 
@@ -117,7 +118,10 @@ async def get_my_products(
                 if isinstance(p.hero_image, str) and p.hero_image.startswith(('http://', 'https://', '/')):
                     hero_image_url = p.hero_image
                 # For base64, we skip it in summary mode
-            
+
+            # Normalize price to USD for display
+            price_usd = await convert_to_usd(p.price, p.currency)
+        
             summaries.append(ProductSummary(
                 id=str(p.id),
                 supplier_id=p.supplier_id,
@@ -125,8 +129,8 @@ async def get_my_products(
                 category=p.category,
                 tagline=p.tagline,
                 status=p.status,
-                price=p.price,
-                currency=p.currency,
+                price=price_usd,
+                currency="USD",
                 destination=p.destination,
                 duration=p.duration,
                 views=p.views,
@@ -138,7 +142,7 @@ async def get_my_products(
                 published_at=p.published_at,
                 hero_image_url=hero_image_url
             ))
-        
+    
         return ProductSummaryListResponse(
             products=summaries,
             total=total,
@@ -180,8 +184,17 @@ async def get_published_products(
     
     total_pages = math.ceil(total / page_size)
     
+    # Normalize prices to USD for each product
+    normalized_products = []
+    for p in products:
+        price_usd = await convert_to_usd(p.price, p.currency)
+        data = p.model_dump(exclude={"id"})
+        data["price"] = price_usd
+        data["currency"] = "USD"
+        normalized_products.append(ProductResponse(**data, id=str(p.id)))
+
     return ProductListResponse(
-        products=[ProductResponse(**p.model_dump(exclude={"id"}), id=str(p.id)) for p in products],
+        products=normalized_products,
         total=total,
         page=page,
         page_size=page_size,

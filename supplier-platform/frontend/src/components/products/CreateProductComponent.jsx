@@ -1296,10 +1296,20 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
 
   // Auto-generate time slots when start/end time, duration, or weekday changes
   useEffect(() => {
-    if (startTime && endTime && duration && !isLoadingDraft) {
-      console.log('🕐 Auto-generating time slots:', { startTime, endTime, duration, selectedWeekDay, applyToAllDays });
+    if (!isLoadingDraft && startTime && endTime && duration) {
+      console.log('🕐 Auto-generating time slots:', { 
+        startTime, 
+        endTime, 
+        duration, 
+        selectedWeekDay, 
+        applyToAllDays,
+        startTimeType: typeof startTime,
+        endTimeType: typeof endTime,
+        durationType: typeof duration
+      });
       
       const generatedSlots = generateTimeSlots();
+      console.log('📊 Generated slots result:', { count: generatedSlots.length, slots: generatedSlots });
       
       if (generatedSlots.length > 0) {
         if (applyToAllDays) {
@@ -1313,31 +1323,200 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             Saturday: [...generatedSlots],
             Sunday: [...generatedSlots]
           });
-          console.log('✅ Generated', generatedSlots.length, 'time slots for ALL days');
+          console.log('✅ Applied', generatedSlots.length, 'time slots to ALL days');
         } else {
           // Apply only to selected weekday
           if (selectedWeekDay !== 'week days') {
-            setTimeSlots(prev => ({
-              ...prev,
-              [selectedWeekDay]: [...generatedSlots]
-            }));
-            console.log('✅ Generated', generatedSlots.length, 'time slots for', selectedWeekDay);
+            setTimeSlots(prev => {
+              const updated = {
+                ...prev,
+                [selectedWeekDay]: [...generatedSlots]
+              };
+              console.log('✅ Applied', generatedSlots.length, 'time slots to', selectedWeekDay);
+              return updated;
+            });
           } else {
             // If "week days" is selected, apply to Monday-Friday
-            setTimeSlots(prev => ({
-              ...prev,
-              Monday: [...generatedSlots],
-              Tuesday: [...generatedSlots],
-              Wednesday: [...generatedSlots],
-              Thursday: [...generatedSlots],
-              Friday: [...generatedSlots]
-            }));
-            console.log('✅ Generated', generatedSlots.length, 'time slots for weekdays (Mon-Fri)');
+            setTimeSlots(prev => {
+              const updated = {
+                ...prev,
+                Monday: [...generatedSlots],
+                Tuesday: [...generatedSlots],
+                Wednesday: [...generatedSlots],
+                Thursday: [...generatedSlots],
+                Friday: [...generatedSlots]
+              };
+              console.log('✅ Applied', generatedSlots.length, 'time slots to weekdays (Mon-Fri)');
+              return updated;
+            });
           }
         }
+      } else {
+        console.log('⚠️ No time slots generated. Check start/end times and duration.');
       }
+    } else if (!isLoadingDraft && (startTime || endTime || duration)) {
+      console.log('⚠️ Missing time slot parameters:', { startTime, endTime, duration, isLoadingDraft });
     }
   }, [startTime, endTime, duration, selectedWeekDay, applyToAllDays, isLoadingDraft]);
+
+  // Auto-fill fields when vehicle is selected in Step 6
+  const previousVehicleIdRef = React.useRef(null);
+  
+  useEffect(() => {
+    // Reset when step changes or draft finishes loading
+    if (step !== 6 || isLoadingDraft) {
+      previousVehicleIdRef.current = null;
+      return;
+    }
+    
+    if (!selectedVehicleForTour || !selectedVehicleForTour.id) {
+      previousVehicleIdRef.current = null;
+      return;
+    }
+    
+    // Only auto-fill when vehicle changes (not on every render)
+    const currentVehicleId = String(selectedVehicleForTour.id);
+    const previousVehicleId = previousVehicleIdRef.current ? String(previousVehicleIdRef.current) : null;
+    
+    if (currentVehicleId === previousVehicleId) {
+      return; // Same vehicle, skip
+    }
+    
+    console.log('🔄 Vehicle changed:', { previousVehicleId, currentVehicleId, vehicle: selectedVehicleForTour.title });
+    
+    // Vehicle has changed - populate with new vehicle's data
+    previousVehicleIdRef.current = currentVehicleId;
+    
+    // Auto-fill duration from vehicle - always update when vehicle changes
+    if (selectedVehicleForTour.duration) {
+      const durationStr = String(selectedVehicleForTour.duration).toLowerCase();
+      let minutes = null;
+      
+      // Match patterns like "7h", "7 hours", "420min", "420 minutes"
+      const hourMatch = durationStr.match(/(\d+)\s*(?:h|hour|hours)/);
+      const minMatch = durationStr.match(/(\d+)\s*(?:min|minute|minutes)/);
+      
+      if (hourMatch) {
+        minutes = parseInt(hourMatch[1]) * 60;
+      } else if (minMatch) {
+        minutes = parseInt(minMatch[1]);
+      } else {
+        // Try to parse as plain number (assume minutes if reasonable)
+        const numMatch = durationStr.match(/(\d+)/);
+        if (numMatch) {
+          const parsed = parseInt(numMatch[1]);
+          // If number is large, assume minutes; if small (1-12), assume hours
+          minutes = parsed > 12 ? parsed : parsed * 60;
+        }
+      }
+      
+      if (minutes && minutes > 0 && minutes <= 720) {
+        console.log('⏱️ Setting duration from vehicle:', minutes);
+        setDuration(String(minutes));
+      }
+    } else {
+      // If vehicle has no duration, clear the duration field
+      setDuration('');
+    }
+    
+    // Load and pre-fill from existing vehicle-time allocations for this specific vehicle
+    if (vehicleTimeAllocations && vehicleTimeAllocations.length > 0) {
+      // Find allocations that match this vehicle by ID (handle different ID formats)
+      const allocationsForVehicle = vehicleTimeAllocations.filter(
+        allocation => {
+          const allocationVehicleId = allocation.vehicle?.id || allocation.vehicle_id;
+          if (!allocationVehicleId) return false;
+          
+          // Compare as strings for reliable matching
+          const allocIdStr = String(allocationVehicleId);
+          const currentIdStr = String(currentVehicleId);
+          
+          // Also check by vehicle title if IDs don't match (fallback)
+          const vehicleTitle = selectedVehicleForTour.title || selectedVehicleForTour.model;
+          const allocTitle = allocation.vehicle?.title || allocation.vehicle?.model;
+          
+          return allocIdStr === currentIdStr || 
+                 (vehicleTitle && allocTitle && vehicleTitle.toLowerCase() === allocTitle.toLowerCase());
+        }
+      );
+      
+      console.log('📋 Allocations for vehicle:', { 
+        currentVehicleId, 
+        totalAllocations: vehicleTimeAllocations.length,
+        matchingAllocations: allocationsForVehicle.length,
+        allocations: allocationsForVehicle.map(a => ({ 
+          time: a.time || a.pickup_time, 
+          locations: a.pickupLocations?.length || 0 
+        }))
+      });
+      
+      // If there are existing allocations for this vehicle, pre-fill form fields
+      if (allocationsForVehicle.length > 0) {
+        const firstAllocation = allocationsForVehicle[0];
+        
+        // Collect ALL unique pickup locations from ALL allocations for this vehicle
+        const allVehicleLocations = new Set();
+        allocationsForVehicle.forEach(alloc => {
+          if (alloc.pickupLocations && Array.isArray(alloc.pickupLocations)) {
+            alloc.pickupLocations.forEach(loc => {
+              if (loc) allVehicleLocations.add(loc);
+            });
+          }
+        });
+        
+        // Set locations for this vehicle ONLY (replace, don't merge)
+        const vehicleLocationsArray = Array.from(allVehicleLocations);
+        if (vehicleLocationsArray.length > 0) {
+          console.log('📍 Setting pickup locations for vehicle:', vehicleLocationsArray);
+          setSelectedPickupLocations(vehicleLocationsArray);
+        } else {
+          // No locations for this vehicle - clear locations
+          console.log('⚠️ No locations found in allocations for this vehicle');
+          setSelectedPickupLocations([]);
+        }
+        
+        // Pre-fill pickup time from first allocation
+        const timeStr = firstAllocation.time || firstAllocation.pickup_time;
+        if (timeStr && typeof timeStr === 'string') {
+          const timeParts = timeStr.split(':');
+          if (timeParts.length >= 2) {
+            const hours = timeParts[0].padStart(2, '0');
+            const minutes = timeParts[1].padStart(2, '0');
+            if (hours && minutes) {
+              console.log('🕐 Setting pickup time for vehicle:', `${hours}:${minutes}`);
+              setSelectedPickupHour(hours);
+              setSelectedPickupMinute(minutes);
+            }
+          }
+        } else {
+          // Reset time if no time in allocation
+          setSelectedPickupHour('00');
+          setSelectedPickupMinute('00');
+        }
+        
+        // Pre-select date from first allocation
+        if (firstAllocation.date || firstAllocation.pickup_date) {
+          setSelectedDate(firstAllocation.date || firstAllocation.pickup_date);
+        } else {
+          setSelectedDate(null);
+        }
+      } else {
+        // No allocations for this vehicle - reset all fields
+        console.log('⚠️ No allocations found for vehicle, resetting fields');
+        setSelectedPickupLocations([]);
+        setSelectedPickupHour('00');
+        setSelectedPickupMinute('00');
+        setSelectedDate(null);
+      }
+    } else {
+      // No allocations at all - reset all fields
+      console.log('⚠️ No allocations at all, resetting fields');
+      setSelectedPickupLocations([]);
+      setSelectedPickupHour('00');
+      setSelectedPickupMinute('00');
+      setSelectedDate(null);
+    }
+  }, [selectedVehicleForTour?.id, step, isLoadingDraft, vehicleTimeAllocations]);
 
   // Japan regions and their locations database
   const japanRegionsMap = {
@@ -1544,25 +1723,61 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   };
 
   // Generate time slots automatically
-  const generateTimeSlots = () => {
-    if (!startTime || !endTime || !duration) return [];
+  const generateTimeSlots = useCallback(() => {
+    if (!startTime || !endTime || !duration) {
+      console.log('⚠️ Missing time slot parameters:', { startTime, endTime, duration });
+      return [];
+    }
     
     const start = parseTime(startTime);
-    const end = parseTime(endTime);
+    let end = parseTime(endTime);
     const interval = parseInt(duration) || 30;
     
-    if (start >= end || interval <= 0) return [];
+    console.log('🕐 Time slot generation:', {
+      startTime,
+      endTime,
+      duration,
+      startMinutes: start,
+      endMinutes: end,
+      interval
+    });
+    
+    if (interval <= 0) {
+      console.log('⚠️ Invalid interval:', interval);
+      return [];
+    }
+    
+    // Handle case where end time is earlier than start (crossing midnight)
+    // For now, we assume same day, so end must be >= start
+    if (end < start) {
+      // If end < start, assume end is next day (add 24 hours = 1440 minutes)
+      end += 1440;
+      console.log('🔄 Adjusted end time for next day:', end);
+    }
+    
+    // If end is still less than or equal to start after adjustment, return empty
+    if (end <= start) {
+      console.log('⚠️ End time must be after start time');
+      return [];
+    }
     
     const slots = [];
     let current = start;
+    let iteration = 0;
+    const maxIterations = 200; // Safety limit to prevent infinite loops
     
-    while (current <= end) {
-      slots.push(formatTimeSlot(current));
+    // Generate slots until we exceed end time
+    while (current <= end && iteration < maxIterations) {
+      // Format time, handling overflow past midnight
+      const displayMinutes = current % 1440; // Wrap around 24 hours
+      slots.push(formatTimeSlot(displayMinutes));
       current += interval;
+      iteration++;
     }
     
+    console.log('✅ Generated', slots.length, 'time slots:', slots);
     return slots;
-  };
+  }, [startTime, endTime, duration]);
 
   // Apply generated time slots to selected days
   const applyGeneratedSlots = () => {
@@ -2192,10 +2407,12 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       dropoffLocations: dropoffLocationsForAllocation
     });
     
-    // Reset for next allocation
-    setSelectedVehicleForTour(null);
+    // Reset time fields for next allocation (but keep the vehicle selected)
     setSelectedPickupHour('06');
     setSelectedPickupMinute('00');
+    // Clear active locations so user can select different ones for next allocation
+    setActivePickupLocations([]);
+    setActiveDropoffLocations([]);
   };
   
   const removeVehicleTimeAllocation = (id) => {
@@ -3929,11 +4146,62 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                <div className="mb-8"></div>
 
               {/* Display Vehicle-Time Allocations */}
-              {vehicleTimeAllocations.length > 0 && (
-                <div className="mb-8">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Allocated Time Slots</h3>
-                  <div className="space-y-3">
-                    {vehicleTimeAllocations.map((allocation) => (
+              {(() => {
+                // Filter allocations to show only the selected vehicle's allocations
+                const filteredAllocations = selectedVehicleForTour?.id
+                  ? vehicleTimeAllocations.filter(allocation => {
+                      const allocationVehicleId = allocation.vehicle?.id || allocation.vehicle_id;
+                      const currentVehicleId = String(selectedVehicleForTour.id);
+                      const allocIdStr = allocationVehicleId ? String(allocationVehicleId) : null;
+                      
+                      // Match by ID
+                      if (allocIdStr === currentVehicleId) return true;
+                      
+                      // Fallback: match by title if IDs don't match
+                      const vehicleTitle = selectedVehicleForTour.title || selectedVehicleForTour.model;
+                      const allocTitle = allocation.vehicle?.title || allocation.vehicle?.model;
+                      if (vehicleTitle && allocTitle) {
+                        return vehicleTitle.toLowerCase() === allocTitle.toLowerCase();
+                      }
+                      
+                      return false;
+                    })
+                  : vehicleTimeAllocations;
+                
+                if (filteredAllocations.length === 0) {
+                  // Show message if no allocations for selected vehicle
+                  if (selectedVehicleForTour) {
+                    return (
+                      <div className="mb-8">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">
+                          Allocated Time Slots
+                          <span className="text-sm font-normal text-gray-600 ml-2">
+                            ({selectedVehicleForTour.title})
+                          </span>
+                        </h3>
+                        <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                          <p className="text-sm text-gray-500 italic">
+                            No time slots allocated for this vehicle yet. Use "Add new time" above to create allocations.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }
+                
+                return (
+                  <div className="mb-8">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">
+                      Allocated Time Slots
+                      {selectedVehicleForTour && (
+                        <span className="text-sm font-normal text-gray-600 ml-2">
+                          ({selectedVehicleForTour.title})
+                        </span>
+                      )}
+                    </h3>
+                    <div className="space-y-3">
+                      {filteredAllocations.map((allocation) => (
                       <div 
                         key={allocation.id} 
                         className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:shadow-md transition-shadow"
@@ -3985,10 +4253,11 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                           <FiX size={20} />
                         </button>
                       </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
                {/* Checkbox and Week Days */}
                <div className="flex items-center space-x-4 mb-6">
@@ -4172,6 +4441,11 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                                      : 'bg-gray-50 border border-gray-200 hover:border-blue-500 hover:bg-blue-50'
                                  }`}
                                  onClick={() => {
+                                   console.log('🚗 Selecting vehicle from modal:', { 
+                                     title: vehicle.title, 
+                                     id: vehicle.id,
+                                     currentSelected: selectedVehicleForTour?.id 
+                                   });
                                    setSelectedVehicleForTour(vehicle);
                                    setShowSelectVehicleModal(false);
                                  }}
