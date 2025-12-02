@@ -276,53 +276,12 @@ async def get_product(product_id: str):
             detail="Product not found"
         )
     
-    # Use mode='json' and exclude_none=False to ensure nested fields (like pickup_configurations) are properly serialized
-    # This ensures that empty lists and nested objects are included in the response
+    # Use mode='json' and exclude_none=False to ensure nested fields (like pickup_configurations) are properly serialized.
+    # This ensures that empty lists and nested objects are included in the response.
     product_dict = product.model_dump(mode='json', exclude={"id"}, exclude_none=False)
-    
-    # Debug: Log pickup_dropoff structure BEFORE ProductResponse validation
-    if product_dict.get('pickup_dropoff'):
-        pickup_dropoff = product_dict['pickup_dropoff']
-        print(f"📦 [GET PRODUCT] pickup_dropoff keys (BEFORE ProductResponse): {list(pickup_dropoff.keys()) if isinstance(pickup_dropoff, dict) else 'not a dict'}")
-        if isinstance(pickup_dropoff, dict) and 'pickup_configurations' in pickup_dropoff:
-            configs_count = len(pickup_dropoff['pickup_configurations']) if isinstance(pickup_dropoff['pickup_configurations'], list) else 0
-            print(f"📦 [GET PRODUCT] pickup_configurations count (BEFORE ProductResponse): {configs_count}")
-            print(f"📦 [GET PRODUCT] pickup_configurations sample: {pickup_dropoff['pickup_configurations'][0] if configs_count > 0 else 'empty'}")
-        else:
-            print(f"⚠️ [GET PRODUCT] pickup_configurations MISSING in pickup_dropoff (BEFORE ProductResponse)!")
-    
-    # Create ProductResponse and check if pickup_configurations is preserved
-    response = ProductResponse(**product_dict, id=str(product.id))
-    
-    # Debug: Log pickup_dropoff structure AFTER ProductResponse validation
-    if response.pickup_dropoff:
-        pickup_dropoff_response = response.pickup_dropoff
-        # Use model_dump to get the dict representation (like FastAPI will serialize)
-        pickup_dropoff_dict = pickup_dropoff_response.model_dump(mode='json', exclude_none=False) if hasattr(pickup_dropoff_response, 'model_dump') else (pickup_dropoff_response.dict() if hasattr(pickup_dropoff_response, 'dict') else {})
-        print(f"📦 [GET PRODUCT] pickup_dropoff keys (AFTER ProductResponse): {list(pickup_dropoff_dict.keys()) if isinstance(pickup_dropoff_dict, dict) else 'not a dict'}")
-        if isinstance(pickup_dropoff_dict, dict) and 'pickup_configurations' in pickup_dropoff_dict:
-            configs_count = len(pickup_dropoff_dict['pickup_configurations']) if isinstance(pickup_dropoff_dict['pickup_configurations'], list) else 0
-            print(f"📦 [GET PRODUCT] pickup_configurations count (AFTER ProductResponse): {configs_count}")
-            print(f"📦 [GET PRODUCT] pickup_configurations sample: {pickup_dropoff_dict['pickup_configurations'][0] if configs_count > 0 else 'empty'}")
-        else:
-            print(f"⚠️ [GET PRODUCT] pickup_configurations MISSING in ProductResponse!")
-    
-    # Also log the final JSON serialization that FastAPI will send (this is what gets sent to the client)
-    response_dict = response.model_dump(mode='json', exclude_none=False)
-    if response_dict.get('pickup_dropoff'):
-        pd_dict = response_dict['pickup_dropoff']
-        print(f"📦 [GET PRODUCT] Final JSON serialization - pickup_dropoff keys: {list(pd_dict.keys()) if isinstance(pd_dict, dict) else 'not a dict'}")
-        if isinstance(pd_dict, dict) and 'pickup_configurations' in pd_dict:
-            final_count = len(pd_dict['pickup_configurations']) if isinstance(pd_dict['pickup_configurations'], list) else 0
-            print(f"✅ [GET PRODUCT] Final JSON serialization - pickup_configurations count: {final_count}")
-            print(f"✅ [GET PRODUCT] Final JSON serialization - pickup_configurations: {pd_dict['pickup_configurations']}")
-        else:
-            print(f"❌ [GET PRODUCT] Final JSON serialization - pickup_configurations MISSING!")
-            print(f"❌ [GET PRODUCT] This means FastAPI will NOT send pickup_configurations to the client!")
-    else:
-        print(f"⚠️ [GET PRODUCT] Final JSON serialization - pickup_dropoff is None or missing!")
-    
-    return response
+
+    # Create and return ProductResponse
+    return ProductResponse(**product_dict, id=str(product.id))
 
 
 @router.put("/{product_id}", response_model=ProductResponse)

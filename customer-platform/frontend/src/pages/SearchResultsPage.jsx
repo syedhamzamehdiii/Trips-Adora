@@ -5,6 +5,7 @@ import Footer from '../components/Footer'
 import TourCard from '../components/TourCard'
 import { FiFilter } from 'react-icons/fi'
 import { getPublishedProducts, transformProductForFrontend, getCachedPublishedProductsSync } from '../services/productService'
+import { ensureProductLocationResolved } from '../services/climateService'
 
 const SearchResultsPage = () => {
   const navigate = useNavigate()
@@ -570,8 +571,27 @@ const SearchResultsPage = () => {
                     <TourCard 
                       key={product.id} 
                       tour={product}
-                      onClick={() => {
+                      onClick={async () => {
                         if (isComparisonSelection) {
+                          console.info('[COMPARE][UI] Selecting comparison candidate', {
+                            id: productId,
+                            name: product.name,
+                            currentLocation: product.location,
+                            baseIds: compareBaseIds,
+                          })
+                          // When picking a product to compare WITH, make sure its
+                          // location is resolved and saved so OpenAI is only
+                          // called once per product.
+                          try {
+                            const resolved = await ensureProductLocationResolved({
+                              productId,
+                              name: product.name,
+                              location: product.location,
+                            })
+                            console.info('[COMPARE][UI] Comparison candidate resolved location:', resolved)
+                          } catch (e) {
+                            console.warn('[COMPARE][UI] Failed to ensure product location for comparison candidate', e)
+                          }
                           const combined = [...compareBaseIds, String(productId)]
                           navigate(`/comparison/detail/${combined.join('&')}`)
                         } else {

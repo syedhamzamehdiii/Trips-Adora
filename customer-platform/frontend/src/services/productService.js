@@ -17,6 +17,9 @@ const CACHE_TTL = {
   PRODUCT_DETAIL: 15 * 60 * 1000, // 15 minutes
 };
 
+// Simple helper to build API path with base URL/fallback
+const apiPath = (path) => path.startsWith('/') ? path : `/${path}`;
+
 const normalizeImageSource = (source) => {
   if (!source) return null;
 
@@ -323,6 +326,49 @@ export const getProductById = async (productId, useCache = true) => {
 };
 
 /**
+ * Fetch a product's resolved location (if any) from the backend.
+ * This is used to avoid calling OpenAI multiple times per product.
+ */
+export const getResolvedLocation = async (productId) => {
+  if (!productId) return null;
+  try {
+    const data = await fetchJsonWithFallback(apiPath(`/products/${productId}/resolved-location`), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return data && data.location ? String(data.location) : null;
+  } catch (error) {
+    console.warn('Failed to fetch resolved location', error);
+    return null;
+  }
+};
+
+/**
+ * Persist a resolved location for a product in MongoDB.
+ * The caller is responsible for only sending high-quality, geocodable values.
+ */
+export const saveResolvedLocation = async (productId, location) => {
+  if (!productId || !location) return false;
+  try {
+    const body = JSON.stringify({ location });
+    const data = await fetchJsonWithFallback(apiPath(`/products/${productId}/resolved-location`), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body,
+    });
+    return !!(data && data.location);
+  } catch (error) {
+    console.warn('Failed to save resolved location', error);
+    return false;
+  }
+};
+
+
+/**
  * Fetch fresh product by ID from API
  */
 const fetchFreshProductById = async (productId) => {
@@ -369,6 +415,66 @@ export const getProductClicks = () => {
 // Recently viewed helpers
 const RECENT_KEY = 'recently_viewed_products';
 const RECENT_MAX = 12;
+
+// Update any in-memory/localStorage product caches with a newly resolved location
+// so that UIs (cards, detail views, comparison) immediately reflect the change
+// without requiring a full page reload.
+const updateCachedLocationForProduct = (productId, location) => {
+  if (!productId || !location) return;
+
+  try {
+    // 1) Product detail cache for that ID
+    const cacheKey = CACHE_KEYS.PRODUCT_DETAIL + productId;
+    const timestampKey = CACHE_KEYS.PRODUCT_DETAIL_TIMESTAMP + productId;
+    const detailCached = getCachedData(cacheKey, timestampKey);
+    if (detailCached && detailCached.data) {
+      const updatedProduct = {
+        ...detailCached.data,
+        location,
+        resolved_location: location,
+      };
+      setCachedData(cacheKey, timestampKey, updatedProduct);
+    }
+  } catch (_) {}
+
+  try {
+    // 2) Published products list cache
+    const listCached = getCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP);
+    if (listCached && Array.isArray(listCached.data)) {
+      const updatedList = listCached.data.map((p) => {
+        if (!p) return p;
+        const id = p.id || p._id;
+        if (String(id) !== String(productId)) return p;
+        return {
+          ...p,
+          location,
+          resolved_location: location,
+        };
+      });
+      setCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP, updatedList);
+    }
+  } catch (_) {}
+
+  try {
+    // 3) Recently viewed cache
+    const raw = localStorage.getItem(RECENT_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(list) && list.length) {
+      const updated = list.map((p) =>
+        p && String(p.id) === String(productId) ? { ...p, location } : p
+      );
+      localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
+    }
+  } catch (_) {}
+};
+
+export const updateLocationCachesForProduct = (productId, location) => {
+  try {
+    updateCachedLocationForProduct(productId, location);
+  } catch (e) {
+    console.warn('[CACHE] Failed to update cached location for product', productId, e);
+  }
+};
 
 export const addRecentlyViewed = (productSnapshot) => {
   try {
@@ -552,49 +658,7 @@ export const transformProductForFrontend = (product) => {
   // Extract meeting points from pickup_dropoff
   // IMPORTANT: Preserve the FULL pickup_dropoff structure including pickup_configurations
   const pickupDropoff = product.pickup_dropoff || {};
-  
-  // Debug: Log pickup_dropoff structure in development - with ERROR level so it's visible
-  if (process.env.NODE_ENV === 'development') {
-    console.error('📦 [CUSTOMER FETCH] ========== PICKUP_DROPOFF DEBUG ==========');
-    console.error('📦 [CUSTOMER FETCH] Raw pickup_dropoff from API:', {
-      hasPickupDropoff: !!pickupDropoff,
-      keys: pickupDropoff ? Object.keys(pickupDropoff) : [],
-      hasPickupConfigs: !!pickupDropoff?.pickup_configurations,
-      configsCount: Array.isArray(pickupDropoff?.pickup_configurations) ? pickupDropoff.pickup_configurations.length : 0,
-      pickupConfigs: pickupDropoff?.pickup_configurations,
-      pickup_locations: pickupDropoff?.pickup_locations,
-      pickup_time: pickupDropoff?.pickup_time,
-      fullPickupDropoff: pickupDropoff,
-      // Also check if it's in the raw product
-      rawProductPickupDropoff: product.pickup_dropoff,
-      rawProductKeys: product ? Object.keys(product).filter(k => k.includes('pickup') || k.includes('vehicle')) : []
-    })
-    
-    // Also check custom_fields for vehicle_time_allocations
-    const customFields = product.custom_fields || product.customFields || {}
-    console.error('📦 [CUSTOMER FETCH] Custom fields check:', {
-      hasCustomFields: !!customFields,
-      customFieldsKeys: Object.keys(customFields),
-      hasVehicleTimeAllocations: !!customFields.vehicle_time_allocations,
-      vehicleTimeAllocationsCount: Array.isArray(customFields.vehicle_time_allocations) 
-        ? customFields.vehicle_time_allocations.length 
-        : 0,
-      vehicleTimeAllocations: customFields.vehicle_time_allocations
-    })
-    
-    // CRITICAL: Log the full raw product to see what the API returned
-    console.error('📦 [CUSTOMER FETCH] Full raw product from API (pickup_dropoff section):', 
-      JSON.stringify(product.pickup_dropoff || null, null, 2)
-    );
-    
-    if (!pickupDropoff?.pickup_configurations || !Array.isArray(pickupDropoff.pickup_configurations) || pickupDropoff.pickup_configurations.length === 0) {
-      console.error('❌ [CUSTOMER FETCH] WARNING: pickup_configurations is MISSING or EMPTY!');
-    } else {
-      console.error('✅ [CUSTOMER FETCH] pickup_configurations found:', pickupDropoff.pickup_configurations.length, 'configs');
-    }
-    console.error('📦 [CUSTOMER FETCH] ==========================================');
-  }
-  
+ 
   // Extract pickup_locations - prioritize from pickup_dropoff.pickup_locations
   const meetingPoints = Array.isArray(pickupDropoff.pickup_locations) && pickupDropoff.pickup_locations.length > 0
     ? pickupDropoff.pickup_locations

@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Query, HTTPException, status
 from typing import Any, List, Optional
+from pydantic import BaseModel
 import math
 from datetime import datetime
+import logging
 
 from app.schemas.product import (
     ProductResponse,
@@ -22,7 +24,20 @@ from app.schemas.product import (
 from app.services.product_service import ProductService
 from app.services.currency_service import convert_to_usd
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/products", tags=["products"])
+
+
+class ResolvedLocationRequest(BaseModel):
+    """Payload for saving a resolved product location (for climate/comparison)."""
+    location: str
+
+
+class ResolvedLocationResponse(BaseModel):
+    """Response wrapper for resolved product location."""
+    product_id: str
+    location: Optional[str]
 
 
 @router.get("/published", response_model=ProductListResponse)
@@ -92,6 +107,89 @@ async def get_published_products(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching products: {str(e)}"
+        )
+
+
+@router.get("/{product_id}/resolved-location", response_model=ResolvedLocationResponse)
+async def get_resolved_location(product_id: str):
+    """
+    Get a product's resolved location used for climate/comparison.
+
+    This prefers any explicitly saved resolved location in MongoDB,
+    then falls back to the product's existing location/destination.
+    """
+    try:
+        logger.info(f"[RESOLVED_LOCATION] Fetching resolved location for product_id={product_id}")
+        product = await ProductService.get_product_by_id(product_id)
+        if not product:
+            logger.warning(f"[RESOLVED_LOCATION] Product not found for product_id={product_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        # Prefer explicitly resolved location field if present
+        resolved = (
+            product.get("resolved_location")
+            or product.get("location")
+            or product.get("destination")
+        )
+        logger.info(
+            f"[RESOLVED_LOCATION] Resolved location for product_id={product_id}: "
+            f"{resolved!r} (fields: "
+            f"resolved_location={product.get('resolved_location')!r}, "
+            f"location={product.get('location')!r}, "
+            f"destination={product.get('destination')!r})"
+        )
+
+        return ResolvedLocationResponse(product_id=product_id, location=resolved)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching resolved location: {str(e)}"
+        )
+
+
+@router.post("/{product_id}/resolved-location", response_model=ResolvedLocationResponse)
+async def save_resolved_location(product_id: str, payload: ResolvedLocationRequest):
+    """
+    Save a resolved location for a product.
+
+    The frontend should only call this AFTER it has resolved the location
+    (possibly using OpenAI). Once saved, future calls should re-use it
+    instead of calling OpenAI again.
+    """
+    try:
+        logger.info(
+            f"[RESOLVED_LOCATION] Saving resolved location for product_id={product_id}: "
+            f"{payload.location!r}"
+        )
+        updated = await ProductService.save_resolved_location(
+            product_id=product_id,
+            location=payload.location.strip(),
+        )
+        if not updated:
+            logger.warning(
+                f"[RESOLVED_LOCATION] Failed to save resolved location – "
+                f"product not found for product_id={product_id}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+        logger.info(
+            f"[RESOLVED_LOCATION] Saved resolved location for product_id={product_id}: "
+            f"{payload.location.strip()!r}"
+        )
+        return ResolvedLocationResponse(product_id=product_id, location=payload.location.strip() or None)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error saving resolved location: {str(e)}"
         )
 
 

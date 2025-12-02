@@ -35,6 +35,7 @@ class ProductService:
     # Full projection for detail view - include supplier_id for chat functionality
     DETAIL_PROJECTION = {
         # Include all fields, including supplier_id (needed for fetching supplier info)
+        # and resolved_location used for climate/comparison features.
     }
     
     @staticmethod
@@ -46,8 +47,12 @@ class ProductService:
         product["id"] = str(product["_id"])
         del product["_id"]
         
-        # Set location from destination (only if destination has a value)
-        if "destination" in product and product.get("destination"):
+        # Prefer an explicitly saved resolved_location if present
+        resolved_location = product.get("resolved_location")
+        if resolved_location:
+            product["location"] = resolved_location
+        # Otherwise, fall back to destination only if it has a value
+        elif "destination" in product and product.get("destination"):
             product["location"] = product.get("destination")
         
         # Set groupSize from activity_type
@@ -214,3 +219,33 @@ class ProductService:
         except Exception as e:
             logger.error(f"❌ Error fetching top picks: {e}")
             return []
+
+    @staticmethod
+    async def save_resolved_location(product_id: str, location: str) -> bool:
+        """
+        Persist a resolved location in MongoDB for the given product.
+
+        This is used so that OpenAI is only called once per product to
+        determine a clean, geocodable location string that can be re-used
+        for climate/comparison features.
+        """
+        try:
+            db = get_database()
+            collection = db.products
+
+            result = await collection.update_one(
+                {"_id": ObjectId(product_id)},
+                {
+                    "$set": {
+                        "resolved_location": location,
+                        # Also set generic location field so existing
+                        # frontend code can benefit immediately.
+                        "location": location,
+                    }
+                },
+            )
+
+            return result.matched_count > 0
+        except Exception as e:
+            logger.error(f"❌ Error saving resolved location for product {product_id}: {e}")
+            return False

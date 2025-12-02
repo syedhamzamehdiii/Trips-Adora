@@ -12,6 +12,7 @@ import ClimateWidget from './ClimateWidget'
 import SupplierChatModal from './SupplierChatModal'
 import CancellationPolicyModal from './CancellationPolicyModal'
 import { getPublishedProducts, transformProductForFrontend, addRecentlyViewed, recordProductClick, getProductClicks, getProductById, getCachedPublishedProductsSync } from '../services/productService'
+import { ensureProductLocationResolved } from '../services/climateService'
 
 const ProductDetails = () => {
   const navigate = useNavigate()
@@ -208,18 +209,7 @@ const ProductDetails = () => {
         })) || []
       })
       
-      // Log the actual pickup_dropoff structure
-      if (product?.pickup_dropoff) {
-        console.log('📦 pickup_dropoff structure:', JSON.stringify(product.pickup_dropoff, null, 2))
-      }
-      
-      // Log custom_fields if it exists
-      if (product?.custom_fields) {
-        console.log('📦 custom_fields keys:', Object.keys(product.custom_fields))
-        if (product.custom_fields.vehicle_time_allocations) {
-          console.log('📦 vehicle_time_allocations:', product.custom_fields.vehicle_time_allocations)
-        }
-      }
+      // (pickup_dropoff and custom_fields are now handled silently without verbose debug logging)
     }
     
     // First try pickup_configurations from pickup_dropoff
@@ -1846,7 +1836,32 @@ const ProductDetails = () => {
                   </button>
                   <button
                     className="bg-white border border-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm"
-                    onClick={() => setIsClimateOpen(true)}
+                    onClick={async () => {
+                      if (!product) {
+                        setIsClimateOpen(true)
+                        return
+                      }
+                      console.info('[CLIMATE][UI] Climate button clicked for product', {
+                        id: product.id,
+                        name: product.name,
+                        currentLocation: product.location,
+                      })
+                      try {
+                        const resolved = await ensureProductLocationResolved({
+                          productId: product.id,
+                          name: product.name,
+                          location: product.location,
+                        })
+                        console.info('[CLIMATE][UI] ensureProductLocationResolved result for product', product.id, ':', resolved)
+                        if (resolved) {
+                          setProduct(prev => (prev ? { ...prev, location: resolved } : prev))
+                        }
+                      } catch (e) {
+                        // Non-fatal – climate widget will still fall back gracefully.
+                        console.warn('[CLIMATE][UI] Failed to ensure product location before opening climate', e)
+                      }
+                      setIsClimateOpen(true)
+                    }}
                   >
                     Climate
                   </button>
@@ -1863,8 +1878,24 @@ const ProductDetails = () => {
                     <img src={share} alt="Share" className="w-5 h-5" />
                   </button>
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       if (product?.id) {
+                        console.info('[COMPARE][UI] Compare button clicked for base product', {
+                          id: product.id,
+                          name: product.name,
+                          currentLocation: product.location,
+                        })
+                        try {
+                          // Ensure we have a saved location for this base product
+                          const resolved = await ensureProductLocationResolved({
+                            productId: product.id,
+                            name: product.name,
+                            location: product.location,
+                          })
+                          console.info('[COMPARE][UI] Base product resolved location:', resolved)
+                        } catch (e) {
+                          console.warn('[COMPARE][UI] Failed to ensure product location before comparison', e)
+                        }
                         const params = new URLSearchParams()
                         params.set('compareFrom', product.id)
                         navigate(`/search?${params.toString()}`)

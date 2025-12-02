@@ -3,6 +3,8 @@
 // - Uses GPT (OpenAI) to refine extraction (best-effort; falls back to heuristics)
 // - Fetches weather via OpenWeather Geocoding + Weather/Forecast
 
+import { getResolvedLocation, saveResolvedLocation, updateLocationCachesForProduct } from './productService'
+
 const OPEN_WEATHER_KEY = '8425ac6accbc9e1ed2942388d299241b'
 const OPENAI_KEY = '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'
 
@@ -54,6 +56,7 @@ function heuristicExtractPlace(name, location) {
 async function openAIExtractPlace(name) {
   if (!name) return null
   try {
+    console.info('[CLIMATE][OPENAI] Extracting place from name:', name)
     const url = 'https://api.openai.com/v1/chat/completions'
     const system = 'You extract destinations for weather lookup. Respond ONLY with JSON.'
     const user = `From this product title, extract a destination suitable for OpenWeather geocoding. Return strict JSON with keys: city, region, country, fallbackQuery. Title: "${name}"`
@@ -72,12 +75,19 @@ async function openAIExtractPlace(name) {
         ]
       })
     })
-    if (!res.ok) throw new Error('openai failed ' + res.status)
+    if (!res.ok) {
+      console.warn('[CLIMATE][OPENAI] extractPlace failed with status', res.status)
+      throw new Error('openai failed ' + res.status)
+    }
     const data = await res.json()
     const text = data?.choices?.[0]?.message?.content || ''
+    console.info('[CLIMATE][OPENAI] extractPlace raw response text:', text)
     const match = text.match(/\{[\s\S]*\}/)
     const obj = match ? JSON.parse(match[0]) : null
-    if (!obj) return null
+    if (!obj) {
+      console.warn('[CLIMATE][OPENAI] extractPlace could not parse JSON object from response')
+      return null
+    }
     return {
       city: normalizePlace(obj.city),
       region: normalizePlace(obj.region),
@@ -85,13 +95,17 @@ async function openAIExtractPlace(name) {
       fallbackQuery: normalizePlace(obj.fallbackQuery)
     }
   } catch (e) {
-    console.warn('openAIExtractPlace failed', e)
+    console.warn('[CLIMATE][OPENAI] openAIExtractPlace failed', e)
     return null
   }
 }
 
 async function openAIGenerateNarrative(place, today, forecasts) {
   try {
+    console.info('[CLIMATE][OPENAI] Generating narrative for place:', place, {
+      today,
+      forecastsCount: Array.isArray(forecasts) ? forecasts.length : 0,
+    })
     const url = 'https://api.openai.com/v1/chat/completions'
     const system = 'You are a travel weather narrator. Write a brief, friendly, natural-language bulletin for travelers.'
     const bullets = [
@@ -120,12 +134,16 @@ async function openAIGenerateNarrative(place, today, forecasts) {
         ]
       })
     })
-    if (!res.ok) throw new Error('openai generation failed ' + res.status)
+    if (!res.ok) {
+      console.warn('[CLIMATE][OPENAI] generateNarrative failed with status', res.status)
+      throw new Error('openai generation failed ' + res.status)
+    }
     const data = await res.json()
     const text = (data?.choices?.[0]?.message?.content || '').trim()
+    console.info('[CLIMATE][OPENAI] generateNarrative text:', text)
     return text
   } catch (e) {
-    console.warn('openAIGenerateNarrative failed', e)
+    console.warn('[CLIMATE][OPENAI] openAIGenerateNarrative failed', e)
     return ''
   }
 }
@@ -322,4 +340,68 @@ export async function getClimateForProduct({ name, location }) {
   }
 }
 
+/**
+ * Ensure we have a single, stable, geocodable location string for a product.
+ *
+ * Flow:
+ * 1. Check MongoDB (via backend) for an existing resolved location.
+ * 2. If present, return it and DO NOT call OpenAI.
+ * 3. If missing, call OpenAI once to extract a clean location string,
+ *    save it in MongoDB, and return it.
+ */
+export async function ensureProductLocationResolved({ productId, name, location }) {
+  const base = normalizePlace(location) || normalizePlace(name)
+
+  if (!productId) {
+    // Without an ID we can't persist anything, just return best guess.
+    console.info('[CLIMATE][RESOLVE] No productId provided, using base location only:', base)
+    return base || ''
+  }
+
+  // 1) Check if we already have a saved location in MongoDB
+  const existing = await getResolvedLocation(productId)
+  if (existing && normalizePlace(existing)) {
+    console.info('[CLIMATE][RESOLVE] Using cached resolved_location from backend for product', productId, ':', existing)
+    return normalizePlace(existing)
+  }
+
+  // 2) No saved value – call OpenAI once for this product
+  console.info('[CLIMATE][RESOLVE] No cached resolved_location found, calling OpenAI for product', productId)
+  const ai = await openAIExtractPlace(name || location || '')
+  if (!ai) {
+    // Fall back to whatever we already had (may be destination/location)
+    console.warn('[CLIMATE][RESOLVE] OpenAI did not return structured location, falling back to base:', base)
+    return base || ''
+  }
+
+  let resolved = ''
+  if (ai.city && ai.country) {
+    resolved = `${normalizePlace(ai.city)}, ${normalizePlace(ai.country)}`
+  } else if (ai.fallbackQuery) {
+    resolved = normalizePlace(ai.fallbackQuery)
+  } else {
+    resolved = base || ''
+  }
+
+  resolved = normalizePlace(resolved)
+  if (!resolved) {
+    console.warn('[CLIMATE][RESOLVE] Resolved string is empty after normalization, falling back to base:', base)
+    return ''
+  }
+
+  // 3) Persist for future requests (errors are non-fatal)
+  try {
+    const ok = await saveResolvedLocation(productId, resolved)
+    console.info('[CLIMATE][RESOLVE] Saved resolved_location to backend for product', productId, ':', resolved, 'success=', ok)
+    if (ok) {
+      // Immediately update any cached product objects so comparison/detail
+      // cards reflect the new location without a full refresh.
+      updateLocationCachesForProduct(productId, resolved)
+    }
+  } catch (e) {
+    console.warn('[CLIMATE][RESOLVE] Failed to save resolved_location to backend for product', productId, e)
+  }
+
+  return resolved
+}
 
