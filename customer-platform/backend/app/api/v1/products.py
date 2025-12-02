@@ -93,7 +93,9 @@ async def get_published_products(
                 created_at=product.get("created_at") or datetime.utcnow(),
                 published_at=product.get("published_at"),
                 location=product.get("location"),
-                groupSize=product.get("groupSize")
+                groupSize=product.get("groupSize"),
+                inactive_dates=product.get("inactive_dates", []),
+                vehicle_inactive_dates=product.get("vehicle_inactive_dates", {}),
             ))
         
         return ProductListResponse(
@@ -230,7 +232,9 @@ async def get_top_picks(
                 created_at=product.get("created_at") or datetime.utcnow(),
                 published_at=product.get("published_at"),
                 location=product.get("location"),
-                groupSize=product.get("groupSize")
+                groupSize=product.get("groupSize"),
+                inactive_dates=product.get("inactive_dates", []),
+                vehicle_inactive_dates=product.get("vehicle_inactive_dates", {}),
             ))
         
         return formatted_products
@@ -759,7 +763,9 @@ async def get_product(product_id: str):
             selling_points=selling_points,
             style_theme=style_theme,
             supplier_business_name=supplier_business_name,
-            supplier_id=str(supplier_id) if supplier_id else None
+            supplier_id=str(supplier_id) if supplier_id else None,
+            inactive_dates=product.get("inactive_dates", []),
+            vehicle_inactive_dates=product.get("vehicle_inactive_dates", {}),
         )
         
         # DEBUG: Log response data

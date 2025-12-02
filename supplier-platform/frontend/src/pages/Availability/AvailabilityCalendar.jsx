@@ -352,6 +352,43 @@ const AvailabilityCalendar = () => {
     return `${selectedIds.length} selected`;
   };
 
+  // In vehicle view, narrow the product list to only products that actually
+  // contain the currently selected vehicle(s). This makes the "Product Name"
+  // filter context-aware, so suppliers can first choose a vehicle and then
+  // pick from only those products that use that vehicle.
+  const visibleProductOptions = React.useMemo(() => {
+    // In product mode, or when no specific vehicles are selected, show all products
+    if (viewMode === 'product' || selectedVehicles.length === 0) {
+      return productOptions;
+    }
+
+    try {
+      // Map selected vehicle option ids -> lowercase names
+      const selectedVehicleNames = new Set(
+        selectedVehicles
+          .map(id => {
+            const opt = vehicleOptions.find(o => o.id === id);
+            return opt?.name ? opt.name.toLowerCase() : null;
+          })
+          .filter(Boolean)
+      );
+      if (selectedVehicleNames.size === 0) return productOptions;
+
+      // Collect productIds that have at least one of the selected vehicles
+      const productIdsWithSelectedVehicles = new Set(
+        vehiclesList
+          .filter(v => v.name && selectedVehicleNames.has(String(v.name).toLowerCase()))
+          .map(v => v.productId)
+          .filter(Boolean)
+      );
+      if (productIdsWithSelectedVehicles.size === 0) return productOptions;
+
+      return productOptions.filter(p => productIdsWithSelectedVehicles.has(p.id));
+    } catch {
+      return productOptions;
+    }
+  }, [viewMode, selectedVehicles, productOptions, vehiclesList, vehicleOptions]);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -477,47 +514,75 @@ const AvailabilityCalendar = () => {
   };
 
   const handleBulkActivate = () => {
-    setProducts(prevProducts => {
-      const updated = prevProducts.map(product => ({
-        ...product,
-        isActive: true,
-        status: 'Active'
-      }));
+    if (viewMode === 'product') {
+      // PRODUCT MODE: activate all products
+      setProducts(prevProducts => {
+        const updated = prevProducts.map(product => ({
+          ...product,
+          isActive: true,
+          status: 'Active'
+        }));
 
-      // Persist to backend: clear inactive_dates for each product
-      updated.forEach(p => {
-        if (p.id) {
-          productService.updateAvailability(p.id, { inactive_dates: [] }).catch(() => {});
-        }
+        // Persist to backend: clear inactive_dates for each product
+        updated.forEach(p => {
+          if (p.id) {
+            productService.updateAvailability(p.id, { inactive_dates: [] }).catch(() => {});
+          }
+        });
+
+        // Update counts
+        setActiveProducts(updated.length);
+        setInactiveProducts(0);
+        return updated;
       });
+    } else {
+      // VEHICLE MODE: activate all vehicles
+      setVehiclesList(prevVehicles => {
+        const idsToAffect = new Set(filteredVehicles.map(v => v.id));
+        const updated = prevVehicles.map(v =>
+          idsToAffect.has(v.id) ? { ...v, isActive: true } : v
+        );
 
-      // Update counts
-      setActiveProducts(updated.length);
-      setInactiveProducts(0);
-      return updated;
-    });
+        // Persist to backend: clear vehicle_inactive_dates only for filtered vehicles
+        updated.forEach(v => {
+          if (idsToAffect.has(v.id) && v.productId && v.id) {
+            productService
+              .updateAvailability(v.productId, {
+                vehicle_id: v.id,
+                vehicle_inactive_dates: [],
+              })
+              .catch(() => {});
+          }
+        });
+
+        // Refresh vehicle availability stats (overall active count)
+        setAvailableVehicles(updated.filter(v => v.isActive).length);
+        return updated;
+      });
+    }
   };
 
   const handleBulkDeactivate = () => {
-    setProducts(prevProducts => {
-      const updated = prevProducts.map(product => ({
-        ...product,
-        isActive: false,
-        status: 'Inactive'
-      }));
+    if (viewMode === 'product') {
+      // PRODUCT MODE: deactivate all products, but let supplier choose the dates
+      // using the shared calendar. We apply the selected dates to all currently
+      // filtered products.
+      const idsInScope = filteredProducts.map(p => p.id).filter(Boolean);
+      if (idsInScope.length === 0) return;
 
-      // Persist to backend: mark all products as fully inactive by setting inactive_dates to an empty array placeholder
-      // (actual date ranges are managed via the calendar modal; here we simply block all dates)
-      updated.forEach(p => {
-        if (p.id) {
-          productService.updateAvailability(p.id, { inactive_dates: ['*'] }).catch(() => {});
-        }
-      });
+      // Stash ids for calendar onApply handler
+      window.__bulkInactiveProductIds = idsInScope;
+      setShowCalendarModal(true);
+    } else {
+      // VEHICLE MODE: deactivate all vehicles in scope via calendar dates
+      const vehiclesInScope = filteredVehicles
+        .filter(v => v.id && v.productId)
+        .map(v => ({ id: v.id, productId: v.productId }));
+      if (!vehiclesInScope.length) return;
 
-      setActiveProducts(0);
-      setInactiveProducts(updated.length);
-      return updated;
-    });
+      window.__bulkInactiveVehicles = vehiclesInScope;
+      setShowCalendarModal(true);
+    }
   };
 
   return (
@@ -621,12 +686,7 @@ const AvailabilityCalendar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowProductDropdown(!showProductDropdown)}
-                  className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white ${
-                    viewMode === 'vehicle'
-                      ? 'border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                  disabled={viewMode === 'vehicle'}
+                  className="w-full flex items-center justify-between px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white border-gray-300 hover:border-gray-400"
                 >
                   <div className="flex items-center space-x-2">
                     <FiSearch className="w-4 h-4 text-gray-400" />
@@ -637,24 +697,24 @@ const AvailabilityCalendar = () => {
                   <FiChevronDown className="w-4 h-4 text-gray-400" />
                 </button>
                 
-                {showProductDropdown && viewMode === 'product' && (
+                {showProductDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                     <div className="py-2">
-                      {productOptions.length > 0 ? (
+                      {visibleProductOptions.length > 0 ? (
                         <>
                       <label 
                         className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
-                        onClick={() => handleSelectAll(productOptions, setSelectedProducts, selectedProducts)}
+                        onClick={() => handleSelectAll(visibleProductOptions, setSelectedProducts, selectedProducts)}
                       >
                         <input 
                           type="checkbox" 
                           className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
-                          checked={selectedProducts.length === productOptions.length}
+                          checked={selectedProducts.length === visibleProductOptions.length && visibleProductOptions.length > 0}
                           onChange={() => {}} // Handled by onClick
                         />
                         <span>Select All ({productOptions.length})</span>
                       </label>
-                      {productOptions.map((option) => (
+                      {visibleProductOptions.map((option) => (
                         <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
                           <input 
                             type="checkbox" 
@@ -677,67 +737,64 @@ const AvailabilityCalendar = () => {
               </div>
             </div>
 
-            {/* Vehicle Type Filter */}
-            <div className="relative dropdown-container">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Type</label>
-              <div className="relative">
-                <button
-                  onClick={() => setShowVehicleDropdown(!showVehicleDropdown)}
-                  className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white ${
-                    viewMode === 'product'
-                      ? 'border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                  disabled={viewMode === 'product'}
-                >
-                  <div className="flex items-center space-x-2">
-                    <FiTruck className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-700">
-                      {getDisplayText(vehicleOptions, selectedVehicles, "All Vehicles")}
-                    </span>
-                  </div>
-                  <FiChevronDown className="w-4 h-4 text-gray-400" />
-                </button>
-                
-                {showVehicleDropdown && viewMode === 'vehicle' && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                    <div className="py-2">
-                      {vehicleOptions.length > 0 ? (
-                        <>
-                      <label 
-                        className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
-                        onClick={() => handleSelectAll(vehicleOptions, setSelectedVehicles, selectedVehicles)}
-                      >
-                        <input 
-                          type="checkbox" 
-                          className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
-                          checked={selectedVehicles.length === vehicleOptions.length}
-                          onChange={() => {}} // Handled by onClick
-                        />
-                        <span>Select All ({vehicleOptions.length})</span>
-                      </label>
-                      {vehicleOptions.map((option) => (
-                        <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
+            {/* Vehicle Type Filter (only in Vehicles mode) */}
+            {viewMode === 'vehicle' && (
+              <div className="relative dropdown-container">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Type</label>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowVehicleDropdown(!showVehicleDropdown)}
+                    className="w-full flex items-center justify-between px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white border-gray-300 hover:border-gray-400"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <FiTruck className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-700">
+                        {getDisplayText(vehicleOptions, selectedVehicles, "All Vehicles")}
+                      </span>
+                    </div>
+                    <FiChevronDown className="w-4 h-4 text-gray-400" />
+                  </button>
+                  
+                  {showVehicleDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                      <div className="py-2">
+                        {vehicleOptions.length > 0 ? (
+                          <>
+                        <label 
+                          className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
+                          onClick={() => handleSelectAll(vehicleOptions, setSelectedVehicles, selectedVehicles)}
+                        >
                           <input 
                             type="checkbox" 
                             className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
-                            checked={selectedVehicles.includes(option.id)}
-                            onChange={() => handleOptionToggle(option.id, selectedVehicles, setSelectedVehicles)}
+                            checked={selectedVehicles.length === vehicleOptions.length}
+                            onChange={() => {}} // Handled by onClick
                           />
-                          <span className="text-sm text-gray-700">{option.name}</span>
+                          <span>Select All ({vehicleOptions.length})</span>
                         </label>
-                      ))}
-                        </>
-                      ) : (
-                        <div className="px-3 py-4 text-center text-gray-500 text-sm">
-                          No vehicles available
-                  </div>
-                )}
+                        {vehicleOptions.map((option) => (
+                          <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
+                              checked={selectedVehicles.includes(option.id)}
+                              onChange={() => handleOptionToggle(option.id, selectedVehicles, setSelectedVehicles)}
+                            />
+                            <span className="text-sm text-gray-700">{option.name}</span>
+                          </label>
+                        ))}
+                          </>
+                        ) : (
+                          <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                            No vehicles available
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Tour Options Filter - removed per requirements */}
 
@@ -1023,6 +1080,8 @@ const AvailabilityCalendar = () => {
             const pendingVehicleId = window.__pendingInactiveVehicleId;
             const pendingVehicleProductId = window.__pendingInactiveVehicleProductId;
             const pendingProductId = window.__pendingInactiveProductId;
+            const bulkProductIds = window.__bulkInactiveProductIds;
+            const bulkVehicles = window.__bulkInactiveVehicles;
 
             // If user closes the calendar without applying for a vehicle,
             // restore the previous "active" state so the toggle doesn't stay OFF.
@@ -1042,6 +1101,14 @@ const AvailabilityCalendar = () => {
             if (pendingProductId) {
               delete window.__pendingInactiveProductId;
             }
+
+            if (bulkProductIds) {
+              delete window.__bulkInactiveProductIds;
+            }
+
+            if (bulkVehicles) {
+              delete window.__bulkInactiveVehicles;
+            }
           } catch (e) {}
 
           setShowCalendarModal(false);
@@ -1051,11 +1118,34 @@ const AvailabilityCalendar = () => {
             const productId = window.__pendingInactiveProductId;
             const vehicleId = window.__pendingInactiveVehicleId;
             const vehicleProductId = window.__pendingInactiveVehicleProductId;
+            const bulkProductIds = window.__bulkInactiveProductIds;
+            const bulkVehicles = window.__bulkInactiveVehicles;
 
             if (productId) {
               // Persist product-level inactive dates to backend
               productService.updateAvailability(productId, { inactive_dates: dates }).catch(() => {});
               delete window.__pendingInactiveProductId;
+            }
+
+            if (Array.isArray(bulkProductIds) && bulkProductIds.length > 0) {
+              // Apply the same inactive dates to all selected products in scope
+              bulkProductIds.forEach(pid => {
+                productService.updateAvailability(pid, { inactive_dates: dates }).catch(() => {});
+              });
+
+              // Update UI state for all affected products and recompute counters
+              setProducts(prev => {
+                const updated = prev.map(p =>
+                  bulkProductIds.includes(p.id)
+                    ? { ...p, isActive: false, status: 'Inactive' }
+                    : p
+                );
+                setActiveProducts(updated.filter(p => p.isActive).length);
+                setInactiveProducts(updated.filter(p => !p.isActive).length);
+                return updated;
+              });
+
+              delete window.__bulkInactiveProductIds;
             }
 
             if (vehicleId && vehicleProductId) {
@@ -1075,6 +1165,30 @@ const AvailabilityCalendar = () => {
                   v.id === vehicleId ? { ...v, isActive: false } : v
                 )
               );
+            }
+
+            if (Array.isArray(bulkVehicles) && bulkVehicles.length > 0) {
+              // Apply the same inactive dates to all selected vehicles in scope
+              bulkVehicles.forEach(({ id: vid, productId: pid }) => {
+                productService
+                  .updateAvailability(pid, {
+                    vehicle_id: vid,
+                    vehicle_inactive_dates: dates,
+                  })
+                  .catch(() => {});
+              });
+
+              // Mark these vehicles as inactive in UI and recompute availability stats
+              setVehiclesList(prev => {
+                const idsSet = new Set(bulkVehicles.map(v => v.id));
+                const updated = prev.map(v =>
+                  idsSet.has(v.id) ? { ...v, isActive: false } : v
+                );
+                setAvailableVehicles(updated.filter(v => v.isActive).length);
+                return updated;
+              });
+
+              delete window.__bulkInactiveVehicles;
             }
           } catch (e) {}
           setShowCalendarModal(false);

@@ -156,38 +156,10 @@ const isCacheValid = (cacheInfo, ttl) => {
  * Returns cached data immediately, refreshes in background if stale
  */
 export const getPublishedProducts = async (params = {}, useCache = true) => {
-  // Check cache first (only for page 1, no search, no filters)
-  const isSimpleQuery = !params.search && !params.category && !params.destination && (params.page === 1 || !params.page);
-  
-  if (useCache && isSimpleQuery) {
-    const cached = getCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP);
-    if (cached && isCacheValid(cached, CACHE_TTL.PRODUCTS)) {
-      // Return cached data immediately
-      const allProducts = cached.data;
-      
-      // Apply pagination to cached data
-      const page = params.page || 1;
-      const pageSize = params.page_size || 20;
-      const start = (page - 1) * pageSize;
-      const end = start + pageSize;
-      const paginated = allProducts.slice(start, end);
-      
-      // Refresh in background if cache is getting old (> 50% of TTL)
-      if (cached.age > CACHE_TTL.PRODUCTS * 0.5) {
-        fetchFreshProducts(params).catch(() => {}); // Silent background refresh
-      }
-      
-      return {
-        products: paginated,
-        total: allProducts.length,
-        page: page,
-        page_size: pageSize,
-        total_pages: Math.ceil(allProducts.length / pageSize)
-      };
-    }
-  }
-  
-  // No valid cache, fetch fresh data
+  // Availability (inactive dates) must be real-time, so we intentionally
+  // bypass the local cache here and always fetch fresh data from the API.
+  // This guarantees that product deactivations from the supplier platform
+  // are reflected immediately on the customer side.
   return await fetchFreshProducts(params);
 };
 
@@ -234,18 +206,9 @@ const fetchFreshProducts = async (params = {}) => {
 
 // Return last seen published products synchronously from localStorage (for instant rendering)
 export const getCachedPublishedProductsSync = () => {
-  const cached = getCachedData(CACHE_KEYS.PRODUCTS, CACHE_KEYS.PRODUCTS_TIMESTAMP);
-  if (cached && Array.isArray(cached.data)) {
-    return cached.data;
-  }
-  // Fallback to old cache key for backward compatibility
-  try {
-    const raw = localStorage.getItem('published_products_cache');
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
+  // Availability must be real-time; disable synchronous cache usage so that
+  // customer listings always reflect the latest supplier Availability state.
+  return [];
 };
 
 /**
@@ -730,6 +693,38 @@ export const transformProductForFrontend = (product) => {
     }
   }
 
+  // Filter out vehicles that have been deactivated on the supplier side.
+  // Any entry in vehicle_inactive_dates for a vehicle means it should not be
+  // selectable on the customer product detail page, regardless of date range.
+  try {
+    const vehicleInactiveMap = product.vehicle_inactive_dates || product.vehicleInactiveDates || {};
+    if (vehicles && Array.isArray(vehicles) && vehicleInactiveMap && typeof vehicleInactiveMap === 'object') {
+      const productIdForKey = product.id || product._id || product.product_id || null;
+      const originalLength = vehicles.length;
+
+      vehicles = vehicles.filter((v, idx) => {
+        if (!v) return false;
+        const vid = v.id || v._id;
+        const directKey = vid ? String(vid) : null;
+        const syntheticKey = !directKey && productIdForKey ? `${productIdForKey}-vehicle-${idx + 1}` : null;
+        const dates =
+          (directKey && vehicleInactiveMap[directKey]) ||
+          (syntheticKey && vehicleInactiveMap[syntheticKey]) ||
+          [];
+        return !(Array.isArray(dates) && dates.length > 0);
+      });
+
+      // Fallback: if there is exactly one vehicle and ANY vehicle_inactive_dates
+      // configured, hide that vehicle entirely so the detail page reflects
+      // supplier Availability even if IDs don't line up perfectly.
+      if (originalLength === 1 && Object.keys(vehicleInactiveMap).length > 0) {
+        vehicles = [];
+      }
+    }
+  } catch {
+    // If anything goes wrong, fall back to showing vehicles rather than crashing UI
+  }
+
   // Extract meeting points from pickup_dropoff
   // IMPORTANT: Preserve the FULL pickup_dropoff structure including pickup_configurations
   const pickupDropoff = product.pickup_dropoff || {};
@@ -771,6 +766,8 @@ export const transformProductForFrontend = (product) => {
     product?.supplier?.businessName ||
     product.host ||
     null;
+
+  const inactiveDates = product.inactive_dates || product.inactiveDates || [];
 
   const transformed = {
     id: product.id,
@@ -821,7 +818,43 @@ export const transformProductForFrontend = (product) => {
     faqs: Array.isArray(product.faqs) ? product.faqs : [],
     // Supplier information
     supplierBusinessName: supplierBusinessName,
-    supplierId: product.supplier_id || product.supplierId
+    supplierId: product.supplier_id || product.supplierId,
+    // Availability: product is visible to customers ONLY when:
+    // - it is published (handled on backend /products/published), and
+    // - it is NOT currently deactivated in supplier Availability.
+    // We treat a product as "inactive" for customers if:
+    //   * inactive_dates contains "*"  (fully blocked), OR
+    //   * inactive_dates contains any date that is today or in the future.
+    isAvailableForCustomer: (() => {
+      try {
+        if (!Array.isArray(inactiveDates) || inactiveDates.length === 0) return true;
+        if (inactiveDates.includes('*')) return false;
+
+        const today = new Date();
+        const todayY = today.getFullYear();
+        const todayM = today.getMonth();
+        const todayD = today.getDate();
+
+        const isDateTodayOrFuture = (iso) => {
+          if (typeof iso !== 'string' || !iso.includes('-')) return false;
+          const [y, m, d] = iso.split('-').map(n => parseInt(n, 10));
+          if (!y || !m || !d) return false;
+          const dt = new Date(y, m - 1, d);
+          if (Number.isNaN(dt.getTime())) return false;
+          if (dt.getFullYear() > todayY) return true;
+          if (dt.getFullYear() < todayY) return false;
+          if (dt.getMonth() > todayM) return true;
+          if (dt.getMonth() < todayM) return false;
+          return dt.getDate() >= todayD;
+        };
+
+        // If any inactive date is today or later, do NOT show this product
+        return !inactiveDates.some(isDateTodayOrFuture);
+      } catch {
+        // On parsing errors, fall back to showing the product
+        return true;
+      }
+    })()
   };
   
   return transformed;

@@ -29,7 +29,10 @@ class ProductService:
         "views": 1,
         "bookings_count": 1,
         "published_at": 1,
-        "created_at": 1
+        "created_at": 1,
+        # Availability fields mirrored from supplier platform
+        "inactive_dates": 1,
+        "vehicle_inactive_dates": 1,
     }
     
     # Full projection for detail view - include supplier_id for chat functionality

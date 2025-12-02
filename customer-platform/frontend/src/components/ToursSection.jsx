@@ -84,8 +84,8 @@ const ToursSection = () => {
   const tours = useMemo(() => {
     const clicks = getProductClicks()
     const parsed = products
-      // Hide products that are temporarily inactive today
-      .filter(t => !t.isTemporarilyInactive)
+      // Only show products that are currently available for customers
+      .filter(t => t.isAvailableForCustomer)
       .map(t => ({
         ...t,
         priceValue: Number((String(t.price).match(/\$(\d+)/) || [])[1]) || 0,
