@@ -217,21 +217,27 @@ const AvailabilityCalendar = () => {
           }
         }
 
+        const vehicleInactiveMap = product.vehicle_inactive_dates || product.vehicleInactiveDates || {};
+
         if (Array.isArray(vehiclesArray) && vehiclesArray.length > 0) {
           vehiclesArray.forEach((vehicle, vIndex) => {
             const displayName = getVehicleDisplayName(vehicle);
             if (!displayName) return;
 
+            const vId = vehicle.id || vehicle._id || `${productId}-vehicle-${vIndex + 1}`;
+            const inactiveDates = vehicleInactiveMap[String(vId)] || [];
+            const isVehicleActive = !(Array.isArray(inactiveDates) && inactiveDates.length > 0);
+
             // Add to flattened vehicle list
             allVehiclesForView.push({
-              id: vehicle.id || `${productId}-vehicle-${vIndex + 1}`,
+              id: vId,
               name: displayName,
               type: vehicle.type || vehicle.vehicle_type || 'Vehicle',
               model: vehicle.model || vehicle.model_name || '',
               capacity: vehicle.capacity || null,
               productId,
               productName,
-              isActive: true,
+              isActive: isVehicleActive,
             });
 
             // Track unique names for Vehicle Type filter
@@ -268,21 +274,24 @@ const AvailabilityCalendar = () => {
         const vehicleCount = vehicleCountByProductId[productId] || 0;
         const categoryLabel = product.category || 'Tour';
         
-        // Check status (handle both string and enum values)
+        // Check status (handle both string and enum values) and backend inactive_dates
         const statusStr = typeof product.status === 'string' 
           ? product.status 
           : String(product.status || '');
         const isPublished = statusStr.toLowerCase() === 'published';
+        const hasInactiveDates = Array.isArray(product.inactive_dates || product.inactiveDates) &&
+          (product.inactive_dates || product.inactiveDates).length > 0;
+        const isAvailable = isPublished && !hasInactiveDates;
         
         return {
           id: productId,
           name: productNameById[productId],
-          status: isPublished ? 'Active' : 'Inactive',
+          status: isAvailable ? 'Active' : 'Inactive',
           // Show only high-level product info in the Availability list;
           // detailed vehicle info is handled in the product preview/editor.
           details: categoryLabel,
           vehicles: vehicleCount > 0 ? `${vehicleCount} vehicle${vehicleCount > 1 ? 's' : ''}` : 'No vehicles',
-          isActive: isPublished,
+          isActive: isAvailable,
           vehiclesRaw: [] // Detailed vehicle info handled in vehicle view
         };
       });
@@ -383,27 +392,11 @@ const AvailabilityCalendar = () => {
     setActiveProducts(updatedProducts.filter(p => p.isActive).length);
     setInactiveProducts(updatedProducts.filter(p => !p.isActive).length);
 
-    // Persist status change into all_products
-    try {
-      const allProductsData = localStorage.getItem('all_products');
-      const all = allProductsData ? JSON.parse(allProductsData) : [];
-      const idx = all.findIndex(p => (p.id || p.referenceCode) === productId || (p.id === productId));
-      if (idx !== -1) {
-        // Persist as Draft when inactive; Published when active
-        all[idx] = { ...all[idx], status: willBeActive ? 'Published' : 'Draft' };
-        localStorage.setItem('all_products', JSON.stringify(all));
-      }
-      // Store inactive dates per product
-      const inactiveKey = `product_inactive_dates_${productId}`;
-      const existing = localStorage.getItem(inactiveKey);
-      if (willBeActive) {
-        // do nothing here; dates are preserved for history
-      } else {
-        // If turning inactive without dates supplied, ensure key exists
-        if (!existing) localStorage.setItem(inactiveKey, JSON.stringify([]));
-      }
-    } catch (e) {
-      console.warn('Failed to persist product status:', e);
+    // Persist product availability to backend:
+    // - When activating: clear inactive_dates so product is available again
+    // - When deactivating: actual inactive dates are set via the calendar modal's onApply handler
+    if (willBeActive && productId) {
+      productService.updateAvailability(productId, { inactive_dates: [] }).catch(() => {});
     }
   };
 
@@ -484,31 +477,47 @@ const AvailabilityCalendar = () => {
   };
 
   const handleBulkActivate = () => {
-    setProducts(prevProducts => 
-      prevProducts.map(product => ({
+    setProducts(prevProducts => {
+      const updated = prevProducts.map(product => ({
         ...product,
         isActive: true,
-        status: "Active"
-      }))
-    );
-    
-    // Update counts
-    setActiveProducts(products.length);
-    setInactiveProducts(0);
+        status: 'Active'
+      }));
+
+      // Persist to backend: clear inactive_dates for each product
+      updated.forEach(p => {
+        if (p.id) {
+          productService.updateAvailability(p.id, { inactive_dates: [] }).catch(() => {});
+        }
+      });
+
+      // Update counts
+      setActiveProducts(updated.length);
+      setInactiveProducts(0);
+      return updated;
+    });
   };
 
   const handleBulkDeactivate = () => {
-    setProducts(prevProducts => 
-      prevProducts.map(product => ({
+    setProducts(prevProducts => {
+      const updated = prevProducts.map(product => ({
         ...product,
         isActive: false,
-        status: "Inactive"
-      }))
-    );
-    
-    // Update counts
-    setActiveProducts(0);
-    setInactiveProducts(products.length);
+        status: 'Inactive'
+      }));
+
+      // Persist to backend: mark all products as fully inactive by setting inactive_dates to an empty array placeholder
+      // (actual date ranges are managed via the calendar modal; here we simply block all dates)
+      updated.forEach(p => {
+        if (p.id) {
+          productService.updateAvailability(p.id, { inactive_dates: ['*'] }).catch(() => {});
+        }
+      });
+
+      setActiveProducts(0);
+      setInactiveProducts(updated.length);
+      return updated;
+    });
   };
 
   return (
@@ -736,7 +745,7 @@ const AvailabilityCalendar = () => {
           </div>
         </div>
 
-        {/* Selected Status Summary (shared for both modes, but text is product-focused) */}
+        {/* Selected Status Summary */}
         <div className="bg-white rounded-lg p-6 shadow-sm mb-6">
           <div className="flex justify-between items-center mb-4">
             <div>
@@ -750,12 +759,29 @@ const AvailabilityCalendar = () => {
               </p>
             </div>
             <div className="flex space-x-2">
-              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                Active {activeProducts}
-              </span>
-              <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                In Active {inactiveProducts}
-              </span>
+              {(() => {
+                // In product mode use product-level counters.
+                // In vehicle mode derive counts from the current filteredVehicles list.
+                const activeCount =
+                  viewMode === 'product'
+                    ? activeProducts
+                    : filteredVehicles.filter(v => v.isActive).length;
+                const inactiveCount =
+                  viewMode === 'product'
+                    ? inactiveProducts
+                    : filteredVehicles.filter(v => !v.isActive).length;
+
+                return (
+                  <>
+                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                      Active {activeCount}
+                    </span>
+                    <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+                      In Active {inactiveCount}
+                    </span>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -916,7 +942,7 @@ const AvailabilityCalendar = () => {
                     <div className="text-right">
                       <div className="text-sm font-medium text-gray-700">Status</div>
                       <div className="flex items-center space-x-2 mt-1">
-                        <FiPower className={`w-4 h-4 ${vehicle.isActive ? 'text-green-600' : 'text-red-600'}`} />
+                      <FiPower className={`w-4 h-4 ${vehicle.isActive ? 'text-green-600' : 'text-red-600'}`} />
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"
@@ -924,17 +950,38 @@ const AvailabilityCalendar = () => {
                             checked={vehicle.isActive}
                             onChange={(e) => {
                               if (!e.target.checked) {
-                                // Open calendar and mark this vehicle as pending
+                                // User is deactivating this vehicle:
+                                // 1) Open calendar for selecting inactive dates
+                                // 2) Optimistically flip UI to OFF
+                                // 3) Store pending ids so onApply/onClose know what to persist / revert
                                 setShowCalendarModal(true);
                                 window.__pendingInactiveVehicleId = vehicle.id;
                                 window.__pendingInactiveVehicleProductId = vehicle.productId;
+
+                                // Optimistically mark this vehicle as inactive in the UI
+                                setVehiclesList(prev =>
+                                  prev.map(v =>
+                                    v.id === vehicle.id ? { ...v, isActive: false } : v
+                                  )
+                                );
                               } else {
-                                // Re-activate immediately (no dates)
+                                // User is re-activating this vehicle for all dates:
+                                // 1) Flip UI to ON
+                                // 2) Clear vehicle_inactive_dates in backend so it becomes available again
                                 setVehiclesList(prev =>
                                   prev.map(v =>
                                     v.id === vehicle.id ? { ...v, isActive: true } : v
                                   )
                                 );
+
+                                if (vehicle.productId && vehicle.id) {
+                                  productService
+                                    .updateAvailability(vehicle.productId, {
+                                      vehicle_id: vehicle.id,
+                                      vehicle_inactive_dates: [],
+                                    })
+                                    .catch(() => {});
+                                }
                               }
                             }}
                           />
@@ -971,7 +1018,34 @@ const AvailabilityCalendar = () => {
       {/* Calendar Modal */}
       <Calendar 
         isOpen={showCalendarModal} 
-        onClose={() => setShowCalendarModal(false)} 
+        onClose={() => {
+          try {
+            const pendingVehicleId = window.__pendingInactiveVehicleId;
+            const pendingVehicleProductId = window.__pendingInactiveVehicleProductId;
+            const pendingProductId = window.__pendingInactiveProductId;
+
+            // If user closes the calendar without applying for a vehicle,
+            // restore the previous "active" state so the toggle doesn't stay OFF.
+            if (pendingVehicleId && pendingVehicleProductId) {
+              setVehiclesList(prev =>
+                prev.map(v =>
+                  v.id === pendingVehicleId ? { ...v, isActive: true } : v
+                )
+              );
+              delete window.__pendingInactiveVehicleId;
+              delete window.__pendingInactiveVehicleProductId;
+            }
+
+            // For product-level pending id we don't change state here because
+            // product toggle is only flipped in handleToggleProduct, which is
+            // called explicitly before opening the calendar.
+            if (pendingProductId) {
+              delete window.__pendingInactiveProductId;
+            }
+          } catch (e) {}
+
+          setShowCalendarModal(false);
+        }} 
         onApply={(dates) => {
           try {
             const productId = window.__pendingInactiveProductId;

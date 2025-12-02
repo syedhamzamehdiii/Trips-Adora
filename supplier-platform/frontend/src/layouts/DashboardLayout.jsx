@@ -484,8 +484,8 @@ const DashboardLayout = ({ children }) => {
                 onClick={() => setShowListingsDropdown(!showListingsDropdown)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center ${
                   isProductsPage 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                    ? 'bg-[#1d236b] text-white' 
+                    : 'bg-white text-[#1d236b] border border-[#1d236b]/40 hover:bg-[#1d236b]/5'
                 }`}
               >
                 Listings

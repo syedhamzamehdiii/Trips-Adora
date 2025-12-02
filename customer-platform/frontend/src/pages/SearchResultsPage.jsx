@@ -55,7 +55,7 @@ const SearchResultsPage = () => {
       try {
         const cached = getCachedPublishedProductsSync()
         if (cached && cached.length > 0) {
-          return cached.map(transformProductForFrontend)
+          return cached.map(transformProductForFrontend).filter(p => p && !p.isTemporarilyInactive)
         }
       } catch (_) {}
     }
@@ -96,7 +96,9 @@ const SearchResultsPage = () => {
       }
       
       if (allProducts.length > 0) {
-        const transformed = allProducts.map(transformProductForFrontend).filter(p => p !== null)
+        const transformed = allProducts
+          .map(transformProductForFrontend)
+          .filter(p => p !== null && !p.isTemporarilyInactive)
         setProducts(transformed)
         setTotalProducts(transformed.length)
       }
@@ -209,6 +211,10 @@ const SearchResultsPage = () => {
                 rating: transformedProduct.rating,
                 hasImage: !!transformedProduct.image
               })
+              // Skip products that are temporarily inactive today
+              if (transformedProduct.isTemporarilyInactive) {
+                return null
+              }
               return transformedProduct
             } catch (error) {
               console.error(`❌ Error transforming product ${index + 1}:`, error, product)

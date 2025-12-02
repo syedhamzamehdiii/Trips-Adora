@@ -715,18 +715,20 @@ const Products = () => {
         <div className="flex space-x-2 mb-6">
           <button
             onClick={() => setActiveTab('active')}
-            className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-blue-600 text-white"
+            className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-[#1d236b] text-white"
           >
             <FiTrendingUp className="mr-2 text-white" size={16} />
             Active Products
           </button>
           <button
             onClick={() => navigate('/products/drafts')}
-            className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+            className="flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors bg-white text-[#1d236b] border border-[#1d236b] hover:bg-[#1d236b]/5"
           >
-            <FiFileText className="mr-2 text-green-600" size={16} />
+            <FiFileText className="mr-2 text-[#1d236b]" size={16} />
             Drafts
-            <span className="ml-2 w-5 h-5 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">{productStats.draft}</span>
+            <span className="ml-2 w-5 h-5 bg-[#1d236b] text-white text-xs rounded-full flex items-center justify-center">
+              {productStats.draft}
+            </span>
           </button>
         </div>
 
@@ -977,7 +979,7 @@ const Products = () => {
             <button className="p-2 text-gray-600 hover:text-gray-900 disabled:opacity-50" disabled>
               <FiChevronLeft size={20} />
             </button>
-            <button className="px-3 py-1 bg-blue-600 text-white rounded-md">1</button>
+            <button className="px-3 py-1 bg-[#1d236b] text-white rounded-md">1</button>
             <button className="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-md">2</button>
             <button className="px-3 py-1 text-gray-700 hover:bg-gray-100 rounded-md">3</button>
             <span className="px-2 text-gray-500">...</span>
@@ -1098,7 +1100,7 @@ const Products = () => {
               </button>
               <button
                 onClick={toggleFilters}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2 bg-[#1d236b] text-white rounded-lg hover:bg-[#151a4a]"
               >
                 Apply
               </button>

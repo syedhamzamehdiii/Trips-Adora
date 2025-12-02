@@ -83,12 +83,15 @@ const ToursSection = () => {
 
   const tours = useMemo(() => {
     const clicks = getProductClicks()
-    const parsed = products.map(t => ({
-      ...t,
-      priceValue: Number((String(t.price).match(/\$(\d+)/) || [])[1]) || 0,
-      updatedAt: t.id,
-      clicks: clicks[t.id] || 0
-    }))
+    const parsed = products
+      // Hide products that are temporarily inactive today
+      .filter(t => !t.isTemporarilyInactive)
+      .map(t => ({
+        ...t,
+        priceValue: Number((String(t.price).match(/\$(\d+)/) || [])[1]) || 0,
+        updatedAt: t.id,
+        clicks: clicks[t.id] || 0
+      }))
     switch (sortKey) {
       case 'price_asc':
         return [...parsed].sort((a, b) => a.priceValue - b.priceValue)

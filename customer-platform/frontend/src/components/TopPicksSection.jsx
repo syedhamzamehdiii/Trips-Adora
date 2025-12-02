@@ -99,13 +99,16 @@ const TopPicksSection = () => {
           </div>
         ) : products.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <TourCard key={product.id} tour={product} onClick={() => {
-                recordProductClick(product.id)
-                addRecentlyViewed(product)
-                navigate(`/tours/${encodeURIComponent(product.name?.toLowerCase().replace(/\s+/g,'-'))}`)
-              }} />
-            ))}
+            {products
+              // Hide products that are temporarily inactive today
+              .filter(product => !product.isTemporarilyInactive)
+              .map((product) => (
+                <TourCard key={product.id} tour={product} onClick={() => {
+                  recordProductClick(product.id)
+                  addRecentlyViewed(product)
+                  navigate(`/tours/${encodeURIComponent(product.name?.toLowerCase().replace(/\s+/g,'-'))}`)
+                }} />
+              ))}
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">

@@ -127,42 +127,50 @@ class SupplierBookingService:
             except Exception as agg_err:
                 logger.error(f"Error aggregating review data for supplier {supplier_id}: {agg_err}")
             
-            # Get customer emails from User collection (authenticated emails)
-            user_ids = []
+            # Get customer email and country from users collection (authenticated profiles)
+            user_ids: List[ObjectId] = []
             for b in bookings:
-                user_id = b.get("user_id")
-                if user_id:
-                    try:
-                        # Convert to ObjectId if it's a string
-                        if isinstance(user_id, str):
-                            user_ids.append(ObjectId(user_id))
-                        else:
-                            user_ids.append(user_id)
-                    except Exception:
-                        pass  # Skip invalid user_ids
+                raw_user_id = b.get("user_id")
+                if not raw_user_id:
+                    continue
+                try:
+                    user_ids.append(
+                        raw_user_id
+                        if isinstance(raw_user_id, ObjectId)
+                        else ObjectId(str(raw_user_id))
+                    )
+                except Exception:
+                    # Skip invalid IDs
+                    continue
             
-            customer_info_map = {}
+            customer_info_map: Dict[str, Dict[str, Any]] = {}
             if user_ids:
                 try:
-                    users = await User.find({"_id": {"$in": user_ids}}).to_list()
-                    for user in users:
-                        user_id_str = str(user.id)
-                        # Use authenticated email and country from User collection
-                        customer_info_map[user_id_str] = {
-                            "email": user.email,
-                            "country": getattr(user, "country", None),
+                    db = get_database()
+                    user_docs = await db["users"].find(
+                        {"_id": {"$in": user_ids}},
+                        {"email": 1, "country": 1, "address": 1},
+                    ).to_list(length=None)
+                    for doc in user_docs:
+                        uid = str(doc.get("_id"))
+                        email = doc.get("email")
+                        # Prefer explicit country, fall back to address/location if set
+                        country = doc.get("country") or doc.get("address")
+                        customer_info_map[uid] = {
+                            "email": email,
+                            "country": country,
                         }
                 except Exception as user_err:
-                    logger.warning(f"Error fetching customer emails: {user_err}")
+                    logger.warning(f"Error fetching customer profile info: {user_err}")
             
-            # Serialize bookings and update customer_email with authenticated email
+            # Serialize bookings and update customer_email / customer_country
             serialized = []
             for booking in bookings:
                 serialized_booking = SupplierBookingService._serialize_booking(booking)
-                # Override customer_email with authenticated email if available
-                user_id = str(booking.get("user_id", ""))
-                if user_id in customer_info_map:
-                    info = customer_info_map[user_id]
+                user_id = booking.get("user_id")
+                user_key = str(user_id) if user_id is not None else ""
+                if user_key in customer_info_map:
+                    info = customer_info_map[user_key]
                     if info.get("email"):
                         serialized_booking["customer_email"] = info["email"]
                     if info.get("country"):

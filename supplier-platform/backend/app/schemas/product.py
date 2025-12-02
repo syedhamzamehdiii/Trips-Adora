@@ -47,6 +47,12 @@ class ProductBase(BaseModel):
     selling_points: List[str] = []
     style_theme: Optional[str] = None
     custom_fields: Dict[str, Any] = {}
+    # Availability fields shared with customer/supplier platforms
+    # These mirror the fields on the Product model so availability
+    # (inactive dates and vehicle-level inactive dates) is included
+    # in all ProductResponse payloads.
+    inactive_dates: List[str] = []
+    vehicle_inactive_dates: Dict[str, List[str]] = {}
 
 
 class ProductCreate(ProductBase):

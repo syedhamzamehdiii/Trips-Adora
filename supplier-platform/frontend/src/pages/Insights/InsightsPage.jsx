@@ -161,7 +161,8 @@ const InsightsPage = () => {
           ? bookingStats.total
           : (Array.isArray(bookings) ? bookings.length : 0);
 
-        // Summary: bookings this month (by travelDate or bookedOn)
+        // Summary: bookings this month
+        // Business meaning: "bookings created this month" (not travel month)
         const now = new Date();
         const isSameMonth = (d) => d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         const parseDate = (s) => {
@@ -172,9 +173,14 @@ const InsightsPage = () => {
           try { return new Date(Date.parse(s)); } catch { return null; }
         };
         const bookingsThisMonth = (bookings || []).filter(b => {
-          const td = parseDate(b.travelDate);
           const bd = parseDate(b.bookedOn);
-          return isSameMonth(td || bd || null);
+          // Count bookings whose CREATED date is in the current month.
+          // Fall back to travelDate only if created_at/bookedOn is missing.
+          if (bd && isSameMonth(bd)) {
+            return true;
+          }
+          const td = parseDate(b.travelDate);
+          return td && isSameMonth(td);
         }).length;
 
         // Summary: cancellation rate (use backend stats so it matches supplier bookings)

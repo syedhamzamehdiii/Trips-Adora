@@ -118,6 +118,24 @@ class ProductService:
             return await Product.get(PydanticObjectId(product_id))
         except:
             return None
+
+    @staticmethod
+    async def get_product_by_id_and_supplier(
+        product_id: str,
+        supplier_id: str,
+    ) -> Optional[Product]:
+        """
+        Get a single product by ID and ensure it belongs to the given supplier.
+        Used by availability/status endpoints so a supplier can only modify
+        their own products.
+        """
+        product = await ProductService.get_product_by_id(product_id)
+        if not product:
+            return None
+        # Only allow access when supplier_id matches
+        if str(product.supplier_id) != str(supplier_id):
+            return None
+        return product
     
     @staticmethod
     async def get_products_by_supplier(

@@ -664,7 +664,38 @@ const CheckAvailabilityPage = () => {
         }
       }
       
-      // All days (weekdays + weekends) are selectable after earliestPickupDate
+      // Additional rule: respect supplier availability from inactive_dates / vehicle_inactive_dates
+      // Product-level inactive dates
+      if (product && Array.isArray(product.inactive_dates) && product.inactive_dates.length > 0) {
+        const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+          date.getDate()
+        ).padStart(2, '0')}`
+        if (product.inactive_dates.includes(ymd)) {
+          return false
+        }
+      }
+
+      // Vehicle-level inactive dates
+      if (product && product.vehicle_inactive_dates && selectedVehicleIndex !== null) {
+        const currentVehicle =
+          Array.isArray(product.vehicles) && product.vehicles[selectedVehicleIndex]
+            ? product.vehicles[selectedVehicleIndex]
+            : null
+        const vehicleId = currentVehicle?.id || currentVehicle?._id || null
+        if (vehicleId) {
+          const vehicleDates = product.vehicle_inactive_dates[String(vehicleId)] || []
+          if (Array.isArray(vehicleDates) && vehicleDates.length > 0) {
+            const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+              date.getDate()
+            ).padStart(2, '0')}`
+            if (vehicleDates.includes(ymd)) {
+              return false
+            }
+          }
+        }
+      }
+
+      // All remaining days (weekdays + weekends) are selectable after constraints
       return true
     } catch {
       return true // If error parsing, allow selection
