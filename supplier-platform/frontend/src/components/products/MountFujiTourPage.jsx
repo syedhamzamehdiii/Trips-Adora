@@ -2580,27 +2580,11 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                   })}
                   </div>
               ) : (
-                <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="flex items-start space-x-3">
-                  <FiTruck size={20} className="text-blue-600 mt-1" />
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Vehicle Details</h4>
-                    <p className="text-gray-600">Mercedes-Benz A-Class (2018 model)</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <FiClock size={20} className="text-blue-600 mt-1" />
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Duration</h4>
-                    <p className="text-gray-600">10 hours</p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 flex items-center space-x-3">
-                <span className="text-2xl font-bold text-gray-900">$240</span>
-                <span className="text-gray-600">Per Group</span>
-              </div>
+                <div className="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50 text-center">
+                  <p className="text-gray-700 font-medium mb-1">No vehicles added yet</p>
+                  <p className="text-gray-500 text-sm">
+                    Please go back and add at least one vehicle to show accurate vehicle and pricing details.
+                  </p>
                 </div>
               )}
             </div>

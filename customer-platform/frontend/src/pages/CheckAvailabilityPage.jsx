@@ -664,38 +664,7 @@ const CheckAvailabilityPage = () => {
         }
       }
       
-      // Additional rule: respect supplier availability from inactive_dates / vehicle_inactive_dates
-      // Product-level inactive dates
-      if (product && Array.isArray(product.inactive_dates) && product.inactive_dates.length > 0) {
-        const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-          date.getDate()
-        ).padStart(2, '0')}`
-        if (product.inactive_dates.includes(ymd)) {
-          return false
-        }
-      }
-
-      // Vehicle-level inactive dates
-      if (product && product.vehicle_inactive_dates && selectedVehicleIndex !== null) {
-        const currentVehicle =
-          Array.isArray(product.vehicles) && product.vehicles[selectedVehicleIndex]
-            ? product.vehicles[selectedVehicleIndex]
-            : null
-        const vehicleId = currentVehicle?.id || currentVehicle?._id || null
-        if (vehicleId) {
-          const vehicleDates = product.vehicle_inactive_dates[String(vehicleId)] || []
-          if (Array.isArray(vehicleDates) && vehicleDates.length > 0) {
-            const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-              date.getDate()
-            ).padStart(2, '0')}`
-            if (vehicleDates.includes(ymd)) {
-              return false
-            }
-          }
-        }
-      }
-
-      // All remaining days (weekdays + weekends) are selectable after constraints
+      // All days (weekdays + weekends) are selectable after earliestPickupDate
       return true
     } catch {
       return true // If error parsing, allow selection
@@ -809,8 +778,6 @@ const CheckAvailabilityPage = () => {
         // Preserve extras and special requirements if coming back from step 2
         extras: stateData.extras,
         specialRequirements: stateData.specialRequirements,
-        // Preserve productId for back navigation
-        productId: stateData.productId || bookingData.productId || bookingData.id,
         bookingData: {
           ...bookingData,
           selectedVehicleIndex,
@@ -836,25 +803,16 @@ const CheckAvailabilityPage = () => {
               // If we came from cart, go back to cart
               if (bookingData.from === 'cart') {
                 navigate('/cart')
+              } else if (bookingData.from === 'product-details') {
+                // If we came from a product page, prefer going back in history
+                // so we land on the exact product (could be /tours/:slug, etc.)
+                navigate(-1)
               } else {
-                // Navigate to product page using productId if available
-                const productId = stateData.productId || bookingData.productId || bookingData.id
-                if (productId) {
-                  navigate(`/product-details/${productId}`)
-                } else if (bookingData.from === 'product-details') {
-                  // Fallback: try going back in history if we came from product page
-                  if (window.history.length > 1) {
-                    navigate(-1)
-                  } else {
-                    navigate('/')
-                  }
+                // Fallback: go back one step, or to home if no history
+                if (window.history.length > 1) {
+                  navigate(-1)
                 } else {
-                  // Final fallback: go back one step, or to home if no history
-                  if (window.history.length > 1) {
-                    navigate(-1)
-                  } else {
-                    navigate('/')
-                  }
+                  navigate('/')
                 }
               }
             }}
