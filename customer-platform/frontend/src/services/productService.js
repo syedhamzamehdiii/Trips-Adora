@@ -655,10 +655,85 @@ export const transformProductForFrontend = (product) => {
     vehicles = [customFields.selected_vehicle_for_tour];
   }
 
+  // CRITICAL: Enrich vehicles array with vehicle data from pickup_configurations
+  // This ensures vehicles have proper IDs and full details from the configs
+  // Extract pickup_dropoff temporarily for vehicle extraction
+  const pickupDropoffTemp = product.pickup_dropoff || {};
+  if (Array.isArray(pickupDropoffTemp.pickup_configurations) && pickupDropoffTemp.pickup_configurations.length > 0) {
+    // Extract unique vehicles from pickup_configurations (by vehicle ID)
+    const vehiclesFromConfigs = new Map();
+    pickupDropoffTemp.pickup_configurations.forEach(config => {
+      if (config.vehicle && config.vehicle.id) {
+        const vehicleId = config.vehicle.id;
+        // Store vehicle with its ID as key to avoid duplicates
+        if (!vehiclesFromConfigs.has(vehicleId)) {
+          vehiclesFromConfigs.set(vehicleId, {
+            id: config.vehicle.id,
+            _id: config.vehicle._id || config.vehicle.id,
+            title: config.vehicle.title,
+            type: config.vehicle.type,
+            model: config.vehicle.model,
+            year: config.vehicle.year,
+            attributes: config.vehicle.attributes,
+            capacity: config.vehicle.capacity,
+            currency: config.vehicle.currency,
+            pricingType: config.vehicle.pricingType || config.vehicle.pricing_type,
+            amount: config.vehicle.amount,
+            duration: config.vehicle.duration,
+            description: config.vehicle.description
+          });
+        }
+      }
+    });
+    
+    // Merge vehicles from configs with existing vehicles array
+    // Prioritize vehicles from configs as they have IDs
+    if (vehiclesFromConfigs.size > 0) {
+      const configVehiclesArray = Array.from(vehiclesFromConfigs.values());
+      
+      // Build a map of existing vehicles by ID
+      const existingVehicleMap = new Map();
+      vehicles.forEach(v => {
+        const vid = v.id || v._id;
+        if (vid) {
+          existingVehicleMap.set(String(vid), v);
+        }
+      });
+      
+      // Merge: vehicles from configs take precedence, but preserve any existing vehicles not in configs
+      const mergedVehicles = [];
+      configVehiclesArray.forEach(configVehicle => {
+        const existingVehicle = existingVehicleMap.get(String(configVehicle.id));
+        if (existingVehicle) {
+          // Merge existing vehicle data with config vehicle data (config takes precedence)
+          mergedVehicles.push({ ...existingVehicle, ...configVehicle });
+        } else {
+          mergedVehicles.push(configVehicle);
+        }
+      });
+      
+      // Add any existing vehicles that weren't in configs (if they don't have IDs, add them too)
+      vehicles.forEach(v => {
+        const vid = v.id || v._id;
+        if (!vid || !vehiclesFromConfigs.has(String(vid))) {
+          // Only add if not already added from configs
+          if (!mergedVehicles.some(mv => {
+            const mvid = mv.id || mv._id;
+            return mvid && vid && String(mvid) === String(vid);
+          })) {
+            mergedVehicles.push(v);
+          }
+        }
+      });
+      
+      vehicles = mergedVehicles.length > 0 ? mergedVehicles : configVehiclesArray;
+    }
+  }
+
   // Extract meeting points from pickup_dropoff
   // IMPORTANT: Preserve the FULL pickup_dropoff structure including pickup_configurations
   const pickupDropoff = product.pickup_dropoff || {};
- 
+  
   // Extract pickup_locations - prioritize from pickup_dropoff.pickup_locations
   const meetingPoints = Array.isArray(pickupDropoff.pickup_locations) && pickupDropoff.pickup_locations.length > 0
     ? pickupDropoff.pickup_locations

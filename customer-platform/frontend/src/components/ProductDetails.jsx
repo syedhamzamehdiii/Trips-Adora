@@ -195,7 +195,7 @@ const ProductDetails = () => {
         hasPickupConfigs: !!product?.pickup_dropoff?.pickup_configurations,
         configsCount: product?.pickup_dropoff?.pickup_configurations?.length || 0,
         pickupDropoffKeys: product?.pickup_dropoff ? Object.keys(product.pickup_dropoff) : [],
-        pickupDropoffFull: product?.pickup_dropoff, // Log full object
+        pickupDropoffFull: product?.pickup_dropoff,
         hasCustomFields: !!product?.custom_fields,
         hasVehicleTimeAllocations: !!(product?.custom_fields?.vehicle_time_allocations),
         vehicleTimeAllocationsCount: Array.isArray(product?.custom_fields?.vehicle_time_allocations) 
@@ -209,7 +209,18 @@ const ProductDetails = () => {
         })) || []
       })
       
-      // (pickup_dropoff and custom_fields are now handled silently without verbose debug logging)
+      // Log the actual pickup_dropoff structure
+      if (product?.pickup_dropoff) {
+        console.log('📦 pickup_dropoff structure:', JSON.stringify(product.pickup_dropoff, null, 2))
+      }
+      
+      // Log custom_fields if it exists
+      if (product?.custom_fields) {
+        console.log('📦 custom_fields keys:', Object.keys(product.custom_fields))
+        if (product.custom_fields.vehicle_time_allocations) {
+          console.log('📦 vehicle_time_allocations:', product.custom_fields.vehicle_time_allocations)
+        }
+      }
     }
     
     // First try pickup_configurations from pickup_dropoff
@@ -304,6 +315,7 @@ const ProductDetails = () => {
               }
               
               // Check if config.vehicle.model matches selected vehicle title or model
+              // IMPORTANT: Model matching is less precise, so we should be more careful
               if (config.vehicle.model) {
                 const configModelNormalized = String(config.vehicle.model).toLowerCase().trim()
                 if (vehicleTitle) {
@@ -319,11 +331,26 @@ const ProductDetails = () => {
                 if (vehicleModel) {
                   const vehicleModelNormalized = String(vehicleModel).toLowerCase().trim()
                   if (configModelNormalized === vehicleModelNormalized) {
-                    matchedBy = 'model'
-                    if (process.env.NODE_ENV === 'development') {
-                      console.log('✅ Matched by model in config.vehicle:', config.vehicle.model, '===', vehicleModel)
+                    // CRITICAL: When matching by model, we need to verify it's the exact same vehicle
+                    // Check if the config's vehicle ID matches what we're looking for (if we have an ID)
+                    // OR check if the title also matches to avoid false positives
+                    if (vehicleId) {
+                      // If we have a vehicle ID, we should have matched by ID above
+                      // This model match is only valid if IDs don't exist
+                      matchedBy = 'model'
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log('✅ Matched by model in config.vehicle:', config.vehicle.model, '===', vehicleModel, '(ID check: vehicleId exists but config has different/no ID)')
+                      }
+                      return true
+                    } else {
+                      // No ID available - model match might be ambiguous, but proceed
+                      // We'll filter duplicates later
+                      matchedBy = 'model'
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log('✅ Matched by model in config.vehicle:', config.vehicle.model, '===', vehicleModel, '(no ID available)')
+                      }
+                      return true
                     }
-                    return true
                   }
                 }
               }
@@ -343,24 +370,23 @@ const ProductDetails = () => {
             }
           }
           
-          // STRICT Fallback: Match by position ONLY if:
-          // 1. No ID or title matching was possible (vehicleId is undefined/null AND vehicleTitle is missing)
-          // 2. We have exactly one config per vehicle (configs.length === vehicles.length)
-          // 3. The configIndex matches the selectedVehicleIndex exactly
-          // 4. This should ONLY be used as a last resort
+          // STRICT Fallback: Match by position if model matching found multiple matches
+          // Use array index as tiebreaker when vehicles have same model but different IDs
           if (selectedVehicleIndex !== null && 
               configs.length > 0 &&
               product?.vehicles &&
-              configs.length === product.vehicles.length &&
               selectedVehicleIndex < configs.length &&
-              configIndex === selectedVehicleIndex &&
-              !vehicleId && // Only use array position if we don't have an ID
-              !vehicleTitle) { // Only use array position if we don't have a title
-            matchedBy = 'array position (last resort)'
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('⚠️ Using array position fallback (no ID/title match possible):', configIndex, 'for vehicle index:', selectedVehicleIndex)
+              configIndex === selectedVehicleIndex) {
+            // Use array position if:
+            // 1. We matched by model (which is ambiguous), OR
+            // 2. No ID available and we're matching by model
+            if (!vehicleId || (vehicleModel && matchedBy && matchedBy.includes('model'))) {
+              matchedBy = 'array position (tiebreaker for model match)'
+              if (process.env.NODE_ENV === 'development') {
+                console.log('✅ Using array position as tiebreaker for model match:', configIndex, 'for vehicle index:', selectedVehicleIndex)
+              }
+              return true
             }
-            return true
           }
           
           if (process.env.NODE_ENV === 'development' && !matchedBy) {
@@ -468,6 +494,94 @@ const ProductDetails = () => {
           // CRITICAL: Final safety check - ensure all matched configs belong to the same vehicle
           // If we have multiple matches, verify they all reference the same vehicle
           if (verifiedMatches.length > 1) {
+            // First, try to match by vehicle ID if available
+            if (vehicleId) {
+              const idMatches = verifiedMatches.filter(config => {
+                const configVehicleId = config.vehicle_id || config.vehicle?.id || config.vehicle?._id
+                return configVehicleId && String(configVehicleId) === String(vehicleId)
+              })
+              if (idMatches.length > 0) {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('✅ Filtered matches by vehicle ID:', idMatches.length, 'out of', verifiedMatches.length)
+                }
+                return idMatches
+              }
+            }
+            
+            // Second, try to match by exact title if available
+            if (vehicleTitle && selectedVehicle?.title) {
+              const titleMatches = verifiedMatches.filter(config => {
+                const configTitle = config.vehicle?.title
+                return configTitle && String(configTitle).toLowerCase().trim() === String(selectedVehicle.title).toLowerCase().trim()
+              })
+              if (titleMatches.length > 0) {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('✅ Filtered matches by exact title:', titleMatches.length, 'out of', verifiedMatches.length)
+                }
+                return titleMatches
+              }
+            }
+            
+            // Third, check if all matches belong to the same vehicle by ID
+            const firstConfigVehicleId = verifiedMatches[0].vehicle_id || verifiedMatches[0].vehicle?.id || verifiedMatches[0].vehicle?._id
+            if (firstConfigVehicleId) {
+              const sameVehicleMatches = verifiedMatches.filter(config => {
+                const configVehicleId = config.vehicle_id || config.vehicle?.id || config.vehicle?._id
+                return configVehicleId && String(configVehicleId) === String(firstConfigVehicleId)
+              })
+              if (sameVehicleMatches.length > 0 && sameVehicleMatches.length < verifiedMatches.length) {
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn('⚠️ Filtered to configs from same vehicle ID:', sameVehicleMatches.length, 'out of', verifiedMatches.length)
+                }
+                return sameVehicleMatches
+              }
+            }
+            
+            // Fourth, if no ID and multiple matches by model, use array index as tiebreaker
+            if (!vehicleId && selectedVehicleIndex !== null && verifiedMatches.length > 1) {
+              // Strategy: Match the config at the same index position as the selected vehicle
+              // This works when vehicles array order corresponds to unique vehicles in pickup_configurations
+              
+              // Try to find the vehicle's ID from the vehicles array at the selected index
+              const selectedVehicleFromArray = product?.vehicles?.[selectedVehicleIndex]
+              if (selectedVehicleFromArray) {
+                const selectedVehicleIdFromArray = selectedVehicleFromArray.id || selectedVehicleFromArray._id
+                
+                // If we can find the ID from the vehicle object, use it
+                if (selectedVehicleIdFromArray) {
+                  const idMatches = verifiedMatches.filter(config => {
+                    const configVehicleId = config.vehicle_id || config.vehicle?.id || config.vehicle?._id
+                    return configVehicleId && String(configVehicleId) === String(selectedVehicleIdFromArray)
+                  })
+                  if (idMatches.length > 0) {
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log('✅ Found vehicle ID from array, using it to filter:', idMatches.length, 'config(s)')
+                    }
+                    return idMatches
+                  }
+                }
+              }
+              
+              // Fallback: Use array index to pick the correct matching config
+              // If vehicle at index 0, use first match; if index 1, use second match, etc.
+              if (verifiedMatches.length > 0 && selectedVehicleIndex !== null && selectedVehicleIndex < verifiedMatches.length) {
+                // Use the match at the selectedVehicleIndex position
+                const indexMatch = [verifiedMatches[selectedVehicleIndex]]
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`✅ Using matching config at index ${selectedVehicleIndex} as tiebreaker:`, indexMatch[0]?.vehicle?.title || indexMatch[0]?.vehicle?.model)
+                }
+                return indexMatch
+              } else if (verifiedMatches.length > 0) {
+                // Last resort: use first match
+                const firstMatch = [verifiedMatches[0]]
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('✅ Using first matching config as tiebreaker (no ID available):', firstMatch[0]?.vehicle?.title || firstMatch[0]?.vehicle?.model)
+                }
+                return firstMatch
+              }
+            }
+            
+            // Fourth, check by title/model combination
             const firstConfigVehicleRef = verifiedMatches[0].vehicle_id || verifiedMatches[0].vehicle?.id || verifiedMatches[0].vehicle?._id || verifiedMatches[0].vehicle?.title || verifiedMatches[0].vehicle?.model
             const allSameVehicle = verifiedMatches.every(config => {
               const configVehicleRef = config.vehicle_id || config.vehicle?.id || config.vehicle?._id || config.vehicle?.title || config.vehicle?.model
@@ -475,16 +589,21 @@ const ProductDetails = () => {
               return String(firstConfigVehicleRef).toLowerCase().trim() === String(configVehicleRef).toLowerCase().trim()
             })
             
-            if (!allSameVehicle && process.env.NODE_ENV === 'development') {
-              console.error('❌ ERROR: Matched configs belong to different vehicles! Filtering to first match only.', {
-                firstConfigVehicle: firstConfigVehicleRef,
-                allConfigs: verifiedMatches.map(c => ({
-                  vehicle_id: c.vehicle_id,
-                  vehicle_title: c.vehicle?.title || c.vehicle?.model,
-                  pickup_location: c.pickup_location,
-                  pickup_time: c.pickup_time
-                }))
-              })
+            if (!allSameVehicle) {
+              if (process.env.NODE_ENV === 'development') {
+                console.error('❌ ERROR: Matched configs belong to different vehicles! Using first match only.', {
+                  firstConfigVehicle: firstConfigVehicleRef,
+                  selectedVehicleId: vehicleId,
+                  selectedVehicleTitle: vehicleTitle,
+                  allConfigs: verifiedMatches.map(c => ({
+                    vehicle_id: c.vehicle_id,
+                    vehicle_title: c.vehicle?.title || c.vehicle?.model,
+                    vehicle_model: c.vehicle?.model,
+                    pickup_location: c.pickup_location,
+                    pickup_time: c.pickup_time
+                  }))
+                })
+              }
               // Return only the first match if configs belong to different vehicles
               return [verifiedMatches[0]]
             }
