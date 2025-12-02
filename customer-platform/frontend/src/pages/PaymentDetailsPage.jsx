@@ -2,9 +2,10 @@ import React, { useMemo, useState } from 'react'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { FiArrowLeft } from 'react-icons/fi'
+import { FiArrowLeft, FiTag } from 'react-icons/fi'
 import { BsBorderStyle } from 'react-icons/bs'
 import { createBooking } from '../services/bookingService'
+import { validateCoupon } from '../services/couponService'
 
 const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
@@ -134,6 +135,12 @@ const PaymentDetailsPage = () => {
   const [cvv, setCvv] = useState('')
   const [specialInstructions, setSpecialInstructions] = useState(specialRequirements || '')
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState(null)
+  const [couponError, setCouponError] = useState(null)
+  const [validatingCoupon, setValidatingCoupon] = useState(false)
+
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -161,6 +168,79 @@ const PaymentDetailsPage = () => {
     () => localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID,
     []
   )
+
+  // Calculate base total (without discount) - used for coupon validation
+  const baseTotal = useMemo(() => {
+    const primaryVehiclePrice = Number(
+      selectedVehicle?.amount != null
+        ? selectedVehicle.amount
+        : (selectedVehicle?.price != null
+          ? selectedVehicle.price
+          : (bookingData?.price != null
+            ? bookingData.price
+            : (vehicleData?.amount || vehicleData?.price || 0)))
+    ) || 0
+
+    const extraVehiclePrices = Array.isArray(extraVehicles)
+      ? extraVehicles.map((ev) => {
+          const vehicleAmount = ev?.vehicle?.amount != null 
+            ? Number(ev.vehicle.amount) 
+            : (ev?.vehicle?.price != null 
+              ? Number(ev.vehicle.price) 
+              : 0)
+          return vehicleAmount || 0
+        })
+      : []
+
+    const extraVehiclesTotal = extraVehiclePrices.reduce(
+      (sum, p) => sum + p,
+      0
+    )
+
+    const allVehiclesTotal = primaryVehiclePrice + extraVehiclesTotal
+    const extrasAmount = Number(extrasTotal || 0) || 0
+    return allVehiclesTotal + extrasAmount
+  }, [selectedVehicle, extraVehicles, extrasTotal, bookingData, vehicleData])
+
+  // Calculate final total with discount
+  const finalTotal = useMemo(() => {
+    const discount = appliedCoupon?.discountAmount || 0
+    return Math.max(0, baseTotal - discount)
+  }, [baseTotal, appliedCoupon])
+
+  // Handle coupon validation
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('Please enter a coupon code')
+      return
+    }
+
+    setCouponError(null)
+    setValidatingCoupon(true)
+
+    try {
+      const result = await validateCoupon(couponCode.trim(), baseTotal)
+      if (result.valid && result.coupon) {
+        setAppliedCoupon(result.coupon)
+        setCouponError(null)
+      } else {
+        setCouponError('Invalid coupon code')
+        setAppliedCoupon(null)
+      }
+    } catch (err) {
+      setCouponError(err.message || 'Failed to validate coupon')
+      setAppliedCoupon(null)
+    } finally {
+      setValidatingCoupon(false)
+    }
+  }
+
+  // Handle coupon removal
+  const handleRemoveCoupon = () => {
+    setCouponCode('')
+    setAppliedCoupon(null)
+    setCouponError(null)
+  }
 
   const handleCompleteBooking = async () => {
     // Validate required fields
@@ -203,7 +283,10 @@ const PaymentDetailsPage = () => {
 
     const allVehiclesTotal = primaryVehiclePrice + extraVehiclesTotal
     const extrasAmount = Number(extrasTotal || 0) || 0
-    const totalAmount = allVehiclesTotal + extrasAmount
+    const baseAmount = allVehiclesTotal + extrasAmount
+    // Apply coupon discount if available
+    const discountAmount = appliedCoupon?.discountAmount || 0
+    const totalAmount = Math.max(0, baseAmount - discountAmount)
     const bookingPayload = {
       title: bookingData?.name || 'Fuji Subaru Line 5th Station Tour',
       productId: bookingData?.id || bookingData?.slug || bookingData?.productId,
@@ -227,7 +310,7 @@ const PaymentDetailsPage = () => {
       customerName: cardholderName || 'Guest',
       customerEmail: bookingData?.email || 'customer@example.com',
       customerPhone: '+81 90-1234-5678',
-      vehicle: selectedVehicle?.name || vehicleData?.name || 'Toyota Hiace Van',
+      vehicle: selectedVehicle?.title || selectedVehicle?.model || vehicleData?.title || vehicleData?.model || selectedVehicle?.name || vehicleData?.name || 'Vehicle',
       tourDateLabel: selectedDate || '',
       extras: Array.isArray(extras) ? extras : [],
       metadata: {
@@ -235,6 +318,19 @@ const PaymentDetailsPage = () => {
         extrasTotal: typeof extrasTotal === 'number' ? extrasTotal.toString() : '',
         cardLast4: cardNumber.slice(-4),
         selectedVehicleId: selectedVehicle?.id || vehicleData?.id || '',
+        couponCode: appliedCoupon?.code || '',
+        discountAmount: (appliedCoupon?.discountAmount || 0).toString(),
+        originalAmount: baseAmount.toString(),
+        allVehicles: JSON.stringify([
+          { 
+            name: selectedVehicle?.title || selectedVehicle?.model || vehicleData?.title || vehicleData?.model || selectedVehicle?.name || vehicleData?.name || 'Vehicle',
+            type: 'primary'
+          },
+          ...(Array.isArray(extraVehicles) ? extraVehicles.map((ev) => ({
+            name: ev?.vehicle?.title || ev?.vehicle?.model || ev?.vehicle?.name || 'Vehicle',
+            type: 'extra'
+          })) : [])
+        ]),
       },
     }
 
@@ -367,6 +463,63 @@ const PaymentDetailsPage = () => {
               </div>
             </div>
 
+            {/* Coupon Code */}
+            <div className="mb-6">
+              <label className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-3">
+                <FiTag className="w-5 h-5" style={{ color: '#1d236b' }} />
+                <span>Coupon Code <span className="text-gray-500 font-normal">(Optional)</span></span>
+              </label>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  placeholder="Enter coupon code"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && couponCode.trim()) {
+                      handleApplyCoupon()
+                    }
+                  }}
+                  disabled={validatingCoupon || !!appliedCoupon}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  style={{ '--tw-ring-color': '#1d236b' }}
+                />
+                {appliedCoupon ? (
+                  <button
+                    onClick={handleRemoveCoupon}
+                    className="px-6 py-3 border border-red-300 text-red-600 rounded-lg font-semibold hover:bg-red-50 transition whitespace-nowrap"
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleApplyCoupon}
+                    disabled={validatingCoupon || !couponCode.trim()}
+                    className="px-6 py-3 rounded-lg font-semibold text-white transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#1d236b' }}
+                  >
+                    {validatingCoupon ? 'Applying...' : 'Apply'}
+                  </button>
+                )}
+              </div>
+              {couponError && (
+                <p className="mt-2 text-sm text-red-600">{couponError}</p>
+              )}
+              {appliedCoupon && (
+                <div className="mt-2 p-3 rounded-lg" style={{ backgroundColor: '#e6f0ff' }}>
+                  <p className="text-sm font-semibold" style={{ color: '#1d236b' }}>
+                    ✓ Coupon applied: {appliedCoupon.code}
+                  </p>
+                  {appliedCoupon.description && (
+                    <p className="text-xs text-gray-600 mt-1">{appliedCoupon.description}</p>
+                  )}
+                  <p className="text-sm font-semibold text-green-600 mt-1">
+                    Discount: -${formatCurrency(appliedCoupon.discountAmount)}
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Special Instructions */}
             <div className="mb-8">
               <label className="block text-lg font-semibold text-gray-900 mb-3">
@@ -474,8 +627,12 @@ const PaymentDetailsPage = () => {
                 // Preferences / extras total
                 const extrasAmount = Number(extrasTotal || 0) || 0
 
-                // Final total = sum of all vehicle prices + extras
-                const finalTotal = allVehiclesTotal + extrasAmount
+                // Base total = sum of all vehicle prices + extras
+                const baseTotal = allVehiclesTotal + extrasAmount
+                
+                // Apply coupon discount if available
+                const discountAmount = appliedCoupon?.discountAmount || 0
+                const finalTotal = Math.max(0, baseTotal - discountAmount)
 
                 return (
                   <>
@@ -516,6 +673,29 @@ const PaymentDetailsPage = () => {
                           </div>
                         )
                       })}
+
+                    {/* Coupon Discount */}
+                    {appliedCoupon && discountAmount > 0 && (
+                      <div className="flex justify-between border-t border-gray-200 pt-4">
+                        <span className="text-gray-600 font-medium">
+                          Subtotal:
+                        </span>
+                        <span className="text-gray-900 font-semibold">
+                          ${formatCurrency(baseTotal)}
+                        </span>
+                      </div>
+                    )}
+
+                    {appliedCoupon && discountAmount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-green-600 font-medium">
+                          Discount ({appliedCoupon.code}):
+                        </span>
+                        <span className="text-green-600 font-semibold">
+                          -${formatCurrency(discountAmount)}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="border-t border-gray-200 pt-4">
                       <div className="flex justify-between">

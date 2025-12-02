@@ -4,6 +4,9 @@ import Footer from '../components/Footer'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiDownload } from 'react-icons/fi'
 import { Check } from 'lucide-react'
+import { getProfile, getCachedProfileSync } from '../services/profileService'
+
+const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
 const formatCurrencyValue = (value, currency = 'USD') => {
   try {
@@ -32,13 +35,74 @@ const PaymentSuccessPage = () => {
     [booking.totalAmount, booking.currency]
   )
   const [showPopup, setShowPopup] = useState(true)
+  
+  // Get customer profile for name and email
+  const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
+  const [customerProfile, setCustomerProfile] = useState(() => getCachedProfileSync(userId))
+  const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => setShowPopup(false), 4000)
     return () => clearTimeout(timer)
   }, [])
 
+  // Fetch customer profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setProfileLoading(true)
+        const profile = await getProfile(userId, true)
+        setCustomerProfile(profile)
+      } catch (err) {
+        console.warn('Failed to fetch customer profile:', err)
+      } finally {
+        setProfileLoading(false)
+      }
+    }
+    
+    if (!customerProfile) {
+      fetchProfile()
+    }
+  }, [userId, customerProfile])
+
+  // Get customer name from profile
+  const customerName = useMemo(() => {
+    if (customerProfile?.user?.name) {
+      return customerProfile.user.name
+    }
+    if (customerProfile?.user?.first_name || customerProfile?.user?.last_name) {
+      return [customerProfile.user.first_name, customerProfile.user.last_name].filter(Boolean).join(' ').trim()
+    }
+    return booking.customerName || 'Guest'
+  }, [customerProfile, booking.customerName])
+
+  // Get customer email from profile (Google email)
+  const customerEmail = useMemo(() => {
+    return customerProfile?.user?.email || booking.customerEmail || booking.email || ''
+  }, [customerProfile, booking.customerEmail, booking.email])
+
+  // Get all vehicles from metadata
+  const allVehicles = useMemo(() => {
+    try {
+      if (booking.metadata?.allVehicles) {
+        return JSON.parse(booking.metadata.allVehicles)
+      }
+    } catch (err) {
+      console.warn('Failed to parse vehicles from metadata:', err)
+    }
+    
+    // Fallback: if no vehicles in metadata, use the primary vehicle
+    if (booking.vehicle) {
+      return [{ name: booking.vehicle, type: 'primary' }]
+    }
+    return []
+  }, [booking.metadata, booking.vehicle])
+
   const handleDownloadCsv = useCallback(() => {
+    const vehiclesList = allVehicles.length > 0
+      ? allVehicles.map((v, idx) => `${idx + 1}. ${v.name || 'Vehicle'}`).join('; ')
+      : (booking.vehicle || '')
+    
     const rows = [
       ['Booking ID', booking.bookingId || booking.id || ''],
       ['Tour Name', booking.tourName || booking.title || ''],
@@ -47,11 +111,11 @@ const PaymentSuccessPage = () => {
       ['Destination', booking.destination || booking.location || ''],
       ['Total Amount', formattedAmount],
       ['Currency', booking.currency || 'USD'],
-      ['Customer Name', booking.customerName || ''],
-      ['Customer Email', booking.customerEmail || booking.email || ''],
+      ['Customer Name', customerName],
+      ['Customer Email', customerEmail],
       ['Customer Phone', booking.customerPhone || booking.phone || ''],
       ['Travelers', booking.travelers || booking.numberOfPersons || ''],
-      ['Vehicle', booking.vehicle || ''],
+      ['Vehicle' + (allVehicles.length > 1 ? 's' : ''), vehiclesList],
       ['Pick-up Location', booking.pickUpLocation || ''],
       ['Drop-off Location', booking.dropOffLocation || ''],
     ]
@@ -74,7 +138,7 @@ const PaymentSuccessPage = () => {
     link.download = `booking-${booking.bookingId || booking.id || 'summary'}.csv`
     link.click()
     URL.revokeObjectURL(url)
-  }, [booking, formattedAmount])
+  }, [booking, formattedAmount, customerName, customerEmail, allVehicles])
 
   return (
     <div className="bg-gray-50">
@@ -159,11 +223,15 @@ const PaymentSuccessPage = () => {
             <div className="space-y-4">
               <div>
                 <span className="text-gray-600 font-medium">Full Name:</span>
-                <span className="ml-2 text-gray-900 font-semibold">{booking.customerName || 'Kenji Yamamoto'}</span>
+                <span className="ml-2 text-gray-900 font-semibold">
+                  {profileLoading ? 'Loading...' : customerName}
+                </span>
               </div>
               <div>
                 <span className="text-gray-600 font-medium">Email Address:</span>
-                <span className="ml-2 text-gray-900 font-semibold">{booking.customerEmail || booking.email || 'kenji.yamamoto@email.com'}</span>
+                <span className="ml-2 text-gray-900 font-semibold">
+                  {profileLoading ? 'Loading...' : customerEmail}
+                </span>
               </div>
               <div>
                 <span className="text-gray-600 font-medium">Number of persons:</span>
@@ -174,8 +242,18 @@ const PaymentSuccessPage = () => {
                 <span className="ml-2 text-gray-900 font-semibold">{booking.customerPhone || booking.phone || '+81 90-1234-5678'}</span>
               </div>
               <div>
-                <span className="text-gray-600 font-medium">Selected Vehicle:</span>
-                <span className="ml-2 text-gray-900 font-semibold">{booking.vehicle || 'Toyota Hiace Van'}</span>
+                <span className="text-gray-600 font-medium">Selected Vehicle{allVehicles.length > 1 ? 's' : ''}:</span>
+                <div className="ml-2 mt-1">
+                  {allVehicles.length > 0 ? (
+                    allVehicles.map((vehicle, idx) => (
+                      <div key={idx} className="text-gray-900 font-semibold">
+                        {allVehicles.length > 1 && `${idx + 1}. `}{vehicle.name || 'Vehicle'}
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-gray-900 font-semibold">{booking.vehicle || 'Toyota Hiace Van'}</span>
+                  )}
+                </div>
               </div>
               <div>
                 <span className="text-gray-600 font-medium">Pick-up Location:</span>

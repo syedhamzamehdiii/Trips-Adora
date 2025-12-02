@@ -778,6 +778,8 @@ const CheckAvailabilityPage = () => {
         // Preserve extras and special requirements if coming back from step 2
         extras: stateData.extras,
         specialRequirements: stateData.specialRequirements,
+        // Preserve productId for back navigation
+        productId: stateData.productId || bookingData.productId || bookingData.id,
         bookingData: {
           ...bookingData,
           selectedVehicleIndex,
@@ -803,16 +805,25 @@ const CheckAvailabilityPage = () => {
               // If we came from cart, go back to cart
               if (bookingData.from === 'cart') {
                 navigate('/cart')
-              } else if (bookingData.from === 'product-details') {
-                // If we came from a product page, prefer going back in history
-                // so we land on the exact product (could be /tours/:slug, etc.)
-                navigate(-1)
               } else {
-                // Fallback: go back one step, or to home if no history
-                if (window.history.length > 1) {
-                  navigate(-1)
+                // Navigate to product page using productId if available
+                const productId = stateData.productId || bookingData.productId || bookingData.id
+                if (productId) {
+                  navigate(`/product-details/${productId}`)
+                } else if (bookingData.from === 'product-details') {
+                  // Fallback: try going back in history if we came from product page
+                  if (window.history.length > 1) {
+                    navigate(-1)
+                  } else {
+                    navigate('/')
+                  }
                 } else {
-                  navigate('/')
+                  // Final fallback: go back one step, or to home if no history
+                  if (window.history.length > 1) {
+                    navigate(-1)
+                  } else {
+                    navigate('/')
+                  }
                 }
               }
             }}

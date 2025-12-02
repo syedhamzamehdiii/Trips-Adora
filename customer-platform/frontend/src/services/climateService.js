@@ -4,6 +4,7 @@
 // - Fetches weather via OpenWeather Geocoding + Weather/Forecast
 
 const OPEN_WEATHER_KEY = '8425ac6accbc9e1ed2942388d299241b'
+const OPENAI_KEY = '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'
 
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 hours
 const inMemory = new Map() // coalesce same-key requests within a session
@@ -52,8 +53,6 @@ function heuristicExtractPlace(name, location) {
 
 async function openAIExtractPlace(name) {
   if (!name) return null
-  const openaiKey = process.env.REACT_APP_OPENAI_KEY
-  if (!openaiKey) return null
   try {
     const url = 'https://api.openai.com/v1/chat/completions'
     const system = 'You extract destinations for weather lookup. Respond ONLY with JSON.'
@@ -62,7 +61,7 @@ async function openAIExtractPlace(name) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`
+        'Authorization': `Bearer ${OPENAI_KEY}`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
@@ -92,8 +91,6 @@ async function openAIExtractPlace(name) {
 }
 
 async function openAIGenerateNarrative(place, today, forecasts) {
-  const openaiKey = process.env.REACT_APP_OPENAI_KEY
-  if (!openaiKey) return ''
   try {
     const url = 'https://api.openai.com/v1/chat/completions'
     const system = 'You are a travel weather narrator. Write a brief, friendly, natural-language bulletin for travelers.'
@@ -112,7 +109,7 @@ async function openAIGenerateNarrative(place, today, forecasts) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`
+        'Authorization': `Bearer ${OPENAI_KEY}`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
