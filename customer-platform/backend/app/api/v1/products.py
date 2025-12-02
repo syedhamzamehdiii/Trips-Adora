@@ -530,6 +530,11 @@ async def get_product(product_id: str):
                                 })
                                 
                                 if vehicle_doc:
+                                    # Normalize vehicle price to USD for any embedded vehicle object
+                                    original_amount = vehicle_doc.get("amount")
+                                    original_currency = vehicle_doc.get("currency")
+                                    amount_usd = await convert_to_usd(original_amount, original_currency)
+
                                     config_dict["vehicle"] = {
                                         "id": str(vehicle_doc.get("_id")),
                                         "productId": str(vehicle_doc.get("product_id", "")),
@@ -539,9 +544,10 @@ async def get_product(product_id: str):
                                         "year": vehicle_doc.get("year"),
                                         "attributes": vehicle_doc.get("attributes"),
                                         "capacity": vehicle_doc.get("capacity"),
-                                        "currency": vehicle_doc.get("currency"),
+                                        # Always expose customer-facing prices in USD
+                                        "currency": "USD",
                                         "pricingType": vehicle_doc.get("pricing_type"),
-                                        "amount": vehicle_doc.get("amount"),
+                                        "amount": amount_usd,
                                         "duration": vehicle_doc.get("duration"),
                                         "description": vehicle_doc.get("description"),
                                         "isActive": vehicle_doc.get("is_active", True),
@@ -555,6 +561,45 @@ async def get_product(product_id: str):
                         populated_configs.append(config_dict)
                     
                     pickup_configurations = populated_configs
+                    
+                    # IMPORTANT: Normalize ANY existing vehicle objects in pickup_configurations to USD
+                    # so the customer always sees converted prices, even for legacy configs.
+                    for cfg in pickup_configurations:
+                        try:
+                            veh = cfg.get("vehicle")
+                            if not isinstance(veh, dict):
+                                continue
+
+                            # Try to find a matching vehicle_doc by ID
+                            vid = str(
+                                veh.get("id")
+                                or veh.get("_id")
+                                or cfg.get("vehicle_id")
+                                or ""
+                            )
+                            original_amount = None
+                            original_currency = None
+
+                            if vid and vehicle_docs:
+                                for v in vehicle_docs:
+                                    if str(v.get("_id")) == vid:
+                                        original_amount = v.get("amount")
+                                        original_currency = v.get("currency")
+                                        break
+
+                            # Fallback to values embedded in the vehicle object
+                            if original_amount is None:
+                                original_amount = veh.get("amount")
+                                original_currency = veh.get("currency")
+
+                            amount_usd = await convert_to_usd(original_amount, original_currency)
+
+                            veh["amount"] = amount_usd
+                            veh["currency"] = "USD"
+                            cfg["vehicle"] = veh
+                        except Exception as e:
+                            logger.warning(f"⚠️ [DEBUG] Could not normalize pickup_configurations vehicle to USD: {e}")
+
                     logger.info(f"🔍 [DEBUG] Found {len(pickup_configurations)} pickup_configurations in pickup_dropoff")
                 else:
                     pickup_configurations = []
@@ -563,76 +608,10 @@ async def get_product(product_id: str):
                 pickup_configurations = []
                 logger.warning(f"⚠️ [DEBUG] pickup_configurations MISSING in pickup_dropoff dict! Keys: {list(pd.keys())}")
             
-            # CRITICAL: If pickup_configurations is empty but we have vehicles, 
-            # try to reconstruct from vehicle_time_allocations in custom_fields
-            if not pickup_configurations and vehicles and len(vehicles) > 0:
-                try:
-                    vehicle_time_allocations = custom_fields.get("vehicle_time_allocations")
-                    if vehicle_time_allocations and isinstance(vehicle_time_allocations, list):
-                        logger.info(f"🔍 [DEBUG] Attempting to reconstruct pickup_configurations from vehicle_time_allocations")
-                        for allocation in vehicle_time_allocations:
-                            if not isinstance(allocation, dict):
-                                continue
-                            
-                            # Find matching vehicle
-                            vehicle_id = allocation.get("vehicle_id") or allocation.get("vehicleId")
-                            vehicle_obj = None
-                            
-                            if vehicle_id:
-                                # Try to find vehicle by ID
-                                for v in vehicle_docs:
-                                    if str(v.get("_id")) == str(vehicle_id):
-                                        vehicle_obj = {
-                                            "id": str(v.get("_id")),
-                                            "productId": str(v.get("product_id", "")),
-                                            "title": v.get("title"),
-                                            "type": v.get("vehicle_type"),
-                                            "model": v.get("variant"),
-                                            "year": v.get("year"),
-                                            "attributes": v.get("attributes"),
-                                            "capacity": v.get("capacity"),
-                                            "currency": v.get("currency"),
-                                            "pricingType": v.get("pricing_type"),
-                                            "amount": v.get("amount"),
-                                            "duration": v.get("duration"),
-                                            "description": v.get("description"),
-                                            "isActive": v.get("is_active", True),
-                                            "createdAt": v.get("created_at").isoformat() if v.get("created_at") else None,
-                                            "updatedAt": v.get("updated_at").isoformat() if v.get("updated_at") else None
-                                        }
-                                        break
-                            
-                            # Extract pickup locations
-                            pickup_locs = allocation.get("pickupLocations") or allocation.get("pickup_locations") or []
-                            if isinstance(pickup_locs, str):
-                                pickup_locs = [loc.strip() for loc in pickup_locs.split(",") if loc.strip()]
-                            elif not isinstance(pickup_locs, list):
-                                pickup_locs = []
-                            
-                            # Extract dropoff locations
-                            dropoff_locs = allocation.get("dropoffLocations") or allocation.get("dropoff_locations") or []
-                            if isinstance(dropoff_locs, str):
-                                dropoff_locs = [loc.strip() for loc in dropoff_locs.split(",") if loc.strip()]
-                            elif not isinstance(dropoff_locs, list):
-                                dropoff_locs = pickup_locs  # Default to pickup locations
-                            
-                            # Create config for each pickup location
-                            for pickup_loc in pickup_locs:
-                                if pickup_loc:
-                                    pickup_configurations.append({
-                                        "pickup_location": pickup_loc,
-                                        "dropoff_location": dropoff_locs[0] if dropoff_locs else None,
-                                        "vehicle_id": vehicle_id,
-                                        "vehicle": vehicle_obj,
-                                        "pickup_time": allocation.get("pickupTime") or allocation.get("pickup_time") or pickup_time or "00:00",
-                                        "pickup_date": allocation.get("pickupDate") or allocation.get("pickup_date"),
-                                        "pickup_datetime": allocation.get("pickupDateTime") or allocation.get("pickup_datetime")
-                                    })
-                        
-                        if pickup_configurations:
-                            logger.info(f"✅ [DEBUG] Reconstructed {len(pickup_configurations)} pickup_configurations from vehicle_time_allocations")
-                except Exception as e:
-                    logger.warning(f"⚠️ [DEBUG] Could not reconstruct pickup_configurations from vehicle_time_allocations: {e}")
+            # NOTE: Previously we attempted to reconstruct pickup_configurations from
+            # legacy custom_fields.vehicle_time_allocations when configs were empty.
+            # This legacy path caused duplicate/mismatched vehicle data. We now rely
+            # solely on explicit pickup_configurations + supplier_vehicle_options.
             
             # Preserve time_slot_configuration if present
             raw_time_slot_config = pd.get("time_slot_configuration")

@@ -97,10 +97,39 @@ const ProductDetails = () => {
     setSelectedMeetingPointIndex(null)
   }, [selectedVehicleIndex])
 
+  // Helper: vehicles that are actually wired to pickup_configurations (to avoid orphan/duplicate options)
+  const vehiclesForDisplay = useMemo(() => {
+    const rawVehicles = Array.isArray(product?.vehicles) ? product.vehicles : []
+    if (!rawVehicles.length) return []
+
+    const configs = product?.pickup_dropoff?.pickup_configurations
+    if (!Array.isArray(configs) || configs.length === 0) {
+      // No configs – show all vehicles as-is
+      return rawVehicles
+    }
+
+    const linkedIds = new Set(
+      configs
+        .map((c) => c?.vehicle?.id || c?.vehicle?._id || c?.vehicle_id)
+        .filter(Boolean)
+        .map((id) => String(id))
+    )
+
+    // If we found any linked IDs, only show vehicles that are referenced in pickup_configurations
+    if (linkedIds.size > 0) {
+      return rawVehicles.filter((v) => {
+        const id = v?.id || v?._id
+        return id && linkedIds.has(String(id))
+      })
+    }
+
+    return rawVehicles
+  }, [product?.vehicles, product?.pickup_dropoff?.pickup_configurations])
+
   const selectedVehicle = useMemo(() => {
-    if (!Array.isArray(product?.vehicles) || selectedVehicleIndex === null) return null
-    return product.vehicles[selectedVehicleIndex] || null
-  }, [product?.vehicles, selectedVehicleIndex])
+    if (!Array.isArray(vehiclesForDisplay) || selectedVehicleIndex === null) return null
+    return vehiclesForDisplay[selectedVehicleIndex] || null
+  }, [vehiclesForDisplay, selectedVehicleIndex])
 
   // Calculate tour time range from pickup time + vehicle duration
   const calculateTourTimeRange = useCallback((pickupTime, duration) => {
@@ -1735,22 +1764,22 @@ const ProductDetails = () => {
                 <div className="flex flex-col gap-1 mb-3 sm:mb-4">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-black">Vehicles available</h2>
-                    {Array.isArray(product.vehicles) && product.vehicles.length > 1 && (
+                    {Array.isArray(vehiclesForDisplay) && vehiclesForDisplay.length > 1 && (
                       <span className="text-xs font-semibold text-[#1d236b] bg-[#eef2ff] border border-[#d7deff] rounded-full px-3 py-1">
-                        {product.vehicles.length} options
+                        {vehiclesForDisplay.length} options
                       </span>
                     )}
                   </div>
-                  {selectedVehicleIndex !== null && product.vehicles?.[selectedVehicleIndex] && (
+                  {selectedVehicleIndex !== null && vehiclesForDisplay?.[selectedVehicleIndex] && (
                     <p className="text-xs sm:text-sm text-[#1d236b] font-medium">
-                      Selected: {product.vehicles[selectedVehicleIndex].title || product.vehicles[selectedVehicleIndex].model || 'Preferred vehicle'}
+                      Selected: {vehiclesForDisplay[selectedVehicleIndex].title || vehiclesForDisplay[selectedVehicleIndex].model || 'Preferred vehicle'}
                     </p>
                   )}
                 </div>
                 <div className="space-y-3 sm:space-y-4">
-                  {(product.vehicles || []).length > 0 ? (
+                  {(vehiclesForDisplay || []).length > 0 ? (
                     <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                      {product.vehicles.map((v, idx) => {
+                      {vehiclesForDisplay.map((v, idx) => {
                         const isSelected = selectedVehicleIndex === idx
                         // Always display prices in USD for customers
                         const currencySymbol = '$'
