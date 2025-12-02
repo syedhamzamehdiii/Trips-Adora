@@ -141,14 +141,17 @@ class SupplierBookingService:
                     except Exception:
                         pass  # Skip invalid user_ids
             
-            customer_emails_map = {}
+            customer_info_map = {}
             if user_ids:
                 try:
                     users = await User.find({"_id": {"$in": user_ids}}).to_list()
                     for user in users:
                         user_id_str = str(user.id)
-                        # Use authenticated email from User collection
-                        customer_emails_map[user_id_str] = user.email
+                        # Use authenticated email and country from User collection
+                        customer_info_map[user_id_str] = {
+                            "email": user.email,
+                            "country": getattr(user, "country", None),
+                        }
                 except Exception as user_err:
                     logger.warning(f"Error fetching customer emails: {user_err}")
             
@@ -158,8 +161,12 @@ class SupplierBookingService:
                 serialized_booking = SupplierBookingService._serialize_booking(booking)
                 # Override customer_email with authenticated email if available
                 user_id = str(booking.get("user_id", ""))
-                if user_id in customer_emails_map:
-                    serialized_booking["customer_email"] = customer_emails_map[user_id]
+                if user_id in customer_info_map:
+                    info = customer_info_map[user_id]
+                    if info.get("email"):
+                        serialized_booking["customer_email"] = info["email"]
+                    if info.get("country"):
+                        serialized_booking["customer_country"] = info["country"]
                 serialized.append(serialized_booking)
             
             return serialized
@@ -186,16 +193,18 @@ class SupplierBookingService:
             
             if booking:
                 serialized = SupplierBookingService._serialize_booking(booking)
-                # Get customer's authenticated email from User collection
+                # Get customer's authenticated email and country from User collection
                 user_id = booking.get("user_id")
                 if user_id:
                     try:
                         user = await User.find_one({"_id": ObjectId(str(user_id))})
-                        if user and user.email:
-                            # Use authenticated email instead of booking's customer_email
-                            serialized["customer_email"] = user.email
+                        if user:
+                            if getattr(user, "email", None):
+                                serialized["customer_email"] = user.email
+                            if getattr(user, "country", None):
+                                serialized["customer_country"] = user.country
                     except Exception as user_err:
-                        logger.warning(f"Error fetching customer email for user {user_id}: {user_err}")
+                        logger.warning(f"Error fetching customer details for user {user_id}: {user_err}")
                 return serialized
             return None
         

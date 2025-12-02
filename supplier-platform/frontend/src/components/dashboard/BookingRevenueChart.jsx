@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from 'recharts';
+import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, LabelList } from 'recharts';
 import { FiCalendar } from 'react-icons/fi';
 
 const BookingRevenueChart = () => {
@@ -128,20 +128,7 @@ const BookingRevenueChart = () => {
         // Calculate top countries from bookings for real-time country data
         const countryCounts = new Map();
         (bookings||[]).forEach(b => {
-          // Extract country from customer email domain or use default
-          const email = (b.customerEmail || '').toLowerCase();
-          let country = 'Unknown';
-          if (email.includes('jp') || email.includes('japan')) country = 'Japan';
-          else if (email.includes('uk') || email.includes('co.uk')) country = 'United Kingdom';
-          else if (email.includes('us') || email.includes('.com')) country = 'United States';
-          else if (email.includes('in') || email.includes('india')) country = 'India';
-          else if (email.includes('fr') || email.includes('france')) country = 'France';
-          else if (email.includes('de') || email.includes('germany')) country = 'Germany';
-          else if (email.includes('ca') || email.includes('canada')) country = 'Canada';
-          else if (email.includes('cn') || email.includes('china')) country = 'China';
-          else if (email.includes('ae') || email.includes('uae')) country = 'UAE';
-          else country = 'United States'; // Default fallback
-          
+          const country = (b.customerCountry || '').trim() || 'Unknown';
           const count = countryCounts.get(country) || 0;
           countryCounts.set(country, count + 1);
         });
@@ -169,42 +156,43 @@ const BookingRevenueChart = () => {
   }, [selectedPeriod]);
 
   const CustomTooltip = ({ active, payload, label }) => {
-    if (active && showCountries && countryData.length > 0) {
-      return (
-        <div className="bg-gradient-to-br from-purple-500 to-purple-700 text-white p-3 rounded-lg shadow-lg">
-          <p className="text-xs opacity-90 mb-2">{label} 2024</p>
-          <div className="space-y-1">
-            {countryData.map((country, idx) => (
-              <div key={idx} className="flex justify-between text-xs">
-                <span className="mr-4">{country.name}</span>
-                <span className="font-semibold">{country.count}</span>
-            </div>
-            ))}
+    if (!active || !payload || !payload.length) return null;
+
+    // Always show Bookings vs Revenue
+    return (
+      <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 max-w-xs">
+        <p className="text-xs text-gray-600 mb-2">{label}</p>
+        <div className="space-y-1 mb-2">
+          <div className="flex items-center">
+            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#5B8FDE' }}></div>
+            <span className="text-xs text-gray-600 mr-2">Bookings:</span>
+            <span className="text-xs font-semibold">{payload[0]?.value}</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#72C082' }}></div>
+            <span className="text-xs text-gray-600 mr-2">Revenue:</span>
+            <span className="text-xs font-semibold">{payload[1]?.value}</span>
           </div>
         </div>
-      );
-    }
-    
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
-          <p className="text-xs text-gray-600 mb-2">{label}</p>
-          <div className="space-y-1">
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#5B8FDE' }}></div>
-              <span className="text-xs text-gray-600 mr-2">Bookings:</span>
-              <span className="text-xs font-semibold">{payload[0]?.value}</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#72C082' }}></div>
-              <span className="text-xs text-gray-600 mr-2">Revenue:</span>
-              <span className="text-xs font-semibold">{payload[1]?.value}</span>
+
+        {/* When countries analysis is ON, also show top 4 countries with booking counts */}
+        {showCountries && countryData.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <p className="text-[11px] font-semibold text-gray-700 mb-1">
+              Top 4 countries (bookings)
+            </p>
+            <div className="space-y-1">
+              {countryData.map((country, idx) => (
+                <div key={idx} className="flex justify-between text-[11px]">
+                  <span className="mr-4 text-gray-600">{country.name}</span>
+                  <span className="font-semibold text-gray-900">{country.count}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      );
-    }
-    return null;
+        )}
+      </div>
+    );
   };
 
   const CustomDot = (props) => {
@@ -384,7 +372,9 @@ const BookingRevenueChart = () => {
             className={`relative w-11 h-6 ${showCountries ? 'bg-[#1d236b]' : 'bg-gray-300'} rounded-full cursor-pointer transition-colors`}
           >
             <div 
-              className={`absolute top-0.5 ${showCountries ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full shadow transition-all`}
+              className={`absolute top-0.5 ${showCountries ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full shadow transition-all transform ${
+                showCountries ? 'translate-x-0 scale-100' : 'translate-x-0 scale-95'
+              }`}
             ></div>
           </div>
           
@@ -464,7 +454,15 @@ const BookingRevenueChart = () => {
               dataKey="bookings"
               stroke="none"
               fill="url(#bookingsGradient)"
-            />
+            >
+              {/* Show bookings value above points so user sees analytics without hover */}
+              <LabelList
+                dataKey="bookings"
+                position="top"
+                className="text-[10px]"
+                formatter={(value) => (value > 0 ? value : '')}
+              />
+            </Area>
             
             <Line
               yAxisId="right"
@@ -473,9 +471,46 @@ const BookingRevenueChart = () => {
               stroke="#72C082"
               strokeWidth={3}
               dot={<CustomDot />}
-            />
+            >
+              {/* Show revenue value near points (scaled dollars) */}
+              <LabelList
+                dataKey="revenue"
+                position="top"
+                className="text-[10px]"
+                formatter={(value) => (value > 0 ? value : '')}
+              />
+            </Line>
           </ComposedChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Animated Countries summary panel (visible only when toggle is ON) */}
+      <div
+        className={`mt-4 transition-all duration-300 ease-out transform ${
+          showCountries && countryData.length > 0
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 -translate-y-2 pointer-events-none'
+        }`}
+      >
+        {countryData.length > 0 && (
+          <div className="inline-flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 bg-purple-50 border border-purple-100 rounded-xl">
+            <p className="text-xs font-medium text-purple-800 mb-2 sm:mb-0">
+              Showing top 4 countries by bookings for this period.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {countryData.map((country, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-1 text-xs px-2 py-1 bg-white rounded-full border border-purple-100 shadow-sm"
+                >
+                  <span className="font-semibold text-purple-800">{country.name}</span>
+                  <span className="text-gray-500">·</span>
+                  <span className="text-gray-700">{country.count} bookings</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Legend */}

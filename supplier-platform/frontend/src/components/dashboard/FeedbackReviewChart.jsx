@@ -261,43 +261,47 @@ const FeedbackReviewChart = () => {
   }, [selectedPeriod]);
 
   const CustomTooltip = ({ active, payload, label }) => {
-    if (active && showCountries && countryRatings.length > 0) {
-      const year = new Date().getFullYear();
-      return (
-        <div className="bg-gradient-to-br from-orange-500 to-orange-700 text-white p-3 rounded-lg shadow-lg">
-          <p className="text-xs opacity-90 mb-2">{label} {year}</p>
-          <div className="space-y-1">
-            {countryRatings.map((c, idx) => (
-              <div key={idx} className="flex justify-between text-xs">
-                <span className="mr-4">{c.name}</span>
-                <span className="font-semibold">{c.rating}</span>
-              </div>
-            ))}
+    if (!active || !payload || !payload.length) return null;
+
+    const year = new Date().getFullYear();
+
+    return (
+      <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 max-w-xs">
+        <p className="text-xs text-gray-600 mb-2">
+          {label} {year}
+        </p>
+        {/* Core information: completed trips with feedback + average rating */}
+        <div className="space-y-1 mb-2">
+          <div className="flex items-center">
+            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#A78BFA' }}></div>
+            <span className="text-xs text-gray-600 mr-2">Feedbacks (completed trips):</span>
+            <span className="text-xs font-semibold">{payload[0]?.value}</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#FB923C' }}></div>
+            <span className="text-xs text-gray-600 mr-2">Average rating:</span>
+            <span className="text-xs font-semibold">{payload[1]?.value}</span>
           </div>
         </div>
-      );
-    }
-    
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
-          <p className="text-xs text-gray-600 mb-2">{label}</p>
-          <div className="space-y-1">
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#A78BFA' }}></div>
-              <span className="text-xs text-gray-600 mr-2">Feedbacks:</span>
-              <span className="text-xs font-semibold">{payload[0]?.value}</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#FB923C' }}></div>
-              <span className="text-xs text-gray-600 mr-2">Reviews:</span>
-              <span className="text-xs font-semibold">{payload[1]?.value}</span>
+
+        {/* When toggle is ON, also show top countries satisfaction snapshot */}
+        {showCountries && countryRatings.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <p className="text-[11px] font-semibold text-gray-700 mb-1">
+              Top 4 countries (avg rating)
+            </p>
+            <div className="space-y-1">
+              {countryRatings.map((c, idx) => (
+                <div key={idx} className="flex justify-between text-[11px]">
+                  <span className="mr-4 text-gray-600">{c.name}</span>
+                  <span className="font-semibold text-gray-900">{c.rating}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      );
-    }
-    return null;
+        )}
+      </div>
+    );
   };
 
   const CustomDot = (props) => {
@@ -474,10 +478,12 @@ const FeedbackReviewChart = () => {
           {/* Toggle Switch */}
           <div 
             onClick={() => setShowCountries(!showCountries)}
-            className="relative w-11 h-6 bg-purple-500 rounded-full cursor-pointer transition-colors"
+            className={`relative w-11 h-6 ${showCountries ? 'bg-[#1d236b]' : 'bg-gray-300'} rounded-full cursor-pointer transition-colors`}
           >
             <div 
-              className={`absolute top-0.5 ${showCountries ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full shadow transition-all`}
+              className={`absolute top-0.5 ${showCountries ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full shadow transition-all transform ${
+                showCountries ? 'translate-x-0 scale-100' : 'translate-x-0 scale-95'
+              }`}
             ></div>
           </div>
           {/* Info icon */}
@@ -568,6 +574,35 @@ const FeedbackReviewChart = () => {
             />
           </ComposedChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Animated satisfaction summary panel when toggle is ON */}
+      <div
+        className={`mt-4 transition-all duration-300 ease-out transform ${
+          showCountries && countryRatings.length > 0
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 -translate-y-2 pointer-events-none'
+        }`}
+      >
+        {countryRatings.length > 0 && (
+          <div className="inline-flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 bg-orange-50 border border-orange-100 rounded-xl">
+            <p className="text-xs font-medium text-orange-800 mb-2 sm:mb-0">
+              Showing customer satisfaction trends for top 4 countries (average review rating).
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {countryRatings.map((c, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-1 text-xs px-2 py-1 bg-white rounded-full border border-orange-100 shadow-sm"
+                >
+                  <span className="font-semibold text-orange-800">{c.name}</span>
+                  <span className="text-gray-500">·</span>
+                  <span className="text-gray-700">{c.rating.toFixed ? c.rating.toFixed(1) : c.rating}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Legend */}

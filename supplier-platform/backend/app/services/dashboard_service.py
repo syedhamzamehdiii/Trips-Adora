@@ -197,15 +197,24 @@ class SupplierDashboardService:
 
         for booking in bookings:
             status = (booking.get("status") or "").lower()
-            start = SupplierDashboardService._parse_datetime(booking.get("start_date"))
-            if not start:
-                continue
 
-            if start.date() == today and status in ACTIVE_BOOKING_STATUSES:
-                today_count += 1
+            # Travel date: used for today's/tomorrow's active bookings
+            travel_dt = SupplierDashboardService._parse_datetime(
+                booking.get("start_date") or booking.get("travel_date") or booking.get("tour_date")
+            )
+
+            # Created/booking date: used for today's earnings (bookings made today)
+            created_dt = SupplierDashboardService._parse_datetime(booking.get("created_at"))
+
+            if travel_dt:
+                if travel_dt.date() == today and status in ACTIVE_BOOKING_STATUSES:
+                    today_count += 1
+                if travel_dt.date() == tomorrow and status in ACTIVE_BOOKING_STATUSES:
+                    tomorrow_count += 1
+
+            # Today's balance: net amount from bookings created today (not cancelled)
+            if created_dt and created_dt.date() == today and status in ACTIVE_BOOKING_STATUSES:
                 todays_balance += SupplierDashboardService._parse_float(booking.get("net_amount"))
-            if start.date() == tomorrow and status in ACTIVE_BOOKING_STATUSES:
-                tomorrow_count += 1
 
         return {
             "total": total,

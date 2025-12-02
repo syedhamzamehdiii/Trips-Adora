@@ -137,6 +137,7 @@ const InsightsPage = () => {
           productId: booking.product_id,
           booking: booking.title || booking.tour_name || 'Booking',
           customerEmail: booking.customer_email || '',
+          customerCountry: booking.customer_country || booking.metadata?.country || '',
           bookedOn: booking.created_at || null,
           travelDate: booking.start_date || null,
           status: booking.status || 'pending',
@@ -220,22 +221,11 @@ const InsightsPage = () => {
           { number: avgRating.toFixed(1), label: 'Average Rating' }
         ]);
 
-        // Calculate country analytics from bookings
-        const countryMap = new Map(); // country -> { bookings: [], productCounts: Map }
+        // Calculate country analytics from bookings using customer's actual country
+        const countryMap = new Map(); // country -> { bookings: number, productCounts: Map }
         (bookings || []).forEach(b => {
-          const email = (b.customerEmail || '').toLowerCase();
-          let country = 'Unknown';
-          if (email.includes('jp') || email.includes('japan')) country = 'Japan';
-          else if (email.includes('uk') || email.includes('co.uk')) country = 'United Kingdom';
-          else if (email.includes('us') || email.includes('.com')) country = 'United States';
-          else if (email.includes('in') || email.includes('india')) country = 'India';
-          else if (email.includes('fr') || email.includes('france')) country = 'France';
-          else if (email.includes('de') || email.includes('germany')) country = 'Germany';
-          else if (email.includes('ca') || email.includes('canada')) country = 'Canada';
-          else if (email.includes('cn') || email.includes('china')) country = 'China';
-          else if (email.includes('ae') || email.includes('uae')) country = 'UAE';
-          else country = 'United States'; // Default fallback
-          
+          const country = (b.customerCountry || '').trim() || 'Unknown';
+
           const entry = countryMap.get(country) || { bookings: 0, productCounts: new Map() };
           entry.bookings += 1;
           const productName = b.booking || b.productId || 'Unknown Product';

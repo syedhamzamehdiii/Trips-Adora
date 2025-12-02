@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, LabelList } from 'recharts';
 import { getResponseAnalytics } from '@/services/chatService';
 
 export default function ResponseInsightsChart() {
   const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const build = async () => {
       try {
+        setLoading(true);
         const stats = await getResponseAnalytics();
         const out = (stats || []).map(item => {
           const d = new Date(item.date);
@@ -36,6 +38,9 @@ export default function ResponseInsightsChart() {
       } catch (e) {
         // If analytics fail, keep empty chart
         console.error('Failed to load response analytics:', e);
+        setData([]);
+      } finally {
+        setLoading(false);
       }
     };
     build();
@@ -49,6 +54,9 @@ export default function ResponseInsightsChart() {
       </div>
       
       <div className="border border-gray-200 rounded-lg p-6">
+        {loading && (
+          <div className="h-10 w-32 mb-4 bg-gray-100 rounded-full animate-pulse" />
+        )}
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="0" stroke="#f0f0f0" vertical={false} />
@@ -80,7 +88,15 @@ export default function ResponseInsightsChart() {
               strokeWidth={2}
               dot={{ fill: '#ff9933', r: 4 }}
               activeDot={{ r: 6 }}
-            />
+            >
+              {/* Labels above points so analytics are visible without hover */}
+              <LabelList
+                dataKey="value"
+                position="top"
+                className="text-[10px]"
+                formatter={(value) => (value > 0 ? value : '')}
+              />
+            </Line>
           </LineChart>
         </ResponsiveContainer>
       </div>
