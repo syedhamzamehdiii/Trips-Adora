@@ -2,15 +2,21 @@ import React, { useState } from 'react';
 import { 
   FiX, 
   FiChevronDown,
-  FiAlertTriangle
+  FiAlertTriangle,
+  FiLoader
 } from 'react-icons/fi';
 import CancelSuccessModal from './CancelSuccessModal';
+import DivertSupplierModal from './DivertSupplierModal';
+import bookingService from '@/services/bookingService';
+import { toast } from 'react-toastify';
 
 const CancelBookingModal = ({ isOpen, onClose, bookingData, onNavigateToBookings }) => {
   const [selectedReason, setSelectedReason] = useState('');
   const [showReasonDropdown, setShowReasonDropdown] = useState(false);
   const [customReason, setCustomReason] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDivertModal, setShowDivertModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   if (!isOpen) return null;
 
@@ -22,7 +28,6 @@ const CancelBookingModal = ({ isOpen, onClose, bookingData, onNavigateToBookings
     'Insufficient participants',
     'Equipment failure',
     'Staff unavailability',
-    'Customer Request?',
     'Other (Specify below)'
   ];
 
@@ -39,13 +44,67 @@ const CancelBookingModal = ({ isOpen, onClose, bookingData, onNavigateToBookings
   };
 
   const handleDivertToSupplier = () => {
-    // Divert to other supplier functionality
-    console.log('Divert to other supplier');
-    onClose();
+    setShowDivertModal(true);
   };
 
-  const handleSendCancelRequest = () => {
-    setShowSuccessModal(true);
+  const handleDivertSuccess = () => {
+    setShowDivertModal(false);
+    onClose();
+    if (onNavigateToBookings) {
+      onNavigateToBookings();
+    }
+  };
+
+  const handleSendCancelRequest = async () => {
+    if (!selectedReason) {
+      toast.error('Please select a cancellation reason');
+      return;
+    }
+
+    if (selectedReason === 'Other (Specify below)' && !customReason.trim()) {
+      toast.error('Please specify the cancellation reason');
+      return;
+    }
+
+    if (!bookingData?.id) {
+      toast.error('Booking ID not found');
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const reason = selectedReason === 'Other (Specify below)' 
+        ? customReason.trim() 
+        : selectedReason;
+      
+      await bookingService.cancelBooking(bookingData.id, reason);
+      
+      setShowSuccessModal(true);
+      toast.success('Booking cancelled successfully');
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      toast.error(error.response?.data?.detail || 'Failed to cancel booking. Please try again.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // Get reference code
+  const getReferenceCode = () => {
+    if (bookingData?.id) {
+      return bookingData.id.slice(-8).toUpperCase();
+    }
+    return bookingData?.referenceCode || 'N/A';
+  };
+
+  // Get customer name
+  const getCustomerName = () => {
+    return bookingData?.customer_name || bookingData?.customerName || 'N/A';
+  };
+
+  // Get tour name
+  const getTourName = () => {
+    return bookingData?.title || bookingData?.tour_name || bookingData?.tourName || 'N/A';
   };
 
   const handleCloseSuccessModal = () => {
@@ -73,19 +132,19 @@ const CancelBookingModal = ({ isOpen, onClose, bookingData, onNavigateToBookings
         <div className="p-6 space-y-6">
           {/* Booking Details */}
           <div className="space-y-4">
-            <div className="flex justify-between">
-              <div>
+            <div className="flex justify-between gap-4">
+              <div className="flex-1">
                 <span className="text-sm font-semibold text-gray-900">Reference Code</span>
-                <p className="text-sm text-gray-900 mt-1">{bookingData?.referenceCode || 'BK-0104-123'}</p>
+                <p className="text-sm text-gray-900 mt-1">{getReferenceCode()}</p>
               </div>
-              <div>
+              <div className="flex-1">
                 <span className="text-sm font-semibold text-gray-900">Customer Name</span>
-                <p className="text-sm text-gray-900 mt-1">{bookingData?.customerName || 'Sarah Johnson'}</p>
+                <p className="text-sm text-gray-900 mt-1">{getCustomerName()}</p>
               </div>
             </div>
             <div>
               <span className="text-sm font-semibold text-gray-900">Product Name</span>
-              <p className="text-sm text-gray-900 mt-1">{bookingData?.tourName || 'Mount Fuji Day Trip with Lake Kawaguchi'}</p>
+              <p className="text-sm text-gray-900 mt-1">{getTourName()}</p>
             </div>
           </div>
 
@@ -166,9 +225,17 @@ const CancelBookingModal = ({ isOpen, onClose, bookingData, onNavigateToBookings
             </button>
             <button
               onClick={handleSendCancelRequest}
-              className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+              disabled={isCancelling}
+              className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
-              Send Cancel Request to Admin
+              {isCancelling ? (
+                <>
+                  <FiLoader className="animate-spin" size={16} />
+                  <span>Cancelling...</span>
+                </>
+              ) : (
+                <span>Send Cancel Request to Admin</span>
+              )}
             </button>
         </div>
       </div>
@@ -178,6 +245,14 @@ const CancelBookingModal = ({ isOpen, onClose, bookingData, onNavigateToBookings
         isOpen={showSuccessModal}
         onClose={handleCloseSuccessModal}
         onReturnToBookings={handleReturnToBookings}
+      />
+
+      {/* Divert Supplier Modal */}
+      <DivertSupplierModal
+        isOpen={showDivertModal}
+        onClose={() => setShowDivertModal(false)}
+        bookingData={bookingData}
+        onSuccess={handleDivertSuccess}
       />
     </div>
   );

@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from 'recharts';
 import { FiCalendar } from 'react-icons/fi';
+import bookingService from '@/services/bookingService';
+import productService from '@/services/productService';
 
 const FeedbackReviewChart = () => {
   const [showCountries, setShowCountries] = useState(true);
@@ -59,14 +61,11 @@ const FeedbackReviewChart = () => {
     };
   }, [showInfo]);
 
+  // Load real-time data from API
   useEffect(() => {
-    const build = () => {
+    const buildChartData = (bookings = [], products = []) => {
       try {
-        const bookingsRaw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
-        const productsRaw = localStorage.getItem('all_products');
         const manualRaw = localStorage.getItem('insights_manual_feedbacks');
-        const bookings = bookingsRaw ? JSON.parse(bookingsRaw) : [];
-        const products = productsRaw ? JSON.parse(productsRaw) : [];
         const manual = manualRaw ? JSON.parse(manualRaw) : [];
 
         const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -178,14 +177,86 @@ const FeedbackReviewChart = () => {
         setCountryRatings(topCountries);
       } catch (_) {}
     };
-    build();
-    window.addEventListener('storage', build);
-    window.addEventListener('bookings_updated', build);
-    window.addEventListener('products_updated', build);
+
+    const buildChartDataFromStorage = () => {
+      try {
+        const bookingsRaw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
+        const productsRaw = localStorage.getItem('all_products');
+        const bookings = bookingsRaw ? JSON.parse(bookingsRaw) : [];
+        const products = productsRaw ? JSON.parse(productsRaw) : [];
+        buildChartData(bookings, products);
+      } catch (_) {}
+    };
+
+    const loadRealTimeData = async () => {
+      try {
+        // Fetch bookings and products from backend APIs (real-time)
+        const [bookingsResp, productsResp] = await Promise.all([
+          bookingService.getBookings({ limit: 500, skip: 0 }),
+          productService.getMyProducts({ summary: true }),
+        ]);
+
+        const rawBookings = Array.isArray(bookingsResp?.bookings) ? bookingsResp.bookings : [];
+        const bookings = rawBookings.map((booking) => ({
+          id: booking.id,
+          productId: booking.product_id,
+          customerEmail: booking.customer_email || '',
+          bookedOn: booking.created_at || null,
+          travelDate: booking.start_date || booking.travel_date || null,
+          status: booking.status || 'pending',
+          rating: booking.metadata?.rating || booking.rating || null,
+          reviewScore: booking.metadata?.reviewScore || booking.review_score || null,
+          metadata: booking.metadata || {},
+        }));
+
+        const products = Array.isArray(productsResp?.products)
+          ? productsResp.products
+          : Array.isArray(productsResp?.items)
+          ? productsResp.items
+          : Array.isArray(productsResp)
+          ? productsResp
+          : [];
+
+        // Store in localStorage for instant loads next time
+        try {
+          localStorage.setItem('bookings', JSON.stringify(bookings));
+          localStorage.setItem('all_products', JSON.stringify(products));
+        } catch (_) {
+          // Non-fatal if storage fails
+        }
+
+        // Build chart data with real-time data
+        buildChartData(bookings, products);
+      } catch (error) {
+        console.error('Error loading real-time feedback data:', error);
+        // Fallback to localStorage if API fails
+        buildChartDataFromStorage();
+      }
+    };
+
+    // Load initial data from cache for instant display
+    buildChartDataFromStorage();
+
+    // Then fetch fresh data from API
+    loadRealTimeData();
+
+    // Listen for updates
+    const handleRefresh = () => {
+      loadRealTimeData();
+    };
+
+    window.addEventListener('storage', handleRefresh);
+    window.addEventListener('bookings_updated', handleRefresh);
+    window.addEventListener('products_updated', handleRefresh);
+    window.addEventListener('reviews_updated', handleRefresh);
+    window.addEventListener('supplier_bookings_updated', handleRefresh);
+    
     return () => {
-      window.removeEventListener('storage', build);
-      window.removeEventListener('bookings_updated', build);
-      window.removeEventListener('products_updated', build);
+      window.removeEventListener('storage', handleRefresh);
+      window.removeEventListener('bookings_updated', handleRefresh);
+      window.removeEventListener('products_updated', handleRefresh);
+      window.removeEventListener('reviews_updated', handleRefresh);
+      window.removeEventListener('supplier_bookings_updated', handleRefresh);
     };
   }, [selectedPeriod]);
 

@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from bson import ObjectId
 from app.core.database import get_database
+from app.models.user import User
 import logging
 
 logger = logging.getLogger(__name__)
@@ -126,8 +127,42 @@ class SupplierBookingService:
             except Exception as agg_err:
                 logger.error(f"Error aggregating review data for supplier {supplier_id}: {agg_err}")
             
-            # Serialize bookings
-            return [SupplierBookingService._serialize_booking(booking) for booking in bookings]
+            # Get customer emails from User collection (authenticated emails)
+            user_ids = []
+            for b in bookings:
+                user_id = b.get("user_id")
+                if user_id:
+                    try:
+                        # Convert to ObjectId if it's a string
+                        if isinstance(user_id, str):
+                            user_ids.append(ObjectId(user_id))
+                        else:
+                            user_ids.append(user_id)
+                    except Exception:
+                        pass  # Skip invalid user_ids
+            
+            customer_emails_map = {}
+            if user_ids:
+                try:
+                    users = await User.find({"_id": {"$in": user_ids}}).to_list()
+                    for user in users:
+                        user_id_str = str(user.id)
+                        # Use authenticated email from User collection
+                        customer_emails_map[user_id_str] = user.email
+                except Exception as user_err:
+                    logger.warning(f"Error fetching customer emails: {user_err}")
+            
+            # Serialize bookings and update customer_email with authenticated email
+            serialized = []
+            for booking in bookings:
+                serialized_booking = SupplierBookingService._serialize_booking(booking)
+                # Override customer_email with authenticated email if available
+                user_id = str(booking.get("user_id", ""))
+                if user_id in customer_emails_map:
+                    serialized_booking["customer_email"] = customer_emails_map[user_id]
+                serialized.append(serialized_booking)
+            
+            return serialized
         
         except Exception as e:
             logger.error(f"Error fetching bookings for supplier {supplier_id}: {e}")
@@ -150,11 +185,77 @@ class SupplierBookingService:
             })
             
             if booking:
-                return SupplierBookingService._serialize_booking(booking)
+                serialized = SupplierBookingService._serialize_booking(booking)
+                # Get customer's authenticated email from User collection
+                user_id = booking.get("user_id")
+                if user_id:
+                    try:
+                        user = await User.find_one({"_id": ObjectId(str(user_id))})
+                        if user and user.email:
+                            # Use authenticated email instead of booking's customer_email
+                            serialized["customer_email"] = user.email
+                    except Exception as user_err:
+                        logger.warning(f"Error fetching customer email for user {user_id}: {user_err}")
+                return serialized
             return None
         
         except Exception as e:
             logger.error(f"Error fetching booking {booking_id} for supplier {supplier_id}: {e}")
+            return None
+    
+    @staticmethod
+    async def cancel_booking(booking_id: str, supplier_id: str, reason: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Cancel a booking. Only the supplier who owns the booking can cancel it."""
+        try:
+            collection = SupplierBookingService._collection()
+            
+            try:
+                oid = ObjectId(booking_id)
+            except Exception:
+                return None
+            
+            # Find the booking and verify it belongs to the supplier
+            booking = await collection.find_one({
+                "_id": oid,
+                "supplier_id": supplier_id
+            })
+            
+            if not booking:
+                return None
+            
+            # Check if already cancelled
+            current_status = str(booking.get("status", "")).lower()
+            if current_status in ["cancelled", "canceled"]:
+                return SupplierBookingService._serialize_booking(booking)
+            
+            # Update booking status to cancelled
+            update_data = {
+                "status": "cancelled",
+                "cancelled_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            # Store cancellation reason in metadata if provided
+            if reason:
+                metadata = booking.get("metadata", {})
+                metadata["cancellation_reason"] = reason
+                metadata["cancelled_by"] = "supplier"
+                update_data["metadata"] = metadata
+            
+            result = await collection.update_one(
+                {"_id": oid, "supplier_id": supplier_id},
+                {"$set": update_data}
+            )
+            
+            if result.modified_count > 0:
+                # Fetch and return updated booking
+                updated_booking = await collection.find_one({"_id": oid})
+                return SupplierBookingService._serialize_booking(updated_booking)
+            
+            return None
+        
+        except Exception as e:
+            logger.error(f"Error cancelling booking {booking_id} for supplier {supplier_id}: {e}")
             return None
     
     @staticmethod

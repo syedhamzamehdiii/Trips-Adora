@@ -20,6 +20,9 @@ from app.core.security import (
 )
 from app.models.user import User, UserRole
 from app.models.invitation import SupplierInvitation, InvitationCreate, InvitationResponse
+from app.services.email_service import send_booking_diversion_email
+
+logger = logging.getLogger(__name__)
 from app.services.settings_service import SupplierSettingsService
 from app.services.email_service import send_invitation_email
 
@@ -482,6 +485,87 @@ async def logout(current_user: User = Depends(get_current_user)):
     """Logout user"""
     # In a production app, you might want to blacklist the token
     return {"message": "Logged out successfully"}
+
+
+@router.get("/team-members", response_model=dict)
+async def get_team_members_with_booking_access(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all team members/users who have access to the current supplier account
+    with 'Manage Booking' or 'Administration' permissions.
+    """
+    try:
+        if not current_user.supplier_code:
+            return {"team_members": []}
+        
+        team_members = []
+        
+        # Find all users who have access to this supplier_code
+        # 1. Users who own this supplier_code
+        owner_users = await User.find(
+            User.supplier_code == current_user.supplier_code,
+            User.is_active == True
+        ).to_list()
+        
+        for user in owner_users:
+            # Check if user has manageBooking or administration in their permissions
+            # Note: The frontend uses roles like "manageBooking" and "administration"
+            # but backend might store differently. We'll check both structures.
+            has_access = False
+            
+            # Check permissions dict (if stored there)
+            if user.permissions:
+                # Check for any booking-related permission
+                if any(key.lower() in ['managebooking', 'booking', 'administration', 'admin'] 
+                       for key in user.permissions.keys()):
+                    has_access = True
+            
+            # Check supplier_access for this supplier_code
+            if user.supplier_access and current_user.supplier_code in user.supplier_access:
+                access_perms = user.supplier_access[current_user.supplier_code]
+                if isinstance(access_perms, dict):
+                    if any(key.lower() in ['managebooking', 'booking', 'administration', 'admin'] 
+                           for key in access_perms.keys()):
+                        has_access = True
+            
+            if has_access and str(user.id) != str(current_user.id):
+                team_members.append({
+                    "id": str(user.id),
+                    "email": user.email,
+                    "full_name": user.full_name,
+                    "business_name": user.business_name,
+                    "supplier_code": user.supplier_code
+                })
+        
+        # 2. Users who have been granted access via supplier_access
+        all_users = await User.find(
+            User.is_active == True
+        ).to_list()
+        
+        for user in all_users:
+            if user.supplier_access and current_user.supplier_code in user.supplier_access:
+                access_perms = user.supplier_access[current_user.supplier_code]
+                if isinstance(access_perms, dict):
+                    # Check if they have manageBooking or administration
+                    if any(key.lower() in ['managebooking', 'booking', 'administration', 'admin'] 
+                           for key in access_perms.keys()):
+                        if str(user.id) != str(current_user.id):
+                            # Avoid duplicates
+                            if not any(tm["id"] == str(user.id) for tm in team_members):
+                                team_members.append({
+                                    "id": str(user.id),
+                                    "email": user.email,
+                                    "full_name": user.full_name,
+                                    "business_name": user.business_name,
+                                    "supplier_code": user.supplier_code or current_user.supplier_code
+                                })
+        
+        return {"team_members": team_members}
+    
+    except Exception as e:
+        logger.error(f"Error fetching team members: {e}")
+        return {"team_members": []}
 
 
 @router.get("/me", response_model=UserResponse)

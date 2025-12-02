@@ -205,7 +205,8 @@ const Dashboard = () => {
       }
       setDashboardError(null);
       try {
-        const overview = await dashboardService.getOverview(true, supplierCodeParam || null); // Use cache, pass supplier_code if provided
+        // Fetch fresh data (force refresh for real-time updates)
+        const overview = await dashboardService.getOverview(false, supplierCodeParam || null); // Don't use cache for real-time data
         const transformed = transformOverviewToDashboardState(overview, dashboardData);
         setDashboardData(transformed);
         hasLoadedOnceRef.current = true;
@@ -371,23 +372,33 @@ const Dashboard = () => {
     loadDraftProducts();
     loadPopularActivities();
     
-    // Listen for updates
+    // Listen for updates (real-time refresh like Insights and Finance pages)
     const handleProductsUpdated = () => {
       loadDashboardData();
       loadDraftProducts();
       loadPopularActivities();
     };
     
+    const handleBookingsUpdated = () => {
+      loadDashboardData(); // Refresh to get updated Fresh Reviews and Today's Balance
+    };
+    
     window.addEventListener('account_settings_updated', loadProfile);
     window.addEventListener('accountSettingsUpdated', loadProfile);
     window.addEventListener('storage', loadProfile);
     window.addEventListener('products_updated', handleProductsUpdated);
+    window.addEventListener('bookings_updated', handleBookingsUpdated);
+    window.addEventListener('reviews_updated', handleBookingsUpdated);
+    window.addEventListener('supplier_bookings_updated', handleBookingsUpdated);
     
     return () => {
       window.removeEventListener('account_settings_updated', loadProfile);
       window.removeEventListener('accountSettingsUpdated', loadProfile);
       window.removeEventListener('storage', loadProfile);
       window.removeEventListener('products_updated', handleProductsUpdated);
+      window.removeEventListener('bookings_updated', handleBookingsUpdated);
+      window.removeEventListener('reviews_updated', handleBookingsUpdated);
+      window.removeEventListener('supplier_bookings_updated', handleBookingsUpdated);
     };
   }, [user]);
 

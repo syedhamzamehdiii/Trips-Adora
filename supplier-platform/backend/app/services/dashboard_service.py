@@ -5,9 +5,11 @@ from typing import Any, Dict, Iterable, List, Optional
 import asyncio
 
 from beanie import PydanticObjectId
+from bson import ObjectId
 
 from app.core.database import get_database
 from app.models.product import ProductStatus
+from app.models.user import User
 
 
 ACTIVE_BOOKING_STATUSES = {"pending", "customized", "confirmed", "completed"}
@@ -273,7 +275,7 @@ class SupplierDashboardService:
         }
 
     @staticmethod
-    def _derive_product_metrics(products: List[Dict[str, Any]], bookings: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def _derive_product_metrics(products: List[Dict[str, Any]], bookings: List[Dict[str, Any]], supplier_id: str) -> Dict[str, Any]:
         total_products = len(products)
         def get_status(product):
             status = product.get("status") if isinstance(product, dict) else getattr(product, "status", None)
@@ -288,11 +290,47 @@ class SupplierDashboardService:
         )
         cancellation_rate = round((cancellations / len(bookings)) * 100, 2) if bookings else 0.0
 
-        def get_rating(product):
-            return product.get("rating") if isinstance(product, dict) else getattr(product, "rating", None)
-
-        ratings = [get_rating(product) for product in products if get_rating(product) is not None]
-        average_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0.0
+        # Calculate average rating from actual customer reviews (not just product.rating field)
+        average_rating = 0.0
+        try:
+            # Get product IDs for this supplier (handle both ObjectId and string formats)
+            product_ids = []
+            for product in products:
+                product_id = product.get("_id") or product.get("id")
+                if product_id:
+                    # Convert to string, handling both ObjectId and string
+                    if isinstance(product_id, PydanticObjectId):
+                        product_ids.append(str(product_id))
+                    else:
+                        product_ids.append(str(product_id))
+            
+            if product_ids:
+                db = get_database()
+                reviews_coll = db.get_collection("customer_reviews")
+                pipeline = [
+                    {"$match": {"product_id": {"$in": product_ids}}},
+                    {
+                        "$group": {
+                            "_id": None,
+                            "avg_rating": {"$avg": "$rating"},
+                            "count": {"$sum": 1},
+                        }
+                    },
+                ]
+                review_docs = await reviews_coll.aggregate(pipeline).to_list(length=1)
+                if review_docs and len(review_docs) > 0:
+                    doc = review_docs[0]
+                    avg = doc.get("avg_rating")
+                    if avg is not None:
+                        average_rating = round(float(avg), 1)
+        except Exception as e:
+            print(f"⚠️ Error calculating average rating from reviews: {e}")
+            # Fallback to product.rating field if review aggregation fails
+            def get_rating(product):
+                return product.get("rating") if isinstance(product, dict) else getattr(product, "rating", None)
+            ratings = [get_rating(product) for product in products if get_rating(product) is not None]
+            if ratings:
+                average_rating = round(sum(ratings) / len(ratings), 1)
 
         return {
             "total": total_products,
@@ -330,16 +368,47 @@ class SupplierDashboardService:
         
         # Fetch bookings by supplier_id directly (much faster than product_ids)
         bookings_raw = await SupplierDashboardService._fetch_bookings(product_map.keys(), supplier_id=supplier_id)
-        bookings = [
-            SupplierDashboardService._serialize_booking(booking, product_map)
-            for booking in bookings_raw
-        ]
+        
+        # Get customer emails from User collection (authenticated emails)
+        user_ids = []
+        for b in bookings_raw:
+            user_id = b.get("user_id")
+            if user_id:
+                try:
+                    # Convert to ObjectId if it's a string
+                    if isinstance(user_id, str):
+                        user_ids.append(ObjectId(user_id))
+                    else:
+                        user_ids.append(user_id)
+                except Exception:
+                    pass  # Skip invalid user_ids
+        
+        customer_emails_map = {}
+        if user_ids:
+            try:
+                users = await User.find({"_id": {"$in": user_ids}}).to_list()
+                for user in users:
+                    user_id_str = str(user.id)
+                    # Use authenticated email from User collection
+                    customer_emails_map[user_id_str] = user.email
+            except Exception as user_err:
+                print(f"⚠️ Error fetching customer emails: {user_err}")
+        
+        # Serialize bookings and update customer_email with authenticated email
+        bookings = []
+        for booking in bookings_raw:
+            serialized = SupplierDashboardService._serialize_booking(booking, product_map)
+            # Override customer_email with authenticated email if available
+            user_id = str(booking.get("user_id", ""))
+            if user_id in customer_emails_map:
+                serialized["customer_email"] = customer_emails_map[user_id]
+            bookings.append(serialized)
 
         # Calculate all metrics (these are fast synchronous operations)
         bookings_metrics = SupplierDashboardService._derive_bookings_metrics(bookings)
         finance_metrics = SupplierDashboardService._derive_finance_metrics(bookings)
         activity_metrics = SupplierDashboardService._derive_activity_metrics(products)
-        product_metrics = SupplierDashboardService._derive_product_metrics(products, bookings)
+        product_metrics = await SupplierDashboardService._derive_product_metrics(products, bookings, supplier_id)
         stability_metrics = SupplierDashboardService._derive_account_stability(bookings)
 
         available_balance = finance_metrics["pending_payout"]

@@ -316,9 +316,9 @@ const BookingsPage = () => {
   // Stats derived from API stats or calculated from bookings
   const allBookingStats = {
     total: bookingStats.total || visibleBookings.length,
-    upcoming: (bookingStats.by_status?.confirmed || 0) + 
-              (bookingStats.by_status?.pending || 0) + 
-              (bookingStats.by_status?.customized || 0),
+    // Upcoming trips: only count bookings that are truly active/confirmed (not cancelled)
+    // We rely on backend stats where status keys are lowercased
+    upcoming: (bookingStats.by_status?.confirmed || 0),
     refundDispute: 0, // Not tracked in current schema
     cancelled: bookingStats.by_status?.cancelled || 0
   };
@@ -412,6 +412,11 @@ const BookingsPage = () => {
     setShowBookingDetails(false);
     setSelectedBooking(null);
     // Already on bookings page, just close the modal
+  };
+
+  const handleBookingUpdated = async () => {
+    // Refresh bookings when a booking is updated (e.g., cancelled)
+    await fetchBookings();
   };
 
   return (
@@ -844,6 +849,7 @@ const BookingsPage = () => {
           onClose={handleCloseBookingDetails}
           bookingData={selectedBooking}
           onNavigateToBookings={handleNavigateToBookings}
+          onBookingUpdated={handleBookingUpdated}
         />
 
       <Footer />
