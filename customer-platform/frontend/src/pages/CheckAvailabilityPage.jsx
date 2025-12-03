@@ -110,8 +110,6 @@ const CheckAvailabilityPage = () => {
   const [showAddVehicleModal, setShowAddVehicleModal] = useState(false)
   const [modalSelectedVehicleIndex, setModalSelectedVehicleIndex] = useState(null)
   const [modalSelectedPickup, setModalSelectedPickup] = useState('')
-  // Editing state for extra vehicles (Vehicle 2, 3, ...)
-  const [editingExtraIndex, setEditingExtraIndex] = useState(null) // null = add mode, number = edit index
   
   // Vehicle and meeting point selection - restore from state
   const [selectedVehicleIndex, setSelectedVehicleIndex] = useState(
@@ -147,9 +145,37 @@ const CheckAvailabilityPage = () => {
     fetchProduct()
   }, [stateData.productId, bookingData.productId])
 
+  // Filter vehicles to only show those linked in pickup_configurations (prevents duplicates)
+  const vehiclesForDisplay = useMemo(() => {
+    const rawVehicles = Array.isArray(product?.vehicles) ? product.vehicles : []
+    if (!rawVehicles.length) return []
+
+    const configs = product?.pickup_dropoff?.pickup_configurations
+    if (!Array.isArray(configs) || configs.length === 0) {
+      // No configs – show all vehicles as-is
+      return rawVehicles
+    }
+
+    const linkedIds = new Set(
+      configs
+        .map((c) => c?.vehicle?.id || c?.vehicle?._id || c?.vehicle_id)
+        .filter(Boolean)
+        .map((id) => String(id))
+    )
+
+    if (linkedIds.size > 0) {
+      return rawVehicles.filter((v) => {
+        const id = v?.id || v?._id
+        return id && linkedIds.has(String(id))
+      })
+    }
+
+    return rawVehicles
+  }, [product?.vehicles, product?.pickup_dropoff?.pickup_configurations])
+
   // Get pickup configurations for selected vehicle (subset of pickup_configurations)
   const selectedVehiclePickupConfigs = useMemo(() => {
-    if (!product?.pickup_dropoff?.pickup_configurations || !selectedVehicleIndex === null) {
+    if (!product?.pickup_dropoff?.pickup_configurations || selectedVehicleIndex === null) {
       return []
     }
 
@@ -157,7 +183,7 @@ const CheckAvailabilityPage = () => {
     if (!Array.isArray(configs) || configs.length === 0) return []
 
     const vehicle =
-      (product.vehicles && Array.isArray(product.vehicles) && product.vehicles[selectedVehicleIndex]) ||
+      (vehiclesForDisplay && Array.isArray(vehiclesForDisplay) && vehiclesForDisplay[selectedVehicleIndex]) ||
       bookingData.selectedVehicle ||
       null
 
@@ -199,7 +225,7 @@ const CheckAvailabilityPage = () => {
       }
       return false
     })
-  }, [product?.pickup_dropoff?.pickup_configurations, product?.vehicles, selectedVehicleIndex, bookingData.selectedVehicle])
+  }, [product?.pickup_dropoff?.pickup_configurations, vehiclesForDisplay, selectedVehicleIndex, bookingData.selectedVehicle])
 
   // Initialize travel date from:
   // 1) bookingData.selectedDate (if user is coming back)
@@ -256,13 +282,13 @@ const CheckAvailabilityPage = () => {
 
   // Initialize vehicle selection when product loads
   useEffect(() => {
-    if (product && Array.isArray(product.vehicles) && product.vehicles.length > 0) {
+    if (vehiclesForDisplay && Array.isArray(vehiclesForDisplay) && vehiclesForDisplay.length > 0) {
       // Only set default if no valid selection exists from bookingData
-      if (selectedVehicleIndex === null || selectedVehicleIndex >= product.vehicles.length) {
+      if (selectedVehicleIndex === null || selectedVehicleIndex >= vehiclesForDisplay.length) {
         // Check if bookingData has a valid selection
         if (bookingData.selectedVehicleIndex !== undefined && 
             bookingData.selectedVehicleIndex !== null &&
-            bookingData.selectedVehicleIndex < product.vehicles.length) {
+            bookingData.selectedVehicleIndex < vehiclesForDisplay.length) {
           setSelectedVehicleIndex(bookingData.selectedVehicleIndex)
         } else {
           // Default to first vehicle only if no selection from bookingData
@@ -272,7 +298,7 @@ const CheckAvailabilityPage = () => {
     } else {
       setSelectedVehicleIndex(null)
     }
-  }, [product]) // Remove bookingData.selectedVehicleIndex from dependencies to avoid overriding
+  }, [vehiclesForDisplay]) // Remove bookingData.selectedVehicleIndex from dependencies to avoid overriding
 
   // Initialize meeting point selection when vehicle is set
   useEffect(() => {
@@ -422,16 +448,16 @@ const CheckAvailabilityPage = () => {
 
   // Get selected vehicle
   const selectedVehicle = useMemo(() => {
-    // First try to get from product vehicles based on selectedVehicleIndex
-    if (product && Array.isArray(product.vehicles) && selectedVehicleIndex !== null && selectedVehicleIndex < product.vehicles.length) {
-      return product.vehicles[selectedVehicleIndex] || null
+    // First try to get from filtered vehicles based on selectedVehicleIndex
+    if (vehiclesForDisplay && Array.isArray(vehiclesForDisplay) && selectedVehicleIndex !== null && selectedVehicleIndex < vehiclesForDisplay.length) {
+      return vehiclesForDisplay[selectedVehicleIndex] || null
     }
     // Fallback to bookingData.selectedVehicle if available
     if (bookingData.selectedVehicle) {
       return bookingData.selectedVehicle
     }
     return null
-  }, [product, selectedVehicleIndex, bookingData.selectedVehicle])
+  }, [vehiclesForDisplay, selectedVehicleIndex, bookingData.selectedVehicle])
 
   // Get meeting points for selected vehicle
   const selectedVehicleMeetingPoints = useMemo(() => {
@@ -562,7 +588,6 @@ const CheckAvailabilityPage = () => {
         if (allowMultipleVehicles) {
           // User already chose to use multiple vehicles earlier:
           // jump straight to the "Add another vehicle" modal with only NEW vehicles.
-          setEditingExtraIndex(null)
           setModalSelectedVehicleIndex(null)
           setModalSelectedPickup('')
           setShowAddVehicleModal(true)
@@ -672,12 +697,12 @@ const CheckAvailabilityPage = () => {
   }
 
   // Helper: get vehicle identifier consistently (returns ID if available, otherwise index-based key)
-  // Since vehicles may not have IDs, we'll use the index in product.vehicles array as fallback
+  // Since vehicles may not have IDs, we'll use the index in vehiclesForDisplay array as fallback
   const getVehicleIdentifier = (v, index) => {
     if (!v) return null
     const id = v.id || v._id
     if (id) return String(id)
-    // Fallback: use index if provided (for vehicles in product.vehicles array)
+    // Fallback: use index if provided (for vehicles in vehiclesForDisplay array)
     if (index !== undefined && index !== null) return `index_${index}`
     return null
   }
@@ -910,28 +935,27 @@ const CheckAvailabilityPage = () => {
         )}
 
         {/* Add Another Vehicle Modal */}
-        {showAddVehicleModal && product && Array.isArray(product.vehicles) && (
+        {showAddVehicleModal && product && Array.isArray(vehiclesForDisplay) && (
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
             <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 p-6 relative">
               <button
                 type="button"
                 className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-                onClick={() => {
-                  setShowAddVehicleModal(false)
-                  setModalSelectedVehicleIndex(null)
-                  setModalSelectedPickup('')
-                  setEditingExtraIndex(null)
-                }}
+                  onClick={() => {
+                    setShowAddVehicleModal(false)
+                    setModalSelectedVehicleIndex(null)
+                    setModalSelectedPickup('')
+                  }}
               >
                 <span className="sr-only">Close</span>
                 ×
               </button>
 
               <h3 className="text-lg font-bold text-gray-900 mb-2">
-                {editingExtraIndex !== null ? 'Edit vehicle' : 'Add another vehicle'}
+                Add another vehicle
               </h3>
               <p className="text-sm text-gray-600 mb-4">
-                Select an additional vehicle and its pickup location to accommodate more travelers.
+                Select an additional vehicle to accommodate more travelers. The pickup location will be the same for all vehicles.
               </p>
 
               {/* Vehicle list */}
@@ -943,20 +967,20 @@ const CheckAvailabilityPage = () => {
                     const usedVehicleIds = new Set()
                     const usedVehicleRefs = new Set()
                     
-                    console.log('🔍 Debug - selectedVehicleIndex:', selectedVehicleIndex, 'selectedVehicle:', selectedVehicle?.title || selectedVehicle?.model, 'product.vehicles length:', product.vehicles?.length)
+                    console.log('🔍 Debug - selectedVehicleIndex:', selectedVehicleIndex, 'selectedVehicle:', selectedVehicle?.title || selectedVehicle?.model, 'vehiclesForDisplay length:', vehiclesForDisplay?.length)
                     
-                    // Get primary vehicle - always get from product.vehicles array to ensure correct object reference
+                    // Get primary vehicle - always get from vehiclesForDisplay array to ensure correct object reference
                     let primaryVehicleFromArray = null
                     let primaryVehicleIndex = null
                     
                     // First try to get by selectedVehicleIndex
-                    if (selectedVehicleIndex !== null && selectedVehicleIndex >= 0 && product.vehicles && product.vehicles[selectedVehicleIndex]) {
-                      primaryVehicleFromArray = product.vehicles[selectedVehicleIndex]
+                    if (selectedVehicleIndex !== null && selectedVehicleIndex >= 0 && vehiclesForDisplay && vehiclesForDisplay[selectedVehicleIndex]) {
+                      primaryVehicleFromArray = vehiclesForDisplay[selectedVehicleIndex]
                       primaryVehicleIndex = selectedVehicleIndex
                       console.log('✅ Found primary vehicle from array at index', selectedVehicleIndex, primaryVehicleFromArray.title || primaryVehicleFromArray.model)
                     } else if (selectedVehicle) {
                       // Fallback: find the vehicle in the array by object reference or by matching properties
-                      const foundIndex = product.vehicles?.findIndex(v => {
+                      const foundIndex = vehiclesForDisplay?.findIndex(v => {
                         // Try object reference first
                         if (v === selectedVehicle) return true
                         // Fallback: match by title/model/year
@@ -971,8 +995,8 @@ const CheckAvailabilityPage = () => {
                         return false
                       })
                       
-                      if (foundIndex !== -1 && foundIndex !== null && product.vehicles[foundIndex]) {
-                        primaryVehicleFromArray = product.vehicles[foundIndex]
+                      if (foundIndex !== -1 && foundIndex !== null && vehiclesForDisplay[foundIndex]) {
+                        primaryVehicleFromArray = vehiclesForDisplay[foundIndex]
                         primaryVehicleIndex = foundIndex
                         console.log('✅ Found primary vehicle from selectedVehicle at index', foundIndex, primaryVehicleFromArray.title || primaryVehicleFromArray.model)
                       } else {
@@ -1001,7 +1025,7 @@ const CheckAvailabilityPage = () => {
                         usedVehicleRefs.add(ev.vehicle)
                         
                         // Also add by identifier
-                        const vehicleIndex = product.vehicles.findIndex(v => v === ev.vehicle)
+                        const vehicleIndex = vehiclesForDisplay.findIndex(v => v === ev.vehicle)
                         const evId = getVehicleIdentifier(ev.vehicle, vehicleIndex !== -1 ? vehicleIndex : null)
                         if (evId) {
                           usedVehicleIds.add(evId)
@@ -1021,43 +1045,24 @@ const CheckAvailabilityPage = () => {
                     }
                     extraVehicles.forEach((ev) => {
                       if (ev && ev.vehicle) {
-                        const evIndex = product.vehicles.findIndex(v => v === ev.vehicle)
+                        const evIndex = vehiclesForDisplay.findIndex(v => v === ev.vehicle)
                         if (evIndex !== -1) {
                           usedIndices.add(evIndex)
                         }
                       }
                     })
 
-                    const availableVehicles = product.vehicles
+                    const availableVehicles = vehiclesForDisplay
                       .map((v, idx) => ({ vehicle: v, idx }))
                       .filter(({ vehicle, idx }) => {
                         // Check by index first (most reliable fallback)
                         if (usedIndices.has(idx)) {
-                          // In edit mode, allow the current extra vehicle even if its index is used
-                          if (editingExtraIndex !== null) {
-                            const currentEv = extraVehicles[editingExtraIndex]
-                            if (currentEv && currentEv.vehicle) {
-                              const currentEvIndex = product.vehicles.findIndex(v => v === currentEv.vehicle)
-                              if (currentEvIndex === idx) {
-                                console.log('✏️ Edit mode: allowing vehicle by index', idx, vehicle.title || vehicle.model)
-                                return true
-                              }
-                            }
-                          }
                           console.log('❌ Filtering out used vehicle (by index):', idx, vehicle.title || vehicle.model)
                           return false
                         }
                         
                         // Check by object reference (should match if we got the correct reference)
                         if (usedVehicleRefs.has(vehicle)) {
-                          // In edit mode, allow the current extra vehicle even if it's in usedVehicleRefs
-                          if (editingExtraIndex !== null) {
-                            const currentEv = extraVehicles[editingExtraIndex]
-                            if (currentEv && currentEv.vehicle === vehicle) {
-                              console.log('✏️ Edit mode: allowing vehicle (by ref)', vehicle.title || vehicle.model)
-                              return true
-                            }
-                          }
                           console.log('❌ Filtering out used vehicle (by ref):', vehicle.title || vehicle.model)
                           return false
                         }
@@ -1065,18 +1070,6 @@ const CheckAvailabilityPage = () => {
                         // Also check by identifier (for ID-based matching)
                         const vehicleId = getVehicleIdentifier(vehicle, idx)
                         if (vehicleId && usedVehicleIds.has(vehicleId)) {
-                          // In edit mode, allow the current extra vehicle even if it's in usedVehicleIds
-                          if (editingExtraIndex !== null) {
-                            const currentEv = extraVehicles[editingExtraIndex]
-                            if (currentEv && currentEv.vehicle) {
-                              const currentEvIndex = product.vehicles.findIndex(v => v === currentEv.vehicle)
-                              const currentEvId = getVehicleIdentifier(currentEv.vehicle, currentEvIndex !== -1 ? currentEvIndex : null)
-                              if (currentEvId && currentEvId === vehicleId) {
-                                console.log('✏️ Edit mode: allowing vehicle (by ID)', vehicleId, vehicle.title || vehicle.model)
-                                return true
-                              }
-                            }
-                          }
                           console.log('❌ Filtering out used vehicle (by ID):', vehicleId, vehicle.title || vehicle.model)
                           return false
                         }
@@ -1126,38 +1119,6 @@ const CheckAvailabilityPage = () => {
                 </div>
               </div>
 
-              {/* Pickup selection for selected vehicle */}
-              {modalSelectedVehicleIndex !== null && product.vehicles[modalSelectedVehicleIndex] && (
-                <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-gray-800 mb-2">Select pickup location</h4>
-                  {(() => {
-                    const vehicle = product.vehicles[modalSelectedVehicleIndex]
-                    const options = getPickupOptionsForVehicle(vehicle)
-                    if (options.length === 0) {
-                      return (
-                        <p className="text-xs text-gray-500 italic">
-                          No specific pickup locations configured for this vehicle. It will use the main pickup location.
-                        </p>
-                      )
-                    }
-                    return (
-                      <select
-                        value={modalSelectedPickup}
-                        onChange={(e) => setModalSelectedPickup(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select pickup location</option>
-                        {options.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    )
-                  })()}
-                </div>
-              )}
-
               {/* Modal footer */}
               <div className="flex justify-end gap-3">
                 <button
@@ -1177,19 +1138,12 @@ const CheckAvailabilityPage = () => {
                   className="px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: '#1d236b' }}
                   onClick={() => {
-                    const vehicle = product.vehicles[modalSelectedVehicleIndex]
+                    const vehicle = vehiclesForDisplay[modalSelectedVehicleIndex]
                     if (!vehicle) return
-                    const pickupLocation = modalSelectedPickup || null
 
                     setExtraVehicles(prev => {
-                      if (editingExtraIndex !== null && editingExtraIndex >= 0 && editingExtraIndex < prev.length) {
-                        // Edit existing extra vehicle
-                        const next = [...prev]
-                        next[editingExtraIndex] = { vehicle, pickupLocation }
-                        return next
-                      }
-                      // Add new extra vehicle
-                      return [...prev, { vehicle, pickupLocation }]
+                      // Add new extra vehicle (no pickup location - uses main pickup)
+                      return [...prev, { vehicle, pickupLocation: null }]
                     })
 
                     // Once at least one extra vehicle is added, we are in multi-vehicle mode
@@ -1197,10 +1151,9 @@ const CheckAvailabilityPage = () => {
                     setShowAddVehicleModal(false)
                     setModalSelectedVehicleIndex(null)
                     setModalSelectedPickup('')
-                    setEditingExtraIndex(null)
                   }}
                 >
-                  {editingExtraIndex !== null ? 'Save vehicle' : 'Add vehicle'}
+                  Add vehicle
                 </button>
               </div>
             </div>
@@ -1392,36 +1345,6 @@ const CheckAvailabilityPage = () => {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          className="px-2 py-1 text-xs font-medium border border-gray-300 rounded-lg hover:bg-gray-50"
-                          onClick={() => {
-                            // Open modal in edit mode for this extra vehicle
-                            if (!product?.vehicles || !ev.vehicle) return
-                            // Find the vehicle by object reference first (most reliable)
-                            const vehicleIdx = product.vehicles.findIndex(v => v === ev.vehicle)
-                            // Fallback: try to match by identifier if object reference fails
-                            let foundIdx = vehicleIdx
-                            if (foundIdx === -1) {
-                              // Get identifier from extra vehicle (we don't have the original index stored)
-                              const evId = getVehicleIdentifier(ev.vehicle, null)
-                              if (evId) {
-                                foundIdx = product.vehicles.findIndex((v, vIdx) => {
-                                  const vId = getVehicleIdentifier(v, vIdx)
-                                  return vId && vId === evId
-                                })
-                              }
-                            }
-                            if (foundIdx === -1) return
-                            setEditingExtraIndex(idx)
-                            setModalSelectedVehicleIndex(foundIdx)
-                            setModalSelectedPickup(ev.pickupLocation || '')
-                            setShowAddVehicleModal(true)
-                            setAllowMultipleVehicles(true)
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
                           className="px-2 py-1 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
                           onClick={() => {
                             setExtraVehicles(prev => prev.filter((_, i) => i !== idx))
@@ -1437,7 +1360,7 @@ const CheckAvailabilityPage = () => {
             )}
 
             {/* Vehicle Selection */}
-            {product && Array.isArray(product.vehicles) && product.vehicles.length > 0 && (
+            {product && Array.isArray(vehiclesForDisplay) && vehiclesForDisplay.length > 0 && (
               <div className="mb-6" data-vehicle-dropdown>
                 <label className="block text-lg font-semibold text-gray-900 mb-3">Select Vehicle</label>
                 <div className="relative">
@@ -1457,7 +1380,7 @@ const CheckAvailabilityPage = () => {
                   {/* Vehicle Dropdown */}
                   {showVehicleDropdown && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
-                      {product.vehicles.map((vehicle, idx) => {
+                      {vehiclesForDisplay.map((vehicle, idx) => {
                         const isSelected = selectedVehicleIndex === idx
                         return (
                           <div 
@@ -1597,6 +1520,20 @@ const CheckAvailabilityPage = () => {
                 <span className="text-gray-900 font-semibold">{selectedPersons}</span>
               </div>
               
+              {/* Pickup Location - Moved above vehicles */}
+              <div className="flex justify-between items-start mb-3">
+                <span className="text-gray-600 font-semibold text-base">Pickup Location:</span>
+                <span className="text-gray-900 font-semibold text-base text-right">
+                  {(() => {
+                    const meetingPoint = selectedMeetingPoint || bookingData.selectedMeetingPoint
+                    if (!meetingPoint) return 'Pickup Location'
+                    return typeof meetingPoint === 'string' 
+                      ? meetingPoint 
+                      : (meetingPoint.name || 'Pickup Location')
+                  })()}
+                </span>
+              </div>
+              
               {/* Vehicles and Pickup Locations */}
               <div className="space-y-3">
                 {/* Primary Vehicle */}
@@ -1609,18 +1546,6 @@ const CheckAvailabilityPage = () => {
                          (selectedVehicle || bookingData.selectedVehicle)?.model || 
                          'Vehicle'} 
                         {(selectedVehicle || bookingData.selectedVehicle)?.year ? `(${(selectedVehicle || bookingData.selectedVehicle).year})` : ''}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-start">
-                      <span className="text-gray-500 text-sm font-medium">Pickup:</span>
-                      <span className="text-gray-700 text-sm text-right">
-                        {(() => {
-                          const meetingPoint = selectedMeetingPoint || bookingData.selectedMeetingPoint
-                          if (!meetingPoint) return 'Pickup Location'
-                          return typeof meetingPoint === 'string' 
-                            ? meetingPoint 
-                            : (meetingPoint.name || 'Pickup Location')
-                        })()}
                       </span>
                     </div>
                   </div>
@@ -1636,14 +1561,6 @@ const CheckAvailabilityPage = () => {
                         {ev.vehicle?.year ? `(${ev.vehicle.year})` : ''}
                       </span>
                     </div>
-                    {ev.pickupLocation && (
-                      <div className="flex justify-between items-start">
-                        <span className="text-gray-500 text-sm font-medium">Pickup:</span>
-                        <span className="text-gray-700 text-sm text-right">
-                          {ev.pickupLocation}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>

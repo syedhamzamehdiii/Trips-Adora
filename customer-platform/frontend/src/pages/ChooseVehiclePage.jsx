@@ -225,7 +225,19 @@ const ChooseVehiclePage = () => {
                 <span className="text-gray-900 font-semibold">{selectedPersons || 3}</span>
               </div>
               
-              {/* Vehicles and Pickup Locations */}
+              {/* Pickup Location - Moved above vehicles */}
+              <div className="flex justify-between items-start mb-3">
+                <span className="text-gray-600 font-semibold text-base">Pickup Location:</span>
+                <span className="text-gray-900 font-semibold text-base text-right">
+                  {selectedMeetingPoint
+                    ? (typeof selectedMeetingPoint === 'string' 
+                        ? selectedMeetingPoint 
+                        : (selectedMeetingPoint.name || 'Pickup Location'))
+                    : 'Pickup Location'}
+                </span>
+              </div>
+              
+              {/* Vehicles */}
               <div className="space-y-3">
                 {/* Primary Vehicle */}
                 {selectedVehicle && (
@@ -237,16 +249,6 @@ const ChooseVehiclePage = () => {
                         {selectedVehicle?.year ? `(${selectedVehicle.year})` : ''}
                       </span>
                     </div>
-                    {selectedMeetingPoint && (
-                      <div className="flex justify-between items-start">
-                        <span className="text-gray-500 text-sm font-medium">Pickup:</span>
-                        <span className="text-gray-700 text-sm text-right">
-                          {typeof selectedMeetingPoint === 'string' 
-                            ? selectedMeetingPoint 
-                            : (selectedMeetingPoint.name || 'Pickup Location')}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 )}
                 
@@ -260,14 +262,6 @@ const ChooseVehiclePage = () => {
                         {ev.vehicle?.year ? `(${ev.vehicle.year})` : ''}
                       </span>
                     </div>
-                    {ev.pickupLocation && (
-                      <div className="flex justify-between items-start">
-                        <span className="text-gray-500 text-sm font-medium">Pickup:</span>
-                        <span className="text-gray-700 text-sm text-right">
-                          {ev.pickupLocation}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
