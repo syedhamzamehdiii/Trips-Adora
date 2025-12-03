@@ -120,8 +120,13 @@ const CheckAvailabilityPage = () => {
     stateData.selectedMeetingPointIndex !== undefined ? stateData.selectedMeetingPointIndex :
     (bookingData.selectedMeetingPointIndex !== undefined ? bookingData.selectedMeetingPointIndex : null)
   )
+  const [selectedDropoffLocationIndex, setSelectedDropoffLocationIndex] = useState(
+    stateData.selectedDropoffLocationIndex !== undefined ? stateData.selectedDropoffLocationIndex :
+    (bookingData.selectedDropoffLocationIndex !== undefined ? bookingData.selectedDropoffLocationIndex : null)
+  )
   const [showVehicleDropdown, setShowVehicleDropdown] = useState(false)
   const [showMeetingPointDropdown, setShowMeetingPointDropdown] = useState(false)
+  const [showDropoffLocationDropdown, setShowDropoffLocationDropdown] = useState(false)
 
   // Fetch product data if productId is available
   useEffect(() => {
@@ -308,9 +313,10 @@ const CheckAvailabilityPage = () => {
     }
   }, [selectedVehicleIndex, bookingData.selectedMeetingPointIndex])
 
-  // Reset meeting point when vehicle changes
+  // Reset meeting point and dropoff location when vehicle changes
   useEffect(() => {
     setSelectedMeetingPointIndex(null)
+    setSelectedDropoffLocationIndex(null)
   }, [selectedVehicleIndex])
 
   // Close dropdowns when clicking outside
@@ -559,6 +565,161 @@ const CheckAvailabilityPage = () => {
     return null
   }, [selectedMeetingPointIndex, selectedVehicleMeetingPoints, bookingData.selectedMeetingPoint])
 
+  // Get dropoff locations for selected vehicle
+  const selectedVehicleDropoffLocations = useMemo(() => {
+    if (!selectedVehicle || !product) return []
+    
+    // Priority 1: From pickup_configurations for selected vehicle
+    if (product?.pickup_dropoff?.pickup_configurations && Array.isArray(product.pickup_dropoff.pickup_configurations)) {
+      const configs = product.pickup_dropoff.pickup_configurations
+      const vehicleId = selectedVehicle.id || selectedVehicle._id
+      const vehicleTitle = selectedVehicle.title || selectedVehicle.model
+      
+      const matched = configs.filter((config) => {
+        // Match by vehicle_id
+        if (config.vehicle_id && vehicleId && String(config.vehicle_id) === String(vehicleId)) {
+          return true
+        }
+        // Match by vehicle.id
+        if (config.vehicle?.id && vehicleId && String(config.vehicle.id) === String(vehicleId)) {
+          return true
+        }
+        // Match by vehicle._id
+        if (config.vehicle?._id && vehicleId && String(config.vehicle._id) === String(vehicleId)) {
+          return true
+        }
+        // Match by title/model
+        if (vehicleTitle && config.vehicle) {
+          const configTitle = config.vehicle.title || config.vehicle.model
+          if (configTitle && String(configTitle).toLowerCase().trim() === String(vehicleTitle).toLowerCase().trim()) {
+            return true
+          }
+        }
+        return false
+      })
+      
+      if (matched.length > 0) {
+        const locationsMap = new Map()
+        const pickupLocations = new Set()
+        
+        // First, collect pickup locations to compare
+        matched.forEach(config => {
+          if (config.pickup_location) {
+            const locs = config.pickup_location.split(',').map(l => l.trim()).filter(Boolean)
+            locs.forEach(loc => pickupLocations.add(loc.toLowerCase()))
+          }
+        })
+        
+        // Then, collect dropoff locations (only if different from pickup)
+        matched.forEach(config => {
+          if (config.dropoff_location) {
+            const dropoffLocs = config.dropoff_location.split(',').map(l => l.trim()).filter(Boolean)
+            dropoffLocs.forEach(loc => {
+              const locationKey = loc.toLowerCase()
+              // Only add if different from pickup locations
+              if (!pickupLocations.has(locationKey) && !locationsMap.has(locationKey)) {
+                locationsMap.set(locationKey, {
+                  name: loc,
+                  time: config.pickup_time || null,
+                  address: config.dropoff_location,
+                  isSameAsPickup: false
+                })
+              }
+            })
+          }
+        })
+        
+        const dropoffLocs = Array.from(locationsMap.values())
+        
+        // If no separate dropoff locations found, add pickup locations as dropoff (same as pickup)
+        if (dropoffLocs.length === 0 && pickupLocations.size > 0) {
+          matched.forEach(config => {
+            if (config.pickup_location) {
+              const locs = config.pickup_location.split(',').map(l => l.trim()).filter(Boolean)
+              locs.forEach(loc => {
+                const locationKey = loc.toLowerCase()
+                if (!locationsMap.has(locationKey)) {
+                  locationsMap.set(locationKey, {
+                    name: loc,
+                    time: config.pickup_time || null,
+                    address: config.pickup_location,
+                    isSameAsPickup: true
+                  })
+                }
+              })
+            }
+          })
+          return Array.from(locationsMap.values())
+        }
+        
+        return dropoffLocs
+      }
+    }
+    
+    // Priority 2: From dropoff_locations array
+    if (Array.isArray(product?.pickup_dropoff?.dropoff_locations) && product.pickup_dropoff.dropoff_locations.length > 0) {
+      const pickupLocs = new Set()
+      if (Array.isArray(product?.pickup_dropoff?.pickup_locations)) {
+        product.pickup_dropoff.pickup_locations.forEach(loc => {
+          const locName = typeof loc === 'string' ? loc : (loc.name || loc)
+          pickupLocs.add(locName.toLowerCase())
+        })
+      }
+      
+      const dropoffLocs = product.pickup_dropoff.dropoff_locations
+        .map(loc => {
+          const locName = typeof loc === 'string' ? loc : (loc.name || loc)
+          return {
+            name: locName,
+            time: null,
+            address: typeof loc === 'string' ? loc : (loc.address || loc),
+            isSameAsPickup: pickupLocs.has(locName.toLowerCase())
+          }
+        })
+        .filter(loc => !loc.isSameAsPickup || pickupLocs.size === 0) // Only show if different, or if no pickup locations exist
+      
+      // If all dropoffs are same as pickup, show pickup locations as dropoff
+      if (dropoffLocs.length === 0 && Array.isArray(product?.pickup_dropoff?.pickup_locations) && product.pickup_dropoff.pickup_locations.length > 0) {
+        return product.pickup_dropoff.pickup_locations.map(loc => ({
+          name: typeof loc === 'string' ? loc : (loc.name || loc),
+          time: null,
+          address: typeof loc === 'string' ? loc : (loc.address || loc),
+          isSameAsPickup: true
+        }))
+      }
+      
+      return dropoffLocs
+    }
+    
+    // Priority 3: If no dropoff locations, use pickup locations (same as pickup)
+    if (Array.isArray(product?.pickup_dropoff?.pickup_locations) && product.pickup_dropoff.pickup_locations.length > 0) {
+      return product.pickup_dropoff.pickup_locations.map(loc => ({
+        name: typeof loc === 'string' ? loc : (loc.name || loc),
+        time: null,
+        address: typeof loc === 'string' ? loc : (loc.address || loc),
+        isSameAsPickup: true
+      }))
+    }
+    
+    return []
+  }, [selectedVehicle, product, selectedVehicleMeetingPoints])
+
+  // Get selected dropoff location
+  const selectedDropoffLocation = useMemo(() => {
+    if (selectedDropoffLocationIndex !== null && Array.isArray(selectedVehicleDropoffLocations) && selectedDropoffLocationIndex < selectedVehicleDropoffLocations.length) {
+      return selectedVehicleDropoffLocations[selectedDropoffLocationIndex] || null
+    }
+    // Fallback to bookingData.selectedDropoffLocation if available
+    if (bookingData.selectedDropoffLocation) {
+      return bookingData.selectedDropoffLocation
+    }
+    // Default to first dropoff location if available
+    if (selectedVehicleDropoffLocations.length > 0) {
+      return selectedVehicleDropoffLocations[0]
+    }
+    return null
+  }, [selectedDropoffLocationIndex, selectedVehicleDropoffLocations, bookingData.selectedDropoffLocation])
+
   const handlePersonChange = (delta) => {
     setSelectedPersons(prev => {
       const current = prev || 1
@@ -798,6 +959,8 @@ const CheckAvailabilityPage = () => {
         selectedMeetingPointIndex,
         selectedMeetingPoint,
         selectedVehicleMeetingPoints,
+        selectedDropoffLocationIndex,
+        selectedDropoffLocation,
         // Extra vehicles selected when using multiple vehicles
         extraVehicles,
         // Preserve extras and special requirements if coming back from step 2
@@ -809,7 +972,9 @@ const CheckAvailabilityPage = () => {
           selectedVehicle,
           selectedMeetingPointIndex,
           selectedMeetingPoint,
-          selectedVehicleMeetingPoints
+          selectedVehicleMeetingPoints,
+          selectedDropoffLocationIndex,
+          selectedDropoffLocation
         }
       }
     })
@@ -1484,6 +1649,79 @@ const CheckAvailabilityPage = () => {
                 </div>
               </div>
             )}
+
+            {/* Dropoff Location Selection */}
+            {selectedVehicle && selectedVehicleDropoffLocations.length > 0 && (
+              <div className="mb-6" data-dropoff-location-dropdown>
+                <label className="block text-lg font-semibold text-gray-900 mb-3">Select Drop-off Location</label>
+                <div className="relative">
+                  <div 
+                    className="cursor-pointer border border-gray-300 rounded-lg px-4 py-3 flex items-center gap-3 hover:border-gray-400 transition"
+                    onClick={() => setShowDropoffLocationDropdown(!showDropoffLocationDropdown)}
+                  >
+                    <FiMapPin className="w-5 h-5 text-gray-500" />
+                    <span className="flex-1 text-gray-700">
+                      {selectedDropoffLocation
+                        ? (typeof selectedDropoffLocation === 'string' 
+                            ? selectedDropoffLocation 
+                            : (selectedDropoffLocation.name || 'Drop-off Location'))
+                        : 'Select a drop-off location'}
+                    </span>
+                    <FiChevronDown className="w-5 h-5 text-gray-500" />
+                  </div>
+                  
+                  {/* Dropoff Location Dropdown */}
+                  {showDropoffLocationDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+                      {selectedVehicleDropoffLocations.map((loc, idx) => {
+                        const isSelected = selectedDropoffLocationIndex === idx
+                        const locationName = typeof loc === 'string' ? loc : (loc.name || loc || 'Drop-off Location')
+                        const address = typeof loc === 'object' ? (loc.address || '') : ''
+                        const time = typeof loc === 'object' && loc.time ? loc.time : null
+                        const isSameAsPickup = typeof loc === 'object' && loc.isSameAsPickup
+                        
+                        return (
+                          <div 
+                            key={idx}
+                            className="px-4 py-3 flex items-center gap-3 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 cursor-pointer"
+                            onClick={() => {
+                              setSelectedDropoffLocationIndex(idx)
+                              setShowDropoffLocationDropdown(false)
+                            }}
+                          >
+                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                              isSelected ? 'border-gray-300' : 'border-gray-300'
+                            }`} style={isSelected ? { backgroundColor: '#1d236b', borderColor: '#1d236b' } : {}}>
+                              {isSelected && (
+                                <FaCheck className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <FiMapPin className="w-4 h-4 text-gray-500" />
+                                <span className="text-gray-700 font-medium">
+                                  {locationName}
+                                  {isSameAsPickup && <span className="text-xs text-gray-500 ml-2">(Same as pickup)</span>}
+                                </span>
+                              </div>
+                              {address && address !== locationName && (
+                                <span className="text-sm text-gray-500">{address}</span>
+                              )}
+                              {time && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <FiClock className="w-3 h-3 text-gray-400" />
+                                  <span className="text-xs text-gray-500">{time}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Panel - Booking Summary */}
@@ -1533,6 +1771,21 @@ const CheckAvailabilityPage = () => {
                   })()}
                 </span>
               </div>
+              
+              {/* Dropoff Location */}
+              {selectedDropoffLocation && (
+                <div className="flex justify-between items-start mb-3">
+                  <span className="text-gray-600 font-semibold text-base">Drop-off Location:</span>
+                  <span className="text-gray-900 font-semibold text-base text-right">
+                    {typeof selectedDropoffLocation === 'string' 
+                      ? selectedDropoffLocation 
+                      : (selectedDropoffLocation.name || 'Drop-off Location')}
+                    {selectedDropoffLocation.isSameAsPickup && (
+                      <span className="text-xs text-gray-500 ml-2">(Same as pickup)</span>
+                    )}
+                  </span>
+                </div>
+              )}
               
               {/* Vehicles and Pickup Locations */}
               <div className="space-y-3">

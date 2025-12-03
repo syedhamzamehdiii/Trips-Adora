@@ -66,7 +66,6 @@ const BookingDetails = ({
     const rows = [
       ['Booking ID', booking?.bookingId || booking?.id || ''],
       ['Tour Name', booking?.tourName || booking?.title || ''],
-      ['Package Type', booking?.packageType || ''],
       ['Tour Date', booking?.tourDate || ''],
       ['Destination', booking?.destination || booking?.location || ''],
       ['Total Amount', formattedAmount],

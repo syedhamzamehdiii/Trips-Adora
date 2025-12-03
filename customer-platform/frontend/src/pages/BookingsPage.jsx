@@ -37,7 +37,12 @@ const formatDateDisplay = (value) => {
 }
 
 const normalizeBooking = (booking = {}) => {
-  const status = (booking.status || '').toLowerCase() || 'pending'
+  const rawStatus = (booking.status || '').toLowerCase()
+  // Normalise backend spelling so the UI only deals with one variant
+  const status =
+    rawStatus === 'cancelled'
+      ? 'canceled'
+      : rawStatus || 'pending'
   const startDate = booking.startDate || booking.start_date
   return {
     ...booking,

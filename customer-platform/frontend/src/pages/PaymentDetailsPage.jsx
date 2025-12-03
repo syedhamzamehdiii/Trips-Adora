@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -6,6 +6,7 @@ import { FiArrowLeft, FiTag } from 'react-icons/fi'
 import { BsBorderStyle } from 'react-icons/bs'
 import { createBooking } from '../services/bookingService'
 import { validateCoupon } from '../services/couponService'
+import { getProductById } from '../services/productService'
 
 const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
@@ -119,6 +120,8 @@ const PaymentDetailsPage = () => {
     selectedMeetingPointIndex,
     selectedMeetingPoint,
     selectedVehicleMeetingPoints,
+    selectedDropoffLocationIndex,
+    selectedDropoffLocation,
     extraVehicles,
     extras, 
     vehicleData, 
@@ -143,6 +146,113 @@ const PaymentDetailsPage = () => {
 
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [productDetails, setProductDetails] = useState(null)
+  const [loadingProduct, setLoadingProduct] = useState(false)
+
+  // Fetch product details to get real pickup/dropoff locations
+  useEffect(() => {
+    const fetchProductDetails = async () => {
+      const productId = bookingData?.id || bookingData?.slug || bookingData?.productId
+      if (!productId) return
+
+      setLoadingProduct(true)
+      try {
+        const product = await getProductById(productId, false) // Don't use cache for real-time data
+        if (product) {
+          setProductDetails(product)
+        }
+      } catch (err) {
+        console.warn('Failed to fetch product details for locations:', err)
+      } finally {
+        setLoadingProduct(false)
+      }
+    }
+
+    fetchProductDetails()
+  }, [bookingData?.id, bookingData?.slug, bookingData?.productId])
+
+  // Extract pickup and dropoff locations from product details
+  const pickupLocation = useMemo(() => {
+    // Priority 1: From selected meeting point
+    if (selectedMeetingPoint?.name || selectedMeetingPoint?.address) {
+      return selectedMeetingPoint.name || selectedMeetingPoint.address
+    }
+    // Priority 2: From product pickup_dropoff
+    if (productDetails?.pickup_dropoff) {
+      const pd = productDetails.pickup_dropoff
+      // Check pickup_configurations for selected vehicle
+      if (Array.isArray(pd.pickup_configurations) && pd.pickup_configurations.length > 0) {
+        const config = pd.pickup_configurations.find(c => {
+          const vehicleId = selectedVehicle?.id || vehicleData?.id
+          const configVehicleId = c.vehicle_id || c.vehicle?.id || c.vehicle?._id
+          return vehicleId && configVehicleId && String(vehicleId) === String(configVehicleId)
+        }) || pd.pickup_configurations[0]
+        if (config?.pickup_location) {
+          return config.pickup_location.split(',')[0].trim() // Get first location if comma-separated
+        }
+      }
+      // Fallback to pickup_location or first pickup_locations
+      if (pd.pickup_location) {
+        return pd.pickup_location
+      }
+      if (Array.isArray(pd.pickup_locations) && pd.pickup_locations.length > 0) {
+        const loc = pd.pickup_locations[0]
+        return typeof loc === 'string' ? loc : (loc.name || loc.address || loc)
+      }
+    }
+    // Priority 3: From booking data
+    return bookingData?.pickupLocation || 'Kawaguchiko Station'
+  }, [productDetails, selectedMeetingPoint, selectedVehicle, vehicleData, bookingData])
+
+  const dropoffLocation = useMemo(() => {
+    // Priority 1: From selected dropoff location (customer selection)
+    if (selectedDropoffLocation) {
+      const locName = typeof selectedDropoffLocation === 'string' 
+        ? selectedDropoffLocation 
+        : (selectedDropoffLocation.name || selectedDropoffLocation.address || '')
+      if (locName) return locName
+    }
+    
+    // Priority 2: From product pickup_dropoff
+    if (productDetails?.pickup_dropoff) {
+      const pd = productDetails.pickup_dropoff
+      // Check pickup_configurations for selected vehicle
+      if (Array.isArray(pd.pickup_configurations) && pd.pickup_configurations.length > 0) {
+        const config = pd.pickup_configurations.find(c => {
+          const vehicleId = selectedVehicle?.id || vehicleData?.id
+          const configVehicleId = c.vehicle_id || c.vehicle?.id || c.vehicle?._id
+          return vehicleId && configVehicleId && String(vehicleId) === String(configVehicleId)
+        }) || pd.pickup_configurations[0]
+        if (config?.dropoff_location && config.dropoff_location.trim() && 
+            config.dropoff_location.trim() !== (config.pickup_location || '').trim()) {
+          return config.dropoff_location
+        }
+        // If dropoff is same as pickup, use pickup location
+        if (config?.pickup_location) {
+          return config.pickup_location.split(',')[0].trim()
+        }
+      }
+      // Fallback to dropoff_location or first dropoff_locations
+      if (pd.dropoff_location && pd.dropoff_location.trim() && 
+          pd.dropoff_location.trim() !== (pd.pickup_location || '').trim()) {
+        return pd.dropoff_location
+      }
+      if (Array.isArray(pd.dropoff_locations) && pd.dropoff_locations.length > 0) {
+        const loc = pd.dropoff_locations[0]
+        return typeof loc === 'string' ? loc : (loc.name || loc.address || loc)
+      }
+      // If no separate dropoff, use pickup location
+      if (pd.pickup_location) {
+        return pd.pickup_location
+      }
+      if (Array.isArray(pd.pickup_locations) && pd.pickup_locations.length > 0) {
+        const loc = pd.pickup_locations[0]
+        return typeof loc === 'string' ? loc : (loc.name || loc.address || loc)
+      }
+    }
+    // Priority 3: From booking data
+    return bookingData?.dropoffLocation || null
+  }, [selectedDropoffLocation, productDetails, selectedVehicle, vehicleData, bookingData])
 
   const handleBack = () => {
     navigate('/choose-vehicle', {
@@ -305,8 +415,8 @@ const PaymentDetailsPage = () => {
       ].filter(Boolean).join('\n\n') || '',
       travelers: selectedPersons ? `${selectedPersons} Traveler${selectedPersons > 1 ? 's' : ''}` : '',
       packageType: bookingData?.packageType || 'Scenic Mountain Drive + Photo Spots',
-      pickUpLocation: 'Kawaguchiko Station',
-      dropOffLocation: 'Fuji Subaru Line 5th Station',
+      pickUpLocation: pickupLocation,
+      dropOffLocation: dropoffLocation || pickupLocation, // Use pickup if no dropoff selected
       customerName: cardholderName || 'Guest',
       customerEmail: bookingData?.email || 'customer@example.com',
       customerPhone: '+81 90-1234-5678',

@@ -130,11 +130,12 @@ async def get_resolved_location(product_id: str):
                 detail="Product not found"
             )
 
-        # Prefer explicitly resolved location field if present
+        # Prefer explicitly resolved location field if present (GPT-resolved for weather)
+        # Then prefer destination (actual tour location like "Mount Fuji, Japan") over generic location (pickup city like "Tokyo, Japan")
         resolved = (
             product.get("resolved_location")
-            or product.get("location")
             or product.get("destination")
+            or product.get("location")
         )
         logger.info(
             f"[RESOLVED_LOCATION] Resolved location for product_id={product_id}: "

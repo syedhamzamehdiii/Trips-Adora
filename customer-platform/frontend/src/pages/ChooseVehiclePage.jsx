@@ -17,6 +17,8 @@ const ChooseVehiclePage = () => {
     selectedMeetingPointIndex,
     selectedMeetingPoint,
     selectedVehicleMeetingPoints,
+    selectedDropoffLocationIndex,
+    selectedDropoffLocation,
     extraVehicles,
     bookingData 
   } = location.state || {}
@@ -59,6 +61,8 @@ const ChooseVehiclePage = () => {
         selectedMeetingPointIndex,
         selectedMeetingPoint,
         selectedVehicleMeetingPoints,
+        selectedDropoffLocationIndex,
+        selectedDropoffLocation,
         extraVehicles,
         extras,
         specialRequirements,
@@ -78,6 +82,8 @@ const ChooseVehiclePage = () => {
         selectedMeetingPointIndex,
         selectedMeetingPoint,
         selectedVehicleMeetingPoints,
+        selectedDropoffLocationIndex,
+        selectedDropoffLocation,
         extraVehicles,
         extras,
         extrasTotal,

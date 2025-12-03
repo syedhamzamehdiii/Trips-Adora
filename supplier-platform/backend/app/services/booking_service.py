@@ -39,6 +39,15 @@ class SupplierBookingService:
                 result["status"] = "cancelled"
             else:
                 result["status"] = status
+
+        # Normalise cancellation reason location for frontends:
+        # ensure it's always present both at top-level and inside metadata
+        cancellation_reason = result.get("cancellation_reason")
+        if cancellation_reason:
+            metadata = result.get("metadata") or {}
+            # Don't overwrite if already present
+            metadata.setdefault("cancellation_reason", cancellation_reason)
+            result["metadata"] = metadata
         
         return result
     
@@ -127,39 +136,80 @@ class SupplierBookingService:
             except Exception as agg_err:
                 logger.error(f"Error aggregating review data for supplier {supplier_id}: {agg_err}")
             
-            # Get customer email and country from users collection (authenticated profiles)
-            user_ids: List[ObjectId] = []
+            # Get customer email and country from users/profile collections
+            user_object_ids: List[ObjectId] = []
+            user_id_strings: List[str] = []
             for b in bookings:
                 raw_user_id = b.get("user_id")
                 if not raw_user_id:
                     continue
+                # Always keep a string version for customer_profiles lookups
                 try:
-                    user_ids.append(
-                        raw_user_id
-                        if isinstance(raw_user_id, ObjectId)
-                        else ObjectId(str(raw_user_id))
-                    )
+                    user_id_strings.append(str(raw_user_id))
                 except Exception:
-                    # Skip invalid IDs
+                    continue
+                # Best-effort conversion to ObjectId for core users collection
+                try:
+                    oid = raw_user_id if isinstance(raw_user_id, ObjectId) else ObjectId(
+                        str(raw_user_id)
+                    )
+                    user_object_ids.append(oid)
+                except Exception:
+                    # Many customer_bookings store a string slug as user_id; that's fine,
+                    # we'll still resolve location via customer_profiles using user_id_strings.
                     continue
             
             customer_info_map: Dict[str, Dict[str, Any]] = {}
-            if user_ids:
+            if user_object_ids or user_id_strings:
                 try:
                     db = get_database()
-                    user_docs = await db["users"].find(
-                        {"_id": {"$in": user_ids}},
-                        {"email": 1, "country": 1, "address": 1},
-                    ).to_list(length=None)
-                    for doc in user_docs:
-                        uid = str(doc.get("_id"))
-                        email = doc.get("email")
-                        # Prefer explicit country, fall back to address/location if set
-                        country = doc.get("country") or doc.get("address")
-                        customer_info_map[uid] = {
-                            "email": email,
-                            "country": country,
-                        }
+                    # 1) Try to read from core users collection using ObjectIds (if any)
+                    if user_object_ids:
+                        user_docs = await db["users"].find(
+                            {"_id": {"$in": user_object_ids}},
+                            {"email": 1, "country": 1, "address": 1, "city": 1},
+                        ).to_list(length=None)
+                        for doc in user_docs:
+                            uid = str(doc.get("_id"))
+                            email = doc.get("email")
+                            # Prefer explicit country, then city, then address
+                            country = (
+                                doc.get("country")
+                                or doc.get("city")
+                                or doc.get("address")
+                            )
+                            customer_info_map[uid] = {
+                                "email": email,
+                                "country": country,
+                            }
+
+                    # 2) For any users still missing a country, fall back to customer_profiles
+                    missing_country_user_ids = [
+                        uid
+                        for uid in set(user_id_strings)
+                        if not customer_info_map.get(uid, {}).get("country")
+                    ]
+                    if missing_country_user_ids:
+                        profile_docs = await db["customer_profiles"].find(
+                            {"user_id": {"$in": missing_country_user_ids}},
+                            {"user": 1, "user_id": 1},
+                        ).to_list(length=None)
+                        for doc in profile_docs:
+                            uid = str(doc.get("user_id"))
+                            user_section = doc.get("user") or {}
+                            # Prefer profile country, then city, then location
+                            profile_country = (
+                                user_section.get("country")
+                                or user_section.get("city")
+                                or user_section.get("location")
+                            )
+                            if not profile_country:
+                                continue
+                            info = customer_info_map.get(uid, {})
+                            info.setdefault("email", None)
+                            info["country"] = profile_country
+                            customer_info_map[uid] = info
+
                 except Exception as user_err:
                     logger.warning(f"Error fetching customer profile info: {user_err}")
             
@@ -188,34 +238,74 @@ class SupplierBookingService:
         """Get a specific booking by ID, ensuring it belongs to the supplier."""
         try:
             collection = SupplierBookingService._collection()
-            
+
             try:
                 oid = ObjectId(booking_id)
             except Exception:
                 return None
-            
+
             booking = await collection.find_one({
                 "_id": oid,
                 "supplier_id": supplier_id
             })
-            
+
             if booking:
                 serialized = SupplierBookingService._serialize_booking(booking)
-                # Get customer's authenticated email and country from User collection
+
+                # Get customer's authenticated email and location from users / profile collections,
+                # same logic as in get_bookings_for_supplier so list + detail are consistent.
                 user_id = booking.get("user_id")
                 if user_id:
                     try:
-                        user = await User.find_one({"_id": ObjectId(str(user_id))})
-                        if user:
-                            if getattr(user, "email", None):
-                                serialized["customer_email"] = user.email
-                            if getattr(user, "country", None):
-                                serialized["customer_country"] = user.country
+                        db = get_database()
+                        email = None
+                        country = None
+
+                        # 1) Try core users collection when user_id is an ObjectId
+                        try:
+                            user_doc = await db["users"].find_one(
+                                {"_id": ObjectId(str(user_id))},
+                                {"email": 1, "country": 1, "address": 1, "city": 1},
+                            )
+                        except Exception:
+                            user_doc = None
+
+                        email = None
+                        if user_doc:
+                            email = user_doc.get("email")
+                            # Prefer explicit country, then city, then address
+                            country = (
+                                user_doc.get("country")
+                                or user_doc.get("city")
+                                or user_doc.get("address")
+                            )
+
+                        # If still no country, fall back to customer_profiles.user using the same user_id string
+                        if not country:
+                            profile_doc = await db["customer_profiles"].find_one(
+                                {"user_id": str(user_id)},
+                                {"user": 1},
+                            )
+                            if profile_doc:
+                                user_section = profile_doc.get("user") or {}
+                                country = (
+                                    user_section.get("country")
+                                    or user_section.get("city")
+                                    or user_section.get("location")
+                                )
+
+                        if email:
+                            serialized["customer_email"] = email
+                        if country:
+                            serialized["customer_country"] = country
                     except Exception as user_err:
-                        logger.warning(f"Error fetching customer details for user {user_id}: {user_err}")
+                        logger.warning(
+                            f"Error fetching customer details for user {user_id}: {user_err}"
+                        )
+
                 return serialized
             return None
-        
+
         except Exception as e:
             logger.error(f"Error fetching booking {booking_id} for supplier {supplier_id}: {e}")
             return None
