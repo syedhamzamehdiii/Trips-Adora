@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FiArrowLeft, 
   FiMail, 
@@ -31,11 +31,23 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
   const [loadingResolvedLocation, setLoadingResolvedLocation] = useState(false);
   const { user } = useAuth();
 
-  // Fetch full booking details when modal opens
+  // Simple in-memory caches (per session) to avoid refetching when opening multiple times
+  const bookingCacheRef = useRef({});
+  const productCacheRef = useRef({});
+  const resolvedLocationCacheRef = useRef({});
+
+  // Fetch full booking details when modal opens (with caching)
   useEffect(() => {
-    if (isOpen && bookingData?.id) {
-      fetchBookingDetails();
-    } else if (isOpen && bookingData) {
+    if (!isOpen) return;
+
+    if (bookingData?.id) {
+      const cached = bookingCacheRef.current[bookingData.id];
+      if (cached) {
+        setFullBookingData(cached);
+      } else {
+        fetchBookingDetails();
+      }
+    } else if (bookingData) {
       // Use provided booking data if no ID to fetch
       setFullBookingData(bookingData);
     }
@@ -48,10 +60,17 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
       const productId = booking?.product_id;
       if (!productId) return;
 
+      const cached = productCacheRef.current[productId];
+      if (cached) {
+        setProductDetails(cached);
+        return;
+      }
+
       setLoadingProduct(true);
       try {
         const product = await productService.getProduct(productId);
         if (product) {
+          productCacheRef.current[productId] = product;
           setProductDetails(product);
         }
       } catch (err) {
@@ -72,6 +91,13 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
       const booking = fullBookingData || bookingData;
       const productId = booking?.product_id;
       if (!productId) return;
+
+      const cached = resolvedLocationCacheRef.current[productId];
+      if (cached) {
+        setResolvedLocation(cached);
+        setLoadingResolvedLocation(false);
+        return;
+      }
 
       // First check if product details already have resolved_location (GPT-resolved)
       if (productDetails?.resolved_location && productDetails.resolved_location.trim() && productDetails.resolved_location !== 'N/A') {
@@ -104,9 +130,13 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
                 productDestination !== 'N/A' &&
                 productDestination.toLowerCase() !== data.location.toLowerCase()) {
               // If destination is more specific (e.g., "Mount Fuji" vs "Tokyo"), use destination
-              setResolvedLocation(productDestination.trim());
+              const value = productDestination.trim();
+              resolvedLocationCacheRef.current[productId] = value;
+              setResolvedLocation(value);
             } else {
-              setResolvedLocation(data.location.trim());
+              const value = data.location.trim();
+              resolvedLocationCacheRef.current[productId] = value;
+              setResolvedLocation(value);
             }
             setLoadingResolvedLocation(false);
             return; // Success, exit early
@@ -120,9 +150,13 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
       // Destination should be the actual tour location (e.g., "Mount Fuji, Japan", "Kyoto, Japan")
       // rather than generic pickup city (e.g., "Tokyo, Japan")
       if (productDetails?.destination && productDetails.destination.trim() && productDetails.destination !== 'N/A') {
-        setResolvedLocation(productDetails.destination.trim());
+        const value = productDetails.destination.trim();
+        resolvedLocationCacheRef.current[productId] = value;
+        setResolvedLocation(value);
       } else if (productDetails?.location && productDetails.location.trim() && productDetails.location !== 'N/A') {
-        setResolvedLocation(productDetails.location.trim());
+        const value = productDetails.location.trim();
+        resolvedLocationCacheRef.current[productId] = value;
+        setResolvedLocation(value);
       } else {
         setResolvedLocation(null);
       }
@@ -151,8 +185,12 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
     setLoading(true);
     try {
       const response = await bookingService.getBookingById(bookingData.id);
-      if (response.data) {
-        setFullBookingData(response.data);
+      const data = response?.data || response; // apiService may already unwrap data
+      if (data) {
+        bookingCacheRef.current[bookingData.id] = data;
+        setFullBookingData(data);
+      } else {
+        setFullBookingData(bookingData);
       }
     } catch (error) {
       console.error('Error fetching booking details:', error);

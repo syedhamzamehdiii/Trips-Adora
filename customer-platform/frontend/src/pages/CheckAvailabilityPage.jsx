@@ -1043,16 +1043,16 @@ const CheckAvailabilityPage = () => {
               // If we came from cart, go back to cart
               if (bookingData.from === 'cart') {
                 navigate('/cart')
-              } else if (bookingData.from === 'product-details') {
+                } else if (bookingData.from === 'product-details') {
                 // If we came from a product page, prefer going back in history
                 // so we land on the exact product (could be /tours/:slug, etc.)
-                navigate(-1)
-              } else {
+                    navigate(-1)
+                  } else {
                 // Fallback: go back one step, or to home if no history
-                if (window.history.length > 1) {
-                  navigate(-1)
-                } else {
-                  navigate('/')
+                  if (window.history.length > 1) {
+                    navigate(-1)
+                  } else {
+                    navigate('/')
                 }
               }
             }}
@@ -1156,11 +1156,11 @@ const CheckAvailabilityPage = () => {
               <button
                 type="button"
                 className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-                  onClick={() => {
-                    setShowAddVehicleModal(false)
-                    setModalSelectedVehicleIndex(null)
-                    setModalSelectedPickup('')
-                  }}
+                onClick={() => {
+                  setShowAddVehicleModal(false)
+                  setModalSelectedVehicleIndex(null)
+                  setModalSelectedPickup('')
+                }}
               >
                 <span className="sr-only">Close</span>
                 ×

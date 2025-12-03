@@ -135,7 +135,9 @@ const BookingsPage = () => {
       }
       const response = await bookingService.getBookings({
         status: statusFilter,
-        limit: 500, // Get all bookings, frontend will paginate
+        // Fetch a reasonable upper bound instead of everything to reduce payload
+        // We only show 10 per page; 200 keeps UI fast but still gives enough history.
+        limit: 200,
         skip: 0
       });
       
@@ -159,7 +161,7 @@ const BookingsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters.status, normalizeBooking, bookings.length]);
+  }, [filters.status, normalizeBooking]);
 
   // Load bookings on mount and when filters change
   useEffect(() => {

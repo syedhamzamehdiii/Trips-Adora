@@ -79,7 +79,7 @@ const CancelBookingModal = ({ isOpen, onClose, bookingData, onNavigateToBookings
       
       await bookingService.cancelBooking(bookingData.id, reason);
       
-      setShowSuccessModal(true);
+    setShowSuccessModal(true);
       toast.success('Booking cancelled successfully');
     } catch (error) {
       console.error('Error cancelling booking:', error);

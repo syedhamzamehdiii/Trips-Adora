@@ -159,21 +159,21 @@ const BookingRevenueChart = () => {
     if (!active || !payload || !payload.length) return null;
 
     // Always show Bookings vs Revenue
-    return (
+      return (
       <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 max-w-xs">
-        <p className="text-xs text-gray-600 mb-2">{label}</p>
+          <p className="text-xs text-gray-600 mb-2">{label}</p>
         <div className="space-y-1 mb-2">
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#5B8FDE' }}></div>
-            <span className="text-xs text-gray-600 mr-2">Bookings:</span>
-            <span className="text-xs font-semibold">{payload[0]?.value}</span>
+            <div className="flex items-center">
+              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#5B8FDE' }}></div>
+              <span className="text-xs text-gray-600 mr-2">Bookings:</span>
+              <span className="text-xs font-semibold">{payload[0]?.value}</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#72C082' }}></div>
+              <span className="text-xs text-gray-600 mr-2">Revenue:</span>
+              <span className="text-xs font-semibold">{payload[1]?.value}</span>
+            </div>
           </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#72C082' }}></div>
-            <span className="text-xs text-gray-600 mr-2">Revenue:</span>
-            <span className="text-xs font-semibold">{payload[1]?.value}</span>
-          </div>
-        </div>
 
         {/* When countries analysis is ON, also show top 4 countries with booking counts */}
         {showCountries && countryData.length > 0 && (
@@ -191,8 +191,8 @@ const BookingRevenueChart = () => {
             </div>
           </div>
         )}
-      </div>
-    );
+        </div>
+      );
   };
 
   const CustomDot = (props) => {
@@ -461,7 +461,7 @@ const BookingRevenueChart = () => {
                 position="top"
                 className="text-[10px]"
                 formatter={(value) => (value > 0 ? value : '')}
-              />
+            />
             </Area>
             
             <Line
@@ -478,7 +478,7 @@ const BookingRevenueChart = () => {
                 position="top"
                 className="text-[10px]"
                 formatter={(value) => (value > 0 ? value : '')}
-              />
+            />
             </Line>
           </ComposedChart>
         </ResponsiveContainer>
