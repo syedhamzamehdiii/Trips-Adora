@@ -654,14 +654,10 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
         durationDays = parseInt(dayMatch[1], 10) || 1;
       } else if (hourMatch) {
         const hours = parseInt(hourMatch[1], 10) || 0;
-        durationDays = hours >= 24 ? Math.ceil(hours / 24) : 1;
-      } else {
-        const numMatch = durationStr.match(/(\d+)/);
-        if (numMatch) {
-          const num = parseInt(numMatch[1], 10);
-          durationDays = num < 24 ? 1 : num;
-        }
+        // Any hour-based duration (<24h or >24h) is treated as same-day or a small multi-day tour.
+        durationDays = hours >= 24 ? Math.min(Math.ceil(hours / 24), 30) : 1;
       }
+      // If there is no clear "day" or "hour" unit, we keep default = 1 day
     }
 
     // 3) Participation date is always the first day of the tour
