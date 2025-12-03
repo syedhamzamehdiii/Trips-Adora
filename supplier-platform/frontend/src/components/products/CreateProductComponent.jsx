@@ -140,8 +140,25 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   // Step 1 - Product Information
   const [productTitle, setProductTitle] = useState('');
   const [productCategory, setProductCategory] = useState('');
-  const [sellingPoints, setSellingPoints] = useState('');
+  // Allow multiple selling points to be selected
+  const [sellingPoints, setSellingPoints] = useState([]);
   const [tagline, setTagline] = useState('');
+  
+  // "Other" option states
+  const [showOtherCategory, setShowOtherCategory] = useState(false);
+  const [otherCategoryValue, setOtherCategoryValue] = useState('');
+  const [showOtherSellingPoint, setShowOtherSellingPoint] = useState(false);
+  const [otherSellingPointValue, setOtherSellingPointValue] = useState('');
+  const [showOtherLanguage, setShowOtherLanguage] = useState(false);
+  const [otherLanguageValue, setOtherLanguageValue] = useState('');
+  const [showOtherThingsToCarry, setShowOtherThingsToCarry] = useState(false);
+  const [otherThingsToCarryValue, setOtherThingsToCarryValue] = useState('');
+  
+  // Custom values from approved products
+  const [customCategories, setCustomCategories] = useState([]);
+  const [customSellingPoints, setCustomSellingPoints] = useState([]);
+  const [customLanguages, setCustomLanguages] = useState([]);
+  const [customThingsToCarry, setCustomThingsToCarry] = useState([]);
   
   // Step 2 - Description & Highlights
   const [description, setDescription] = useState('');
@@ -341,8 +358,16 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     setItineraries([]);
     setProductTitle('');
     setProductCategory('');
-    setSellingPoints('');
+    setSellingPoints([]);
     setTagline('');
+    setShowOtherCategory(false);
+    setOtherCategoryValue('');
+    setShowOtherSellingPoint(false);
+    setOtherSellingPointValue('');
+    setShowOtherLanguage(false);
+    setOtherLanguageValue('');
+    setShowOtherThingsToCarry(false);
+    setOtherThingsToCarryValue('');
     setDescription('');
     setCancellationPolicy(buildDefaultCancellationPolicy());
     setUploadedPhotos([]);
@@ -797,6 +822,69 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     }, 1500);
   };
 
+  // Fetch custom values from approved products
+  useEffect(() => {
+    const fetchCustomValues = async () => {
+      try {
+        // Fetch published products to get custom values
+        const response = await productService.getPublishedProducts({ page: 1, page_size: 100 });
+        const products = response?.products || [];
+        
+        // Extract unique custom categories
+        const categories = new Set();
+        products.forEach(product => {
+          if (product.category && !['tour', 'hotel', 'rent_a_car'].includes(product.category.toLowerCase())) {
+            categories.add(product.category);
+          }
+        });
+        setCustomCategories(Array.from(categories));
+        
+        // Extract unique custom selling points
+        const sellingPoints = new Set();
+        products.forEach(product => {
+          if (Array.isArray(product.selling_points)) {
+            product.selling_points.forEach(sp => {
+              if (sp && !['Art, Design, & Fashion', 'Entertainment', 'Food & Drink', 'Health & Fitness', 'History & Culture', 'Travel', 'Holidays'].includes(sp)) {
+                sellingPoints.add(sp);
+              }
+            });
+          }
+        });
+        setCustomSellingPoints(Array.from(sellingPoints));
+        
+        // Extract unique custom languages
+        const languages = new Set();
+        products.forEach(product => {
+          if (Array.isArray(product.languages)) {
+            product.languages.forEach(lang => {
+              if (lang && !['Arabic', 'French', 'English', 'Spanish', 'German', 'Italian', 'Japanese', 'Mandarin Chinese', 'Hindi'].includes(lang)) {
+                languages.add(lang);
+              }
+            });
+          }
+        });
+        setCustomLanguages(Array.from(languages));
+        
+        // Extract unique custom things to carry
+        const thingsToCarry = new Set();
+        products.forEach(product => {
+          if (Array.isArray(product.things_to_carry)) {
+            product.things_to_carry.forEach(item => {
+              if (item && !['Camera', 'Walking Shoes', 'Weather Suitable Clothes', 'Umbrella or Raincoat', 'Camera/Smart Phone', 'Reusable Water Bottle', 'Snacks & Light Foods', 'Power Bank'].includes(item)) {
+                thingsToCarry.add(item);
+              }
+            });
+          }
+        });
+        setCustomThingsToCarry(Array.from(thingsToCarry));
+      } catch (error) {
+        console.error('Error fetching custom values:', error);
+      }
+    };
+    
+    fetchCustomValues();
+  }, []);
+
   // Load draft data when component mounts
   useEffect(() => {
     const loadDraftData = () => {
@@ -873,8 +961,22 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             console.log('✅ Loading title:', draftData.productTitle);
             setProductTitle(draftData.productTitle);
           }
-          if (draftData.productCategory) setProductCategory(draftData.productCategory);
-          if (draftData.sellingPoints) setSellingPoints(draftData.sellingPoints);
+          if (draftData.productCategory) {
+            const category = draftData.productCategory;
+            setProductCategory(category);
+            // If category is not a standard one, show "Other" input
+            if (!['Tour', 'Hotel', 'Rent a Car'].includes(category)) {
+              setShowOtherCategory(true);
+              setOtherCategoryValue(category);
+            }
+          }
+          if (draftData.sellingPoints) {
+            const sellingPoint = draftData.sellingPoints;
+            const arrayValue = Array.isArray(sellingPoint)
+              ? sellingPoint.filter(Boolean)
+              : [sellingPoint].filter(Boolean);
+            setSellingPoints(arrayValue);
+          }
           if (draftData.tagline) setTagline(draftData.tagline);
           
           // Load Step 2 data
@@ -2430,8 +2532,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         alert('Please select a category.');
         return;
       }
-      if (!sellingPoints) {
-        alert('Please select a selling point/style.');
+      if (!Array.isArray(sellingPoints) || sellingPoints.length === 0) {
+        alert('Please select at least one selling point/style.');
         return;
       }
       if (!tagline || countWords(tagline) < 50) {
@@ -2533,31 +2635,117 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                   <select 
                     className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
                     value={productCategory}
-                    onChange={(e) => setProductCategory(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === 'other') {
+                        setShowOtherCategory(true);
+                        setProductCategory('');
+                      } else {
+                        setShowOtherCategory(false);
+                        setProductCategory(value);
+                        setOtherCategoryValue('');
+                      }
+                    }}
                     required
                   >
                     <option value="">Select Category</option>
                     <option value="Tour">Tour</option>
                     <option value="Hotel">Hotel</option>
                     <option value="Rent a Car">Rent a Car</option>
+                    {customCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    <option value="other">Other</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                     <FiChevronDown className="w-4 h-4 text-gray-400" />
                   </div>
                 </div>
+                {showOtherCategory && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        value={otherCategoryValue}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value.length <= 15) {
+                            setOtherCategoryValue(value);
+                          }
+                        }}
+                        placeholder="Enter custom category (max 15 characters)"
+                        maxLength={15}
+                        className="w-full px-4 py-3 bg-white border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && otherCategoryValue.trim() && otherCategoryValue.trim().length <= 15) {
+                            const trimmedValue = otherCategoryValue.trim();
+                            if (!customCategories.includes(trimmedValue)) {
+                              setCustomCategories([...customCategories, trimmedValue]);
+                            }
+                            setProductCategory(trimmedValue);
+                            setShowOtherCategory(false);
+                            setOtherCategoryValue('');
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (otherCategoryValue.trim() && otherCategoryValue.trim().length <= 15) {
+                            const trimmedValue = otherCategoryValue.trim();
+                            if (!customCategories.includes(trimmedValue)) {
+                              setCustomCategories([...customCategories, trimmedValue]);
+                            }
+                            setProductCategory(trimmedValue);
+                            setShowOtherCategory(false);
+                            setOtherCategoryValue('');
+                          }
+                        }}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 hover:bg-blue-50 rounded-r-lg transition-colors"
+                        title="Add category"
+                      >
+                        <FiPlus className="w-5 h-5 text-blue-600" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOtherCategory(false);
+                        setOtherCategoryValue('');
+                        setProductCategory('');
+                      }}
+                      className="p-3 text-gray-400 hover:text-gray-600"
+                    >
+                      <FiX size={20} />
+                    </button>
+                  </div>
+                )}
+                {showOtherCategory && (
+                  <p className="text-xs text-gray-500 mt-1">{otherCategoryValue.length}/15 characters</p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
                   Selling Points <span className="text-red-500">*</span>
                 </label>
-                <p className="text-sm text-gray-600 mb-3">Choose the overall look, design, or concept that best represents your product.</p>
-                <div className="relative">
-                  <select 
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                    value={sellingPoints}
-                    onChange={(e) => setSellingPoints(e.target.value)}
-                    required
+                <p className="text-sm text-gray-600 mb-3">
+                  Choose the overall look, design, or concept that best represents your product. You can add multiple selling points.
+                </p>
+
+                {/* Dropdown to add more selling points (same pattern as Language) */}
+                <div className="relative mb-3">
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === 'other') {
+                        setShowOtherSellingPoint(true);
+                      } else if (value && !sellingPoints.includes(value)) {
+                        setSellingPoints((prev) => [...prev, value]);
+                      }
+                    }}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
                   >
                     <option value="">Choose Style</option>
                     <option value="Art, Design, & Fashion">Art, Design, & Fashion</option>
@@ -2567,11 +2755,99 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                     <option value="History & Culture">History & Culture</option>
                     <option value="Travel">Travel</option>
                     <option value="Holidays">Holidays</option>
+                    {customSellingPoints.map((sp) => (
+                      <option key={sp} value={sp}>
+                        {sp}
+                      </option>
+                    ))}
+                    <option value="other">Other</option>
                   </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <FiChevronDown className="w-4 h-4 text-gray-400" />
-                  </div>
+                  <FiChevronDown
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+                    size={20}
+                  />
                 </div>
+
+                {/* Selected selling points chips (like selectedLanguages) */}
+                {sellingPoints.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {sellingPoints.map((sp) => (
+                      <div
+                        key={sp}
+                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-2"
+                      >
+                        <span>{sp}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSellingPoints((prev) => prev.filter((value) => value !== sp))
+                          }
+                          className="hover:bg-blue-200 rounded-full p-0.5"
+                        >
+                          <FiX size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {showOtherSellingPoint && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        value={otherSellingPointValue}
+                        onChange={(e) => setOtherSellingPointValue(e.target.value)}
+                        placeholder="Enter custom selling point"
+                        className="w-full px-4 py-3 bg-white border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && otherSellingPointValue.trim()) {
+                            const trimmedValue = otherSellingPointValue.trim();
+                            if (!customSellingPoints.includes(trimmedValue)) {
+                              setCustomSellingPoints([...customSellingPoints, trimmedValue]);
+                            }
+                            setSellingPoints((prev) =>
+                              prev.includes(trimmedValue) ? prev : [...prev, trimmedValue]
+                            );
+                            setShowOtherSellingPoint(false);
+                            setOtherSellingPointValue('');
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (otherSellingPointValue.trim()) {
+                            const trimmedValue = otherSellingPointValue.trim();
+                            if (!customSellingPoints.includes(trimmedValue)) {
+                              setCustomSellingPoints([...customSellingPoints, trimmedValue]);
+                            }
+                            setSellingPoints((prev) =>
+                              prev.includes(trimmedValue) ? prev : [...prev, trimmedValue]
+                            );
+                            setShowOtherSellingPoint(false);
+                            setOtherSellingPointValue('');
+                          }
+                        }}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 hover:bg-blue-50 rounded-r-lg transition-colors"
+                        title="Add selling point"
+                      >
+                        <FiPlus className="w-5 h-5 text-blue-600" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOtherSellingPoint(false);
+                        setOtherSellingPointValue('');
+                        setSellingPoints('');
+                      }}
+                      className="p-3 text-gray-400 hover:text-gray-600"
+                    >
+                      <FiX size={20} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -3163,8 +3439,11 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                     <select 
                       value=""
                       onChange={(e) => {
-                        if (e.target.value && !selectedLanguages.includes(e.target.value)) {
-                          setSelectedLanguages([...selectedLanguages, e.target.value]);
+                        const value = e.target.value;
+                        if (value === 'other') {
+                          setShowOtherLanguage(true);
+                        } else if (value && !selectedLanguages.includes(value)) {
+                          setSelectedLanguages([...selectedLanguages, value]);
                         }
                       }}
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
@@ -3179,12 +3458,68 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                       <option value="Mandarin Chinese">Mandarin Chinese</option>
                       <option value="Hindi">Hindi</option>
                       <option value="Arabic">Arabic</option>
+                      {customLanguages.map(lang => (
+                        <option key={lang} value={lang}>{lang}</option>
+                      ))}
+                      <option value="other">Other</option>
                     </select>
                     <FiChevronDown 
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
                       size={20} 
                     />
                   </div>
+                  {showOtherLanguage && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={otherLanguageValue}
+                          onChange={(e) => setOtherLanguageValue(e.target.value)}
+                          placeholder="Enter custom language"
+                          className="w-full px-4 py-3 bg-white border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && otherLanguageValue.trim() && !selectedLanguages.includes(otherLanguageValue.trim())) {
+                              const trimmedValue = otherLanguageValue.trim();
+                              if (!customLanguages.includes(trimmedValue)) {
+                                setCustomLanguages([...customLanguages, trimmedValue]);
+                              }
+                              setSelectedLanguages([...selectedLanguages, trimmedValue]);
+                              setOtherLanguageValue('');
+                              setShowOtherLanguage(false);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (otherLanguageValue.trim() && !selectedLanguages.includes(otherLanguageValue.trim())) {
+                              const trimmedValue = otherLanguageValue.trim();
+                              if (!customLanguages.includes(trimmedValue)) {
+                                setCustomLanguages([...customLanguages, trimmedValue]);
+                              }
+                              setSelectedLanguages([...selectedLanguages, trimmedValue]);
+                              setShowOtherLanguage(false);
+                              setOtherLanguageValue('');
+                            }
+                          }}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 hover:bg-blue-50 rounded-r-lg transition-colors"
+                          title="Add language"
+                        >
+                          <FiPlus className="w-5 h-5 text-blue-600" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowOtherLanguage(false);
+                          setOtherLanguageValue('');
+                        }}
+                        className="p-3 text-gray-400 hover:text-gray-600"
+                      >
+                        <FiX size={20} />
+                      </button>
+                    </div>
+                  )}
                   
                   {selectedLanguages.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
@@ -3246,8 +3581,11 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                     <select 
                       value=""
                       onChange={(e) => {
-                        if (e.target.value && !selectedThingsToCarry.includes(e.target.value)) {
-                          setSelectedThingsToCarry([...selectedThingsToCarry, e.target.value]);
+                        const value = e.target.value;
+                        if (value === 'other') {
+                          setShowOtherThingsToCarry(true);
+                        } else if (value && !selectedThingsToCarry.includes(value)) {
+                          setSelectedThingsToCarry([...selectedThingsToCarry, value]);
                         }
                       }}
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer"
@@ -3261,12 +3599,85 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                       <option value="Reusable Water Bottle">Reusable Water Bottle</option>
                       <option value="Snacks & Light Foods">Snacks & Light Foods</option>
                       <option value="Power Bank">Power Bank</option>
+                      {customThingsToCarry.map(item => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
+                      <option value="other">Other</option>
                     </select>
                     <FiChevronDown 
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
                       size={20} 
                     />
                   </div>
+                  {showOtherThingsToCarry && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={otherThingsToCarryValue}
+                          onChange={(e) => setOtherThingsToCarryValue(e.target.value)}
+                          placeholder="Enter custom item"
+                          className="w-full px-4 py-3 bg-white border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && otherThingsToCarryValue.trim() && !selectedThingsToCarry.includes(otherThingsToCarryValue.trim())) {
+                              const trimmedValue = otherThingsToCarryValue.trim();
+                              if (!customThingsToCarry.includes(trimmedValue)) {
+                                setCustomThingsToCarry([...customThingsToCarry, trimmedValue]);
+                              }
+                              setSelectedThingsToCarry([...selectedThingsToCarry, trimmedValue]);
+                              setOtherThingsToCarryValue('');
+                              setShowOtherThingsToCarry(false);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (otherThingsToCarryValue.trim() && !selectedThingsToCarry.includes(otherThingsToCarryValue.trim())) {
+                              const trimmedValue = otherThingsToCarryValue.trim();
+                              if (!customThingsToCarry.includes(trimmedValue)) {
+                                setCustomThingsToCarry([...customThingsToCarry, trimmedValue]);
+                              }
+                              setSelectedThingsToCarry([...selectedThingsToCarry, trimmedValue]);
+                              setShowOtherThingsToCarry(false);
+                              setOtherThingsToCarryValue('');
+                            }
+                          }}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 hover:bg-blue-50 rounded-r-lg transition-colors"
+                          title="Add item"
+                        >
+                          <FiPlus className="w-5 h-5 text-blue-600" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (otherThingsToCarryValue.trim() && !selectedThingsToCarry.includes(otherThingsToCarryValue.trim())) {
+                            const trimmedValue = otherThingsToCarryValue.trim();
+                            if (!customThingsToCarry.includes(trimmedValue)) {
+                              setCustomThingsToCarry([...customThingsToCarry, trimmedValue]);
+                            }
+                            setSelectedThingsToCarry([...selectedThingsToCarry, trimmedValue]);
+                          }
+                          setShowOtherThingsToCarry(false);
+                          setOtherThingsToCarryValue('');
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowOtherThingsToCarry(false);
+                          setOtherThingsToCarryValue('');
+                        }}
+                        className="p-3 text-gray-400 hover:text-gray-600"
+                      >
+                        <FiX size={20} />
+                      </button>
+                    </div>
+                  )}
                   
                   {selectedThingsToCarry.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">

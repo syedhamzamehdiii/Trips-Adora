@@ -785,7 +785,10 @@ export const transformProductForFrontend = (product) => {
     priceUnit: product.price_unit || product.priceUnit || 'Per Group',
     oldPrice: oldPrice,
     location: (product.location && product.location.trim()) || (product.destination && product.destination.trim()) || 'Tokyo Japan',
-    tags: ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
+    // Use selling_points from backend; fall back to some generic tags if missing
+    tags: (Array.isArray(product.selling_points) && product.selling_points.length > 0)
+      ? product.selling_points
+      : ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
     host: supplierBusinessName || 'TripsAdora Partner',
     isPrivate: product.activity_type?.includes('Private') || true,
     isTripadurasChoice: true,

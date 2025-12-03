@@ -4,7 +4,6 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from app.models.product import (
     ProductStatus,
-    ProductCategory,
     ItineraryItem,
     Highlight,
     IncludedExcluded,
@@ -19,7 +18,9 @@ from app.models.product import (
 class ProductBase(BaseModel):
     """Base product schema with common fields"""
     title: str = Field(..., min_length=30, description="Product title (min 30 chars)")
-    category: ProductCategory = Field(default=ProductCategory.TOUR)
+    # Category is now a free-form string so suppliers can enter custom values
+    # (e.g. "tour", "hotel", "rent a car", or any other label)
+    category: str = Field(default="tour")
     tagline: Optional[str] = None
     description: str
     highlights: List[Highlight] = []
@@ -63,7 +64,7 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     """Schema for updating a product - all fields optional"""
     title: Optional[str] = Field(None, min_length=30)
-    category: Optional[ProductCategory] = None
+    category: Optional[str] = None
     tagline: Optional[str] = None
     description: Optional[str] = None
     highlights: Optional[List[Highlight]] = None
@@ -99,7 +100,7 @@ class ProductSummary(BaseModel):
     id: str
     supplier_id: str
     title: str
-    category: ProductCategory
+    category: str
     tagline: Optional[str] = None
     status: ProductStatus
     price: float

@@ -1415,24 +1415,19 @@ const ProductDetails = () => {
               {/* Main Title */}
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black mb-3">{product.name}</h1>
               
-              {/* Category Tags */}
-              <div className="flex flex-wrap gap-2 mb-3">
-                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
-                  Hiking
-                </span>
-                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
-                  Adventure
-                </span>
-                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
-                  Nature
-                </span>
-                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
-                  Food
-                </span>
-                <span className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
-                  Photography
-                </span>
-              </div>
+              {/* Category / Selling Points Tags */}
+              {Array.isArray(product.tags) && product.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {product.tags.map((tag, idx) => (
+                    <span
+                      key={`${tag}-${idx}`}
+                      className="bg-[#284078] text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
               
               {/* Description */}
               <p className="text-black text-sm sm:text-base lg:text-lg mb-3">{product.tagline || product.description}</p>

@@ -227,8 +227,8 @@ export const transformLocalProductToApi = (localProduct, fullData = null) => {
 
   const title = (localProduct.name || productData.productTitle || 'Untitled Product').toString().trim();
 
-  const rawCategory = (productData.productCategory || 'tour').toString().trim().toLowerCase();
-  const category = rawCategory.replace(/\s+/g, '_');
+  // Category is now stored as a free-form string; send exactly what the supplier entered
+  const category = (productData.productCategory || 'tour').toString().trim();
 
   const rawPhotos = Array.isArray(productData.uploadedPhotos) ? productData.uploadedPhotos : [];
   const images = rawPhotos.map(p => (typeof p === 'string' ? p : (p && p.url ? p.url : null))).filter(Boolean);

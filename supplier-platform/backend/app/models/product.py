@@ -14,12 +14,6 @@ class ProductStatus(str, Enum):
     ARCHIVED = "archived"
 
 
-class ProductCategory(str, Enum):
-    TOUR = "tour"
-    HOTEL = "hotel"
-    RENT_A_CAR = "rent_a_car"
-
-
 class ItineraryItem(BaseModel):
     time: Optional[str] = None
     title: str
@@ -119,7 +113,9 @@ class Product(Document):
     # Basic Information
     supplier_id: str = Field(..., description="Reference to supplier/user who created")
     title: str = Field(..., min_length=30, description="Product title")
-    category: ProductCategory = Field(default=ProductCategory.TOUR)
+    # Category is now a free-form string so suppliers can enter custom values
+    # e.g. "Tour", "Hotel", "Rent a Car", or any other label.
+    category: str = Field(default="tour")
     tagline: Optional[str] = Field(None, description="Short tagline or subtitle")
     
     # Description & Content

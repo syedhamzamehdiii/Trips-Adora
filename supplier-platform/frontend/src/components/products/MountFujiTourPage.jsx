@@ -770,12 +770,18 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
         return [];
       };
 
-      const normalizedCategoryRaw = (productData?.category || 'tour').toString().trim();
-      const normalizedCategory = ['tour', 'hotel', 'rent_a_car'].includes(
-        normalizedCategoryRaw.toLowerCase()
-      )
-        ? normalizedCategoryRaw.toLowerCase()
-        : 'tour';
+      // Normalize category from supplier form (which may contain labels like "Tour", "Rent a Car" or custom text)
+      const normalizeCategoryValue = (value) => {
+        const raw = (value || 'tour').toString().trim().toLowerCase();
+        if (raw === 'tour') return 'tour';
+        if (raw === 'hotel') return 'hotel';
+        // Handle different ways supplier UI might represent "Rent a Car"
+        if (raw === 'rent a car' || raw === 'rent_a_car' || raw === 'rentacar') return 'rent_a_car';
+        // For any custom/manual category, fall back to a safe default enum value
+        return 'tour';
+      };
+
+      const normalizedCategory = normalizeCategoryValue(productData?.category);
 
       const normalizedLanguages = ensureStringArray(productData?.languages);
       const normalizedThingsToCarry = ensureStringArray(productData?.thingsToCarry);
@@ -1228,13 +1234,6 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       const dedupedImages = dedupeStrings(heroUrl ? [heroUrl, ...imageUrls] : imageUrls);
       const galleryImages = dedupedImages.filter((url) => url !== heroUrl);
 
-      // Normalize category to backend enum values
-      const normalizedCategory = (productData?.category || 'tour')
-        .toString()
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '_');
-
       // Normalize accessibility to backend schema keys
       const acc = productData?.accessibility || productData?.accessibilityToggles || {};
       const accessibilityNormalized = {
@@ -1313,7 +1312,9 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
       
       const apiProductData = {
         title: publishTitle || 'Untitled Product',
-        category: normalizedCategory,
+        // Category is now a free-form string field in the backend, so we can send
+        // the supplier's exact value (e.g. "Tour", "Hotel", "Rent a Car", or custom).
+        category: (productData?.category || 'tour').toString().trim(),
         tagline: productData?.tagline || '',
         description: (productData?.description || '').toString(),
         highlights: Array.isArray(productData?.bHighlights || productData?.highlights)
