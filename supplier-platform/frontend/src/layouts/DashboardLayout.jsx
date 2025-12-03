@@ -246,14 +246,18 @@ const DashboardLayout = ({ children }) => {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            {/* Left side - Logo */}
-            <div className="flex items-center">
+            {/* Left side - Logo (always navigates to dashboard) */}
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center focus:outline-none"
+            >
               <img 
                 src="/assets/logo.jpg" 
                 alt="TripsAdora Logo" 
-                className="h-12 w-auto"
+                className="h-12 w-auto cursor-pointer"
               />
-            </div>
+            </button>
             
             {/* Center - Main Site Navigation */}
             <nav className="hidden md:flex space-x-8">
