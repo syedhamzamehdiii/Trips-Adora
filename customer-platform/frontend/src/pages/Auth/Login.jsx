@@ -34,7 +34,12 @@ const Login = () => {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard', { replace: true });
+      // After login, if profile is not completed yet, force profile completion.
+      // Otherwise send user to dashboard as normal.
+      const needsProfile =
+        typeof window !== 'undefined' &&
+        localStorage.getItem('customer_profile_complete') !== '1';
+      navigate(needsProfile ? '/profile/complete-profile' : '/dashboard', { replace: true });
     }
   }, [user, navigate]);
 
@@ -42,7 +47,10 @@ const Login = () => {
     setIsLoading(true);
     try {
       await login(data);
-      navigate('/dashboard');
+      const needsProfile =
+        typeof window !== 'undefined' &&
+        localStorage.getItem('customer_profile_complete') !== '1';
+      navigate(needsProfile ? '/profile/complete-profile' : '/dashboard');
     } catch (error) {
       console.error('Login error:', error);
       alert(error.message || 'Login failed. Please check your credentials.');

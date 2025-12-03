@@ -142,6 +142,12 @@ const ProfileSettings = () => {
       return
     }
 
+    // Additional required fields for onboarding / bookings
+    if (!form.phone?.trim() || !form.street?.trim() || !form.country?.trim() || !form.zip?.trim() || !form.dateOfBirth?.trim()) {
+      setSaveError('Please fill in phone number, address, ZIP code, country, and date of birth.')
+      return
+    }
+
     const fullName = [form.firstName, form.lastName].filter(Boolean).join(' ').trim()
     const location = [form.street, form.country].filter(Boolean).join(', ')
 

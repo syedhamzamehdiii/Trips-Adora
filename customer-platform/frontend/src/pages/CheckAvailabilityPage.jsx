@@ -93,8 +93,14 @@ const CheckAvailabilityPage = () => {
 
     return null
   }
-  const [selectedTime, setSelectedTime] = useState(stateData.selectedTime || bookingData.selectedTime || '10:30 AM')
-  const [selectedPersons, setSelectedPersons] = useState(stateData.selectedPersons || bookingData.selectedPersons || 3)
+  // Travel time – REQUIRED, leave empty unless coming back with a value
+  const [selectedTime, setSelectedTime] = useState(stateData.selectedTime || bookingData.selectedTime || '')
+  // Number of persons – REQUIRED, start from 0 unless restored from state
+  const [selectedPersons, setSelectedPersons] = useState(
+    stateData.selectedPersons != null
+      ? stateData.selectedPersons
+      : (bookingData.selectedPersons != null ? bookingData.selectedPersons : 0)
+  )
   const [showCalendar, setShowCalendar] = useState(false)
   const [showTimeDropdown, setShowTimeDropdown] = useState(false)
   // Extra vehicles added when group size exceeds capacity - restore from state
@@ -938,6 +944,50 @@ const CheckAvailabilityPage = () => {
   }
 
   const handleContinue = () => {
+    // Require travel date
+    if (!selectedDate) {
+      alert('Please select your travel date to continue booking.')
+      return
+    }
+
+    // Require travel time
+    if (!selectedTime) {
+      alert('Please select your travel time to continue booking.')
+      return
+    }
+
+    // Require at least 1 traveler
+    if (!selectedPersons || selectedPersons <= 0) {
+      alert('Please select at least 1 traveler to continue booking.')
+      return
+    }
+
+    // Require vehicle
+    if (!selectedVehicle) {
+      alert('Please select a vehicle to continue booking.')
+      return
+    }
+
+    // If meeting points exist for this vehicle, require pickup selection
+    if (
+      Array.isArray(selectedVehicleMeetingPoints) &&
+      selectedVehicleMeetingPoints.length > 0 &&
+      (selectedMeetingPointIndex === null || selectedMeetingPointIndex === undefined)
+    ) {
+      alert('Please select a pickup location to continue booking.')
+      return
+    }
+
+    // If drop-off locations exist for this vehicle, require drop-off selection
+    if (
+      Array.isArray(selectedVehicleDropoffLocations) &&
+      selectedVehicleDropoffLocations.length > 0 &&
+      (selectedDropoffLocationIndex === null || selectedDropoffLocationIndex === undefined)
+    ) {
+      alert('Please select a drop-off location to continue booking.')
+      return
+    }
+
     // Enforce capacity constraint unless user explicitly chooses multiple vehicles
     const maxCapacity =
       selectedVehicle?.capacity ||

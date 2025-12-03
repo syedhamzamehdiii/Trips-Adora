@@ -238,17 +238,17 @@ class SupplierBookingService:
         """Get a specific booking by ID, ensuring it belongs to the supplier."""
         try:
             collection = SupplierBookingService._collection()
-
+            
             try:
                 oid = ObjectId(booking_id)
             except Exception:
                 return None
-
+            
             booking = await collection.find_one({
                 "_id": oid,
                 "supplier_id": supplier_id
             })
-
+            
             if booking:
                 serialized = SupplierBookingService._serialize_booking(booking)
 
@@ -305,7 +305,7 @@ class SupplierBookingService:
 
                 return serialized
             return None
-
+        
         except Exception as e:
             logger.error(f"Error fetching booking {booking_id} for supplier {supplier_id}: {e}")
             return None

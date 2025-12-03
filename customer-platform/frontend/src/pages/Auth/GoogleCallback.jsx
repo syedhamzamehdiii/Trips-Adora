@@ -51,7 +51,10 @@ const GoogleCallback = () => {
             prefetchProfileData(resolvedUserId);
           }
 
-            navigate('/dashboard', { replace: true });
+            const needsProfile =
+              typeof window !== 'undefined' &&
+              localStorage.getItem('customer_profile_complete') !== '1';
+            navigate(needsProfile ? '/profile/complete-profile' : '/dashboard', { replace: true });
           } else {
             console.log('Google authentication failed');
             navigate('/login', { replace: true });

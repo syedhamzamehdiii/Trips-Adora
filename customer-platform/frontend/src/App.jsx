@@ -21,6 +21,7 @@ import ArashiyamaBambooGrovePage from './pages/attractions/ArashiyamaBambooGrove
 import SearchResultsPage from './pages/SearchResultsPage'
 import ProfilePage from './pages/ProfilePage'
 import ProfileSettings from './pages/ProfileSettings'
+import ProfileOnboarding from './pages/ProfileOnboarding'
 import ProfileWallet from './pages/ProfileWallet'
 import ProfileWalletSettings from './pages/ProfileWalletSettings'
 import ProfileReviews from './pages/ProfileReviews'
@@ -71,6 +72,7 @@ function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/profile/wallet" element={<ProfileWallet />} />
         <Route path="/profile/settings" element={<ProfileSettings />} />
+        <Route path="/profile/complete-profile" element={<ProfileOnboarding />} />
         <Route path="/profile/reviews" element={<ProfileReviews />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/profile/wallet/settings" element={<ProfileWalletSettings />} />

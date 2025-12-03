@@ -137,7 +137,7 @@ const InsightsPage = () => {
           productId: booking.product_id,
           booking: booking.title || booking.tour_name || 'Booking',
           customerEmail: booking.customer_email || '',
-          customerCountry: booking.customer_country || booking.metadata?.country || '',
+          customerCountry: booking.customer_country || booking.metadata?.customer_country || booking.metadata?.country || '',
           bookedOn: booking.created_at || null,
           travelDate: booking.start_date || null,
           status: booking.status || 'pending',

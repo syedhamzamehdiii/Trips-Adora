@@ -7,6 +7,7 @@ import { BsBorderStyle } from 'react-icons/bs'
 import { createBooking } from '../services/bookingService'
 import { validateCoupon } from '../services/couponService'
 import { getProductById } from '../services/productService'
+import profileService from '../services/profileService'
 
 const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
@@ -133,6 +134,10 @@ const PaymentDetailsPage = () => {
   
   const [cardNumber, setCardNumber] = useState('')
   const [cardholderName, setCardholderName] = useState('')
+  const [contactInfo, setContactInfo] = useState('')
+  const [contactEmail, setContactEmail] = useState(bookingData?.email || '')
+  const [contactAddress, setContactAddress] = useState('')
+  const [profileCountry, setProfileCountry] = useState('')
   const [expiryMonth, setExpiryMonth] = useState('')
   const [expiryYear, setExpiryYear] = useState('')
   const [cvv, setCvv] = useState('')
@@ -148,6 +153,7 @@ const PaymentDetailsPage = () => {
   const [submitting, setSubmitting] = useState(false)
   const [productDetails, setProductDetails] = useState(null)
   const [loadingProduct, setLoadingProduct] = useState(false)
+  const [loadingProfile, setLoadingProfile] = useState(false)
 
   // Fetch product details to get real pickup/dropoff locations
   useEffect(() => {
@@ -170,6 +176,35 @@ const PaymentDetailsPage = () => {
 
     fetchProductDetails()
   }, [bookingData?.id, bookingData?.slug, bookingData?.productId])
+
+  // Prefill contact fields from customer profile (kept in sync if user changes settings)
+  useEffect(() => {
+    const userId = localStorage.getItem('customer_profile_user_id') || DEFAULT_PROFILE_USER_ID
+    const loadProfile = async () => {
+      try {
+        setLoadingProfile(true)
+        const profile = await profileService.getProfile(userId, true)
+        const user = profile?.user || {}
+
+        // Only prefill if the field is still empty so user edits are not overwritten
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.name
+        setCardholderName(prev => prev || fullName || '')
+        setContactEmail(prev => prev || user.email || '')
+        setContactInfo(prev => prev || user.phone || '')
+        const location = user.address_line1 || user.location || ''
+        const country = user.country || ''
+        const combined = [location, country].filter(Boolean).join(', ')
+        setContactAddress(prev => prev || combined || '')
+        setProfileCountry(country || '')
+      } catch (err) {
+        console.warn('Failed to load profile for payment details:', err)
+      } finally {
+        setLoadingProfile(false)
+      }
+    }
+
+    loadProfile()
+  }, [])
 
   // Extract pickup and dropoff locations from product details
   const pickupLocation = useMemo(() => {
@@ -354,8 +389,46 @@ const PaymentDetailsPage = () => {
 
   const handleCompleteBooking = async () => {
     // Validate required fields
-    if (!cardNumber.trim() || !cardholderName.trim() || !expiryMonth.trim() || !cvv.trim()) {
-      alert('Please fill in all required payment fields')
+    if (!cardholderName.trim()) {
+      alert('Please enter the full name for the booking.')
+      return
+    }
+    // Cardholder name: letters and spaces only
+    const nameClean = cardholderName.trim()
+    if (!/^[A-Za-z\s]+$/.test(nameClean)) {
+      alert('Cardholder name should contain letters and spaces only (no numbers or symbols).')
+      return
+    }
+
+    // Email (allow changing from default)
+    if (!contactEmail.trim()) {
+      alert('Please enter your email address.')
+      return
+    }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailPattern.test(contactEmail.trim())) {
+      alert('Please enter a valid email address.')
+      return
+    }
+
+    if (!contactInfo.trim()) {
+      alert('Please enter your contact information (phone or WhatsApp).')
+      return
+    }
+    // Contact info: digits only (allow formatting characters, but require digits)
+    const phoneDigits = contactInfo.replace(/[\s+()-]/g, '')
+    if (!/^\d{6,}$/.test(phoneDigits)) {
+      alert('Contact number should contain digits only (at least 6 numbers).')
+      return
+    }
+
+    if (!contactAddress.trim()) {
+      alert('Please enter your location / address.')
+      return
+    }
+
+    if (!cardNumber.trim() || !expiryMonth.trim() || !cvv.trim()) {
+      alert('Please fill in all required payment fields.')
       return
     }
 
@@ -394,6 +467,19 @@ const PaymentDetailsPage = () => {
     const allVehiclesTotal = primaryVehiclePrice + extraVehiclesTotal
     const extrasAmount = Number(extrasTotal || 0) || 0
     const baseAmount = allVehiclesTotal + extrasAmount
+    // Derive customer country for analytics/location:
+    // 1) Prefer country from profile
+    // 2) Fallback: last segment of the typed address (e.g. "City, Country")
+    const derivedCountry = (() => {
+      if (profileCountry && profileCountry.trim()) return profileCountry.trim()
+      if (contactAddress && contactAddress.trim()) {
+        const parts = contactAddress.split(',').map((p) => p.trim()).filter(Boolean)
+        if (parts.length > 0) {
+          return parts[parts.length - 1]
+        }
+      }
+      return ''
+    })()
     // Apply coupon discount if available
     const discountAmount = appliedCoupon?.discountAmount || 0
     const totalAmount = Math.max(0, baseAmount - discountAmount)
@@ -418,8 +504,8 @@ const PaymentDetailsPage = () => {
       pickUpLocation: pickupLocation,
       dropOffLocation: dropoffLocation || pickupLocation, // Use pickup if no dropoff selected
       customerName: cardholderName || 'Guest',
-      customerEmail: bookingData?.email || 'customer@example.com',
-      customerPhone: '+81 90-1234-5678',
+      customerEmail: contactEmail.trim(),
+      customerPhone: contactInfo.trim(),
       vehicle: selectedVehicle?.title || selectedVehicle?.model || vehicleData?.title || vehicleData?.model || selectedVehicle?.name || vehicleData?.name || 'Vehicle',
       tourDateLabel: selectedDate || '',
       extras: Array.isArray(extras) ? extras : [],
@@ -427,6 +513,11 @@ const PaymentDetailsPage = () => {
         selectedTime: selectedTime || '',
         extrasTotal: typeof extrasTotal === 'number' ? extrasTotal.toString() : '',
         cardLast4: cardNumber.slice(-4),
+        customer_location: contactAddress.trim(),
+        customer_country: derivedCountry,
+        country: derivedCountry,
+        contact_email: contactEmail.trim(),
+        contact_phone: contactInfo.trim(),
         selectedVehicleId: selectedVehicle?.id || vehicleData?.id || '',
         couponCode: appliedCoupon?.code || '',
         discountAmount: (appliedCoupon?.discountAmount || 0).toString(),
@@ -522,6 +613,49 @@ const PaymentDetailsPage = () => {
                 <h2 className="text-2xl font-bold text-gray-900">Payment Detail</h2>
                 <p className="text-gray-600">Check your payment detail</p>
               </div>
+            </div>
+
+            {/* Contact Info + Email + Address (required) */}
+            <div className="mb-6">
+              <label className="block text-lg font-semibold text-gray-900 mb-3">
+                Contact Info <span className="text-gray-500 font-normal">(required)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Phone / WhatsApp number"
+                value={contactInfo}
+                onChange={(e) => setContactInfo(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 resize-none"
+                style={{ '--tw-ring-color': '#1d236b' }}
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-lg font-semibold text-gray-900 mb-3">
+                Email <span className="text-gray-500 font-normal">(required)</span>
+              </label>
+              <input
+                type="email"
+                placeholder="your@email.com"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 resize-none"
+                style={{ '--tw-ring-color': '#1d236b' }}
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-lg font-semibold text-gray-900 mb-3">
+                Location / Address <span className="text-gray-500 font-normal">(required)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="City, country or full address"
+                value={contactAddress}
+                onChange={(e) => setContactAddress(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 resize-none"
+                style={{ '--tw-ring-color': '#1d236b' }}
+              />
             </div>
 
             {/* Card Number */}
@@ -645,23 +779,6 @@ const PaymentDetailsPage = () => {
               />
             </div>
 
-            {/* Navigation Buttons */}
-            <div className="flex gap-4">
-              <button
-                onClick={handleBack}
-                className="flex-1 text-center py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition"
-              >
-                Previous
-              </button>
-              <button 
-                onClick={handleCompleteBooking}
-                className="flex-1 py-3 rounded-lg text-white font-semibold transition"
-                style={{ backgroundColor: '#1d236b' }}
-                disabled={submitting}
-              >
-                {submitting ? 'Processing...' : 'Complete Booking'}
-              </button>
-            </div>
           </div>
 
           {/* Right Panel - Booking Summary */}
@@ -820,6 +937,24 @@ const PaymentDetailsPage = () => {
                   </>
                 )
               })()}
+
+              {/* Navigation Buttons under Booking Summary */}
+              <div className="mt-8 flex justify-end gap-4">
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition"
+                >
+                  Previous
+                </button>
+                <button 
+                  onClick={handleCompleteBooking}
+                  className="px-6 py-3 rounded-lg text-white font-semibold transition"
+                  style={{ backgroundColor: '#1d236b' }}
+                  disabled={submitting}
+                >
+                  {submitting ? 'Processing...' : 'Complete Booking'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

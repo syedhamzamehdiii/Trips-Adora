@@ -138,6 +138,14 @@ export const updateProfile = async (userId, payload) => {
   });
   const data = await handleResponse(response);
   setCachedProfile(userId, data);
+  // Also refresh lightweight summary cache so header reflects latest name/email immediately
+  try {
+    if (data && data.user) {
+      setCachedSummary(userId, { user: data.user });
+    }
+  } catch (_) {
+    // Ignore cache errors
+  }
   return data;
 };
 

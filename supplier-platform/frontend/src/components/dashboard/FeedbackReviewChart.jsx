@@ -263,24 +263,24 @@ const FeedbackReviewChart = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload || !payload.length) return null;
 
-    const year = new Date().getFullYear();
+      const year = new Date().getFullYear();
 
-    return (
+      return (
       <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 max-w-xs">
         <p className="text-xs text-gray-600 mb-2">
           {label} {year}
         </p>
         {/* Core information: completed trips with feedback + average rating */}
         <div className="space-y-1 mb-2">
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#A78BFA' }}></div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#A78BFA' }}></div>
             <span className="text-xs text-gray-600 mr-2">Feedbacks (completed trips):</span>
-            <span className="text-xs font-semibold">{payload[0]?.value}</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#FB923C' }}></div>
+              <span className="text-xs font-semibold">{payload[0]?.value}</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#FB923C' }}></div>
             <span className="text-xs text-gray-600 mr-2">Average rating:</span>
-            <span className="text-xs font-semibold">{payload[1]?.value}</span>
+              <span className="text-xs font-semibold">{payload[1]?.value}</span>
           </div>
         </div>
 
@@ -300,8 +300,8 @@ const FeedbackReviewChart = () => {
             </div>
           </div>
         )}
-      </div>
-    );
+        </div>
+      );
   };
 
   const CustomDot = (props) => {

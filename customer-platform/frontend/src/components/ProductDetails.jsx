@@ -41,7 +41,6 @@ const ProductDetails = () => {
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [imageErrors, setImageErrors] = useState(new Set())
   const [imagesLoaded, setImagesLoaded] = useState(new Set())
-  const [showAllImages, setShowAllImages] = useState(false)
   const [showVerifiedTooltip, setShowVerifiedTooltip] = useState(false)
   const [expandedFaqIndex, setExpandedFaqIndex] = useState(null)
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false)
@@ -1445,104 +1444,73 @@ const ProductDetails = () => {
               </div>
             </div>
             
-            {/* Image Gallery - Improved layout with better spacing */}
+            {/* Image Gallery - main hero + thumbnails (same layout style as supplier) */}
             {images.length > 0 && (
               <div className="mb-6 sm:mb-8">
-                {!showAllImages ? (
-                  // Compact view: Main image + 3 thumbnails with minimal gap and bottom alignment
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-1 sm:gap-1.5 overflow-hidden rounded-lg">
-                    <div className="sm:col-span-3 h-48 sm:h-64 lg:h-80 xl:h-96">
-                      {images[0] && !imageErrors.has(images[0]) && (
+                {/* Main layout: always visible */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-1 sm:gap-1.5 overflow-hidden rounded-lg mb-4">
+                  <div className="sm:col-span-3 h-48 sm:h-64 lg:h-80 xl:h-96">
+                    {images[0] && !imageErrors.has(images[0]) && (
+                      <img 
+                        src={images[0]} 
+                        alt={product.name || "Product image"}
+                        className="w-full h-full object-cover cursor-pointer rounded-lg hover:opacity-95 transition-opacity"
+                        onClick={() => openGalleryAt(0)}
+                        onError={(e) => {
+                          setImageErrors(prev => new Set([...prev, images[0]]))
+                          e.target.style.display = 'none'
+                        }}
+                        onLoad={() => setImagesLoaded(prev => new Set([...prev, images[0]]))}
+                        loading="eager"
+                      />
+                    )}
+                  </div>
+                  <div className="sm:col-span-1 h-48 sm:h-64 lg:h-80 xl:h-96 flex flex-col justify-end gap-1 sm:gap-1.5">
+                    {images.slice(1, 4).map((img, idx) => (
+                      img && !imageErrors.has(img) && (
                         <img 
-                          src={images[0]} 
-                          alt={product.name || "Product image"}
-                          className="w-full h-full object-cover cursor-pointer rounded-lg hover:opacity-95 transition-opacity"
-                          onClick={() => openGalleryAt(0)}
+                          key={idx + 1}
+                          src={img}
+                          alt={`${product.name || "Product"} thumbnail ${idx + 1}`}
+                          className="w-full flex-1 object-cover cursor-pointer rounded-lg hover:opacity-90 transition-opacity min-h-0"
+                          onClick={() => openGalleryAt(idx + 1)}
                           onError={(e) => {
-                            setImageErrors(prev => new Set([...prev, images[0]]))
+                            setImageErrors(prev => new Set([...prev, img]))
                             e.target.style.display = 'none'
                           }}
-                          onLoad={() => setImagesLoaded(prev => new Set([...prev, images[0]]))}
-                          loading="eager"
+                          onLoad={() => setImagesLoaded(prev => new Set([...prev, img]))}
+                          loading="lazy"
                         />
-                      )}
-                    </div>
-                    <div className="sm:col-span-1 h-48 sm:h-64 lg:h-80 xl:h-96 flex flex-col justify-end gap-1 sm:gap-1.5">
-                      {images.slice(1, 4).map((img, idx) => {
-                        // Calculate thumbnail height to fill space evenly
-                        const thumbnailCount = images.length > 4 ? 3 : images.slice(1, 4).length
-                        const gapCount = thumbnailCount - 1
-                        const totalGaps = gapCount * 4 // gap-1 = 4px, gap-1.5 = 6px (using 4px for calculation)
-                        // For responsive, we'll use flex-1 to distribute space
-                        return (
-                          img && !imageErrors.has(img) && (
-                            <img 
-                              key={idx + 1}
-                              src={img}
-                              alt={`${product.name || "Product"} thumbnail ${idx + 1}`}
-                              className="w-full flex-1 object-cover cursor-pointer rounded-lg hover:opacity-90 transition-opacity min-h-0"
-                              onClick={() => openGalleryAt(idx + 1)}
-                              onError={(e) => {
-                                setImageErrors(prev => new Set([...prev, img]))
-                                e.target.style.display = 'none'
-                              }}
-                              onLoad={() => setImagesLoaded(prev => new Set([...prev, img]))}
-                              loading="lazy"
-                            />
-                          )
-                        )
-                      })}
-                      {images.length > 4 && (
-                        <button
-                          onClick={() => setShowAllImages(true)}
-                          className="w-full flex-1 bg-gray-900/60 hover:bg-gray-900/80 text-white rounded-lg flex items-center justify-center text-sm sm:text-base font-semibold transition-colors min-h-0"
-                        >
-                          +{images.length - 4} More
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  // Expanded view: Grid of all images
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg sm:text-xl font-bold text-black">All Photos ({images.length})</h3>
+                      )
+                    ))}
+                    {images.length > 4 && (
                       <button
-                        onClick={() => setShowAllImages(false)}
-                        className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+                        onClick={() => openGalleryAt(4 < images.length ? 4 : 0)}
+                        className="relative w-full flex-1 rounded-lg overflow-hidden text-white text-sm sm:text-base font-semibold min-h-0 group"
                       >
-                        Show Less
+                        {/* Blurred background preview, like supplier */}
+                        <div
+                          className="absolute inset-0 bg-center bg-cover filter blur-sm scale-105"
+                          style={{
+                            backgroundImage: `url(${images[4] || images[images.length - 1]})`,
+                          }}
+                        />
+                        {/* Dark overlay for contrast */}
+                        <div className="absolute inset-0 bg-gray-900/60 group-hover:bg-gray-900/80 transition-colors" />
+                        {/* Label */}
+                        <div className="relative z-10 flex items-center justify-center h-full">
+                          +{images.length - 4} More
+                        </div>
                       </button>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                      {images.map((img, idx) => (
-                        img && !imageErrors.has(img) && (
-                          <div key={idx} className="relative aspect-square rounded-lg overflow-hidden group">
-                            <img 
-                              src={img}
-                              alt={`${product.name || "Product"} image ${idx + 1}`}
-                              className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300"
-                              onClick={() => openGalleryAt(idx)}
-                              onError={(e) => {
-                                setImageErrors(prev => new Set([...prev, img]))
-                                e.target.style.display = 'none'
-                              }}
-                              onLoad={() => setImagesLoaded(prev => new Set([...prev, img]))}
-                              loading="lazy"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
-                          </div>
-                        )
-                      ))}
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             )}
 
             {/* Gallery Modal - Only show if images exist */}
             {isGalleryOpen && images.length > 0 && images[currentIndex] && (
-              <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center p-4" onClick={closeGallery}>
+              <div className="fixed inset-0 z-[9999] bg-transparent flex items-center justify-center p-4" onClick={closeGallery}>
                 <div className="relative w-full max-w-6xl" onClick={(e)=>e.stopPropagation()}>
                   {/* Close button */}
                   <button
