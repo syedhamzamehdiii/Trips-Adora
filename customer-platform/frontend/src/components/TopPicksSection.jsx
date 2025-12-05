@@ -103,12 +103,12 @@ const TopPicksSection = () => {
               // Only show products that are currently available for customers
               .filter(product => product.isAvailableForCustomer)
               .map((product) => (
-                <TourCard key={product.id} tour={product} onClick={() => {
-                  recordProductClick(product.id)
-                  addRecentlyViewed(product)
-                  navigate(`/tours/${encodeURIComponent(product.name?.toLowerCase().replace(/\s+/g,'-'))}`)
-                }} />
-              ))}
+              <TourCard key={product.id} tour={product} onClick={() => {
+                recordProductClick(product.id)
+                addRecentlyViewed(product)
+                navigate(`/tours/${encodeURIComponent(product.name?.toLowerCase().replace(/\s+/g,'-'))}`)
+              }} />
+            ))}
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">

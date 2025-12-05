@@ -1,6 +1,7 @@
 
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map as MapIcon, ChevronLeft, ChevronRight, X, Plus, Minus, AlertTriangle, Car } from 'lucide-react'
+import { BsHeartFill } from 'react-icons/bs'
 import Itinerary from "../components/Itinerary"
 import share from "../../assests/share.png";
 import branch from "../../assests/middle.png";
@@ -46,6 +47,7 @@ const ProductDetails = () => {
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false)
   const [selectedVehicleIndex, setSelectedVehicleIndex] = useState(null)
   const [selectedMeetingPointIndex, setSelectedMeetingPointIndex] = useState(null)
+  const [isInWishlist, setIsInWishlist] = useState(false)
   const quickDetailRef = useRef(null)
 
   const handleScrollToQuickDetail = useCallback(() => {
@@ -95,6 +97,72 @@ const ProductDetails = () => {
   useEffect(() => {
     setSelectedMeetingPointIndex(null)
   }, [selectedVehicleIndex])
+
+  // Check if product is in wishlist
+  useEffect(() => {
+    if (!product?.id) return
+    try {
+      const savedWishlist = localStorage.getItem('wishlist')
+      if (savedWishlist) {
+        const wishlist = JSON.parse(savedWishlist)
+        setIsInWishlist(wishlist.some(item => item.id === product.id))
+      } else {
+        setIsInWishlist(false)
+      }
+    } catch (_) {
+      setIsInWishlist(false)
+    }
+  }, [product?.id])
+
+  // Handle wishlist toggle
+  const handleWishlistClick = useCallback((e) => {
+    e.stopPropagation()
+    if (!product?.id) return
+
+    try {
+      const savedWishlist = localStorage.getItem('wishlist')
+      const wishlist = savedWishlist ? JSON.parse(savedWishlist) : []
+      
+      const alreadyInWishlist = wishlist.some(item => item.id === product.id)
+      
+      if (alreadyInWishlist) {
+        // Remove from wishlist
+        const updatedWishlist = wishlist.filter(item => item.id !== product.id)
+        localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+        try {
+          window.dispatchEvent(new CustomEvent('wishlist:changed', { detail: updatedWishlist }))
+        } catch (_) {}
+        setIsInWishlist(false)
+      } else {
+        // Add to wishlist - format similar to TourCard
+        const productForWishlist = {
+          id: product.id,
+          name: product.name,
+          image: product.image || (product.images && product.images[0]) || '',
+          price: product.price || product.amount || '$0',
+          oldPrice: product.oldPrice || '$250',
+          rating: product.rating || 4.8,
+          reviews: product.reviews || '0',
+          location: product.location || 'Tokyo Japan',
+          duration: product.duration || '',
+          groupSize: product.groupSize || 'Up to 12',
+          host: product.supplierBusinessName || product.supplierName || 'TripsAdora Partner',
+          tags: product.tags || ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
+          isPrivate: product.isPrivate !== undefined ? product.isPrivate : true,
+          isTripadurasChoice: product.isTripadurasChoice || false,
+          ...product // Include all other product fields
+        }
+        const updatedWishlist = [...wishlist, productForWishlist]
+        localStorage.setItem('wishlist', JSON.stringify(updatedWishlist))
+        try {
+          window.dispatchEvent(new CustomEvent('wishlist:changed', { detail: updatedWishlist }))
+        } catch (_) {}
+        setIsInWishlist(true)
+      }
+    } catch (err) {
+      console.error('Error toggling wishlist:', err)
+    }
+  }, [product])
 
   // Helper: vehicles that are actually wired to pickup_configurations (to avoid orphan/duplicate options)
   const vehiclesForDisplay = useMemo(() => {
@@ -1982,8 +2050,20 @@ const ProductDetails = () => {
               {/* Icons pill container */}
               <div className="mb-6">
                 <div className="bg-[#F0F4FE] border border-gray-200 rounded-full px-6 py-2 flex items-center justify-between shadow-md">
-                  <button className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-900 hover:text-red-500">
-                    <Heart className="w-5 h-5" />
+                  <button 
+                    onClick={handleWishlistClick}
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-colors ${
+                      isInWishlist 
+                        ? 'text-red-500 hover:text-red-600' 
+                        : 'text-gray-900 hover:text-red-500'
+                    }`}
+                    title={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+                  >
+                    {isInWishlist ? (
+                      <BsHeartFill className="w-5 h-5" />
+                    ) : (
+                      <Heart className="w-5 h-5" />
+                    )}
                   </button>
                   <button className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-gray-900">
                     <img src={share} alt="Share" className="w-5 h-5" />

@@ -518,8 +518,8 @@ const AvailabilityCalendar = () => {
       // PRODUCT MODE: activate all products
       setProducts(prevProducts => {
         const updated = prevProducts.map(product => ({
-          ...product,
-          isActive: true,
+        ...product,
+        isActive: true,
           status: 'Active'
         }));
 
@@ -529,10 +529,10 @@ const AvailabilityCalendar = () => {
             productService.updateAvailability(p.id, { inactive_dates: [] }).catch(() => {});
           }
         });
-
-        // Update counts
+    
+    // Update counts
         setActiveProducts(updated.length);
-        setInactiveProducts(0);
+    setInactiveProducts(0);
         return updated;
       });
     } else {
@@ -739,61 +739,61 @@ const AvailabilityCalendar = () => {
 
             {/* Vehicle Type Filter (only in Vehicles mode) */}
             {viewMode === 'vehicle' && (
-              <div className="relative dropdown-container">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Type</label>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowVehicleDropdown(!showVehicleDropdown)}
+            <div className="relative dropdown-container">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Type</label>
+              <div className="relative">
+                <button
+                  onClick={() => setShowVehicleDropdown(!showVehicleDropdown)}
                     className="w-full flex items-center justify-between px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1d236b] focus:border-transparent bg-white border-gray-300 hover:border-gray-400"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <FiTruck className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-700">
-                        {getDisplayText(vehicleOptions, selectedVehicles, "All Vehicles")}
-                      </span>
-                    </div>
-                    <FiChevronDown className="w-4 h-4 text-gray-400" />
-                  </button>
-                  
+                >
+                  <div className="flex items-center space-x-2">
+                    <FiTruck className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-700">
+                      {getDisplayText(vehicleOptions, selectedVehicles, "All Vehicles")}
+                    </span>
+                  </div>
+                  <FiChevronDown className="w-4 h-4 text-gray-400" />
+                </button>
+                
                   {showVehicleDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                      <div className="py-2">
-                        {vehicleOptions.length > 0 ? (
-                          <>
-                        <label 
-                          className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
-                          onClick={() => handleSelectAll(vehicleOptions, setSelectedVehicles, selectedVehicles)}
-                        >
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                    <div className="py-2">
+                      {vehicleOptions.length > 0 ? (
+                        <>
+                      <label 
+                        className="flex items-center px-3 py-2 bg-gray-100 text-sm font-medium text-gray-700 border-b border-gray-200 cursor-pointer hover:bg-gray-200"
+                        onClick={() => handleSelectAll(vehicleOptions, setSelectedVehicles, selectedVehicles)}
+                      >
+                        <input 
+                          type="checkbox" 
+                          className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
+                          checked={selectedVehicles.length === vehicleOptions.length}
+                          onChange={() => {}} // Handled by onClick
+                        />
+                        <span>Select All ({vehicleOptions.length})</span>
+                      </label>
+                      {vehicleOptions.map((option) => (
+                        <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
                           <input 
                             type="checkbox" 
                             className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
-                            checked={selectedVehicles.length === vehicleOptions.length}
-                            onChange={() => {}} // Handled by onClick
+                            checked={selectedVehicles.includes(option.id)}
+                            onChange={() => handleOptionToggle(option.id, selectedVehicles, setSelectedVehicles)}
                           />
-                          <span>Select All ({vehicleOptions.length})</span>
+                          <span className="text-sm text-gray-700">{option.name}</span>
                         </label>
-                        {vehicleOptions.map((option) => (
-                          <label key={option.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              className="mr-3 text-[#1d236b] focus:ring-[#1d236b]"
-                              checked={selectedVehicles.includes(option.id)}
-                              onChange={() => handleOptionToggle(option.id, selectedVehicles, setSelectedVehicles)}
-                            />
-                            <span className="text-sm text-gray-700">{option.name}</span>
-                          </label>
-                        ))}
-                          </>
-                        ) : (
-                          <div className="px-3 py-4 text-center text-gray-500 text-sm">
-                            No vehicles available
-                          </div>
-                        )}
-                      </div>
+                      ))}
+                        </>
+                      ) : (
+                        <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                          No vehicles available
+                  </div>
+                )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
+            </div>
             )}
 
             {/* Tour Options Filter - removed per requirements */}
@@ -830,12 +830,12 @@ const AvailabilityCalendar = () => {
 
                 return (
                   <>
-                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
                       Active {activeCount}
-                    </span>
-                    <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+              </span>
+              <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
                       In Active {inactiveCount}
-                    </span>
+              </span>
                   </>
                 );
               })()}
@@ -999,7 +999,7 @@ const AvailabilityCalendar = () => {
                     <div className="text-right">
                       <div className="text-sm font-medium text-gray-700">Status</div>
                       <div className="flex items-center space-x-2 mt-1">
-                      <FiPower className={`w-4 h-4 ${vehicle.isActive ? 'text-green-600' : 'text-red-600'}`} />
+                        <FiPower className={`w-4 h-4 ${vehicle.isActive ? 'text-green-600' : 'text-red-600'}`} />
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"

@@ -5,6 +5,7 @@ import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import EditProfileModal from '../components/EditProfileModal'
 import { getProfile, updateProfile, getCachedProfileSync } from '../services/profileService'
+import imageService from '../services/imageService'
 
 const DEFAULT_PROFILE_USER_ID = import.meta.env.VITE_CUSTOMER_PROFILE_USER_ID || 'john-doe'
 
@@ -100,12 +101,34 @@ const ProfilePage = () => {
   const [savingProfile, setSavingProfile] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [saveMessage, setSaveMessage] = useState(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarPublicId, setAvatarPublicId] = useState(null)
 
   const fetchProfile = useCallback(async () => {
     try {
       const data = await getProfile(userId, true) // Always returns cached immediately, refreshes in background
       // Update profile and localStorage
       setProfile(data)
+      
+      // Extract avatar public_id from Cloudinary URL or profile data
+      if (data?.user?.avatar_url) {
+        if (data.user.avatar_public_id) {
+          setAvatarPublicId(data.user.avatar_public_id)
+        } else if (data.user.avatar_url.includes('cloudinary.com')) {
+          try {
+            const urlParts = data.user.avatar_url.split('/')
+            const uploadIndex = urlParts.findIndex(part => part === 'upload')
+            if (uploadIndex !== -1) {
+              const afterUpload = urlParts.slice(uploadIndex + 2).join('/')
+              const publicId = afterUpload.replace(/\.[^/.]+$/, '')
+              setAvatarPublicId(publicId)
+            }
+          } catch (e) {
+            console.warn('Could not extract public_id from avatar URL:', e)
+          }
+        }
+      }
+      
       try {
         if (data?.user?.name) {
           localStorage.setItem('customer_profile_name', data.user.name)
@@ -430,9 +453,83 @@ const ProfilePage = () => {
               <div className="flex flex-col items-center text-center mb-6">
                 <div className="relative">
                   <img src={avatarUrl} alt="profile" className="w-40 h-40 rounded-full object-cover mb-3" />
-                  <div className="absolute -bottom-1 right-3 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center border-4 border-white text-[12px]">
-                    📷
-                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="profile-photo-upload"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      if (!file.type.startsWith('image/')) {
+                        alert('Please select a valid image file.')
+                        return
+                      }
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert('Image must be smaller than 5MB.')
+                        return
+                      }
+
+                      setUploadingAvatar(true)
+                      try {
+                        // Delete old image from Cloudinary if exists
+                        if (avatarPublicId) {
+                          try {
+                            await imageService.deleteImage(avatarPublicId)
+                          } catch (err) {
+                            console.warn('Failed to delete old avatar:', err)
+                          }
+                        }
+
+                        // Upload to Cloudinary
+                        const response = await imageService.uploadImage(file, {
+                          folder: 'customer/profile-photos'
+                        })
+
+                        if (!response?.url) {
+                          throw new Error(response?.detail || 'Upload failed')
+                        }
+
+                        // Update profile with new avatar URL
+                        if (profile?.user) {
+                          const updatedUser = {
+                            ...profile.user,
+                            avatar_url: response.url,
+                            avatar_public_id: response.public_id
+                          }
+                          const updated = await updateProfile(userId, { user: updatedUser })
+                          setProfile(updated)
+                          setAvatarPublicId(response.public_id)
+                          
+                          try {
+                            localStorage.setItem('customer_profile_avatar', response.url)
+                          } catch (_) {}
+                          window.dispatchEvent(new Event('customer_profile_updated'))
+                          setSaveMessage('Profile picture updated successfully.')
+                          setTimeout(() => setSaveMessage(null), 3000)
+                        }
+                      } catch (err) {
+                        console.error('Failed to upload avatar:', err)
+                        setSaveError(err?.message || 'Failed to upload profile picture. Please try again.')
+                        setTimeout(() => setSaveError(null), 5000)
+                      } finally {
+                        setUploadingAvatar(false)
+                        if (e?.target) {
+                          e.target.value = ''
+                        }
+                      }
+                    }}
+                    disabled={uploadingAvatar}
+                  />
+                  <label
+                    htmlFor="profile-photo-upload"
+                    className={`absolute -bottom-1 right-3 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center border-4 border-white text-[12px] cursor-pointer hover:bg-blue-700 transition ${
+                      uploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    title={uploadingAvatar ? 'Uploading...' : 'Change profile picture'}
+                  >
+                    {uploadingAvatar ? '⏳' : '📷'}
+                  </label>
                 </div>
                 <div className="text-lg font-semibold text-gray-900">{user?.name || 'Guest Traveller'}</div>
                 <div className="text-sm text-gray-600">{user?.membership_tier || 'Member'}</div>

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import initiate_database
-from app.api.v1 import products, profile, bookings, wallet, reviews, messages, auth
+from app.api.v1 import products, profile, bookings, wallet, reviews, messages, auth, images
 
 app = FastAPI(
     title="TripsAdora Customer Platform API",
@@ -26,6 +26,9 @@ async def startup_event():
     try:
         await initiate_database()
         print("✅ Database initialized successfully!")
+        
+        # Initialize Cloudinary
+        images.init_cloudinary()
     except Exception as e:
         print(f"❌ Database initialization failed: {e}")
 
@@ -37,6 +40,7 @@ app.include_router(bookings.router, prefix="/api/v1")
 app.include_router(wallet.router, prefix="/api/v1")
 app.include_router(reviews.router, prefix="/api/v1")
 app.include_router(messages.router, prefix="/api/v1")
+app.include_router(images.router, prefix="/api/v1", tags=["Images"])
 
 @app.get("/")
 async def root():

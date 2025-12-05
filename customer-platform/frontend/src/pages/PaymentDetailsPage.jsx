@@ -132,6 +132,7 @@ const PaymentDetailsPage = () => {
     bookingData 
   } = stateData
   
+  const [yourName, setYourName] = useState('')
   const [cardNumber, setCardNumber] = useState('')
   const [cardholderName, setCardholderName] = useState('')
   const [contactInfo, setContactInfo] = useState('')
@@ -188,6 +189,7 @@ const PaymentDetailsPage = () => {
 
         // Only prefill if the field is still empty so user edits are not overwritten
         const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.name
+        setYourName(prev => prev || fullName || '')
         setCardholderName(prev => prev || fullName || '')
         setContactEmail(prev => prev || user.email || '')
         setContactInfo(prev => prev || user.phone || '')
@@ -389,8 +391,19 @@ const PaymentDetailsPage = () => {
 
   const handleCompleteBooking = async () => {
     // Validate required fields
+    if (!yourName.trim()) {
+      alert('Please enter your name.')
+      return
+    }
+    // Your name: letters and spaces only
+    const yourNameClean = yourName.trim()
+    if (!/^[A-Za-z\s]+$/.test(yourNameClean)) {
+      alert('Name should contain letters and spaces only (no numbers or symbols).')
+      return
+    }
+
     if (!cardholderName.trim()) {
-      alert('Please enter the full name for the booking.')
+      alert('Please enter the cardholder name.')
       return
     }
     // Cardholder name: letters and spaces only
@@ -423,7 +436,7 @@ const PaymentDetailsPage = () => {
     }
 
     if (!contactAddress.trim()) {
-      alert('Please enter your location / address.')
+      alert('Please enter your country.')
       return
     }
 
@@ -503,7 +516,7 @@ const PaymentDetailsPage = () => {
       packageType: bookingData?.packageType || 'Scenic Mountain Drive + Photo Spots',
       pickUpLocation: pickupLocation,
       dropOffLocation: dropoffLocation || pickupLocation, // Use pickup if no dropoff selected
-      customerName: cardholderName || 'Guest',
+      customerName: yourName.trim() || cardholderName || 'Guest',
       customerEmail: contactEmail.trim(),
       customerPhone: contactInfo.trim(),
       vehicle: selectedVehicle?.title || selectedVehicle?.model || vehicleData?.title || vehicleData?.model || selectedVehicle?.name || vehicleData?.name || 'Vehicle',
@@ -615,10 +628,25 @@ const PaymentDetailsPage = () => {
               </div>
             </div>
 
-            {/* Contact Info + Email + Address (required) */}
+            {/* Your Name */}
             <div className="mb-6">
               <label className="block text-lg font-semibold text-gray-900 mb-3">
-                Contact Info <span className="text-gray-500 font-normal">(required)</span>
+                Your Name
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your full name"
+                value={yourName}
+                onChange={(e) => setYourName(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 resize-none"
+                style={{ '--tw-ring-color': '#1d236b' }}
+              />
+            </div>
+
+            {/* Contact Info */}
+            <div className="mb-6">
+              <label className="block text-lg font-semibold text-gray-900 mb-3">
+                Contact Info
               </label>
               <input
                 type="text"
@@ -630,9 +658,10 @@ const PaymentDetailsPage = () => {
               />
             </div>
 
+            {/* Email */}
             <div className="mb-6">
               <label className="block text-lg font-semibold text-gray-900 mb-3">
-                Email <span className="text-gray-500 font-normal">(required)</span>
+                Email
               </label>
               <input
                 type="email"
@@ -644,13 +673,14 @@ const PaymentDetailsPage = () => {
               />
             </div>
 
+            {/* Country */}
             <div className="mb-6">
               <label className="block text-lg font-semibold text-gray-900 mb-3">
-                Location / Address <span className="text-gray-500 font-normal">(required)</span>
+                Country
               </label>
               <input
                 type="text"
-                placeholder="City, country or full address"
+                placeholder="Enter your country"
                 value={contactAddress}
                 onChange={(e) => setContactAddress(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 resize-none"
@@ -802,20 +832,26 @@ const PaymentDetailsPage = () => {
 
             {/* Selected Options */}
             <div className="space-y-4 border-t border-gray-200 pt-6">
-              <div className="flex justify-between">
-                <span className="text-gray-600 font-medium">Date:</span>
-                <span className="text-gray-900 font-semibold">{formatDateForDisplay(selectedDate) || 'N/A'}</span>
-              </div>
-              
-              {/* Show extras total only if there are extras */}
-              {(extrasTotal && extrasTotal > 0) && (
+              {/* Show Date only if there's a valid date */}
+              {selectedDate && selectedDate.trim() && formatDateForDisplay(selectedDate) && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600 font-medium">Preference price:</span>
-                  <span className="text-gray-900 font-semibold">
-                    ${formatCurrency(extrasTotal)}
-                  </span>
+                  <span className="text-gray-600 font-medium">Date:</span>
+                  <span className="text-gray-900 font-semibold">{formatDateForDisplay(selectedDate)}</span>
                 </div>
               )}
+              
+              {/* Show extras total only if there are extras (hide if 0, "0", null, undefined, or empty) */}
+              {(() => {
+                const extrasValue = Number(extrasTotal) || 0;
+                return extrasValue > 0 ? (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 font-medium">Preference price:</span>
+                    <span className="text-gray-900 font-semibold">
+                      ${formatCurrency(extrasTotal)}
+                    </span>
+                  </div>
+                ) : null;
+              })()}
               
               {/* Calculate vehicle prices for all vehicles + total */}
               {(() => {

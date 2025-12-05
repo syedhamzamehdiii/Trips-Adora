@@ -87,11 +87,11 @@ const ToursSection = () => {
       // Only show products that are currently available for customers
       .filter(t => t.isAvailableForCustomer)
       .map(t => ({
-        ...t,
-        priceValue: Number((String(t.price).match(/\$(\d+)/) || [])[1]) || 0,
-        updatedAt: t.id,
-        clicks: clicks[t.id] || 0
-      }))
+      ...t,
+      priceValue: Number((String(t.price).match(/\$(\d+)/) || [])[1]) || 0,
+      updatedAt: t.id,
+      clicks: clicks[t.id] || 0
+    }))
     switch (sortKey) {
       case 'price_asc':
         return [...parsed].sort((a, b) => a.priceValue - b.priceValue)

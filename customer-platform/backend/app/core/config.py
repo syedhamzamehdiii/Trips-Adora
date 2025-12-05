@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     EXCHANGE_RATE_API_KEY: Optional[str] = None
     EXCHANGE_RATE_API_BASE_URL: str = "https://v6.exchangerate-api.com/v6"
     
+    # Cloudinary (Image Storage)
+    CLOUDINARY_CLOUD_NAME: Optional[str] = None
+    CLOUDINARY_API_KEY: Optional[str] = None
+    CLOUDINARY_API_SECRET: Optional[str] = None
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

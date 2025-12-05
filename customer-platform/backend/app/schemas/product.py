@@ -152,7 +152,7 @@ class ProductResponse(BaseModel):
     # Supplier information
     supplier_business_name: Optional[str] = None
     supplier_id: Optional[str] = None  # Include for chat functionality
-
+    
     # Availability fields mirrored from supplier platform
     inactive_dates: List[str] = []
     vehicle_inactive_dates: Dict[str, List[str]] = {}

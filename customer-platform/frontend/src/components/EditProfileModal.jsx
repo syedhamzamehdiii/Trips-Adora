@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import imageService from '../services/imageService'
 
 const initialForm = {
   name: '',
@@ -11,11 +12,17 @@ const initialForm = {
 const EditProfileModal = ({ open, onClose, onSave, profileUser, saving }) => {
   const [form, setForm] = useState(initialForm)
   const [error, setError] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [avatarPublicId, setAvatarPublicId] = useState(null)
 
   useEffect(() => {
     if (!open) {
       setForm(initialForm)
       setError(null)
+      setAvatarPublicId(null)
+      setUploading(false)
+      setUploadProgress(0)
       return
     }
     if (profileUser) {
@@ -26,6 +33,23 @@ const EditProfileModal = ({ open, onClose, onSave, profileUser, saving }) => {
         location: profileUser.location || '',
         avatar_url: profileUser.avatar_url || ''
       })
+      // Extract public_id from Cloudinary URL if it exists
+      if (profileUser.avatar_url && profileUser.avatar_url.includes('cloudinary.com')) {
+        try {
+          const urlParts = profileUser.avatar_url.split('/')
+          const uploadIndex = urlParts.findIndex(part => part === 'upload')
+          if (uploadIndex !== -1 && urlParts[uploadIndex + 1]) {
+            // Extract public_id from URL (format: cloudinary.com/cloud_name/image/upload/v1234567890/folder/public_id.jpg)
+            const afterUpload = urlParts.slice(uploadIndex + 2).join('/')
+            const publicId = afterUpload.replace(/\.[^/.]+$/, '') // Remove file extension
+            setAvatarPublicId(publicId)
+          }
+        } catch (e) {
+          console.warn('Could not extract public_id from avatar URL:', e)
+        }
+      } else if (profileUser.avatar_public_id) {
+        setAvatarPublicId(profileUser.avatar_public_id)
+      }
     }
   }, [open, profileUser])
 
@@ -36,7 +60,7 @@ const EditProfileModal = ({ open, onClose, onSave, profileUser, saving }) => {
     }))
   }
 
-  const handleFileChange = (event) => {
+  const handleFileChange = async (event) => {
     const file = event?.target?.files?.[0]
     if (!file) return
 
@@ -45,16 +69,52 @@ const EditProfileModal = ({ open, onClose, onSave, profileUser, saving }) => {
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = () => {
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be smaller than 5MB.')
+      return
+    }
+
+    setUploading(true)
+    setUploadProgress(0)
+    setError(null)
+
+    try {
+      // Delete old image from Cloudinary if exists
+      if (avatarPublicId) {
+        try {
+          await imageService.deleteImage(avatarPublicId)
+        } catch (err) {
+          console.warn('Failed to delete old avatar:', err)
+        }
+      }
+
+      // Upload to Cloudinary
+      const response = await imageService.uploadImage(file, {
+        folder: 'customer/profile-photos',
+        onUploadProgress: (progress) => setUploadProgress(progress)
+      })
+
+      if (!response?.url) {
+        throw new Error(response?.detail || 'Upload failed')
+      }
+
       setForm((prev) => ({
         ...prev,
-        avatar_url: reader.result
+        avatar_url: response.url
       }))
+      setAvatarPublicId(response.public_id)
       setError(null)
+    } catch (err) {
+      console.error('Failed to upload image:', err)
+      setError(err?.message || 'Failed to upload image. Please try again.')
+    } finally {
+      setUploading(false)
+      setUploadProgress(0)
+      if (event?.target) {
+        event.target.value = ''
+      }
     }
-    reader.onerror = () => setError('Failed to read the selected file. Please try again.')
-    reader.readAsDataURL(file)
   }
 
   const handleSubmit = (event) => {
@@ -101,9 +161,16 @@ const EditProfileModal = ({ open, onClose, onSave, profileUser, saving }) => {
                   </div>
                 )}
               </div>
-              <label className="absolute -bottom-2 right-0 bg-blue-600 text-white text-xs px-3 py-1 rounded-full cursor-pointer hover:bg-blue-700 transition">
-                Change
-                <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+              <label className="absolute -bottom-2 right-0 bg-blue-600 text-white text-xs px-3 py-1 rounded-full cursor-pointer hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                {uploading ? `Uploading ${uploadProgress}%` : 'Change'}
+                <input 
+                  id="edit-profile-modal-file-input"
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                />
               </label>
             </div>
           </div>

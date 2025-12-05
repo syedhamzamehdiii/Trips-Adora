@@ -28,4 +28,7 @@ fastapi-cors==0.0.6
 python-dateutil==2.8.2
 httpx==0.25.2
 
+# Cloudinary (Image Storage)
+cloudinary==1.36.0
+
 

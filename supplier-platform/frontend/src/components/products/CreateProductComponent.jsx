@@ -2420,10 +2420,13 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     if (vehicle.dayDurations && typeof vehicle.dayDurations === 'object') {
       setDayDurations(vehicle.dayDurations);
       const currentDay = parseInt(tourDays, 10) || 1;
-      setTotalDuration(vehicle.dayDurations[currentDay] || '');
+      // Default to empty string (Select Duration) if no duration is set
+      setTotalDuration(vehicle.dayDurations[currentDay] || vehicle.totalDuration || '');
     } else {
       // Initialize dayDurations for all days up to tourDays
       const days = parseInt(tourDays, 10) || 1;
+      // Default to empty string (Select Duration) if no duration is set
+      setTotalDuration(vehicle.totalDuration || '');
       const initialDurations = {};
       for (let i = 1; i <= days; i++) {
         initialDurations[i] = '';
@@ -5273,28 +5276,28 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                        onClick={() => {
                          const currentDays = parseInt(totalTourDays, 10) || 1;
                          if (currentDays > 1) {
-                           // Save current duration for current day and get duration for new day
+                           const newDays = currentDays - 1;
+                           setTotalTourDays(String(newDays));
+                           // Clean up duration for the removed day
                            setDayDurations(prev => {
-                             const updated = {
-                               ...prev,
-                               [currentDays]: totalDuration
-                             };
-                             const newDay = currentDays - 1;
-                             // Restore duration for the day being shown
-                             setTotalDuration(updated[newDay] || '');
+                             const updated = { ...prev };
+                             // Remove duration for the day that was removed
+                             delete updated[currentDays];
+                             // Also clean up any days beyond the new count
+                             for (let day = newDays + 1; day <= 10; day++) {
+                               delete updated[day];
+                             }
                              return updated;
                            });
-                           
-                           // Decrement days
-                           setTotalTourDays(String(currentDays - 1));
                          }
                        }}
                        disabled={parseInt(totalTourDays, 10) <= 1}
                        className={`flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-colors ${
                          parseInt(totalTourDays, 10) <= 1
                            ? 'border-gray-300 text-gray-300 cursor-not-allowed'
-                           : 'border-gray-300 text-gray-700 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50'
+                           : 'border-gray-300 text-gray-700 hover:border-red-500 hover:text-red-600 hover:bg-red-50'
                        }`}
+                       title={parseInt(totalTourDays, 10) > 1 ? 'Remove a day' : 'Cannot remove - minimum 1 day required'}
                      >
                        <FiMinus size={18} />
                      </button>
@@ -5305,83 +5308,85 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                        type="button"
                        onClick={() => {
                          const currentDays = parseInt(totalTourDays, 10) || 1;
-                         // Prevent adding days if duration is not selected
-                         if (!totalDuration || totalDuration.trim() === '') {
-                           return;
-                         }
                          if (currentDays < 10) {
-                           // Save current duration for current day and get duration for new day
-                           setDayDurations(prev => {
-                             const updated = {
-                               ...prev,
-                               [currentDays]: totalDuration
-                             };
-                             const newDay = currentDays + 1;
-                             // Load duration for the new day (or empty if not set)
-                             setTotalDuration(updated[newDay] || '');
-                             return updated;
-                           });
-                           
-                           // Increment days
-                           setTotalTourDays(String(currentDays + 1));
+                           const newDays = currentDays + 1;
+                           setTotalTourDays(String(newDays));
+                           // Initialize new day with empty duration (no dummy/previous value)
+                           setDayDurations(prev => ({
+                             ...prev,
+                             [newDays]: '' // Empty string - user must set it themselves
+                           }));
                          }
                        }}
-                       disabled={parseInt(totalTourDays, 10) >= 10 || !totalDuration || totalDuration.trim() === ''}
+                       disabled={parseInt(totalTourDays, 10) >= 10}
                        className={`flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-colors ${
-                         parseInt(totalTourDays, 10) >= 10 || !totalDuration || totalDuration.trim() === ''
+                         parseInt(totalTourDays, 10) >= 10
                            ? 'border-gray-300 text-gray-300 cursor-not-allowed'
                            : 'border-gray-300 text-gray-700 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50'
                        }`}
+                       title={parseInt(totalTourDays, 10) < 10 ? 'Add a day' : 'Maximum 10 days'}
                      >
                        <FiPlus size={18} />
                      </button>
+                     {/* Delete Day Button - More visible option */}
+                     {parseInt(totalTourDays, 10) > 1 && (
+                       <button
+                         type="button"
+                         onClick={() => {
+                           if (window.confirm(`Are you sure you want to remove a day? This will reduce the total to ${parseInt(totalTourDays, 10) - 1} day(s).`)) {
+                             const currentDays = parseInt(totalTourDays, 10) || 1;
+                             const newDays = currentDays - 1;
+                             setTotalTourDays(String(newDays));
+                             // Clean up duration for the removed day
+                             setDayDurations(prev => {
+                               const updated = { ...prev };
+                               // Remove duration for the day that was removed
+                               delete updated[currentDays];
+                               // Also clean up any days beyond the new count
+                               for (let day = newDays + 1; day <= 10; day++) {
+                                 delete updated[day];
+                               }
+                               return updated;
+                             });
+                           }
+                         }}
+                         className="flex items-center justify-center w-10 h-10 rounded-lg border-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-500 transition-colors"
+                         title="Delete a day"
+                       >
+                         <FiTrash2 size={16} />
+                       </button>
+                     )}
                    </div>
                  </div>
                  
                  <div>
                    <label className="block text-sm font-medium text-gray-900 mb-2">Total duration</label>
                    <p className="text-sm text-gray-600 mb-3">Specify how long the car will be available for your trip.</p>
-                   <div className="relative">
+                   <div className="relative max-w-xs">
                      <select 
                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
-                       value={totalDuration}
+                       value={totalDuration || ''}
                        onChange={(e) => {
                          const newDuration = e.target.value;
                          setTotalDuration(newDuration);
-                         // Save duration for current day
-                         const currentDay = parseInt(totalTourDays, 10) || 1;
+                         // Also update dayDurations for day 1 for backward compatibility
                          setDayDurations(prev => ({
                            ...prev,
-                           [currentDay]: newDuration
+                           1: newDuration
                          }));
                        }}
                        required
+                       style={{ maxHeight: '200px' }}
                      >
                        <option value="">Select Duration</option>
-                     <option>1h</option>
-                     <option>2h</option>
-                     <option>3h</option>
-                     <option>4h</option>
-                     <option>5h</option>
-                     <option>6h</option>
-                     <option>7h</option>
-                       <option>8h</option>
-                     <option>9h</option>
-                     <option>10h</option>
-                     <option>11h</option>
-                     <option>12h</option>
-                     <option>13h</option>
-                     <option>14h</option>
-                     <option>15h</option>
-                     <option>16h</option>
-                     <option>17h</option>
-                     <option>18h</option>
-                       <option>Full Day</option>
-                   </select>
+                       {Array.from({ length: 24 }, (_, i) => i + 1).map((hour) => (
+                         <option key={hour} value={`${hour}h`}>{hour}h</option>
+                       ))}
+                     </select>
                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                     </svg>
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                       </svg>
                      </div>
                    </div>
                  </div>
@@ -5398,23 +5403,25 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                   required
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
-                <div className="flex gap-3 mt-3">
-                  <button 
-                    onClick={saveVehicleOption}
-                    disabled={vehicleSaving}
-                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${vehicleSaving ? 'bg-blue-300 cursor-not-allowed text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-                  >
-                    {vehicleSaving ? 'Saving...' : editingVehicleId ? 'Update' : 'Save'}
+              </div>
+              
+              {/* Save/Cancel Buttons */}
+              <div className="flex gap-3 mt-3">
+                <button 
+                  onClick={saveVehicleOption}
+                  disabled={vehicleSaving}
+                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${vehicleSaving ? 'bg-blue-300 cursor-not-allowed text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                >
+                  {vehicleSaving ? 'Saving...' : editingVehicleId ? 'Update' : 'Save'}
                 </button>
-                  {editingVehicleId && (
-                    <button 
-                      onClick={clearVehicleForm}
-                      className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
+                {editingVehicleId && (
+                  <button 
+                    onClick={clearVehicleForm}
+                    className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
 
               {/* Existing Vehicle Options */}
@@ -5849,6 +5856,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             endTime: endTime,
             duration: duration,
             itineraries: itineraries,
+            // Tour days information
+            totalTourDays: totalTourDays,
+            dayDurations: dayDurations,
             // Provide draftId so AddItineraryComponent can preload existing itineraries
             draftId: internalDraftId,
             dbProductId: dbProductId || (internalDraftId !== DEFAULT_DRAFT_ID ? internalDraftId : null)

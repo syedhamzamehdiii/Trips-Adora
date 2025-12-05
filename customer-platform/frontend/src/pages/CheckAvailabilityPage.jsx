@@ -728,7 +728,7 @@ const CheckAvailabilityPage = () => {
 
   const handlePersonChange = (delta) => {
     setSelectedPersons(prev => {
-      const current = prev || 1
+      const current = prev || 0
       let next = current + delta
       if (next < 1) {
         next = 1

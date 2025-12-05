@@ -800,7 +800,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
                     <div>
                         <span className="text-sm font-medium text-gray-500">Vehicle Name</span>
                         <p className="text-sm text-gray-900 mt-1">{booking.vehicle || 'N/A'}</p>
-                      </div>
+                    </div>
                   </div>
                   <div className="space-y-4">
                     <div>
@@ -824,7 +824,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
                             ? 'Loading...'
                             : formatDate(endDate)}
                         </p>
-                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -845,7 +845,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
                     <div>
                       <span className="text-sm font-medium text-gray-500">Contact Number</span>
                         <p className="text-sm text-gray-900 mt-1">{booking.customer_phone || 'N/A'}</p>
-                      </div>
+                    </div>
                   </div>
                   <div className="space-y-4">
                     <div>
@@ -896,7 +896,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
                         </p>
                   </div>
                       {/* Always show dropoff location - if null, it means same as pickup */}
-                      <div>
+                  <div>
                           <span className="text-sm font-medium text-gray-500">Drop-off Location</span>
                           <p className="text-sm text-gray-900 mt-1">
                             {loadingProduct ? 'Loading...' : (
@@ -907,8 +907,8 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
                           </p>
                   </div>
                       <div className="flex flex-wrap gap-3 mt-4">
-                        <button
-                          onClick={handleCopyLocation}
+                    <button
+                      onClick={handleCopyLocation}
                           className={`px-4 py-2 rounded-lg transition-all flex items-center space-x-2 ${
                             locationCopied
                               ? 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -922,11 +922,11 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
                             </>
                           ) : (
                             <>
-                              <FiCopy size={16} />
-                              <span>Copy Location</span>
+                      <FiCopy size={16} />
+                      <span>Copy Location</span>
                             </>
                           )}
-                        </button>
+                    </button>
                     <button
                       onClick={handleViewOnMap}
                       className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"

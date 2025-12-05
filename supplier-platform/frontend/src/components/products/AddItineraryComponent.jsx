@@ -67,7 +67,17 @@ const AddItineraryComponent = ({
   const [hours, setHours] = useState('02');
   const [minutes, setMinutes] = useState('30');
   const [hasSavedItinerary, setHasSavedItinerary] = useState(false);
-  const [itineraryEntries, setItineraryEntries] = useState(Array.isArray(currentItineraries) ? currentItineraries : []);
+  // Initialize itineraries and ensure they have a day number (default to 1 for backward compatibility)
+  const [itineraryEntries, setItineraryEntries] = useState(() => {
+    const entries = Array.isArray(currentItineraries) ? currentItineraries : [];
+    // Ensure all entries have a day number (default to 1 if missing)
+    return entries.map(entry => ({
+      ...entry,
+      day: entry.day || 1
+    }));
+  });
+  const [selectedDay, setSelectedDay] = useState(1); // Day selector for multi-day tours
+  const [currentWorkingDay, setCurrentWorkingDay] = useState(1); // Currently selected day to work on
   // Initialize showSubmitView to true if there are existing itineraries
   const [showSubmitView, setShowSubmitView] = useState(Array.isArray(currentItineraries) && currentItineraries.length > 0);
   const [showFinalLook, setShowFinalLook] = useState(false);
@@ -505,6 +515,26 @@ const AddItineraryComponent = ({
     'Historical Tour'
   ];
 
+  // Helper function to parse timeSpent string to total minutes
+  const parseTimeSpentToMinutes = (timeSpentStr) => {
+    if (!timeSpentStr) return 0;
+    const hourMatch = timeSpentStr.match(/(\d+)h/i);
+    const minuteMatch = timeSpentStr.match(/(\d+)min/i);
+    const hours = hourMatch ? parseInt(hourMatch[1], 10) : 0;
+    const minutes = minuteMatch ? parseInt(minuteMatch[1], 10) : 0;
+    return hours * 60 + minutes;
+  };
+
+  // Helper function to parse duration string (e.g., "6h") to total minutes
+  const parseDurationToMinutes = (durationStr) => {
+    if (!durationStr) return 0;
+    const hourMatch = durationStr.match(/(\d+)h/i);
+    if (hourMatch) {
+      return parseInt(hourMatch[1], 10) * 60;
+    }
+    return 0;
+  };
+
   const handleSaveItinerary = () => {
     const startHour = 6 + itineraryEntries.length * 2;
     const inferredTime = `${String(startHour % 24).padStart(2, '0')}:00`;
@@ -520,8 +550,54 @@ const AddItineraryComponent = ({
       ? 'Sightseeing & Photography'
       : selectedAttraction;
 
+    // Get total tour days from productData, default to 1 if not available
+    const totalDays = parseInt(productData?.totalTourDays || '1', 10) || 1;
+    const dayForEntry = editingItineraryId ? (existingEntry?.day || 1) : selectedDay;
+
+    // Validate duration: Check if total itinerary time exceeds day's duration
+    const dayDurations = productData?.dayDurations || {};
+    const dayDuration = dayDurations[dayForEntry] || '';
+    const dayDurationMinutes = parseDurationToMinutes(dayDuration);
+    
+    if (dayDurationMinutes > 0) {
+      // Calculate current total time spent for this day (excluding the entry being edited)
+      const currentDayItineraries = itineraryEntries.filter(entry => (entry.day || 1) === dayForEntry);
+      let currentTotalMinutes = 0;
+      
+      currentDayItineraries.forEach(entry => {
+        // Skip the entry being edited (we'll add the new time separately)
+        if (editingItineraryId && entry.id === editingItineraryId) {
+          return;
+        }
+        currentTotalMinutes += parseTimeSpentToMinutes(entry.timeSpent);
+      });
+      
+      // Add the new itinerary time
+      const newItineraryMinutes = parseInt(hours || '0', 10) * 60 + parseInt(minutes || '0', 10);
+      const totalMinutes = currentTotalMinutes + newItineraryMinutes;
+      
+      if (totalMinutes > dayDurationMinutes) {
+        const remainingMinutes = dayDurationMinutes - currentTotalMinutes;
+        const remainingHours = Math.floor(remainingMinutes / 60);
+        const remainingMins = remainingMinutes % 60;
+        const remainingTimeStr = remainingHours > 0 
+          ? `${remainingHours}h ${remainingMins}min`
+          : `${remainingMins}min`;
+        
+        alert(
+          `Cannot add this itinerary!\n\n` +
+          `Day ${dayForEntry} has a total duration of ${dayDuration}.\n` +
+          `You have already used ${Math.floor(currentTotalMinutes / 60)}h ${currentTotalMinutes % 60}min.\n` +
+          `You can only add up to ${remainingTimeStr} more.\n\n` +
+          `Please reduce the time for this itinerary or remove other itineraries.`
+        );
+        return; // Prevent saving
+      }
+    }
+
     const entryData = {
       id: editingItineraryId || Date.now(),
+      day: dayForEntry, // Store which day this itinerary belongs to
       title: normalizedName || 'Itinerary Stop',
       placeName: normalizedName || 'Fujinimiya',
       location: normalizedName || 'Fujinimiya',
@@ -587,6 +663,7 @@ const AddItineraryComponent = ({
     setCrop({ unit: '%', width: 100, aspect: 1 });
     setCompletedCrop(null);
     setEditingItineraryId(null);
+    // Don't reset selectedDay - keep it for adding multiple items to same day
     if (photoInputRef.current) {
       photoInputRef.current.value = '';
     }
@@ -600,6 +677,8 @@ const AddItineraryComponent = ({
       entry.attractionType ||
       (Array.isArray(entry.activities) && entry.activities.length ? entry.activities[0] : 'Select Attractions')
     );
+    // Set the day for editing
+    setSelectedDay(entry.day || 1);
     // Parse timeSpent (e.g., "2h 30min" -> hours: "02", minutes: "30")
     const timeMatch = (entry.timeSpent || '').match(/(\d+)h\s*(\d+)min/);
     if (timeMatch) {
@@ -1132,71 +1211,201 @@ const AddItineraryComponent = ({
                       </div>
                     </>
                   ) : (
-                    /* Submit View - Itinerary Entries */
+                    /* Submit View - Itinerary Entries - Day by Day Workflow */
                     <div className="space-y-6">
-                      {/* Add new itinerary button */}
-                      <div className="flex justify-center">
-                        <button 
-                          onClick={() => setShowAddItineraryModal(true)}
-                          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors text-lg font-medium"
-                        >
-                          Add new itinerary
-                        </button>
-                      </div>
-
-                      {/* Itinerary Entries */}
-                      {itineraryEntries.map((entry, index) => (
-                        <div key={entry.id} className="bg-gray-100 border border-gray-300 rounded-lg p-4 mb-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              {/* Location with map pin */}
-                              <div className="flex items-center mb-2">
-                                <FiMapPin className="w-4 h-4 text-gray-600 mr-2" />
-                                <span className="text-base font-medium text-gray-900">{entry.location}</span>
+                      {(() => {
+                        const totalDays = parseInt(productData?.totalTourDays || '1', 10) || 1;
+                        const dayDurations = productData?.dayDurations || {};
+                        
+                        // Group itineraries by day
+                        const itinerariesByDay = {};
+                        const completedDays = new Set();
+                        for (let day = 1; day <= totalDays; day++) {
+                          const dayItineraries = itineraryEntries.filter(entry => (entry.day || 1) === day);
+                          itinerariesByDay[day] = dayItineraries;
+                          if (dayItineraries.length > 0) {
+                            completedDays.add(day);
+                          }
+                        }
+                        
+                        // Get current day's data
+                        const currentDayItineraries = itinerariesByDay[currentWorkingDay] || [];
+                        const currentDayDuration = dayDurations[currentWorkingDay] || '';
+                        const isCurrentDayCompleted = completedDays.has(currentWorkingDay);
+                        
+                        // Calculate total time used and remaining for current day
+                        const dayDurationMinutes = parseDurationToMinutes(currentDayDuration);
+                        const totalUsedMinutes = currentDayItineraries.reduce((sum, entry) => {
+                          return sum + parseTimeSpentToMinutes(entry.timeSpent);
+                        }, 0);
+                        const remainingMinutes = dayDurationMinutes - totalUsedMinutes;
+                        const usedHours = Math.floor(totalUsedMinutes / 60);
+                        const usedMins = totalUsedMinutes % 60;
+                        const remainingHours = Math.floor(remainingMinutes / 60);
+                        const remainingMins = remainingMinutes % 60;
+                        
+                        // Get available days (not completed yet, or all days if showing completed)
+                        const availableDays = Array.from({ length: totalDays }, (_, i) => i + 1);
+                        
+                        return (
+                          <div>
+                            {/* Day Header with Dropdown */}
+                            <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-gray-300">
+                              <div className="flex items-center gap-4">
+                                <h3 className="text-xl font-bold text-gray-900">
+                                  Day {currentWorkingDay}
+                                  {currentDayDuration && (
+                                    <span className="ml-3 text-base font-normal text-gray-600">
+                                      ({currentDayDuration})
+                                    </span>
+                                  )}
+                                  {isCurrentDayCompleted && (
+                                    <span className="ml-3 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      <FiCheckCircle className="mr-1" size={12} />
+                                      Completed
+                                    </span>
+                                  )}
+                                </h3>
+                                {/* Duration Usage Indicator */}
+                                {currentDayDuration && dayDurationMinutes > 0 && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <span className={`font-medium ${
+                                      remainingMinutes < 0 
+                                        ? 'text-red-600' 
+                                        : remainingMinutes < 60 
+                                          ? 'text-orange-600' 
+                                          : 'text-gray-600'
+                                    }`}>
+                                      Used: {usedHours > 0 ? `${usedHours}h ` : ''}{usedMins}min
+                                    </span>
+                                    <span className="text-gray-400">/</span>
+                                    <span className="text-gray-600">
+                                      {parseInt(currentDayDuration.match(/(\d+)h/i)?.[1] || '0', 10)}h
+                                    </span>
+                                    {remainingMinutes >= 0 && (
+                                      <span className="text-green-600 font-medium">
+                                        (Remaining: {remainingHours > 0 ? `${remainingHours}h ` : ''}{remainingMins}min)
+                                      </span>
+                                    )}
+                                    {remainingMinutes < 0 && (
+                                      <span className="text-red-600 font-medium">
+                                        (Exceeded by {Math.abs(remainingHours)}h {Math.abs(remainingMins)}min)
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                               
-                              {/* Description */}
-                              <p className="text-gray-700 text-sm mb-2">{entry.description}</p>
-                              
-                              {/* Activity */}
-                              <p className="text-gray-700 text-sm mb-3">{entry.attractionType}</p>
-                              
-                              {/* Tags Row */}
-                              <div className="flex items-center space-x-2 mb-2">
-                                <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                  Ticket: {entry.isFree ? 'Free' : (entry.ticketFare ? entry.ticketFare : entry.ticket || 'Paid')}
-                                </span>
-                                <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
-                                  {entry.timeSpent}
-                                </span>
-                              </div>
-                              
-                              {/* Photo Status */}
-                              <p className="text-gray-600 text-sm">
-                                Photo: {entry.hasPhoto ? 'Added' : 'Not added'}
-                              </p>
+                              {/* Day Selector Dropdown */}
+                              {totalDays > 1 && (
+                                <div className="flex items-center gap-3">
+                                  <label className="text-sm font-medium text-gray-700">Select Day:</label>
+                                  <select
+                                    value={currentWorkingDay}
+                                    onChange={(e) => setCurrentWorkingDay(parseInt(e.target.value, 10))}
+                                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium"
+                                  >
+                                    {availableDays.map((day) => {
+                                      const isCompleted = completedDays.has(day);
+                                      const dayDuration = dayDurations[day] || '';
+                                      return (
+                                        <option key={day} value={day}>
+                                          Day {day}{dayDuration ? ` (${dayDuration})` : ''}{isCompleted ? ' ✓' : ''}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                </div>
+                              )}
                             </div>
                             
-                            {/* Action Icons - Right aligned */}
-                            <div className="flex items-center space-x-1 ml-4">
-                              <button 
-                                onClick={() => handleEditItinerary(entry)}
-                                className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
-                                title="Edit itinerary"
-                              >
-                                <FiEdit3 size={16} />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteEntry(entry.id)}
-                                className="p-1 text-gray-500 hover:text-red-600 transition-colors"
-                                title="Delete itinerary"
-                              >
-                                <FiTrash2 size={16} />
-                              </button>
-                            </div>
+                            {/* Itineraries for Current Day */}
+                            {currentDayItineraries.length > 0 ? (
+                              <div className="space-y-4">
+                                {currentDayItineraries.map((entry, index) => (
+                                  <div key={entry.id} className="bg-gray-100 border border-gray-300 rounded-lg p-4">
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex-1">
+                                        {/* Location with map pin */}
+                                        <div className="flex items-center mb-2">
+                                          <FiMapPin className="w-4 h-4 text-gray-600 mr-2" />
+                                          <span className="text-base font-medium text-gray-900">{entry.location}</span>
+                                        </div>
+                                        
+                                        {/* Description */}
+                                        <p className="text-gray-700 text-sm mb-2">{entry.description}</p>
+                                        
+                                        {/* Activity */}
+                                        <p className="text-gray-700 text-sm mb-3">{entry.attractionType}</p>
+                                        
+                                        {/* Tags Row */}
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                            Ticket: {entry.isFree ? 'Free' : (entry.ticketFare ? entry.ticketFare : entry.ticket || 'Paid')}
+                                          </span>
+                                          <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+                                            {entry.timeSpent}
+                                          </span>
+                                        </div>
+                                        
+                                        {/* Photo Status */}
+                                        <p className="text-gray-600 text-sm">
+                                          Photo: {entry.hasPhoto ? 'Added' : 'Not added'}
+                                        </p>
+                                      </div>
+                                      
+                                      {/* Action Icons - Right aligned */}
+                                      <div className="flex items-center space-x-1 ml-4">
+                                        <button 
+                                          onClick={() => handleEditItinerary(entry)}
+                                          className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                          title="Edit itinerary"
+                                        >
+                                          <FiEdit3 size={16} />
+                                        </button>
+                                        <button 
+                                          onClick={() => handleDeleteEntry(entry.id)}
+                                          className="p-1 text-gray-500 hover:text-red-600 transition-colors"
+                                          title="Delete itinerary"
+                                        >
+                                          <FiTrash2 size={16} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                                
+                                {/* Add Another Itinerary Button - Only show when day has itineraries */}
+                                <div className="flex justify-center pt-2">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedDay(currentWorkingDay);
+                                      setShowAddItineraryModal(true);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                  >
+                                    <FiPlus size={16} />
+                                    Add Another Itinerary
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-gray-50 border border-gray-200 border-dashed rounded-lg p-6 text-center">
+                                <p className="text-gray-500 text-sm mb-3">No itineraries added for Day {currentWorkingDay} yet.</p>
+                                <button
+                                  onClick={() => {
+                                    setSelectedDay(currentWorkingDay);
+                                    setShowAddItineraryModal(true);
+                                  }}
+                                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                >
+                                  Add First Itinerary
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                    ))}
+                        );
+                      })()}
                   </div>
                   )}
               </div>
@@ -1215,17 +1424,29 @@ const AddItineraryComponent = ({
                 Back
               </button>
               
-              <button
+              {(() => {
+                const totalDays = parseInt(productData?.totalTourDays || '1', 10) || 1;
+                // Check if all days have at least one itinerary
+                const allDaysCompleted = Array.from({ length: totalDays }, (_, i) => i + 1).every(day => {
+                  const dayItineraries = itineraryEntries.filter(entry => (entry.day || 1) === day);
+                  return dayItineraries.length > 0;
+                });
+                
+                return (
+                  <button
                     onClick={handleSubmit}
-                    disabled={!hasSavedItinerary}
+                    disabled={!allDaysCompleted}
                     className={`px-6 py-2 rounded-lg transition-colors ${
-                      hasSavedItinerary
+                      allDaysCompleted
                         ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
+                    title={!allDaysCompleted ? 'Please add at least one itinerary for each day before proceeding' : ''}
                   >
                     {showSubmitView ? 'Final look' : 'Submit'}
                   </button>
+                );
+              })()}
                 </>
               ) : (
                 <>
@@ -1275,6 +1496,7 @@ const AddItineraryComponent = ({
                   setPhotoPreview(null);
                   setCroppedPhoto(null);
                   setPhotoPublicId(null);
+                  setSelectedDay(1); // Reset to Day 1
                   if (photoInputRef.current) {
                     photoInputRef.current.value = '';
                   }
@@ -1287,6 +1509,28 @@ const AddItineraryComponent = ({
 
             {/* Modal Content */}
             <div className="p-6 space-y-6">
+              {/* Day Selector - Only show if multi-day tour */}
+              {(() => {
+                const totalDays = parseInt(productData?.totalTourDays || '1', 10) || 1;
+                if (totalDays > 1) {
+                  return (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">Select Day</label>
+                      <select
+                        value={selectedDay}
+                        onChange={(e) => setSelectedDay(parseInt(e.target.value, 10))}
+                        className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => (
+                          <option key={day} value={day}>Day {day}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+              
               {/* Place Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Place Name</label>
@@ -1346,26 +1590,116 @@ const AddItineraryComponent = ({
               {/* Time to Spend */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Time to Spend</label>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={hours}
-                      onChange={(e) => setHours(e.target.value)}
-                      className="w-16 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <span className="text-sm text-gray-600">Hours</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={minutes}
-                      onChange={(e) => setMinutes(e.target.value)}
-                      className="w-16 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <span className="text-sm text-gray-600">Minutes</span>
-                  </div>
-                </div>
+                {(() => {
+                  const dayDurations = productData?.dayDurations || {};
+                  const dayDuration = dayDurations[selectedDay] || '';
+                  const dayDurationMinutes = parseDurationToMinutes(dayDuration);
+                  
+                  if (dayDurationMinutes > 0) {
+                    // Calculate current total time spent for this day (excluding the entry being edited)
+                    const currentDayItineraries = itineraryEntries.filter(entry => (entry.day || 1) === selectedDay);
+                    let currentTotalMinutes = 0;
+                    
+                    currentDayItineraries.forEach(entry => {
+                      // Skip the entry being edited (we'll add the new time separately)
+                      if (editingItineraryId && entry.id === editingItineraryId) {
+                        return;
+                      }
+                      currentTotalMinutes += parseTimeSpentToMinutes(entry.timeSpent);
+                    });
+                    
+                    // Calculate remaining time
+                    const currentInputMinutes = parseInt(hours || '0', 10) * 60 + parseInt(minutes || '0', 10);
+                    const totalWithNew = currentTotalMinutes + currentInputMinutes;
+                    const remainingMinutes = dayDurationMinutes - currentTotalMinutes;
+                    const remainingHours = Math.floor(remainingMinutes / 60);
+                    const remainingMins = remainingMinutes % 60;
+                    const isExceeding = totalWithNew > dayDurationMinutes;
+                    
+                    return (
+                      <>
+                        <div className="flex items-center space-x-4 mb-2">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={hours}
+                              onChange={(e) => setHours(e.target.value)}
+                              className={`w-16 px-3 py-2 bg-gray-100 border rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                isExceeding ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                              }`}
+                            />
+                            <span className="text-sm text-gray-600">Hours</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="text"
+                              value={minutes}
+                              onChange={(e) => setMinutes(e.target.value)}
+                              className={`w-16 px-3 py-2 bg-gray-100 border rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                isExceeding ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                              }`}
+                            />
+                            <span className="text-sm text-gray-600">Minutes</span>
+                          </div>
+                        </div>
+                        {/* Remaining Time Indicator */}
+                        <div className={`text-xs mt-2 p-2 rounded-lg ${
+                          isExceeding 
+                            ? 'bg-red-50 text-red-700 border border-red-200' 
+                            : remainingMinutes < 60 
+                              ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">
+                              Day {selectedDay} Duration: {dayDuration}
+                            </span>
+                            <span>
+                              {isExceeding ? (
+                                <span className="font-semibold">
+                                  ⚠️ Exceeds by {Math.floor((totalWithNew - dayDurationMinutes) / 60)}h {(totalWithNew - dayDurationMinutes) % 60}min
+                                </span>
+                              ) : (
+                                <span>
+                                  Remaining: {remainingHours > 0 ? `${remainingHours}h ` : ''}{remainingMins}min
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          {currentTotalMinutes > 0 && (
+                            <div className="mt-1 text-xs opacity-75">
+                              Already used: {Math.floor(currentTotalMinutes / 60)}h {currentTotalMinutes % 60}min
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  }
+                  
+                  // No duration set - show normal inputs
+                  return (
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={hours}
+                          onChange={(e) => setHours(e.target.value)}
+                          className="w-16 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-sm text-gray-600">Hours</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={minutes}
+                          onChange={(e) => setMinutes(e.target.value)}
+                          className="w-16 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-sm text-gray-600">Minutes</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Entry is Free */}

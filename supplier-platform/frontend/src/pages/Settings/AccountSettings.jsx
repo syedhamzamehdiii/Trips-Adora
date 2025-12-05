@@ -31,7 +31,7 @@ const AccountSettings = () => {
     {
       id: 1,
       type: 'QQ Number',
-      value: '876543210'
+      value: ''
     }
   ]);
 
@@ -258,7 +258,18 @@ const AccountSettings = () => {
       setProfileData(prev => ({ ...prev, ...data.profileData }));
     }
     if (Array.isArray(data.contactNumbers) && data.contactNumbers.length > 0) {
-      setContactNumbers(data.contactNumbers);
+      // Filter out dummy contact number and clear its value
+      const cleanedContactNumbers = data.contactNumbers.map(contact => {
+        if (contact.value === '876543210') {
+          return { ...contact, value: '' };
+        }
+        return contact;
+      });
+      setContactNumbers(cleanedContactNumbers);
+      // If the cleaned array is different, persist the cleaned version
+      if (JSON.stringify(cleanedContactNumbers) !== JSON.stringify(data.contactNumbers)) {
+        persistSettings({ contactNumbers: cleanedContactNumbers }, { immediate: true });
+      }
     }
     if (data.notifications) {
       setNotifications(prev => ({ ...prev, ...data.notifications }));

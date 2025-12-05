@@ -118,7 +118,7 @@ class ProductService:
             return await Product.get(PydanticObjectId(product_id))
         except:
             return None
-
+    
     @staticmethod
     async def get_product_by_id_and_supplier(
         product_id: str,

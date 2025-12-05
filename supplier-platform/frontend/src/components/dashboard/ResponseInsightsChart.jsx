@@ -95,7 +95,7 @@ export default function ResponseInsightsChart() {
                 position="top"
                 className="text-[10px]"
                 formatter={(value) => (value > 0 ? value : '')}
-              />
+            />
             </Line>
           </LineChart>
         </ResponsiveContainer>

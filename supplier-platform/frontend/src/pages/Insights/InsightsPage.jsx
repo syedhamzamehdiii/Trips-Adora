@@ -231,7 +231,7 @@ const InsightsPage = () => {
         const countryMap = new Map(); // country -> { bookings: number, productCounts: Map }
         (bookings || []).forEach(b => {
           const country = (b.customerCountry || '').trim() || 'Unknown';
-
+          
           const entry = countryMap.get(country) || { bookings: 0, productCounts: new Map() };
           entry.bookings += 1;
           const productName = b.booking || b.productId || 'Unknown Product';
