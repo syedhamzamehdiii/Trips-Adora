@@ -19,6 +19,7 @@ class VehicleBase(BaseModel):
     currency: str = Field(default="USD")
     pricing_type: str = Field(default="Per Trip")
     amount: float = Field(..., ge=0)
+    tour_days: Optional[str] = Field(default=None, description="Number of tour days")
     duration: Optional[str] = Field(default=None)
     description: Optional[str] = Field(default=None)
     is_active: bool = Field(default=True)
@@ -38,6 +39,7 @@ class VehicleUpdate(BaseModel):
     currency: Optional[str] = None
     pricing_type: Optional[str] = None
     amount: Optional[float] = Field(default=None, ge=0)
+    tour_days: Optional[str] = None
     duration: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None

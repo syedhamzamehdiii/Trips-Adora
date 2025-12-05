@@ -33,6 +33,10 @@ class SupplierVehicle(Document):
         description="Pricing label such as Per Trip, Per Hour",
     )
     amount: float = Field(..., ge=0)
+    tour_days: Optional[str] = Field(
+        default=None,
+        description="Number of tour days (e.g. 1, 2, 3)",
+    )
     duration: Optional[str] = Field(
         default=None,
         description="Displayed duration label (e.g. 7h, Full Day)",

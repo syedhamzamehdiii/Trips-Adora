@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin, FiClock, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiCheckCircle, FiInfo, FiX, FiChevronDown, FiUpload, FiSend, FiMapPin, FiClock, FiPlus, FiMinus, FiTrash2 } from 'react-icons/fi';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import AddItineraryComponent from './AddItineraryComponent';
 import productService from '@/services/productService';
@@ -191,6 +191,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   const [currency, setCurrency] = useState('');
   const [pricingType, setPricingType] = useState('');
   const [productAmount, setProductAmount] = useState('');
+  const [totalTourDays, setTotalTourDays] = useState('1');
+  const [dayDurations, setDayDurations] = useState({ 1: '' }); // Store duration for each day
   const [totalDuration, setTotalDuration] = useState('');
   const [vehicleDescription, setVehicleDescription] = useState('');
   const editingVehicle = useMemo(
@@ -385,6 +387,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     setCurrency('');
     setPricingType('');
     setProductAmount('');
+    setTotalTourDays('1');
+    setDayDurations({ 1: '' });
     setTotalDuration('');
     setVehicleDescription('');
     setSelectedVehicleForTour(null);
@@ -577,44 +581,49 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   };
 
   const renderCancellationPolicySection = () => (
-    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900">Cancellation & Refund Policy</h3>
-          <p className="text-gray-600 mt-1 text-sm sm:text-base">
+    <div className="bg-gradient-to-br from-white to-gray-50/50 border border-gray-200 rounded-3xl p-8 md:p-10 shadow-lg">
+      <div className="mb-10">
+        <div className="space-y-3">
+          <h3 className="text-3xl font-bold text-gray-900 tracking-tight">Cancellation & Refund Policy</h3>
+          <p className="text-gray-600 text-base leading-relaxed max-w-2xl">
             Add your refund schedule and optional guest guidelines. This policy will be shown on the customer page.
           </p>
         </div>
-        <span className="text-xs uppercase tracking-wide bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold">
-          Optional but recommended
-        </span>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-sm text-blue-800">
-        Create multiple refund tiers (for example 100% refund for 7+ days, 50% for 3-6 days, etc.) and outline any important notes or deadlines.
+      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border-l-4 border-blue-400 rounded-xl p-6 mb-10 text-sm text-blue-900 shadow-sm">
+        <div className="flex items-start gap-3">
+          <FiInfo className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <p className="leading-relaxed">
+            Create multiple refund tiers (for example 100% refund for 7+ days, 50% for 3-6 days, etc.) and outline any important notes or deadlines.
+          </p>
+        </div>
       </div>
 
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-lg font-semibold text-gray-900">Refund Schedule</h4>
+      <div className="mb-10">
+        <div className="flex items-center justify-between mb-6">
+          <div className="space-y-1">
+            <h4 className="text-xl font-bold text-gray-900">Refund Schedule</h4>
+            <p className="text-sm text-gray-500">Define your cancellation tiers and refund percentages</p>
+          </div>
           <button
             type="button"
             onClick={addScheduleEntry}
-            className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
           >
             <FiPlus className="w-4 h-4" />
             Add New Tier
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-5">
           {cancellationPolicy.schedule.map((entry, index) => (
             <div
               key={entry.id}
-              className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,auto] gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4"
+              className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,auto] gap-5 bg-white border-2 border-gray-200 rounded-2xl p-6 shadow-md hover:shadow-lg transition-shadow duration-200"
             >
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">
                   Time Range
                 </label>
                 <input
@@ -622,12 +631,12 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                   value={entry.label}
                   onChange={(e) => handleScheduleChange(entry.id, 'label', e.target.value)}
                   placeholder="e.g., 7+ Days"
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">
                   Refund (%)
                 </label>
                 <input
@@ -636,12 +645,12 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                   max={100}
                   value={entry.percentage}
                   onChange={(e) => handleScheduleChange(entry.id, 'percentage', e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">
                   Display Note
                 </label>
                 <input
@@ -649,7 +658,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                   value={entry.note}
                   onChange={(e) => handleScheduleChange(entry.id, 'note', e.target.value)}
                   placeholder="e.g., Before 12:00 PM, Sep 14"
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400"
                 />
               </div>
 
@@ -657,14 +666,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 <button
                   type="button"
                   onClick={() => removeScheduleEntry(entry.id)}
-                  className={`inline-flex items-center justify-center w-full md:w-10 h-10 rounded-lg border ${
+                  className={`inline-flex items-center justify-center w-full md:w-12 h-12 rounded-xl border-2 transition-all duration-200 ${
                     cancellationPolicy.schedule.length === 1
-                      ? 'border-gray-200 text-gray-300 cursor-not-allowed'
-                      : 'border-red-200 text-red-500 hover:bg-red-50'
+                      ? 'border-gray-200 text-gray-300 cursor-not-allowed bg-gray-50'
+                      : 'border-red-300 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-400 shadow-sm hover:shadow-md'
                   }`}
                   disabled={cancellationPolicy.schedule.length === 1}
                 >
-                  <FiTrash2 className="w-4 h-4" />
+                  <FiTrash2 className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -672,8 +681,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         </div>
       </div>
 
-      <div className="mb-6">
-        <label className="block text-sm font-semibold text-gray-900 mb-2">
+      <div className="mb-10 p-6 bg-white border-2 border-gray-200 rounded-2xl shadow-md">
+        <label className="block text-base font-bold text-gray-900 mb-3">
           Free Cancellation Message
         </label>
         <input
@@ -681,25 +690,25 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           value={cancellationPolicy.freeCancellationText}
           onChange={(e) => handleFreeCancellationTextChange(e.target.value)}
           placeholder="e.g., Free cancellation until 12:00 PM, 2 days before the tour"
-          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-5 py-4 bg-gray-50 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 mb-3"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-sm text-gray-500 leading-relaxed">
           This appears in a banner above your refund schedule on the customer page.
         </p>
       </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h4 className="text-lg font-semibold text-gray-900">Important Notes</h4>
-            <p className="text-gray-600 text-sm">
+      <div className="p-6 bg-white border-2 border-gray-200 rounded-2xl shadow-md">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
+          <div className="space-y-2">
+            <h4 className="text-xl font-bold text-gray-900">Important Notes</h4>
+            <p className="text-sm text-gray-600 leading-relaxed max-w-2xl">
               Optional bullet points that will display below the schedule (e.g., policy reminders or effective dates).
             </p>
           </div>
           <button
             type="button"
             onClick={addPolicyNote}
-            className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 whitespace-nowrap"
           >
             <FiPlus className="w-4 h-4" />
             Add Note
@@ -707,24 +716,26 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         </div>
 
         {cancellationPolicy.notes.length === 0 ? (
-          <p className="text-sm text-gray-500">No notes added yet.</p>
+          <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+            <p className="text-sm text-gray-500">No notes added yet. Click "Add Note" to get started.</p>
+          </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {cancellationPolicy.notes.map((note, index) => (
-              <div key={`note-${index}`} className="flex items-start gap-3">
+              <div key={`note-${index}`} className="flex items-start gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl hover:shadow-md transition-shadow duration-200">
                 <textarea
                   value={note}
                   onChange={(e) => handlePolicyNoteChange(index, e.target.value)}
                   placeholder="Write a note that will be displayed to travelers"
-                  className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={2}
+                  className="flex-1 px-4 py-3 bg-white border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-gray-900 placeholder-gray-400 resize-none"
+                  rows={3}
                 />
                 <button
                   type="button"
                   onClick={() => removePolicyNote(index)}
-                  className="mt-1 inline-flex items-center justify-center w-10 h-10 rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
+                  className="mt-1 inline-flex items-center justify-center w-12 h-12 rounded-xl border-2 border-red-300 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-400 shadow-sm hover:shadow-md transition-all duration-200 flex-shrink-0"
                 >
-                  <FiTrash2 className="w-4 h-4" />
+                  <FiTrash2 className="w-5 h-5" />
                 </button>
               </div>
             ))}
@@ -1024,7 +1035,23 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           if (draftData.currency) setCurrency(draftData.currency);
           if (draftData.pricingType) setPricingType(draftData.pricingType);
           if (draftData.productAmount) setProductAmount(draftData.productAmount);
-          if (draftData.totalDuration) setTotalDuration(draftData.totalDuration);
+          if (draftData.totalTourDays) {
+            setTotalTourDays(draftData.totalTourDays);
+            const currentDay = parseInt(draftData.totalTourDays, 10) || 1;
+            if (draftData.dayDurations && typeof draftData.dayDurations === 'object') {
+              setDayDurations(draftData.dayDurations);
+              setTotalDuration(draftData.dayDurations[currentDay] || '');
+            } else if (draftData.totalDuration) {
+              setDayDurations({ [currentDay]: draftData.totalDuration });
+              setTotalDuration(draftData.totalDuration);
+            } else {
+              setDayDurations({ 1: '' });
+              setTotalDuration('');
+            }
+          } else if (draftData.totalDuration) {
+            setTotalDuration(draftData.totalDuration);
+            setDayDurations({ 1: draftData.totalDuration });
+          }
           if (draftData.vehicleDescription) setVehicleDescription(draftData.vehicleDescription);
           if (draftData.selectedVehicleForTour) setSelectedVehicleForTour(draftData.selectedVehicleForTour);
           
@@ -1307,6 +1334,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
           currency,
           pricingType,
           productAmount,
+          totalTourDays,
+          dayDurations,
           totalDuration,
           vehicleDescription,
           selectedVehicleForTour,
@@ -1388,7 +1417,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     includedItems, excludedItems, accessibilityToggles,
     vehicles, vehicleTitle, selectedVehicleType, selectedVehicleModel, vehicleYear,
     vehicleAttributes, numTravellers, currency, pricingType, productAmount,
-    totalDuration, vehicleDescription, selectedVehicleForTour,
+    totalTourDays, dayDurations, totalDuration, vehicleDescription, selectedVehicleForTour,
     selectedPickupLocations, selectedDropoffLocations, activePickupLocations, activeDropoffLocations,
     selectedPickupHour, selectedPickupMinute, selectedWeekDay, selectedDate, timeSlots,
     vehicleTimeAllocations, itineraries,
@@ -2262,6 +2291,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       currency,
       pricingType,
       amount: Number.isFinite(amountValue) ? amountValue : 0,
+      tourDays: totalTourDays,
+      dayDurations: dayDurations,
       duration: totalDuration,
       description: vehicleDescription.trim(),
     };
@@ -2356,6 +2387,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     setCurrency('');
     setPricingType('');
     setProductAmount('');
+    setTotalTourDays('1');
+    setDayDurations({ 1: '' });
     setTotalDuration('');
     setVehicleDescription('');
     setEditingVehicleId(null);
@@ -2380,7 +2413,25 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         ? String(vehicle.amount)
         : ''
     );
-    setTotalDuration(vehicle.duration || '');
+    const tourDays = vehicle.tourDays || '1';
+    setTotalTourDays(tourDays);
+    
+    // Load day durations if available, otherwise initialize
+    if (vehicle.dayDurations && typeof vehicle.dayDurations === 'object') {
+      setDayDurations(vehicle.dayDurations);
+      const currentDay = parseInt(tourDays, 10) || 1;
+      setTotalDuration(vehicle.dayDurations[currentDay] || '');
+    } else {
+      // Initialize dayDurations for all days up to tourDays
+      const days = parseInt(tourDays, 10) || 1;
+      const initialDurations = {};
+      for (let i = 1; i <= days; i++) {
+        initialDurations[i] = '';
+      }
+      setDayDurations(initialDurations);
+      setTotalDuration(vehicle.duration || '');
+    }
+    
     setVehicleDescription(vehicle.description || '');
     setEditingVehicleId(vehicle.id || null);
     
@@ -5061,27 +5112,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Make & Variant</label>
-                    <div className="relative">
-                    <select 
-                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
+                    <input
+                      type="text"
+                      placeholder="Enter make and variant"
                       value={selectedVehicleModel}
                       onChange={(e) => setSelectedVehicleModel(e.target.value)}
-                      disabled={!selectedVehicleType}
-                        required
-                    >
-                      <option value="">Select Variant</option>
-                      {getVehicleModels().map((model) => (
-                        <option key={model.value} value={model.value}>
-                          {model.label}
-                        </option>
-                      ))}
-                    </select>
-                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
-                      </div>
-                     </div>
+                      required
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
                   
                   <div>
@@ -5092,12 +5130,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                         value={vehicleYear}
                         onChange={(e) => setVehicleYear(e.target.value)}
                       >
-                        <option value="2024">2024</option>
-                        <option value="2023">2023</option>
-                        <option value="2022">2022</option>
-                      <option value="2020">2020</option>
-                        <option value="2018">2018</option>
-                        <option value="2015">2015</option>
+                        {Array.from({ length: 11 }, (_, i) => 2025 - i).map((year) => (
+                          <option key={year} value={String(year)}>{year}</option>
+                        ))}
                     </select>
                       <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5112,28 +5147,14 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                   {/* Row 2 */}
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">Vehicle Attributes</label>
-                    <div className="relative">
-                      <select 
-                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
-                        value={vehicleAttributes}
-                        onChange={(e) => setVehicleAttributes(e.target.value)}
-                        required
-                      >
-                        <option value="">Select Attributes</option>
-                      <option>Comfort 1.2x</option>
-                      <option>Economy 1x</option>
-                      <option>Premium 1.5x</option>
-                      <option>Automatic Transmission 1.1x</option>
-                      <option>Manual Transmission 1.1x</option>
-                      <option>Hybrid 1.3x</option>
-                      <option>Electric 1.4x</option>
-                    </select>
-                      <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
-                       <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                       </svg>
-                      </div>
-                     </div>
+                    <input
+                      type="text"
+                      placeholder="Enter vehicle attributes (e.g., Premium 1.5x, Luxury, Comfort 1.2x)"
+                      value={vehicleAttributes}
+                      onChange={(e) => setVehicleAttributes(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
                   
                   <div>
@@ -5154,6 +5175,8 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                         <option>06</option>
                         <option>07</option>
                         <option>08</option>
+                        <option>09</option>
+                        <option>10</option>
                     </select>
                       <div className="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5239,8 +5262,82 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 </div>
               </div>
 
-              {/* Total Duration and Description */}
-              <div className="grid grid-cols-2 gap-6">
+              {/* Total Tour Days and Total Duration */}
+              <div className="grid grid-cols-2 gap-6 mb-6">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-900 mb-2">Total Tour Days</label>
+                   <p className="text-sm text-gray-600 mb-3">Select the number of days for your tour.</p>
+                   <div className="flex items-center gap-3">
+                     <button
+                       type="button"
+                       onClick={() => {
+                         const currentDays = parseInt(totalTourDays, 10) || 1;
+                         if (currentDays > 1) {
+                           // Save current duration for current day and get duration for new day
+                           setDayDurations(prev => {
+                             const updated = {
+                               ...prev,
+                               [currentDays]: totalDuration
+                             };
+                             const newDay = currentDays - 1;
+                             // Restore duration for the day being shown
+                             setTotalDuration(updated[newDay] || '');
+                             return updated;
+                           });
+                           
+                           // Decrement days
+                           setTotalTourDays(String(currentDays - 1));
+                         }
+                       }}
+                       disabled={parseInt(totalTourDays, 10) <= 1}
+                       className={`flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-colors ${
+                         parseInt(totalTourDays, 10) <= 1
+                           ? 'border-gray-300 text-gray-300 cursor-not-allowed'
+                           : 'border-gray-300 text-gray-700 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50'
+                       }`}
+                     >
+                       <FiMinus size={18} />
+                     </button>
+                     <div className="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-lg text-center font-medium text-gray-900">
+                       {totalTourDays} {parseInt(totalTourDays, 10) === 1 ? 'Day' : 'Days'}
+                     </div>
+                     <button
+                       type="button"
+                       onClick={() => {
+                         const currentDays = parseInt(totalTourDays, 10) || 1;
+                         // Prevent adding days if duration is not selected
+                         if (!totalDuration || totalDuration.trim() === '') {
+                           return;
+                         }
+                         if (currentDays < 10) {
+                           // Save current duration for current day and get duration for new day
+                           setDayDurations(prev => {
+                             const updated = {
+                               ...prev,
+                               [currentDays]: totalDuration
+                             };
+                             const newDay = currentDays + 1;
+                             // Load duration for the new day (or empty if not set)
+                             setTotalDuration(updated[newDay] || '');
+                             return updated;
+                           });
+                           
+                           // Increment days
+                           setTotalTourDays(String(currentDays + 1));
+                         }
+                       }}
+                       disabled={parseInt(totalTourDays, 10) >= 10 || !totalDuration || totalDuration.trim() === ''}
+                       className={`flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-colors ${
+                         parseInt(totalTourDays, 10) >= 10 || !totalDuration || totalDuration.trim() === ''
+                           ? 'border-gray-300 text-gray-300 cursor-not-allowed'
+                           : 'border-gray-300 text-gray-700 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50'
+                       }`}
+                     >
+                       <FiPlus size={18} />
+                     </button>
+                   </div>
+                 </div>
+                 
                  <div>
                    <label className="block text-sm font-medium text-gray-900 mb-2">Total duration</label>
                    <p className="text-sm text-gray-600 mb-3">Specify how long the car will be available for your trip.</p>
@@ -5248,7 +5345,16 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                      <select 
                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
                        value={totalDuration}
-                       onChange={(e) => setTotalDuration(e.target.value)}
+                       onChange={(e) => {
+                         const newDuration = e.target.value;
+                         setTotalDuration(newDuration);
+                         // Save duration for current day
+                         const currentDay = parseInt(totalTourDays, 10) || 1;
+                         setDayDurations(prev => ({
+                           ...prev,
+                           [currentDay]: newDuration
+                         }));
+                       }}
                        required
                      >
                        <option value="">Select Duration</option>
@@ -5279,34 +5385,35 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                      </div>
                    </div>
                  </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
-                  <textarea
-                    placeholder="Enter vehicle description..."
-                    value={vehicleDescription}
-                    onChange={(e) => setVehicleDescription(e.target.value)}
-                    rows="4"
-                    required
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <div className="flex gap-3 mt-3">
+              </div>
+
+              {/* Description */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
+                <textarea
+                  placeholder="Enter vehicle description..."
+                  value={vehicleDescription}
+                  onChange={(e) => setVehicleDescription(e.target.value)}
+                  rows="4"
+                  required
+                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <div className="flex gap-3 mt-3">
+                  <button 
+                    onClick={saveVehicleOption}
+                    disabled={vehicleSaving}
+                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${vehicleSaving ? 'bg-blue-300 cursor-not-allowed text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                  >
+                    {vehicleSaving ? 'Saving...' : editingVehicleId ? 'Update' : 'Save'}
+                </button>
+                  {editingVehicleId && (
                     <button 
-                      onClick={saveVehicleOption}
-                      disabled={vehicleSaving}
-                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${vehicleSaving ? 'bg-blue-300 cursor-not-allowed text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                      onClick={clearVehicleForm}
+                      className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium transition-colors"
                     >
-                      {vehicleSaving ? 'Saving...' : editingVehicleId ? 'Update' : 'Save'}
-                  </button>
-                    {editingVehicleId && (
-                      <button 
-                        onClick={clearVehicleForm}
-                        className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
 
