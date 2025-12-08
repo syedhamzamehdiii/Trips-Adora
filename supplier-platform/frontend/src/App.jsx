@@ -81,14 +81,10 @@ function VerifiedRoute({ children }) {
         ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
         : `${customerAppUrl}/supplier-registration`
       
-      // Prevent redirect loop - only redirect if we're not already on customer platform
+      // Redirect if we're not already on customer platform
       if (!currentUrl.includes('5174') && !currentUrl.includes('supplier-registration')) {
-        const redirectFlag = sessionStorage.getItem('supplier_redirect_to_registration')
-        if (!redirectFlag) {
-          sessionStorage.setItem('supplier_redirect_to_registration', 'true')
-          setShouldRedirect(true)
-          window.location.href = registrationUrl
-        }
+        setShouldRedirect(true)
+        window.location.href = registrationUrl
       }
     }
   }, [isAuthenticated, user])
@@ -139,14 +135,9 @@ function AppRoutes() {
         ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
         : `${customerAppUrl}/supplier-registration`
       
-      // Prevent redirect loop - only redirect if we're not already on customer platform
+      // Redirect if we're not already on customer platform
       if (!currentUrl.includes('5174') && !currentUrl.includes('supplier-registration')) {
-        // Set a flag to prevent multiple redirects
-        const redirectFlag = sessionStorage.getItem('supplier_redirect_to_registration')
-        if (!redirectFlag) {
-          sessionStorage.setItem('supplier_redirect_to_registration', 'true')
-          window.location.href = registrationUrl
-        }
+        window.location.href = registrationUrl
       }
     }
   }, [isAuthenticated, user])

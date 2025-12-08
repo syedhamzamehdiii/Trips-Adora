@@ -97,7 +97,11 @@ async def get_supplier_onboarding(
                         detail="Access denied"
                     )
         
-        return onboarding.dict()
+        # Serialize ObjectIds to strings
+        result = onboarding.dict()
+        result["id"] = str(onboarding.id) if getattr(onboarding, "id", None) else None
+        result["user_id"] = str(onboarding.user_id) if getattr(onboarding, "user_id", None) else None
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -135,7 +139,15 @@ async def list_supplier_onboardings(
                 query["status"] = status_filter
             onboardings = await SupplierOnboarding.find(query).to_list()
         
-        return [onboarding.dict() for onboarding in onboardings]
+        # Ensure ObjectIds are serialized as strings to avoid Pydantic errors
+        return [
+            {
+                **onboarding.dict(),
+                "id": str(onboarding.id) if getattr(onboarding, "id", None) else None,
+                "user_id": str(onboarding.user_id) if getattr(onboarding, "user_id", None) else None,
+            }
+            for onboarding in onboardings
+        ]
     except Exception as e:
         logger.error(f"Error listing supplier onboardings: {e}")
         raise HTTPException(
@@ -179,7 +191,11 @@ async def update_onboarding_status(
         
         logger.info(f"Admin {current_user.id} updated onboarding {onboarding_id} to {update_data.status}")
         
-        return onboarding.dict()
+        # Serialize ObjectIds to strings to avoid Pydantic errors
+        result = onboarding.dict()
+        result["id"] = str(onboarding.id) if getattr(onboarding, "id", None) else None
+        result["user_id"] = str(onboarding.user_id) if getattr(onboarding, "user_id", None) else None
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -216,7 +232,11 @@ async def get_onboarding_by_email(
                     detail="Access denied"
                 )
         
-        return onboarding.dict()
+        # Serialize ObjectIds to strings
+        result = onboarding.dict()
+        result["id"] = str(onboarding.id) if getattr(onboarding, "id", None) else None
+        result["user_id"] = str(onboarding.user_id) if getattr(onboarding, "user_id", None) else None
+        return result
     except HTTPException:
         raise
     except Exception as e:

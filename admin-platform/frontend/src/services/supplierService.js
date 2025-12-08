@@ -1,6 +1,7 @@
-import { apiService } from './api';
+import { apiService, supplierApiService } from './api';
 
 const BASE_PATH = '/suppliers';
+const SUPPLIER_ONBOARDING_PATH = '/supplier-onboarding';
 
 /**
  * Get all active suppliers with pagination and search
@@ -51,13 +52,13 @@ export const getSupplierProducts = async (supplierId, page = 1, pageSize = 10) =
 };
 
 export const getPendingOnboardings = async (status = 'pending') => {
-  const params = status ? { status } : {};
-  return await apiService.get(`${BASE_PATH}/onboardings`, params);
+  const params = status ? { status_filter: status } : {};
+  return await supplierApiService.get(SUPPLIER_ONBOARDING_PATH, params);
 };
 
 export const updateOnboardingStatus = async (onboardingId, status, rejection_reason = null) => {
-  return await apiService.patch(
-    `${BASE_PATH}/onboardings/${encodeURIComponent(onboardingId)}`,
+  return await supplierApiService.put(
+    `${SUPPLIER_ONBOARDING_PATH}/${encodeURIComponent(onboardingId)}/status`,
     { status, rejection_reason }
   );
 };

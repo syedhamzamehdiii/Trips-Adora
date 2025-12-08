@@ -90,34 +90,60 @@ const generatePendingSuppliers = () => {
 const SupplierProfileView = ({ supplier, onBack, onApprove, onReject }) => {
   const isSolo = supplier.accountType === 'solo';
   
-  const InfoField = ({ label, value, isImage = false, isLink = false }) => (
-    <div className="py-3 border-b border-gray-100">
-      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</div>
-      {!value || value === null ? (
-        <div className="text-sm text-gray-400 italic">Not provided</div>
-      ) : isImage ? (
-        <div className="mt-2">
-          <img 
-            src={value} 
-            alt={label} 
-            className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
-            style={{ maxHeight: '300px' }}
-          />
-        </div>
-      ) : isLink ? (
-        <a 
-          href={value} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-sm text-blue-600 hover:text-blue-800 underline"
-        >
-          {value}
-        </a>
-      ) : (
-        <div className="text-sm text-gray-800 font-medium">{value}</div>
-      )}
-    </div>
-  );
+  const InfoField = ({ label, value, isImage = false, isLink = false }) => {
+    const isPdf =
+      typeof value === 'string' &&
+      value.toLowerCase().trim().endsWith('.pdf');
+
+    return (
+      <div className="py-3 border-b border-gray-100">
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</div>
+        {!value || value === null ? (
+          <div className="text-sm text-gray-400 italic">Not provided</div>
+        ) : isImage ? (
+          isPdf ? (
+            <a
+              href={value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 hover:text-blue-800 underline"
+            >
+              Open PDF
+            </a>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <img 
+                src={value} 
+                alt={label} 
+                className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                style={{ maxHeight: '300px' }}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+              <a 
+                href={value} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                Open document
+              </a>
+            </div>
+          )
+        ) : isLink ? (
+          <a 
+            href={value} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            {value}
+          </a>
+        ) : (
+          <div className="text-sm text-gray-800 font-medium">{value}</div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="w-full h-full text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -174,14 +200,20 @@ const SupplierProfileView = ({ supplier, onBack, onApprove, onReject }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1">
-                  <InfoField label="Supplier Name" value={supplier.supplierName || supplier.name} />
-                  <InfoField label="Supplier Email" value={supplier.supplierEmail || supplier.email} />
-                  <InfoField label="Supplier Phone No" value={supplier.supplierPhone || supplier.phone} />
+                  <InfoField label="Supplier Name" value={supplier.supplierName || supplier.name || supplier.user_name} />
+                  <InfoField label="Supplier Email" value={supplier.supplierEmail || supplier.email || supplier.user_email} />
+                  <InfoField label="Supplier Phone No" value={supplier.supplierPhone || supplier.phone || supplier.person_contact} />
                   <InfoField label="Supplier Location" value={supplier.supplierLocation || supplier.location} />
-                  <InfoField label="Number of Employees" value={supplier.numberOfEmployees?.toString()} />
+                  <InfoField label="Number of Employees" value={supplier.numberOfEmployees?.toString() || supplier.employee_count?.toString()} />
                 </div>
                 <div className="space-y-1">
-                  <InfoField label="Identification Document" value={supplier.identification} isImage={!!supplier.identification} />
+                  {supplier.idType && (
+                    <InfoField label="ID Type" value={supplier.idType} />
+                  )}
+                  <InfoField label="Identification Document (Front)" value={supplier.identification} isImage={!!supplier.identification} />
+                  {supplier.identificationBack && (
+                    <InfoField label="Identification Document (Back)" value={supplier.identificationBack} isImage={!!supplier.identificationBack} />
+                  )}
                 </div>
               </div>
             </div>
@@ -200,41 +232,40 @@ const SupplierProfileView = ({ supplier, onBack, onApprove, onReject }) => {
                     <InfoField label="Business Bio" value={supplier.businessBio} />
                   </div>
                   <div className="space-y-1">
-                    {supplier.social && (
+                    {supplier.socialLinks && supplier.socialLinks.length > 0 ? (
                       <div className="py-3 border-b border-gray-100">
                         <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Social Media</div>
                         <div className="space-y-2">
-                          {supplier.social.facebook && (
-                            <a href={supplier.social.facebook} target="_blank" rel="noopener noreferrer" className="block text-sm text-blue-600 hover:text-blue-800">
-                              Facebook: {supplier.social.facebook}
+                          {supplier.socialLinks.map((link, index) => (
+                            <a 
+                              key={index}
+                              href={link} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="block text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              {link}
                             </a>
-                          )}
-                          {supplier.social.instagram && (
-                            <a href={supplier.social.instagram} target="_blank" rel="noopener noreferrer" className="block text-sm text-pink-600 hover:text-pink-800">
-                              Instagram: {supplier.social.instagram}
-                            </a>
-                          )}
-                          {supplier.social.twitter && (
-                            <a href={supplier.social.twitter} target="_blank" rel="noopener noreferrer" className="block text-sm text-blue-400 hover:text-blue-600">
-                              Twitter: {supplier.social.twitter}
-                            </a>
-                          )}
-                          {!supplier.social.facebook && !supplier.social.instagram && !supplier.social.twitter && (
-                            <div className="text-sm text-gray-400 italic">Not provided</div>
-                          )}
+                          ))}
                         </div>
                       </div>
-                    )}
-                    {!supplier.social && (
+                    ) : (
                       <InfoField label="Social Media" value={null} />
                     )}
-                    <InfoField label="Business Website" value={supplier.businessWebsite} isLink={!!supplier.businessWebsite} />
+                    <InfoField 
+                      label="Business Website" 
+                      value={supplier.businessWebsite ? (supplier.businessWebsite.startsWith('http') ? supplier.businessWebsite : `https://${supplier.businessWebsite}`) : null} 
+                      isLink={!!supplier.businessWebsite} 
+                    />
                     <InfoField label="Company Logo" value={supplier.companyLogo} isImage={!!supplier.companyLogo} />
                   </div>
                 </div>
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <InfoField label="Business Insurance" value={supplier.businessInsurance} isImage={!!supplier.businessInsurance} />
                   <InfoField label="Business Registration Document" value={supplier.businessRegistration} isImage={!!supplier.businessRegistration} />
+                  {supplier.businessRegistrationNumber && (
+                    <InfoField label="Business Registration Number" value={supplier.businessRegistrationNumber} />
+                  )}
                 </div>
               </div>
 
@@ -250,7 +281,13 @@ const SupplierProfileView = ({ supplier, onBack, onApprove, onReject }) => {
                     <InfoField label="Number of Employees" value={supplier.numberOfEmployees?.toString()} />
                   </div>
                   <div className="space-y-1">
-                    <InfoField label="Identification Document" value={supplier.identification} isImage={!!supplier.identification} />
+                    {supplier.idType && (
+                      <InfoField label="ID Type" value={supplier.idType} />
+                    )}
+                    <InfoField label="Identification Document (Front)" value={supplier.identification} isImage={!!supplier.identification} />
+                    {supplier.identificationBack && (
+                      <InfoField label="Identification Document (Back)" value={supplier.identificationBack} isImage={!!supplier.identificationBack} />
+                    )}
                   </div>
                 </div>
               </div>
@@ -272,22 +309,51 @@ const ManageSupplierApprovals = ({ onBack }) => {
 
   const mapOnboardingToSupplier = (item) => {
     const name = item.business_name || item.user_name || item.email;
-    const locationParts = [item.business_city, item.business_country].filter(Boolean);
+    const businessLocationParts = [item.business_city, item.business_country].filter(Boolean);
+    const personLocationParts = [item.person_city, item.person_country].filter(Boolean);
+    const personLocation = personLocationParts.length > 0 
+      ? personLocationParts.join(', ') 
+      : item.person_address || null;
     const initials = name
       .split(' ')
       .map((n) => n[0])
       .join('')
       .substring(0, 2)
       .toUpperCase();
+    
+    // Map snake_case API fields to camelCase component fields
     return {
       id: item.id,
       name,
       email: item.email || item.user_email,
       phone: item.business_phone || item.person_contact || null,
-      location: locationParts.join(', ') || item.person_address || '—',
+      location: businessLocationParts.join(', ') || personLocation || '—',
       accountType: item.business_type,
       submittedDate: item.submitted_at,
       initials,
+      // Business fields
+      businessName: item.business_name,
+      businessEmail: item.business_email || item.email,
+      businessPhone: item.business_phone,
+      businessLocation: businessLocationParts.join(', ') || null,
+      businessWebsite: item.business_website,
+      businessBio: item.short_bio,
+      companyLogo: item.logo_url,
+      businessInsurance: item.insurance_document_url,
+      businessRegistration: item.business_document_url,
+      businessRegistrationNumber: item.business_registration,
+      // Supplier/Person fields
+      supplierName: item.user_name,
+      supplierEmail: item.user_email || item.email,
+      supplierPhone: item.person_contact,
+      supplierLocation: personLocation,
+      numberOfEmployees: item.employee_count,
+      identification: item.id_front_url,
+      identificationBack: item.id_back_url,
+      idType: item.id_type,
+      // Social links
+      socialLinks: item.social_links || [],
+      // Keep all original fields for backward compatibility
       ...item,
     };
   };

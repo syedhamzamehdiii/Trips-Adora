@@ -327,7 +327,6 @@ export const AuthProvider = ({ children }) => {
   const updateUser = (userData) => {
     if (!userData) return
     setUser(prev => ({ ...prev, ...userData }))
-    markSupplierOnboardingVerified()
     hydrateBasicProfileFromUser(userData)
   }
 
