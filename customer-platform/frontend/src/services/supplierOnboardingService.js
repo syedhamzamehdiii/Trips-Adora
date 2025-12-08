@@ -89,11 +89,24 @@ class SupplierOnboardingService {
    */
   async submitOnboarding(onboardingData) {
     try {
-      const response = await supplierApi.post('/supplier-onboarding', onboardingData);
+      // Add auth token if available
+      const token = localStorage.getItem('access_token');
+      const config = token ? {
+        headers: { Authorization: `Bearer ${token}` }
+      } : {};
+      
+      console.log('Submitting onboarding with payload:', { ...onboardingData, id_front_url: onboardingData.id_front_url ? '[URL]' : null, id_back_url: onboardingData.id_back_url ? '[URL]' : null });
+      
+      const response = await supplierApi.post('/supplier-onboarding', onboardingData, config);
       return response.data;
     } catch (error) {
-      console.error('Error submitting onboarding:', error);
-      const errorMessage = error.response?.data?.detail || error.message || 'Failed to submit onboarding data';
+      console.error('Error submitting onboarding:', error?.response?.data || error);
+      const errorMessage =
+        error.response?.data?.detail ||
+        (Array.isArray(error.response?.data?.detail) ? error.response.data.detail.map(e => e.msg || e).join(', ') : null) ||
+        (typeof error.response?.data === 'object' ? JSON.stringify(error.response.data) : null) ||
+        error.message ||
+        'Failed to submit onboarding data';
       throw new Error(errorMessage);
     }
   }
@@ -123,7 +136,10 @@ class SupplierOnboardingService {
   async getSupplierUserInfo() {
     try {
       const token = localStorage.getItem('access_token');
-      if (!token) return null;
+      if (!token) {
+        console.log('No access token found in localStorage');
+        return null;
+      }
       
       // Try to get user info from supplier platform
       const response = await supplierApi.get('/auth/me', {
@@ -131,14 +147,39 @@ class SupplierOnboardingService {
       });
       
       if (response.data) {
-        return {
+        const userInfo = {
           name: response.data.full_name || response.data.business_name || response.data.name || '',
           email: response.data.email || ''
         };
+        console.log('Retrieved user info from supplier platform:', userInfo);
+        return userInfo;
       }
+      console.log('No user data in response');
       return null;
     } catch (error) {
-      // Not logged in or error - return null
+      console.error('Error getting supplier user info:', error?.response?.data || error);
+      // Try to decode JWT token as fallback
+      try {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+          // Simple JWT decode (without verification - just to get email)
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          const decoded = JSON.parse(jsonPayload);
+          if (decoded.email || decoded.sub) {
+            console.log('Decoded email from JWT token');
+            return {
+              name: decoded.name || decoded.full_name || '',
+              email: decoded.email || ''
+            };
+          }
+        }
+      } catch (decodeError) {
+        console.error('Failed to decode JWT token:', decodeError);
+      }
       return null;
     }
   }
@@ -218,7 +259,26 @@ class SupplierOnboardingService {
       });
 
       // Determine the email to use - prioritize user_email, then businessEmail, then fallback
-      const primaryEmail = user_email || businessEmail || formData.email || '';
+      // Also try to get from token if not provided
+      let primaryEmail = user_email || businessEmail || formData.email || '';
+      
+      // If still no email, try to get from supplier platform token
+      if (!primaryEmail) {
+        try {
+          const supplierInfo = await this.getSupplierUserInfo();
+          if (supplierInfo?.email) {
+            primaryEmail = supplierInfo.email;
+            console.log('Retrieved email from supplier platform:', primaryEmail);
+          }
+        } catch (err) {
+          console.warn('Could not retrieve email from supplier platform:', err);
+        }
+      }
+      
+      if (!primaryEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(primaryEmail)) {
+        console.error('Email validation failed. user_email:', user_email, 'businessEmail:', businessEmail, 'formData.email:', formData.email);
+        throw new Error('Please provide a valid email for registration. If you signed in with Google, please ensure you are properly authenticated.');
+      }
       
       // Prepare onboarding payload
       const onboardingPayload = {
@@ -234,7 +294,9 @@ class SupplierOnboardingService {
         onboardingPayload.business_name = businessName || '';
         onboardingPayload.business_phone = businessPhone || '';
         onboardingPayload.business_phone_code = businessPhoneCode || '';
-        onboardingPayload.business_email = businessEmail || '';
+        if (businessEmail) {
+          onboardingPayload.business_email = businessEmail;
+        }
         onboardingPayload.business_website = businessWebsite || '';
         onboardingPayload.business_registration = businessRegistration || '';
         onboardingPayload.business_country = country || '';

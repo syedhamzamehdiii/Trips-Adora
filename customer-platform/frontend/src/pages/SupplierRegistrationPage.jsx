@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { FiCheck, FiBriefcase, FiUser, FiShield, FiInfo, FiSearch, FiBarChart2 } from 'react-icons/fi';
 import { FaPlus, FaMinus } from 'react-icons/fa';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { config } from '../config';
 import { SupplierPortalHeader, SupplierPortalFooter } from '../components/SupplierPortalChrome';
 import supplierOnboardingService from '../services/supplierOnboardingService';
@@ -9,21 +9,29 @@ import { useAuth } from '../context/AuthContext';
 
 const SupplierRegistrationPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user: authUser } = useAuth(); // Get user from AuthContext
   
   // State for user info
   const [userInfo, setUserInfo] = useState({ name: '', email: '' });
   
-  // Get user info from auth context or localStorage
+  // Get user info from auth context, URL params, or localStorage
   useEffect(() => {
     const fetchUserInfo = async () => {
       let info = { name: '', email: '' };
       
-      // Try to get from AuthContext first (customer platform)
+      // First, check URL parameters (passed from supplier platform redirect)
+      const emailFromUrl = searchParams.get('email');
+      if (emailFromUrl) {
+        info.email = emailFromUrl;
+        console.log('Email found in URL parameter:', emailFromUrl);
+      }
+      
+      // Try to get from AuthContext (customer platform)
       if (authUser) {
         info = {
-          name: authUser.full_name || authUser.name || authUser.business_name || '',
-          email: authUser.email || ''
+          name: authUser.full_name || authUser.name || authUser.business_name || info.name || '',
+          email: authUser.email || info.email || ''
         };
       } else {
         // Fallback to localStorage (customer platform)
@@ -32,8 +40,8 @@ const SupplierRegistrationPage = () => {
           const storedEmail = localStorage.getItem('customer_profile_email');
           if (storedName || storedEmail) {
             info = {
-              name: storedName || '',
-              email: storedEmail || ''
+              name: storedName || info.name || '',
+              email: storedEmail || info.email || ''
             };
           }
         } catch (_) {}
@@ -43,7 +51,10 @@ const SupplierRegistrationPage = () => {
           try {
             const supplierInfo = await supplierOnboardingService.getSupplierUserInfo();
             if (supplierInfo) {
-              info = supplierInfo;
+              info = {
+                name: supplierInfo.name || info.name || '',
+                email: supplierInfo.email || info.email || ''
+              };
             }
           } catch (_) {
             // Ignore errors
@@ -51,11 +62,12 @@ const SupplierRegistrationPage = () => {
         }
       }
       
+      console.log('Final userInfo set:', info);
       setUserInfo(info);
     };
     
     fetchUserInfo();
-  }, [authUser]);
+  }, [authUser, searchParams]);
 
   // Pre-fill business email with user's email if available and business email is empty
   useEffect(() => {
@@ -73,17 +85,16 @@ const SupplierRegistrationPage = () => {
         localStorage.getItem('supplier_onboarding_status') ||
         sessionStorage.getItem('supplier_onboarding_status');
 
+      // Don't auto-verify - only use stored status if it exists
+      // Default to 'pending_admin_review' for new suppliers
       if (stored === 'verified') {
         return 'verified';
       }
-
-      localStorage.setItem('supplier_onboarding_status', 'verified');
-      sessionStorage.setItem('supplier_onboarding_status', 'verified');
-      localStorage.setItem('supplier_requires_self_verification', 'false');
-      sessionStorage.setItem('supplier_requires_self_verification', 'false');
-      return 'verified';
+      
+      // Return pending status - don't auto-verify
+      return stored || 'pending_admin_review';
     } catch (_) {
-      return 'verified';
+      return 'pending_admin_review';
     }
   }, []);
   const [selectedBusinessType, setSelectedBusinessType] = useState('company');
@@ -197,9 +208,13 @@ const SupplierRegistrationPage = () => {
     setShowWelcomeScreen(supplierStatus === 'onboarding');
     setShowDashboardView(supplierStatus === 'pending_verification');
 
-    if (supplierStatus === 'verified') {
-      window.location.href = `${config.SUPPLIER_APP_URL}/dashboard`;
-    }
+    // Don't redirect from customer platform - let supplier platform handle verification checks
+    // This prevents redirect loops. The supplier platform will redirect verified users
+    // when they try to access protected routes.
+    // Removing the redirect here prevents the loop:
+    // - Supplier platform redirects unverified users here
+    // - We stay here until admin approves
+    // - After approval, supplier platform will allow access
   }, [supplierStatus]);
 
   const handleEmployeeCountChange = (increment) => {
@@ -462,14 +477,50 @@ const SupplierRegistrationPage = () => {
     setSubmissionError(null);
     
     try {
+      // Ensure we have email - try to fetch from supplier platform if missing
+      let finalEmail = userInfo.email;
+      let finalName = userInfo.name;
+      
+      if (!finalEmail) {
+        console.log('No email in userInfo, attempting to fetch from supplier platform...');
+        try {
+          const supplierInfo = await supplierOnboardingService.getSupplierUserInfo();
+          if (supplierInfo?.email) {
+            finalEmail = supplierInfo.email;
+            finalName = supplierInfo.name || finalName;
+            console.log('Retrieved email from supplier platform:', finalEmail);
+          }
+        } catch (err) {
+          console.error('Failed to get email from supplier platform:', err);
+        }
+      }
+      
+      // If still no email, try to get from formData.businessEmail (for solo suppliers)
+      if (!finalEmail && formData.businessEmail) {
+        finalEmail = formData.businessEmail;
+        console.log('Using businessEmail as fallback:', finalEmail);
+      }
+      
+      // Final check - if still no email, this is a critical error
+      if (!finalEmail) {
+        console.error('No email found from any source:', {
+          userInfo,
+          formDataEmail: formData.businessEmail,
+          urlEmail: searchParams.get('email')
+        });
+        throw new Error('Email is required for registration. Please ensure you are signed in or provide an email address.');
+      }
+      
+      console.log('Final email for registration:', finalEmail, 'Final name:', finalName);
+      
       // Prepare all form data
       const completeFormData = {
         selectedBusinessType,
         employeeCount,
         ...formData,
         requiresBackImage,
-        user_name: userInfo.name,
-        user_email: userInfo.email
+        user_name: finalName,
+        user_email: finalEmail
       };
 
       // Prepare all files

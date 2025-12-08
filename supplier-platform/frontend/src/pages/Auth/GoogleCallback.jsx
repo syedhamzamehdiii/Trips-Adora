@@ -43,7 +43,12 @@ const GoogleCallback = () => {
           // Check if user is verified, if not redirect to customer platform registration
           if (!response.user?.is_verified) {
             const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
-            window.location.href = `${customerAppUrl}/supplier-registration`
+            const email = response.user?.email || ''
+            // Pass email as URL parameter so customer platform can access it
+            const redirectUrl = email 
+              ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
+              : `${customerAppUrl}/supplier-registration`
+            window.location.href = redirectUrl
             return
           }
           if (!redirectToSupplierOnboarding()) {

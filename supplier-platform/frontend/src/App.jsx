@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { SettingsProvider } from './context/SettingsContext'
@@ -68,16 +69,37 @@ import ChatPage from './pages/Chat/ChatPage'
 // Protected route component that checks verification status
 function VerifiedRoute({ children }) {
   const { user, isAuthenticated } = useAuth()
-  const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
+  const [shouldRedirect, setShouldRedirect] = useState(false)
+  
+  useEffect(() => {
+    if (isAuthenticated && user && !user.is_verified) {
+      const currentUrl = window.location.href
+      const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
+      const email = user?.email || ''
+      // Pass email as URL parameter so customer platform can access it
+      const registrationUrl = email 
+        ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
+        : `${customerAppUrl}/supplier-registration`
+      
+      // Prevent redirect loop - only redirect if we're not already on customer platform
+      if (!currentUrl.includes('5174') && !currentUrl.includes('supplier-registration')) {
+        const redirectFlag = sessionStorage.getItem('supplier_redirect_to_registration')
+        if (!redirectFlag) {
+          sessionStorage.setItem('supplier_redirect_to_registration', 'true')
+          setShouldRedirect(true)
+          window.location.href = registrationUrl
+        }
+      }
+    }
+  }, [isAuthenticated, user])
   
   // If not authenticated, let the normal auth guard handle it
   if (!isAuthenticated) {
     return children
   }
   
-  // If authenticated but not verified, redirect to customer platform registration
-  if (user && !user.is_verified) {
-    window.location.href = `${customerAppUrl}/supplier-registration`
+  // If redirecting, show loading state
+  if (shouldRedirect) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -106,18 +128,28 @@ function AppRoutes() {
   }
   
   // Check if authenticated user is not verified and redirect
-  if (isAuthenticated && user && !user.is_verified) {
-    const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
-    window.location.href = `${customerAppUrl}/supplier-registration`
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting to registration...</p>
-        </div>
-      </div>
-    )
-  }
+  // Use useEffect to prevent redirect on every render
+  useEffect(() => {
+    if (isAuthenticated && user && !user.is_verified) {
+      const currentUrl = window.location.href
+      const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
+      const email = user?.email || ''
+      // Pass email as URL parameter so customer platform can access it
+      const registrationUrl = email 
+        ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
+        : `${customerAppUrl}/supplier-registration`
+      
+      // Prevent redirect loop - only redirect if we're not already on customer platform
+      if (!currentUrl.includes('5174') && !currentUrl.includes('supplier-registration')) {
+        // Set a flag to prevent multiple redirects
+        const redirectFlag = sessionStorage.getItem('supplier_redirect_to_registration')
+        if (!redirectFlag) {
+          sessionStorage.setItem('supplier_redirect_to_registration', 'true')
+          window.location.href = registrationUrl
+        }
+      }
+    }
+  }, [isAuthenticated, user])
 
   return (
     <div className="App">

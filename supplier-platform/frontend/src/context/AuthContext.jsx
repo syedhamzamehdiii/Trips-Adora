@@ -230,7 +230,12 @@ export const AuthProvider = ({ children }) => {
         // Check verification status and redirect if not verified
         if (!result.user?.is_verified) {
           const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
-          window.location.href = `${customerAppUrl}/supplier-registration`
+          const email = result.user?.email || ''
+          // Pass email as URL parameter so customer platform can access it
+          const redirectUrl = email 
+            ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
+            : `${customerAppUrl}/supplier-registration`
+          window.location.href = redirectUrl
           return { success: true, requiresVerification: true }
         }
         try {
@@ -271,8 +276,12 @@ export const AuthProvider = ({ children }) => {
         }
         hydrateBasicProfileFromUser(result.user)
         setUser(result.user)
-        // Redirect to customer platform registration page
-        window.location.href = `${customerAppUrl}/supplier-registration`
+        // Redirect to customer platform registration page with email parameter
+        const email = result.user?.email || ''
+        const redirectUrl = email 
+          ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
+          : `${customerAppUrl}/supplier-registration`
+        window.location.href = redirectUrl
         return { success: true, requiresVerification: true }
       }
       
