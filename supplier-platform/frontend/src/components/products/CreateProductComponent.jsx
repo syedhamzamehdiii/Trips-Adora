@@ -2233,11 +2233,20 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
         alert('Vehicle removed from this product.');
         return;
       } catch (error) {
-        console.error('Failed to delete vehicle option from database:', error);
-        // If deletion fails (e.g., 404), it might be a local vehicle - fall through to local deletion
-        if (error?.response?.status === 404 || error?.message?.includes('not found')) {
-          console.warn('Vehicle not found in database, treating as local vehicle:', vehicleId);
+        // Check for 404 in multiple possible error structures
+        const is404 = 
+          error?.response?.status === 404 ||
+          error?.cause?.response?.status === 404 ||
+          error?.message?.toLowerCase().includes('not found') ||
+          error?.message?.toLowerCase().includes('404');
+        
+        // If deletion fails with 404, it might be a local vehicle or already deleted - fall through to local deletion
+        if (is404) {
+          // Silently handle 404 - vehicle doesn't exist in database, proceed with local deletion
+          console.log('Vehicle not found in database (404), treating as local vehicle:', vehicleId);
         } else {
+          // Only log and alert for non-404 errors
+          console.error('Failed to delete vehicle option from database:', error);
           alert(error?.message || 'Failed to delete vehicle.');
           return; // Don't proceed with local deletion if there's a real error
         }
@@ -2268,10 +2277,10 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
 
   // === STEP 5 VEHICLE FORM HANDLERS ===
   const saveVehicleOption = async () => {
-    // Validate all required fields
+    // Validate all required fields (totalTourDays and dayDurations are optional)
     if (!vehicleTitle || !selectedVehicleType || !selectedVehicleModel || 
         !vehicleAttributes || !numTravellers || !currency || 
-        !pricingType || !productAmount || !totalDuration || !vehicleDescription) {
+        !pricingType || !productAmount || !vehicleDescription) {
       alert('Please fill in all required fields before saving.');
       setVehicleError('Please complete all vehicle details before saving.');
       return;
@@ -2280,6 +2289,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     const capacityValue = parseInt(numTravellers, 10);
     const amountValue = Number(productAmount);
 
+    // Always include totalTourDays and dayDurations in the payload
     const payload = {
       id: editingVehicleId || undefined,
       title: vehicleTitle.trim(),
@@ -2291,9 +2301,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
       currency,
       pricingType,
       amount: Number.isFinite(amountValue) ? amountValue : 0,
-      tourDays: totalTourDays,
-      dayDurations: dayDurations,
-      duration: totalDuration,
+      tourDays: totalTourDays || '1', // Always include, default to '1' if not set
+      dayDurations: dayDurations || {}, // Always include, default to empty object if not set
+      duration: totalDuration || '', // Include even if empty
       description: vehicleDescription.trim(),
     };
 
@@ -2387,8 +2397,9 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
     setCurrency('');
     setPricingType('');
     setProductAmount('');
-    setTotalTourDays('1');
-    setDayDurations({ 1: '' });
+    // Don't reset totalTourDays and dayDurations - they should persist across vehicle saves
+    // setTotalTourDays('1');
+    // setDayDurations({ 1: '' });
     setTotalDuration('');
     setVehicleDescription('');
     setEditingVehicleId(null);
@@ -4934,9 +4945,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                                        {Number.isFinite(parseInt(vehicle.capacity)) && (
                                          <span>Best for upto <span className="text-blue-600 font-medium">{String(parseInt(vehicle.capacity)).padStart(2, '0')}</span></span>
                                        )}
-                                       {vehicle.duration && (
-                                         <span>Approximate time <span className="text-blue-600 font-medium">{vehicle.duration}</span></span>
-                                       )}
+                                       {/* Removed tour days display as per user request */}
                                      </div>
                                      {vehicle.description && (
                                        <p className="text-xs text-gray-500 leading-relaxed mb-2">
@@ -5265,6 +5274,38 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                 </div>
               </div>
 
+              {/* Description */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
+                <textarea
+                  placeholder="Enter vehicle description..."
+                  value={vehicleDescription}
+                  onChange={(e) => setVehicleDescription(e.target.value)}
+                  rows="4"
+                  required
+                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              {/* Save/Cancel Buttons */}
+              <div className="flex gap-3 mb-6">
+                <button 
+                  onClick={saveVehicleOption}
+                  disabled={vehicleSaving}
+                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${vehicleSaving ? 'bg-blue-300 cursor-not-allowed text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                >
+                  {vehicleSaving ? 'Saving...' : editingVehicleId ? 'Update' : 'Save'}
+                </button>
+                {editingVehicleId && (
+                  <button 
+                    onClick={clearVehicleForm}
+                    className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+
               {/* Total Tour Days and Total Duration */}
               <div className="grid grid-cols-2 gap-6 mb-6">
                  <div>
@@ -5278,6 +5319,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                          if (currentDays > 1) {
                            const newDays = currentDays - 1;
                            setTotalTourDays(String(newDays));
+                           setVehicleError(null); // Clear error when fields change
                            // Clean up duration for the removed day
                            setDayDurations(prev => {
                              const updated = { ...prev };
@@ -5311,6 +5353,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                          if (currentDays < 10) {
                            const newDays = currentDays + 1;
                            setTotalTourDays(String(newDays));
+                           setVehicleError(null); // Clear error when fields change
                            // Initialize new day with empty duration (no dummy/previous value)
                            setDayDurations(prev => ({
                              ...prev,
@@ -5361,20 +5404,23 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                  
                  <div>
                    <label className="block text-sm font-medium text-gray-900 mb-2">Total duration</label>
-                   <p className="text-sm text-gray-600 mb-3">Specify how long the car will be available for your trip.</p>
+                   <p className="text-sm text-gray-600 mb-3">Specify the total duration for this tour day.</p>
                    <div className="relative max-w-xs">
                      <select 
                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer pr-10"
-                       value={totalDuration || ''}
-                       onChange={(e) => {
-                         const newDuration = e.target.value;
-                         setTotalDuration(newDuration);
-                         // Also update dayDurations for day 1 for backward compatibility
-                         setDayDurations(prev => ({
-                           ...prev,
-                           1: newDuration
-                         }));
-                       }}
+                        value={totalDuration || ''}
+                        onChange={(e) => {
+                          const newDuration = e.target.value;
+                          setTotalDuration(newDuration);
+                          setVehicleError(null); // Clear error when fields change
+                          // Update dayDurations for the current day (based on totalTourDays)
+                          // This allows setting different durations for each day by changing totalTourDays
+                          const currentDay = parseInt(totalTourDays, 10) || 1;
+                          setDayDurations(prev => ({
+                            ...prev,
+                            [currentDay]: newDuration
+                          }));
+                        }}
                        required
                        style={{ maxHeight: '200px' }}
                      >
@@ -5390,38 +5436,6 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                      </div>
                    </div>
                  </div>
-              </div>
-
-              {/* Description */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-900 mb-2">Description</label>
-                <textarea
-                  placeholder="Enter vehicle description..."
-                  value={vehicleDescription}
-                  onChange={(e) => setVehicleDescription(e.target.value)}
-                  rows="4"
-                  required
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              {/* Save/Cancel Buttons */}
-              <div className="flex gap-3 mt-3">
-                <button 
-                  onClick={saveVehicleOption}
-                  disabled={vehicleSaving}
-                  className={`px-6 py-2 rounded-lg font-medium transition-colors ${vehicleSaving ? 'bg-blue-300 cursor-not-allowed text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-                >
-                  {vehicleSaving ? 'Saving...' : editingVehicleId ? 'Update' : 'Save'}
-                </button>
-                {editingVehicleId && (
-                  <button 
-                    onClick={clearVehicleForm}
-                    className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 font-medium transition-colors"
-                  >
-                    Cancel
-                  </button>
-                )}
               </div>
 
               {/* Existing Vehicle Options */}
@@ -5456,7 +5470,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
                             {typeof vehicle.capacity === 'number' && !Number.isNaN(vehicle.capacity) && (
                               <span>Best for upto {vehicle.capacity}</span>
                             )}
-                            {vehicle.duration && <span>Approximate time {vehicle.duration}</span>}
+                            {/* Removed tour days display as per user request */}
                       </div>
                           {vehicle.description && (
                             <p className="text-sm text-gray-700 mb-2">
@@ -5858,7 +5872,7 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
             itineraries: itineraries,
             // Tour days information
             totalTourDays: totalTourDays,
-            dayDurations: dayDurations,
+            dayDurations: dayDurations, // Pass all day durations for itinerary validation
             // Provide draftId so AddItineraryComponent can preload existing itineraries
             draftId: internalDraftId,
             dbProductId: dbProductId || (internalDraftId !== DEFAULT_DRAFT_ID ? internalDraftId : null)

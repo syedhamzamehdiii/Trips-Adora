@@ -260,31 +260,33 @@ const fetchFreshTopPicks = async (limit = 4) => {
 
 /**
  * Fetch a single product by ID - Gets FULL product details with all fields
- * Returns cached data immediately, refreshes in background if stale
+ * Availability, vehicles, meeting points, and itineraries must be real-time,
+ * so we bypass the cache by default.
  */
-export const getProductById = async (productId, useCache = true) => {
+export const getProductById = async (productId, useCache = false) => {
   // Validate productId
   if (!productId || productId === 'undefined' || productId === 'null') {
     console.error('❌ Invalid product ID:', productId);
     return null;
   }
   
-  // Check cache first
-  if (useCache) {
-    const cacheKey = CACHE_KEYS.PRODUCT_DETAIL + productId;
-    const timestampKey = CACHE_KEYS.PRODUCT_DETAIL_TIMESTAMP + productId;
-    const cached = getCachedData(cacheKey, timestampKey);
-    
-    if (cached && isCacheValid(cached, CACHE_TTL.PRODUCT_DETAIL)) {
-      // Refresh in background if cache is getting old
-      if (cached.age > CACHE_TTL.PRODUCT_DETAIL * 0.5) {
-        fetchFreshProductById(productId).catch(() => {}); // Silent background refresh
-      }
-      return cached.data;
-    }
+  // Always fetch fresh unless caller explicitly allows cache
+  if (!useCache) {
+    return await fetchFreshProductById(productId);
   }
   
-  // No valid cache, fetch fresh data
+  // Optional cache path (not used by default)
+  const cacheKey = CACHE_KEYS.PRODUCT_DETAIL + productId;
+  const timestampKey = CACHE_KEYS.PRODUCT_DETAIL_TIMESTAMP + productId;
+  const cached = getCachedData(cacheKey, timestampKey);
+  
+  if (cached && isCacheValid(cached, CACHE_TTL.PRODUCT_DETAIL)) {
+    if (cached.age > CACHE_TTL.PRODUCT_DETAIL * 0.5) {
+      fetchFreshProductById(productId).catch(() => {});
+    }
+    return cached.data;
+  }
+  
   return await fetchFreshProductById(productId);
 };
 

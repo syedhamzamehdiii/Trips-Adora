@@ -27,6 +27,7 @@ class ItineraryItem(BaseModel):
     photo: Optional[str] = None
     attractionType: Optional[str] = None
     activities: List[str] = []
+    day: Optional[int] = 1  # Day number for multi-day tours (defaults to 1 for backward compatibility)
 
 
 class VehicleDetails(BaseModel):
@@ -139,7 +140,10 @@ class ProductResponse(BaseModel):
     languages: List[str] = []
     highlights: List[Highlight] = []
     included_excluded: Optional[IncludedExcluded] = None
-    itinerary: List[ItineraryItem] = []
+    itinerary: List[ItineraryItem] = []  # legacy
+    itineraries: List[ItineraryItem] = []  # preferred with day support
+    totalTourDays: Optional[str] = None
+    dayDurations: Dict[Any, Any] = Field(default_factory=dict)
     pickup_dropoff: Optional[PickupDropoff] = None
     vehicle_details: Optional[VehicleDetails] = None
     vehicles: List[Vehicle] = []  # Array of vehicles from supplier_vehicle_options

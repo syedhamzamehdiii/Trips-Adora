@@ -2381,178 +2381,228 @@ const ProductDetails = () => {
           </p>
         </div>
 
-        {/* Tour Itinerary - Matching supplier design */}
-        {Array.isArray(product.itineraries) && product.itineraries.length > 0 && (
-          <div className="mt-8 sm:mt-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Tour Itinerary</h2>
-            <p className="text-gray-500 mb-6">Your personalized travel plan at a glance</p>
-            
-            {/* Tour Type Bar */}
-            <div className="mb-8">
-              <div className="bg-blue-100 border border-blue-200 rounded-lg px-4 py-3 flex items-center">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-4 relative">
-                  <Clock className="w-5 h-5 text-white" />
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1">
-                    <div className="w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-blue-600"></div>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-black">One day Tour</h3>
-                  <p className="text-sm text-gray-600">
-                    {tourTimeRange ? `(${tourTimeRange})` : (selectedVehiclePickupTime ? `(${selectedVehiclePickupTime} - --:--)` : '(Select vehicle to see time)')}
-                  </p>
-                </div>
-              </div>
-            </div>
+        {/* Tour Itinerary - Matching supplier design, per day */}
+        {(() => {
+          const itinerariesAll = Array.isArray(product.itineraries) && product.itineraries.length
+            ? product.itineraries
+            : (Array.isArray(product.itinerary) ? product.itinerary : []);
 
-            {/* Timeline */}
-            <div className="relative">
-              {/* Timeline Line */}
-              <div className="absolute left-4 top-8 bottom-8 w-0.5 bg-gray-300"></div>
+          if (!itinerariesAll.length) return null;
 
-              {/* Pick-up Location */}
-              {selectedVehicleMeetingPoints.length > 0 && (
-                <div className="flex items-start mb-8 relative">
-                  <div className="w-8 h-8 border-2 border-green-700 bg-green-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
-                    <MapPin className="w-4 h-4 text-green-700" />
+          // Derive total days using explicit fields or max day in itineraries
+          const maxDayFromItins = itinerariesAll.reduce((max, it) => {
+            const d = parseInt(it.day || 1, 10) || 1;
+            return Math.max(max, d);
+          }, 1);
+
+          const explicitTotal = parseInt(
+            product.totalTourDays ||
+              (product.dayDurations ? Object.keys(product.dayDurations || {}).length : '0'),
+            10
+          ) || 0;
+
+          const totalTourDays = Math.max(explicitTotal || 0, maxDayFromItins || 1);
+          const dayDurations = product.dayDurations || {};
+
+          const parseTimeSpentToMinutes = (str) => {
+            if (!str) return 0;
+            const h = str.match(/(\d+)h/i);
+            const m = str.match(/(\d+)m/i);
+            return (h ? parseInt(h[1], 10) * 60 : 0) + (m ? parseInt(m[1], 10) : 0);
+          };
+          const addMinutesToTime = (timeStr, minutes) => {
+            if (!timeStr) return timeStr;
+            const [h, m] = timeStr.split(':').map(Number);
+            let total = h * 60 + m + minutes;
+            total = total % (24 * 60);
+            const hh = String(Math.floor(total / 60)).padStart(2, '0');
+            const mm = String(total % 60).padStart(2, '0');
+            return `${hh}:${mm}`;
+          };
+
+          // Group itineraries by day
+          const itinerariesByDay = {};
+          for (let day = 1; day <= totalTourDays; day++) itinerariesByDay[day] = [];
+          itinerariesAll.forEach((item) => {
+            const d = parseInt(item.day || 1, 10) || 1;
+            if (!itinerariesByDay[d]) itinerariesByDay[d] = [];
+            itinerariesByDay[d].push(item);
+          });
+
+          return Array.from({ length: totalTourDays }, (_, i) => i + 1).map((day) => {
+            const dayItineraries = itinerariesByDay[day] || [];
+            if (!dayItineraries.length) return null;
+
+            const pickupTimeForDay = selectedVehiclePickupTime || tourTimeRange?.split(' - ')?.[0] || '';
+            let dropoffTimeForDay = product.dropoffTime || '';
+            if (!dropoffTimeForDay && pickupTimeForDay) {
+              const minutes = dayItineraries.reduce((sum, it) => sum + parseTimeSpentToMinutes(it.timeSpent), 0);
+              dropoffTimeForDay = minutes > 0 ? addMinutesToTime(pickupTimeForDay, minutes) : pickupTimeForDay;
+            }
+            const dayDuration = dayDurations[day] || dayDurations[String(day)] || '';
+
+            return (
+              <div key={day} className="mt-8 sm:mt-12">
+                <div className="bg-blue-100 border border-blue-200 rounded-lg px-4 py-3 flex items-center mb-6">
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-4 relative">
+                    <Clock className="w-5 h-5 text-white" />
+                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1">
+                      <div className="w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-blue-600"></div>
+                    </div>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">Pick-up</h3>
-                    <div className="flex flex-wrap gap-2 mb-1">
-                      {selectedVehicleMeetingPoints.slice(0, 3).map((loc, idx) => (
-                        <span key={idx} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                          {typeof loc === 'string' ? loc : (loc.name || loc)}
-                        </span>
-                      ))}
-                    </div>
-                    {selectedVehiclePickupTime && (
-                      <p className="text-sm text-gray-600">Time: {selectedVehiclePickupTime}</p>
-                    )}
+                    <h4 className="font-bold text-black">
+                      {totalTourDays === 1 ? "Tour's 1 day" : `Tour's day ${day}`} {dayDuration && <span className="text-sm text-gray-600 ml-2">{dayDuration}</span>}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {pickupTimeForDay
+                        ? dropoffTimeForDay
+                          ? `(${pickupTimeForDay} - ${dropoffTimeForDay})`
+                          : `(${pickupTimeForDay} - --:--)`
+                        : '(Select vehicle to see time)'}
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {/* Itinerary Stops */}
-              {product.itineraries.map((item, index) => {
-                const location = item.location || item.title || item.name || `Stop ${index + 1}`;
-                const description = item.description || '';
-                const timeSpent = item.timeSpent || '';
-                const isFree = item.isFree !== false;
-                const ticketFare = item.ticketFare || item.ticket || '';
-                const photo = item.photo || null;
-                const attractionType = item.attractionType || '';
-                const activities = item.activities || [];
-                
-                return (
-                  <div key={index} className="flex items-start mb-8 relative">
-                    <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10 overflow-hidden">
-                      {photo ? (
-                        <img src={photo} alt={location} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="text-sm font-semibold text-gray-800">
-                          {location[0]?.toUpperCase() || String(index + 1)}
+                <div className="relative">
+                  <div className="absolute left-4 top-8 bottom-8 w-0.5 bg-gray-300"></div>
+
+                  {/* Pick-up */}
+                  {selectedVehicleMeetingPoints.length > 0 && (
+                    <div className="flex items-start mb-8 relative">
+                      <div className="w-8 h-8 border-2 border-green-700 bg-green-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                        <MapPin className="w-4 h-4 text-green-700" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">Pick-up</h3>
+                        <div className="flex flex-wrap gap-2 mb-1">
+                          {selectedVehicleMeetingPoints.slice(0, 3).map((loc, idx) => (
+                            <span key={idx} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                              {typeof loc === 'string' ? loc : (loc.name || loc)}
+                            </span>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">{location}</h3>
-                      {description && (
-                        <p className="text-gray-600 mb-3">{description}</p>
-                      )}
-                      
-                      {/* Activities */}
-                      {(() => {
-                        const badges = [];
-                        const seen = new Set();
-                        if (attractionType && !seen.has(attractionType)) {
-                          badges.push(attractionType);
-                          seen.add(attractionType);
-                        }
-                        (activities || []).forEach(act => {
-                          if (act && !seen.has(act)) {
-                            badges.push(act);
-                            seen.add(act);
-                          }
-                        });
-                        if (!badges.length) return null;
-                        return (
-                          <div className="mb-3">
-                            <p className="text-gray-600 font-bold mb-2">Activities:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {badges.map((badge, idx) => (
-                                <span key={idx} className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">
-                                  {badge}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      
-                      {/* Time and Ticket Info */}
-                      <div className="flex items-center gap-2">
-                        <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-                          Ticket: {isFree ? 'Free' : (ticketFare ? ticketFare : 'Paid')}
-                        </span>
-                        {timeSpent && (
-                          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-                            {timeSpent}
-                          </span>
+                        {selectedVehiclePickupTime && (
+                          <p className="text-sm text-gray-600">Time: {selectedVehiclePickupTime}</p>
                         )}
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  )}
 
-              {/* Drop-off Location */}
-              {selectedVehicleDropoffLocations.length > 0 && (
-                <div className="flex items-start mb-8 relative">
-                  <div className="w-8 h-8 border-2 border-red-700 bg-red-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
-                    <MapPin className="w-4 h-4 text-red-700" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">Drop-off</h3>
-                    <div className="flex flex-wrap gap-2 mb-1">
-                      {selectedVehicleDropoffLocations.slice(0, 3).map((loc, idx) => {
-                        const locationName = typeof loc === 'string' ? loc : (loc.name || loc);
-                        // Check if dropoff location is same as pickup location
-                        const isSameAsPickup = selectedVehicleMeetingPoints.some(pickupLoc => {
-                          const pickupName = typeof pickupLoc === 'string' ? pickupLoc : (pickupLoc.name || pickupLoc);
-                          return pickupName.toLowerCase() === locationName.toLowerCase();
-                        });
-                        
-                        return (
-                          <span 
-                            key={idx} 
-                            className={`px-3 py-1 rounded-full text-sm ${
-                              isSameAsPickup 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                            title={isSameAsPickup ? 'Same as pickup location' : 'Different dropoff location'}
-                          >
-                            {locationName}
-                          </span>
-                        );
-                      })}
+                  {/* Itineraries for this day */}
+                  {dayItineraries.map((item, index) => {
+                    const location = item.location || item.title || item.name || item.placeName || `Stop ${index + 1}`;
+                    const description = item.description || '';
+                    const timeSpent = item.timeSpent || '';
+                    const isFree = item.isFree !== false;
+                    const ticketFare = item.ticketFare || item.ticket || '';
+                    const photo = item.photo || null;
+                    const attractionType = item.attractionType || '';
+                    const activities = item.activities || [];
+                    
+                    return (
+                      <div key={index} className="flex items-start mb-8 relative">
+                        <div className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10 overflow-hidden">
+                          {photo ? (
+                            <img src={photo} alt={location} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="text-sm font-semibold text-gray-800">
+                              {location[0]?.toUpperCase() || String(index + 1)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">{location}</h3>
+                          {description && (
+                            <p className="text-gray-600 mb-3">{description}</p>
+                          )}
+                          
+                          {/* Activities */}
+                          {(() => {
+                            const badges = [];
+                            const seen = new Set();
+                            if (attractionType && !seen.has(attractionType)) {
+                              badges.push(attractionType);
+                              seen.add(attractionType);
+                            }
+                            (activities || []).forEach(act => {
+                              if (act && !seen.has(act)) {
+                                badges.push(act);
+                                seen.add(act);
+                              }
+                            });
+                            if (!badges.length) return null;
+                            return (
+                              <div className="mb-3">
+                                <p className="text-gray-600 font-bold mb-2">Activities:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {badges.map((badge, idx) => (
+                                    <span key={idx} className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm">
+                                      {badge}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          
+                          {/* Time and Ticket Info */}
+                          <div className="flex items-center gap-2">
+                            <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                              Ticket: {isFree ? 'Free' : (ticketFare ? ticketFare : 'Paid')}
+                            </span>
+                            {timeSpent && (
+                              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                                {timeSpent}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Drop-off */}
+                  {selectedVehicleDropoffLocations.length > 0 && (
+                    <div className="flex items-start mb-8 relative">
+                      <div className="w-8 h-8 border-2 border-red-700 bg-red-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
+                        <MapPin className="w-4 h-4 text-red-700" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl sm:text-2xl font-bold text-black mb-2">Drop-off</h3>
+                        <div className="flex flex-wrap gap-2 mb-1">
+                          {selectedVehicleDropoffLocations.slice(0, 3).map((loc, idx) => {
+                            const locationName = typeof loc === 'string' ? loc : (loc.name || loc);
+                            const isSameAsPickup = selectedVehicleMeetingPoints.some(pickupLoc => {
+                              const pickupName = typeof pickupLoc === 'string' ? pickupLoc : (pickupLoc.name || pickupLoc);
+                              return pickupName.toLowerCase() === locationName.toLowerCase();
+                            });
+                            
+                            return (
+                              <span 
+                                key={idx} 
+                                className={`px-3 py-1 rounded-full text-sm ${
+                                  isSameAsPickup 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {locationName}{isSameAsPickup ? ' (Same as pickup)' : ''}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        {dropoffTimeForDay && (
+                          <p className="text-sm text-gray-600">Time: {dropoffTimeForDay}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Finished - Return */}
-              <div className="flex items-start mb-8 relative">
-                <div className="w-8 h-8 border-2 border-blue-700 bg-blue-100 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10">
-                  <ArrowUpRight className="w-4 h-4 text-blue-700 rotate-180" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl sm:text-2xl font-bold text-black">Finished - Return</h3>
+                  )}
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            );
+          });
+        })()}
 
         {/* FAQs */}
         {hasFaqs && (

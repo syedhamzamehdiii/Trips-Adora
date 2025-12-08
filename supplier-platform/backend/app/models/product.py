@@ -27,6 +27,7 @@ class ItineraryItem(BaseModel):
     ticket: Optional[str] = None
     attractionType: Optional[str] = None
     activities: List[str] = Field(default_factory=list)
+    day: Optional[int] = Field(default=1, description="Day number for multi-day tours")
 
 
 class Highlight(BaseModel):
@@ -129,6 +130,8 @@ class Product(Document):
     
     # Tour Specific
     itinerary: List[ItineraryItem] = Field(default_factory=list)
+    total_tour_days: Optional[str] = Field(default=None, description="Total tour days for multi-day tours")
+    day_durations: Dict[Any, Any] = Field(default_factory=dict, description="Map day -> duration string")
     duration: Optional[str] = Field(None, description="e.g., '10 hours', '3 days'")
     
     # Details

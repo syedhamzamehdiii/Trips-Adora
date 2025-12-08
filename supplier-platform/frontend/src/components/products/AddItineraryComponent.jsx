@@ -83,6 +83,7 @@ const AddItineraryComponent = ({
   const [showFinalLook, setShowFinalLook] = useState(false);
   const [editingItineraryId, setEditingItineraryId] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [finalLookDay, setFinalLookDay] = useState(1); // Day selector for Final Look
   const [placeName, setPlaceName] = useState('');
   const [description, setDescription] = useState('');
   const [uploadedPhoto, setUploadedPhoto] = useState(null);
@@ -120,13 +121,26 @@ const AddItineraryComponent = ({
   const [finalLineTop, setFinalLineTop] = useState(16);
   const [finalLineHeight, setFinalLineHeight] = useState(0);
 
+  // Use a ref to track if we're updating internally to prevent infinite loops
+  const isInternalUpdateRef = useRef(false);
+
   useEffect(() => {
     if (!Array.isArray(currentItineraries)) return;
+    // Skip if this is an internal update (we just changed itineraryEntries ourselves)
+    if (isInternalUpdateRef.current) {
+      isInternalUpdateRef.current = false;
+      return;
+    }
     setItineraryEntries(prev => {
+      // Only update if actually different to prevent unnecessary re-renders
       if (areItinerariesEqual(prev, currentItineraries)) {
         return prev;
       }
-      return currentItineraries;
+      // Ensure all entries have a day property
+      return currentItineraries.map(entry => ({
+        ...entry,
+        day: entry.day || 1
+      }));
     });
     const hasItineraries = currentItineraries.length > 0;
     setHasSavedItinerary(hasItineraries);
@@ -170,6 +184,57 @@ const AddItineraryComponent = ({
       draftInitializationRef.current = true;
     }
   }, [productData?.draftId, onItinerariesChange]);
+
+  // React to changes in totalTourDays and dayDurations from parent
+  useEffect(() => {
+    const totalDays = parseInt(productData?.totalTourDays || '1', 10) || 1;
+    
+    // If currentWorkingDay exceeds the new totalTourDays, reset to the last available day
+    setCurrentWorkingDay(prev => {
+      if (prev > totalDays) {
+        return totalDays;
+      }
+      return prev;
+    });
+    
+    // If selectedDay exceeds the new totalTourDays, reset to the last available day
+    setSelectedDay(prev => {
+      if (prev > totalDays) {
+        return totalDays;
+      }
+      return prev;
+    });
+
+    // If finalLookDay exceeds the new totalTourDays, reset to the last available day
+    setFinalLookDay(prev => {
+      if (prev > totalDays) {
+        return totalDays;
+      }
+      return prev;
+    });
+    
+    // Ensure all itinerary entries have valid day numbers
+    // Mark as internal update to prevent infinite loop
+    isInternalUpdateRef.current = true;
+    setItineraryEntries(prev => {
+      const needsUpdate = prev.some(entry => {
+        const entryDay = entry.day || 1;
+        return entryDay > totalDays;
+      });
+      
+      if (needsUpdate) {
+        return prev.map(entry => {
+          const entryDay = entry.day || 1;
+          // If entry's day exceeds totalDays, assign it to the last available day
+          if (entryDay > totalDays) {
+            return { ...entry, day: totalDays };
+          }
+          return entry;
+        });
+      }
+      return prev;
+    });
+  }, [productData?.totalTourDays, productData?.dayDurations]);
 
   const tourTypes = [
     { 
@@ -556,9 +621,11 @@ const AddItineraryComponent = ({
 
     // Validate duration: Check if total itinerary time exceeds day's duration
     const dayDurations = productData?.dayDurations || {};
-    const dayDuration = dayDurations[dayForEntry] || '';
+    // Ensure we access the day duration correctly (handle both string and number keys)
+    const dayDuration = dayDurations[dayForEntry] || dayDurations[String(dayForEntry)] || '';
     const dayDurationMinutes = parseDurationToMinutes(dayDuration);
     
+    // Only validate if a duration is set for this day
     if (dayDurationMinutes > 0) {
       // Calculate current total time spent for this day (excluding the entry being edited)
       const currentDayItineraries = itineraryEntries.filter(entry => (entry.day || 1) === dayForEntry);
@@ -626,6 +693,7 @@ const AddItineraryComponent = ({
       updatedEntries = [...itineraryEntries, entryData];
     }
     
+    isInternalUpdateRef.current = true; // Mark as internal update
     setItineraryEntries(updatedEntries);
     setShowAddItineraryModal(false);
     setHasSavedItinerary(true);
@@ -736,7 +804,22 @@ const AddItineraryComponent = ({
   };
 
   // Persist any changes to itinerary list to draft (e.g., delete)
+  const prevItinerariesRef = useRef(itineraryEntries);
   useEffect(() => {
+    // Skip if this is an internal update (we just changed itineraryEntries ourselves)
+    if (isInternalUpdateRef.current) {
+      isInternalUpdateRef.current = false;
+      prevItinerariesRef.current = itineraryEntries;
+      return;
+    }
+
+    // If nothing actually changed, do nothing
+    if (areItinerariesEqual(prevItinerariesRef.current, itineraryEntries)) {
+      return;
+    }
+
+    prevItinerariesRef.current = itineraryEntries;
+    
     try {
       const draftId = productData?.draftId;
       if (!draftId) return;
@@ -747,8 +830,13 @@ const AddItineraryComponent = ({
     } catch (e) {
       // ignore
     }
-    onItinerariesChange?.(itineraryEntries);
-  }, [itineraryEntries, productData?.draftId, onItinerariesChange]);
+    // Only call onItinerariesChange if it's a stable reference (not changing on every render)
+    // Use a timeout to debounce and prevent rapid-fire updates
+    const timeoutId = setTimeout(() => {
+      onItinerariesChange?.(itineraryEntries);
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [itineraryEntries, productData?.draftId]);
 
   // Measure timeline line to end exactly at drop-off icon center
   useEffect(() => {
@@ -823,8 +911,23 @@ const AddItineraryComponent = ({
       imageService.deleteImage(target.photoPublicId).catch(() => {});
     }
     const updatedEntries = itineraryEntries.filter(entry => entry.id !== id);
+    isInternalUpdateRef.current = true; // Mark as internal update
     setItineraryEntries(updatedEntries);
     setHasSavedItinerary(updatedEntries.length > 0);
+    onItinerariesChange?.(updatedEntries);
+    
+    // Persist to draft if available
+    try {
+      const draftId = productData?.draftId;
+      if (draftId) {
+        const key = `product_draft_${draftId}`;
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : {};
+        localStorage.setItem(key, JSON.stringify({ ...parsed, itineraries: updatedEntries, lastModified: new Date().toISOString() }));
+      }
+    } catch (e) {
+      console.warn('Failed to persist itinerary deletion to draft:', e);
+    }
   };
 
   // Show the preview page if showPreview is true
@@ -955,22 +1058,77 @@ const AddItineraryComponent = ({
                   {showFinalLook ? (
                     /* Final Look View - Complete Timeline */
                     <div className="space-y-6">
-                      {/* One day Tour Bar */}
-                      <div className="mb-8">
-                        <div className="bg-blue-100 border border-blue-200 rounded-lg px-4 py-3 flex items-center">
-                          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-4 relative">
-                            <FiClock className="w-5 h-5 text-white" />
-                            {/* Small downward arrow at bottom center */}
-                            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1">
-                              <div className="w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-blue-600"></div>
+                      {/* Tour Bar - Dynamic based on totalTourDays */}
+                      {(() => {
+                        const totalDays = parseInt(productData?.totalTourDays || '1', 10) || 1;
+                        const pickupTime = productData?.pickupTime || '06:00';
+                        const filteredEntries = itineraryEntries.filter(entry => (entry.day || 1) === finalLookDay);
+                        
+                        // Helper to add minutes to time string
+                        const addMinutesToTime = (timeStr, minutes) => {
+                          if (!timeStr) return timeStr;
+                          const [h, m] = timeStr.split(':').map(Number);
+                          let totalMinutes = (h * 60 + m) + minutes;
+                          // Handle overflow past 24 hours
+                          totalMinutes = totalMinutes % (24 * 60);
+                          const newH = Math.floor(totalMinutes / 60);
+                          const newM = totalMinutes % 60;
+                          return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+                        };
+                        
+                        // Calculate dropoff time: pickup time + sum of filtered itinerary durations
+                        let dropoffTime = productData?.dropoffTime;
+                        if (!dropoffTime) {
+                          let totalMinutes = 0;
+                          filteredEntries.forEach(entry => {
+                            if (entry.timeSpent) {
+                              totalMinutes += parseTimeSpentToMinutes(entry.timeSpent);
+                            }
+                          });
+                          
+                          dropoffTime = totalMinutes > 0 ? addMinutesToTime(pickupTime, totalMinutes) : pickupTime;
+                        }
+                        
+                        const tourText = totalDays === 1 ? "Tour's 1 day" : `Tour's day ${finalLookDay}`;
+                        const timeRange = `${pickupTime} - ${dropoffTime}`;
+                        
+                        return (
+                          <>
+                            {totalDays > 1 && (
+                              <div className="flex flex-wrap gap-2 mb-4">
+                                {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => (
+                                  <button
+                                    key={day}
+                                    onClick={() => setFinalLookDay(day)}
+                                    className={`px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
+                                      finalLookDay === day
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                    }`}
+                                  >
+                                    {`Tour's day ${day}`}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            <div className="mb-8">
+                              <div className="bg-blue-100 border border-blue-200 rounded-lg px-4 py-3 flex items-center">
+                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-4 relative">
+                                  <FiClock className="w-5 h-5 text-white" />
+                                  {/* Small downward arrow at bottom center */}
+                                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1">
+                                    <div className="w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-blue-600"></div>
+                                  </div>
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="font-bold text-black">{tourText}</h3>
+                                  <p className="text-sm text-gray-600">({timeRange})</p>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-bold text-black">One day Tour</h3>
-                            <p className="text-sm text-gray-600">(06:00 - 23:15)</p>
-                          </div>
-                        </div>
-                      </div>
+                          </>
+                        );
+                      })()}
 
                       {/* Removed Pick-up & Drop-off summary panels in Final Look */}
 
@@ -1011,7 +1169,7 @@ const AddItineraryComponent = ({
                         {/* Removed fixed Mount Fuji start; pickup is shown above when available */}
 
                         {/* Itinerary Entries */}
-                        {itineraryEntries.map((entry, index) => (
+                        {(itineraryEntries.filter(entry => (entry.day || 1) === finalLookDay)).map((entry, index) => (
                           <div key={entry.id || index} className="flex items-start mb-8 relative">
                             <div data-timeline-marker className="w-8 h-8 border-2 border-black bg-gray-200 rounded-full flex items-center justify-center mr-6 flex-shrink-0 relative z-10 overflow-hidden">
                               {entry.photo ? (
@@ -1065,11 +1223,45 @@ const AddItineraryComponent = ({
                             </div>
                             <div className="flex-1">
                               <h3 className="text-2xl font-bold text-black mb-2">Drop-off</h3>
-                              <div className="flex flex-wrap gap-2">
+                              <div className="flex flex-wrap gap-2 mb-1">
                                 {productData.dropoffLocations.map((loc, idx) => (
                                   <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{loc}</span>
                                 ))}
                               </div>
+                              {(() => {
+                                const pickupTime = productData?.pickupTime || '06:00';
+                                
+                                // Helper to add minutes to time string
+                                const addMinutesToTime = (timeStr, minutes) => {
+                                  if (!timeStr) return timeStr;
+                                  const [h, m] = timeStr.split(':').map(Number);
+                                  let totalMinutes = (h * 60 + m) + minutes;
+                                  totalMinutes = totalMinutes % (24 * 60);
+                                  const newH = Math.floor(totalMinutes / 60);
+                                  const newM = totalMinutes % 60;
+                                  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+                                };
+                                
+                                // Calculate dropoff time: pickup time + sum of filtered itinerary durations
+                                let dropoffTime = productData?.dropoffTime;
+                                if (!dropoffTime) {
+                                  // Sum all itinerary timeSpent durations for the selected day
+                                  let totalMinutes = 0;
+                                  itineraryEntries
+                                    .filter(entry => (entry.day || 1) === finalLookDay)
+                                    .forEach(entry => {
+                                    if (entry.timeSpent) {
+                                      totalMinutes += parseTimeSpentToMinutes(entry.timeSpent);
+                                    }
+                                  });
+                                  
+                                  dropoffTime = totalMinutes > 0 ? addMinutesToTime(pickupTime, totalMinutes) : pickupTime;
+                                }
+                                
+                                return dropoffTime ? (
+                                  <p className="text-sm text-gray-600">Time: {dropoffTime}</p>
+                                ) : null;
+                              })()}
                             </div>
                           </div>
                         )}
@@ -1079,22 +1271,63 @@ const AddItineraryComponent = ({
                     </div>
                   ) : !showSubmitView ? (
                     <>
-                      {/* One day Tour Bar */}
-                <div className="mb-8">
-                        <div className="bg-blue-100 border border-blue-200 rounded-lg px-4 py-3 flex items-center">
-                          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-4 relative">
-                            <FiClock className="w-5 h-5 text-white" />
-                            {/* Small downward arrow at bottom center */}
-                            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1">
-                              <div className="w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-blue-600"></div>
+                      {/* Tour Bar - Dynamic based on totalTourDays */}
+                      {(() => {
+                        const totalDays = parseInt(productData?.totalTourDays || '1', 10) || 1;
+                        const dayDurations = productData?.dayDurations || {};
+                        const pickupTime = productData?.pickupTime || '06:00';
+                        
+                        // Helper to parse duration (e.g., "6h" -> 6 hours)
+                        const parseDurationHours = (durationStr) => {
+                          if (!durationStr) return 0;
+                          const match = durationStr.match(/(\d+)h/i);
+                          return match ? parseInt(match[1], 10) : 0;
+                        };
+                        
+                        // Helper to add hours to time string (e.g., "06:00" + 6 hours = "12:00")
+                        const addHoursToTime = (timeStr, hours) => {
+                          if (!timeStr) return timeStr;
+                          const [h, m] = timeStr.split(':').map(Number);
+                          let totalMinutes = (h * 60 + m) + (hours * 60);
+                          // Handle overflow past 24 hours
+                          totalMinutes = totalMinutes % (24 * 60);
+                          const newH = Math.floor(totalMinutes / 60);
+                          const newM = totalMinutes % 60;
+                          return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+                        };
+                        
+                        // Calculate dropoff time: pickup time + sum of all day durations
+                        let dropoffTime = productData?.dropoffTime;
+                        if (!dropoffTime) {
+                          let totalHours = 0;
+                          for (let day = 1; day <= totalDays; day++) {
+                            const dur = dayDurations[day] || dayDurations[String(day)] || '';
+                            totalHours += parseDurationHours(dur);
+                          }
+                          dropoffTime = totalHours > 0 ? addHoursToTime(pickupTime, totalHours) : pickupTime;
+                        }
+                        
+                        const tourText = totalDays === 1 ? '1 day Tour' : `${totalDays} day Tour`;
+                        const timeRange = `${pickupTime} - ${dropoffTime}`;
+                        
+                        return (
+                          <div className="mb-8">
+                            <div className="bg-blue-100 border border-blue-200 rounded-lg px-4 py-3 flex items-center">
+                              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-4 relative">
+                                <FiClock className="w-5 h-5 text-white" />
+                                {/* Small downward arrow at bottom center */}
+                                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1">
+                                  <div className="w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-blue-600"></div>
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="font-bold text-black">{tourText}</h3>
+                                <p className="text-sm text-gray-600">({timeRange})</p>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex-1">
-                            <h3 className="font-bold text-black">One day Tour</h3>
-                            <p className="text-sm text-gray-600">(06:00 - 23:15)</p>
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })()}
 
                       {/* Itinerary Timeline */}
                       <div className="relative">
@@ -1200,11 +1433,43 @@ const AddItineraryComponent = ({
                             </div>
                             <div>
                               <h3 className="text-2xl font-bold text-black">Drop-off</h3>
-                              <div className="flex flex-wrap gap-2 mt-2">
+                              <div className="flex flex-wrap gap-2 mt-2 mb-1">
                                 {productData.dropoffLocations.map((loc, idx) => (
                                   <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{loc}</span>
                                 ))}
                               </div>
+                              {(() => {
+                                const pickupTime = productData?.pickupTime || '06:00';
+                                
+                                // Helper to add minutes to time string
+                                const addMinutesToTime = (timeStr, minutes) => {
+                                  if (!timeStr) return timeStr;
+                                  const [h, m] = timeStr.split(':').map(Number);
+                                  let totalMinutes = (h * 60 + m) + minutes;
+                                  totalMinutes = totalMinutes % (24 * 60);
+                                  const newH = Math.floor(totalMinutes / 60);
+                                  const newM = totalMinutes % 60;
+                                  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+                                };
+                                
+                                // Calculate dropoff time: pickup time + sum of all itinerary durations
+                                let dropoffTime = productData?.dropoffTime;
+                                if (!dropoffTime) {
+                                  // Sum all itinerary timeSpent durations
+                                  let totalMinutes = 0;
+                                  itineraryEntries.forEach(entry => {
+                                    if (entry.timeSpent) {
+                                      totalMinutes += parseTimeSpentToMinutes(entry.timeSpent);
+                                    }
+                                  });
+                                  
+                                  dropoffTime = totalMinutes > 0 ? addMinutesToTime(pickupTime, totalMinutes) : pickupTime;
+                                }
+                                
+                                return dropoffTime ? (
+                                  <p className="text-sm text-gray-600 mt-2">Time: {dropoffTime}</p>
+                                ) : null;
+                              })()}
                             </div>
                           </div>
                         )}
@@ -1230,7 +1495,7 @@ const AddItineraryComponent = ({
                         
                         // Get current day's data
                         const currentDayItineraries = itinerariesByDay[currentWorkingDay] || [];
-                        const currentDayDuration = dayDurations[currentWorkingDay] || '';
+                        const currentDayDuration = dayDurations[currentWorkingDay] || dayDurations[String(currentWorkingDay)] || '';
                         const isCurrentDayCompleted = completedDays.has(currentWorkingDay);
                         
                         // Calculate total time used and remaining for current day
@@ -1296,27 +1561,28 @@ const AddItineraryComponent = ({
                                 )}
                               </div>
                               
-                              {/* Day Selector Dropdown */}
-                              {totalDays > 1 && (
-                                <div className="flex items-center gap-3">
-                                  <label className="text-sm font-medium text-gray-700">Select Day:</label>
-                                  <select
-                                    value={currentWorkingDay}
-                                    onChange={(e) => setCurrentWorkingDay(parseInt(e.target.value, 10))}
-                                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium"
-                                  >
-                                    {availableDays.map((day) => {
-                                      const isCompleted = completedDays.has(day);
-                                      const dayDuration = dayDurations[day] || '';
-                                      return (
-                                        <option key={day} value={day}>
-                                          Day {day}{dayDuration ? ` (${dayDuration})` : ''}{isCompleted ? ' ✓' : ''}
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
-                                </div>
-                              )}
+                              {/* Day Selector Dropdown - Always show, enable for multi-day tours */}
+                              <div className="flex items-center gap-3">
+                                <label className="text-sm font-medium text-gray-700">Select Day:</label>
+                                <select
+                                  value={currentWorkingDay}
+                                  onChange={(e) => setCurrentWorkingDay(parseInt(e.target.value, 10))}
+                                  disabled={totalDays === 1}
+                                  className={`px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium ${
+                                    totalDays === 1 ? 'cursor-not-allowed opacity-60' : ''
+                                  }`}
+                                >
+                                  {availableDays.map((day) => {
+                                    const isCompleted = completedDays.has(day);
+                                    const dayDuration = dayDurations[day] || dayDurations[String(day)] || '';
+                                    return (
+                                      <option key={day} value={day}>
+                                        Day {day}{dayDuration ? ` (${dayDuration})` : ''}{isCompleted ? ' ✓' : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
                             </div>
                             
                             {/* Itineraries for Current Day */}
@@ -1509,26 +1775,32 @@ const AddItineraryComponent = ({
 
             {/* Modal Content */}
             <div className="p-6 space-y-6">
-              {/* Day Selector - Only show if multi-day tour */}
+              {/* Day Selector - Always show, enable for multi-day tours */}
               {(() => {
                 const totalDays = parseInt(productData?.totalTourDays || '1', 10) || 1;
-                if (totalDays > 1) {
-                  return (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">Select Day</label>
-                      <select
-                        value={selectedDay}
-                        onChange={(e) => setSelectedDay(parseInt(e.target.value, 10))}
-                        className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => (
-                          <option key={day} value={day}>Day {day}</option>
-                        ))}
-                      </select>
-                    </div>
-                  );
-                }
-                return null;
+                const dayDurations = productData?.dayDurations || {};
+                return (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Select Day</label>
+                    <select
+                      value={selectedDay}
+                      onChange={(e) => setSelectedDay(parseInt(e.target.value, 10))}
+                      disabled={totalDays === 1}
+                      className={`w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        totalDays === 1 ? 'cursor-not-allowed opacity-60' : ''
+                      }`}
+                    >
+                      {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => {
+                        const dayDuration = dayDurations[day] || dayDurations[String(day)] || '';
+                        return (
+                          <option key={day} value={day}>
+                            Day {day}{dayDuration ? ` (${dayDuration})` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                );
               })()}
               
               {/* Place Name */}
@@ -1592,7 +1864,8 @@ const AddItineraryComponent = ({
                 <label className="block text-sm font-medium text-gray-900 mb-2">Time to Spend</label>
                 {(() => {
                   const dayDurations = productData?.dayDurations || {};
-                  const dayDuration = dayDurations[selectedDay] || '';
+                  // Ensure we access the day duration correctly (handle both string and number keys)
+                  const dayDuration = dayDurations[selectedDay] || dayDurations[String(selectedDay)] || '';
                   const dayDurationMinutes = parseDurationToMinutes(dayDuration);
                   
                   if (dayDurationMinutes > 0) {

@@ -834,22 +834,22 @@ const PaymentDetailsPage = () => {
             <div className="space-y-4 border-t border-gray-200 pt-6">
               {/* Show Date only if there's a valid date */}
               {selectedDate && selectedDate.trim() && formatDateForDisplay(selectedDate) && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600 font-medium">Date:</span>
+              <div className="flex justify-between">
+                <span className="text-gray-600 font-medium">Date:</span>
                   <span className="text-gray-900 font-semibold">{formatDateForDisplay(selectedDate)}</span>
-                </div>
+              </div>
               )}
               
               {/* Show extras total only if there are extras (hide if 0, "0", null, undefined, or empty) */}
               {(() => {
                 const extrasValue = Number(extrasTotal) || 0;
                 return extrasValue > 0 ? (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Preference price:</span>
-                    <span className="text-gray-900 font-semibold">
-                      ${formatCurrency(extrasTotal)}
-                    </span>
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 font-medium">Preference price:</span>
+                  <span className="text-gray-900 font-semibold">
+                    ${formatCurrency(extrasTotal)}
+                  </span>
+                </div>
                 ) : null;
               })()}
               

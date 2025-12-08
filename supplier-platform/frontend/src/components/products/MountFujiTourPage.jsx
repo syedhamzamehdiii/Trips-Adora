@@ -2060,6 +2060,59 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   // When republishing, we should never use default items - use empty array instead
   const hasActualItineraryData = productData?.itineraries && Array.isArray(productData.itineraries) && productData.itineraries.length > 0;
   
+  // Group itineraries by day
+  const totalTourDays = parseInt(productData?.totalTourDays || '1', 10) || 1;
+  const dayDurations = productData?.dayDurations || {};
+  
+  const itineraryItemsByDay = hasActualItineraryData
+    ? (() => {
+        const grouped = {};
+        // Initialize all days
+        for (let day = 1; day <= totalTourDays; day++) {
+          grouped[day] = [];
+        }
+        // Group itineraries by day
+        productData.itineraries.forEach((itinerary, index) => {
+          const day = itinerary.day || 1;
+          if (!grouped[day]) {
+            grouped[day] = [];
+          }
+          
+          // Preserve photo URL - handle string URLs (http/https/data), objects with url property
+          let photoUrl = null;
+          if (itinerary?.photo) {
+            if (typeof itinerary.photo === 'string') {
+              // Preserve if it's a URL (http, https, data URL, or relative path)
+              photoUrl = (itinerary.photo.startsWith('http') || itinerary.photo.startsWith('data:') || itinerary.photo.startsWith('/'))
+                ? itinerary.photo
+                : null;
+            } else if (itinerary.photo?.url) {
+              photoUrl = itinerary.photo.url;
+            }
+          }
+          // Fallback to other photo fields if main photo field is empty
+          if (!photoUrl) {
+            photoUrl = itinerary?.croppedPhoto || itinerary?.photoPreview || null;
+          }
+          
+          grouped[day].push({
+            time: itinerary.time || `${String(6 + grouped[day].length * 2).padStart(2, '0')}:00`,
+            title: itinerary.location || itinerary.placeName || itinerary.title || `Itinerary stop ${index + 1}`,
+            description: itinerary.description || '',
+            attractionType: itinerary.attractionType || 'Sightseeing & Photography',
+            timeSpent: itinerary.timeSpent || '',
+            isFree: itinerary.isFree !== undefined ? itinerary.isFree : true,
+            ticketFare: itinerary.ticketFare || '',
+            photo: photoUrl,
+            icon: 'sightseeing',
+            day: day
+          });
+        });
+        return grouped;
+      })()
+    : {}; // Return empty object instead of default items to prevent mock data from appearing after republishing
+  
+  // For backward compatibility, also create a flat list
   const itineraryItems = hasActualItineraryData
     ? productData.itineraries.map((itinerary, index) => {
         // Preserve photo URL - handle string URLs (http/https/data), objects with url property
@@ -2088,7 +2141,8 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
           isFree: itinerary.isFree !== undefined ? itinerary.isFree : true,
           ticketFare: itinerary.ticketFare || '',
           photo: photoUrl,
-          icon: 'sightseeing'
+          icon: 'sightseeing',
+          day: itinerary.day || 1
         };
       })
     : []; // Return empty array instead of default items to prevent mock data from appearing after republishing
@@ -2534,30 +2588,23 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                             : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
                         }`}
                       >
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                       <div className="flex items-start space-x-3">
-                            <FiTruck size={20} className={`mt-1 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                        <FiTruck size={20} className={`mt-1 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
                         <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-semibold text-gray-900">
-                            {vehicle.title || (vehicle.type && vehicle.model ? `${vehicle.type} ${vehicle.model.replace('-', ' ')}` : 'Vehicle')}
-                                </h4>
-                                {isSelected && (
-                                  <span className="px-2 py-0.5 bg-blue-600 text-white text-xs font-medium rounded-full">
-                                    Selected
-                                  </span>
-                                )}
-                              </div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-gray-900">
+                              {vehicle.title || (vehicle.type && vehicle.model ? `${vehicle.type} ${vehicle.model.replace('-', ' ')}` : 'Vehicle')}
+                            </h4>
+                            {isSelected && (
+                              <span className="px-2 py-0.5 bg-blue-600 text-white text-xs font-medium rounded-full">
+                                Selected
+                              </span>
+                            )}
+                          </div>
                           {vehicle.year && <p className="text-sm text-gray-500">{vehicle.year} model</p>}
                           {vehicle.attributes && <p className="text-sm text-gray-500">{vehicle.attributes}</p>}
                           {vehicle.capacity && <p className="text-sm text-gray-500">Best for up to {vehicle.capacity} travelers</p>}
-                        </div>
-                      </div>
-                      <div className="flex items-start space-x-3">
-                            <FiClock size={20} className={`mt-1 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
-                        <div>
-                          <h4 className="font-semibold text-gray-900">Duration</h4>
-                          <p className="text-gray-600">{vehicle.duration || 'N/A'}</p>
                         </div>
                       </div>
                     </div>
@@ -2778,50 +2825,115 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                 <FiCalendar size={20} className="text-blue-600" />
                 <h3 className="text-xl font-bold text-gray-900">Itinerary</h3>
               </div>
-              <div className="space-y-4">
-                {itineraryItems.map((item, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-gray-300 overflow-hidden bg-blue-100">
-                        {item.photo ? (
-                          /* Show cropped circular photo */
-                          <img 
-                            src={item.photo} 
-                            alt={item.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          /* Show time if no photo */
-                        <span className="text-blue-600 text-xs font-bold">{item.time}</span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-gray-900 text-sm">{item.title}</h4>
-                          {item.photo && (
-                            <span className="text-blue-600 text-xs font-medium">{item.time}</span>
+              <div className="space-y-6">
+                {totalTourDays > 1 ? (
+                  // Multi-day tour: Show grouped by day
+                  Array.from({ length: totalTourDays }, (_, i) => i + 1).map((day) => {
+                    const dayItineraries = itineraryItemsByDay[day] || [];
+                    const dayDuration = dayDurations[day] || dayDurations[String(day)] || '';
+                    
+                    if (dayItineraries.length === 0) return null;
+                    
+                    return (
+                      <div key={day} className="space-y-4">
+                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-300">
+                          <h4 className="text-lg font-bold text-gray-900">Day {day}</h4>
+                          {dayDuration && (
+                            <span className="text-sm text-gray-600">({dayDuration})</span>
                           )}
                         </div>
-                        <p className="text-gray-600 text-xs mt-1 mb-2">{item.description}</p>
-                        {item.attractionType && (
-                          <p className="text-gray-500 text-xs mb-2">{item.attractionType}</p>
-                        )}
-                        <div className="flex items-center space-x-2">
-                          {item.isFree !== undefined && (
-                            <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">
-                              {item.isFree ? 'Free' : 'Paid'}
-                            </span>
+                        {dayItineraries.map((item, index) => (
+                          <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="flex items-start space-x-3">
+                              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-gray-300 overflow-hidden bg-blue-100">
+                                {item.photo ? (
+                                  /* Show cropped circular photo */
+                                  <img 
+                                    src={item.photo} 
+                                    alt={item.title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  /* Show time if no photo */
+                                <span className="text-blue-600 text-xs font-bold">{item.time}</span>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-gray-900 text-sm">{item.title}</h4>
+                                  {item.photo && (
+                                    <span className="text-blue-600 text-xs font-medium">{item.time}</span>
+                                  )}
+                                </div>
+                                <p className="text-gray-600 text-xs mt-1 mb-2">{item.description}</p>
+                                {item.attractionType && (
+                                  <p className="text-gray-500 text-xs mb-2">{item.attractionType}</p>
+                                )}
+                                <div className="flex items-center space-x-2">
+                                  {item.isFree !== undefined && (
+                                    <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">
+                                      {item.isFree ? 'Free' : 'Paid'}
+                                    </span>
+                                  )}
+                                  {item.timeSpent && (
+                                    <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">
+                                      {item.timeSpent}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })
+                ) : (
+                  // Single-day tour: Show flat list
+                  itineraryItems.map((item, index) => (
+                    <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="flex items-start space-x-3">
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-gray-300 overflow-hidden bg-blue-100">
+                          {item.photo ? (
+                            /* Show cropped circular photo */
+                            <img 
+                              src={item.photo} 
+                              alt={item.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            /* Show time if no photo */
+                          <span className="text-blue-600 text-xs font-bold">{item.time}</span>
                           )}
-                          {item.timeSpent && (
-                            <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">
-                              {item.timeSpent}
-                            </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-gray-900 text-sm">{item.title}</h4>
+                            {item.photo && (
+                              <span className="text-blue-600 text-xs font-medium">{item.time}</span>
+                            )}
+                          </div>
+                          <p className="text-gray-600 text-xs mt-1 mb-2">{item.description}</p>
+                          {item.attractionType && (
+                            <p className="text-gray-500 text-xs mb-2">{item.attractionType}</p>
                           )}
+                          <div className="flex items-center space-x-2">
+                            {item.isFree !== undefined && (
+                              <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">
+                                {item.isFree ? 'Free' : 'Paid'}
+                              </span>
+                            )}
+                            {item.timeSpent && (
+                              <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">
+                                {item.timeSpent}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 

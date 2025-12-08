@@ -430,9 +430,18 @@ async def get_product(product_id: str):
                 return value
             return [value]
 
+        # Extract custom_fields first (needed for multiple sections)
+        custom_fields = product.get("custom_fields") if isinstance(product.get("custom_fields"), dict) else {}
+        
+        # Extract total tour days and day durations
+        total_tour_days = product.get("total_tour_days") or product.get("totalTourDays")
+        day_durations = product.get("day_durations") or product.get("dayDurations") or {}
+        if custom_fields:
+            total_tour_days = custom_fields.get("total_tour_days") or custom_fields.get("totalTourDays") or total_tour_days
+            day_durations = custom_fields.get("day_durations") or custom_fields.get("dayDurations") or day_durations
+
         # Format itinerary - prefer rich data stored in custom_fields
         itinerary: List[ItineraryItem] = []
-        custom_fields = product.get("custom_fields") if isinstance(product.get("custom_fields"), dict) else {}
 
         itinerary_sources: List[Any] = []
         if custom_fields:
@@ -472,7 +481,8 @@ async def get_product(product_id: str):
                         ticket=item.get("ticket") or None,  # For backward compatibility
                         photo=item.get("photo") or item.get("croppedPhoto") or item.get("photoPreview"),
                         attractionType=item.get("attractionType") or item.get("attractionsType"),
-                        activities=_ensure_list(item.get("activities"))
+                        activities=_ensure_list(item.get("activities")),
+                        day=item.get("day") or 1
                     )
                 )
             if itinerary:
@@ -560,10 +570,22 @@ async def get_product(product_id: str):
                                         "updatedAt": vehicle_doc.get("updated_at").isoformat() if vehicle_doc.get("updated_at") else None
                                     }
                                     logger.info(f"✅ [DEBUG] Populated vehicle for config with vehicle_id: {vehicle_id}")
+                                else:
+                                    # Vehicle was deleted or is inactive - skip this configuration
+                                    logger.info(f"⚠️ [DEBUG] Vehicle {vehicle_id} not found or inactive, skipping configuration")
+                                    continue  # Skip adding this config to populated_configs
                             except Exception as e:
                                 logger.warning(f"⚠️ [DEBUG] Could not populate vehicle for config: {e}")
+                                # If there's an error and vehicle_id exists, skip this config
+                                if config_dict.get("vehicle_id"):
+                                    continue  # Skip adding this config to populated_configs
                         
-                        populated_configs.append(config_dict)
+                        # Only add config if it has a valid vehicle (either already present or just populated)
+                        if config_dict.get("vehicle") or not config_dict.get("vehicle_id"):
+                            populated_configs.append(config_dict)
+                        else:
+                            # Config references a vehicle_id but vehicle wasn't found - skip it
+                            logger.info(f"⚠️ [DEBUG] Skipping config with missing vehicle_id: {config_dict.get('vehicle_id')}")
                     
                     pickup_configurations = populated_configs
                     
@@ -724,6 +746,17 @@ async def get_product(product_id: str):
         original_currency = product.get("currency", "USD")
         price_usd = await convert_to_usd(original_price, original_currency)
 
+        # Calculate groupSize from vehicle capacity if not set on product
+        group_size = product.get("groupSize") or product.get("maxGroupSize") or product.get("capacity")
+        if not group_size and vehicles:
+            # Find maximum capacity from vehicles
+            max_capacity = max((v.capacity for v in vehicles if v.capacity), default=None)
+            if max_capacity:
+                group_size = f"Up to {max_capacity} guests"
+        
+        # Ensure location is set (use destination or resolved location if available)
+        location = product.get("location") or product.get("destination")
+
         # Create response
         response = ProductResponse(
             id=product.get("id", ""),
@@ -746,8 +779,8 @@ async def get_product(product_id: str):
             bookings_count=product.get("bookings_count", 0),
             created_at=product.get("created_at", datetime.utcnow()),
             published_at=product.get("published_at"),
-            location=product.get("location"),
-            groupSize=product.get("groupSize"),
+            location=location,
+            groupSize=group_size,
             # Product details fields
             guide_type=guide_type,
             things_to_carry=things_to_carry,
@@ -755,6 +788,9 @@ async def get_product(product_id: str):
             highlights=highlights,
             included_excluded=included_excluded,
             itinerary=itinerary,
+            itineraries=itinerary,  # preferred key for day-based itineraries
+            totalTourDays=str(total_tour_days) if total_tour_days else None,
+            dayDurations=day_durations or {},
             pickup_dropoff=pickup_dropoff,
             vehicle_details=vehicle_details,
             vehicles=vehicles,

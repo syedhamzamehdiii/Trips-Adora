@@ -72,6 +72,9 @@ class ProductService:
             for idx, item in enumerate(payload["itinerary"]):
                 if not isinstance(item, dict):
                     raise ValueError("Each itinerary entry must be an object")
+                # Default day to 1 if missing
+                if "day" not in item or item["day"] is None:
+                    item["day"] = 1
                 if "photo" in item:
                     item["photo"] = ProductService._validate_cloudinary_url(
                         item.get("photo"), f"itinerary[{idx}].photo"

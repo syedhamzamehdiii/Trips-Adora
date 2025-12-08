@@ -28,6 +28,8 @@ class ProductBase(BaseModel):
     hero_image: Optional[str] = None
     gallery_images: List[str] = []
     itinerary: List[ItineraryItem] = []
+    total_tour_days: Optional[str] = None  # persisted for multi-day tours
+    day_durations: Dict[Any, Any] = Field(default_factory=dict)  # day -> duration string
     duration: Optional[str] = None
     guide_type: Optional[str] = None
     activity_type: Optional[str] = None
@@ -72,6 +74,8 @@ class ProductUpdate(BaseModel):
     hero_image: Optional[str] = None
     gallery_images: Optional[List[str]] = None
     itinerary: Optional[List[ItineraryItem]] = None
+    total_tour_days: Optional[str] = None
+    day_durations: Optional[Dict[Any, Any]] = None
     duration: Optional[str] = None
     guide_type: Optional[str] = None
     activity_type: Optional[str] = None

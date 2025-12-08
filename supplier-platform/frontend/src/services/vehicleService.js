@@ -15,6 +15,7 @@ const mapVehicle = (vehicle) => ({
   pricingType: vehicle.pricing_type,
   amount: vehicle.amount,
   tourDays: vehicle.tour_days,
+  dayDurations: vehicle.day_durations || vehicle.dayDurations, // Support both snake_case and camelCase
   duration: vehicle.duration,
   description: vehicle.description,
   isActive: vehicle.is_active,
@@ -34,6 +35,7 @@ const normalizePayload = (vehicle) => ({
   pricing_type: vehicle.pricingType,
   amount: Number(vehicle.amount),
   tour_days: vehicle.tourDays,
+  day_durations: vehicle.dayDurations, // Include day durations for multi-day tours
   duration: vehicle.duration,
   description: vehicle.description,
   is_active: vehicle.isActive ?? true,
