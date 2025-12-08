@@ -690,6 +690,9 @@ export const transformApiProductToDraftPayload = (apiProduct) => {
     cancellationPolicy: apiProduct.cancellation_policy || null,
     destination: apiProduct.destination || '',
     duration: apiProduct.duration || '',
+    // Tour days and durations for multi-day tours
+    totalTourDays: apiProduct.total_tour_days || apiProduct.totalTourDays || customFields?.total_tour_days || customFields?.totalTourDays || '1',
+    dayDurations: apiProduct.day_durations || apiProduct.dayDurations || customFields?.day_durations || customFields?.dayDurations || {},
     // Include pickup_dropoff structure for vehicle-based access
     pickup_dropoff: apiProduct.pickup_dropoff || null,
     lastModified: new Date().toISOString(),

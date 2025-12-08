@@ -80,10 +80,16 @@ class VehicleService:
 
     @staticmethod
     async def delete_vehicle(supplier_id: str, vehicle_id: str) -> bool:
+        """
+        Delete a vehicle from MongoDB.
+        This performs a hard delete - the vehicle is completely removed from the database.
+        The customer platform will not see deleted vehicles because it filters by is_active=True.
+        """
         document = await VehicleService.get_vehicle(supplier_id, vehicle_id)
         if not document:
             return False
 
+        # Hard delete - completely remove from MongoDB
         await document.delete()
         return True
 

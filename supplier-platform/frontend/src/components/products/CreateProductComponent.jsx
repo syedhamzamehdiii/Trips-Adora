@@ -2278,33 +2278,43 @@ const CreateProductComponent = ({ onClose, draftId = null }) => {
   // === STEP 5 VEHICLE FORM HANDLERS ===
   const saveVehicleOption = async () => {
     // Validate all required fields (totalTourDays and dayDurations are optional)
-    if (!vehicleTitle || !selectedVehicleType || !selectedVehicleModel || 
-        !vehicleAttributes || !numTravellers || !currency || 
-        !pricingType || !productAmount || !vehicleDescription) {
+    // Check for required fields - allow empty strings for optional fields like vehicleAttributes
+    const trimmedTitle = vehicleTitle?.trim();
+    const trimmedDescription = vehicleDescription?.trim();
+    
+    if (!trimmedTitle || !selectedVehicleType || !selectedVehicleModel || 
+        !currency || !pricingType || !productAmount || !trimmedDescription) {
       alert('Please fill in all required fields before saving.');
       setVehicleError('Please complete all vehicle details before saving.');
       return;
     }
 
-    const capacityValue = parseInt(numTravellers, 10);
+    // Validate numeric fields
+    const capacityValue = numTravellers ? parseInt(numTravellers, 10) : null;
     const amountValue = Number(productAmount);
+    
+    if (isNaN(amountValue) || amountValue < 0) {
+      alert('Please enter a valid amount.');
+      setVehicleError('Please enter a valid amount.');
+      return;
+    }
 
     // Always include totalTourDays and dayDurations in the payload
     const payload = {
       id: editingVehicleId || undefined,
-      title: vehicleTitle.trim(),
+      title: trimmedTitle,
       type: selectedVehicleType,
       model: selectedVehicleModel,
-      year: vehicleYear,
-      attributes: vehicleAttributes,
-      capacity: Number.isFinite(capacityValue) ? capacityValue : null,
+      year: vehicleYear || '2024', // Default to 2024 if empty
+      attributes: vehicleAttributes || '', // Allow empty string
+      capacity: Number.isFinite(capacityValue) && capacityValue > 0 ? capacityValue : null,
       currency,
       pricingType,
       amount: Number.isFinite(amountValue) ? amountValue : 0,
       tourDays: totalTourDays || '1', // Always include, default to '1' if not set
       dayDurations: dayDurations || {}, // Always include, default to empty object if not set
       duration: totalDuration || '', // Include even if empty
-      description: vehicleDescription.trim(),
+      description: trimmedDescription,
     };
 
     setVehicleSaving(true);

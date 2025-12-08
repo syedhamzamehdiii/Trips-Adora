@@ -329,11 +329,26 @@ async def get_product(product_id: str):
             db = get_database()
             vehicle_collection = db.supplier_vehicle_options
             
-            # Find all active vehicles for this product
+            # Normalize product_id to string for consistent matching
+            normalized_product_id = str(product_id).strip()
+            
+            # Build product_id match to support both string and ObjectId storage
+            or_clauses = [{"product_id": normalized_product_id}]
+            if ObjectId.is_valid(product_id):
+                or_clauses.append({"product_id": ObjectId(product_id)})
+            
+            # Find all active vehicles for this product (deleted vehicles are not returned)
             vehicle_docs = await vehicle_collection.find({
-                "product_id": str(product_id),
-                "is_active": True
+                "$and": [
+                    {"$or": or_clauses},
+                    {"is_active": True}
+                ]
             }).sort("created_at", -1).to_list(length=100)
+            
+            # Remove any falsy entries defensively
+            vehicle_docs = [v for v in vehicle_docs if v]
+            
+            logger.info(f"🔍 [DEBUG] Found {len(vehicle_docs)} active vehicles for product {normalized_product_id}")
             
             # Map vehicles to frontend format
             for v in vehicle_docs:
@@ -589,12 +604,62 @@ async def get_product(product_id: str):
                     
                     pickup_configurations = populated_configs
                     
-                    # IMPORTANT: Normalize ANY existing vehicle objects in pickup_configurations to USD
-                    # so the customer always sees converted prices, even for legacy configs.
+                    # IMPORTANT: Validate and normalize ANY existing vehicle objects in pickup_configurations
+                    # Also filter out configurations with deleted/inactive vehicles
+                    validated_configs = []
                     for cfg in pickup_configurations:
                         try:
                             veh = cfg.get("vehicle")
+                            vehicle_id = cfg.get("vehicle_id")
+                            
+                            # Helper function to check if a vehicle ID exists in active vehicles
+                            def vehicle_id_matches(vid_to_check, vehicle_doc):
+                                """Check if vehicle ID matches (handles ObjectId and string formats)"""
+                                if not vid_to_check or not vehicle_doc:
+                                    return False
+                                vid_str = str(vid_to_check).strip()
+                                doc_id = vehicle_doc.get("_id")
+                                doc_id_str = str(doc_id) if doc_id else ""
+                                # Try direct string comparison
+                                if vid_str == doc_id_str:
+                                    return True
+                                # Try ObjectId comparison if valid
+                                try:
+                                    from bson import ObjectId
+                                    if ObjectId.is_valid(vid_str) and ObjectId.is_valid(doc_id_str):
+                                        return ObjectId(vid_str) == ObjectId(doc_id_str)
+                                except:
+                                    pass
+                                return False
+                            
+                            # If there's a vehicle_id, verify the vehicle still exists and is active
+                            if vehicle_id:
+                                vid_str = str(vehicle_id).strip()
+                                # Check if this vehicle exists in our active vehicles list
+                                vehicle_exists = any(
+                                    vehicle_id_matches(vid_str, v) for v in vehicle_docs
+                                )
+                                if not vehicle_exists:
+                                    # Vehicle was deleted - skip this configuration
+                                    logger.info(f"⚠️ [DEBUG] Vehicle {vid_str} in config is deleted/inactive, skipping configuration")
+                                    continue
+                            
+                            # If vehicle object is embedded, verify it's still active
+                            if isinstance(veh, dict):
+                                veh_id = veh.get("id") or veh.get("_id") or vehicle_id
+                                if veh_id:
+                                    veh_id_str = str(veh_id).strip()
+                                    vehicle_exists = any(
+                                        vehicle_id_matches(veh_id_str, v) for v in vehicle_docs
+                                    )
+                                    if not vehicle_exists:
+                                        # Embedded vehicle was deleted - skip this configuration
+                                        logger.info(f"⚠️ [DEBUG] Embedded vehicle {veh_id_str} in config is deleted/inactive, skipping configuration")
+                                        continue
+                            
+                            # Vehicle is valid, proceed with normalization
                             if not isinstance(veh, dict):
+                                validated_configs.append(cfg)
                                 continue
 
                             # Try to find a matching vehicle_doc by ID
@@ -624,10 +689,16 @@ async def get_product(product_id: str):
                             veh["amount"] = amount_usd
                             veh["currency"] = "USD"
                             cfg["vehicle"] = veh
+                            
+                            validated_configs.append(cfg)
                         except Exception as e:
                             logger.warning(f"⚠️ [DEBUG] Could not normalize pickup_configurations vehicle to USD: {e}")
+                            # Still add config if vehicle normalization fails (but vehicle exists)
+                            validated_configs.append(cfg)
 
-                    logger.info(f"🔍 [DEBUG] Found {len(pickup_configurations)} pickup_configurations in pickup_dropoff")
+                    # Use validated configs (only those with active vehicles)
+                    pickup_configurations = validated_configs
+                    logger.info(f"🔍 [DEBUG] Found {len(pickup_configurations)} validated pickup_configurations (after filtering deleted vehicles)")
                 else:
                     pickup_configurations = []
                     logger.warning(f"⚠️ [DEBUG] pickup_configurations is not a valid list: {type(raw_configs)}")

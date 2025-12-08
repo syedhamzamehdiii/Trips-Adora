@@ -28,8 +28,8 @@ class ProductBase(BaseModel):
     hero_image: Optional[str] = None
     gallery_images: List[str] = []
     itinerary: List[ItineraryItem] = []
-    total_tour_days: Optional[str] = None  # persisted for multi-day tours
-    day_durations: Dict[Any, Any] = Field(default_factory=dict)  # day -> duration string
+    total_tour_days: Optional[str] = Field(default=None, alias="totalTourDays", description="Total tour days for multi-day tours")
+    day_durations: Dict[Any, Any] = Field(default_factory=dict, alias="dayDurations", description="Map day -> duration string")
     duration: Optional[str] = None
     guide_type: Optional[str] = None
     activity_type: Optional[str] = None
@@ -57,10 +57,16 @@ class ProductBase(BaseModel):
     inactive_dates: List[str] = []
     vehicle_inactive_dates: Dict[str, List[str]] = {}
 
+    class Config:
+        allow_population_by_field_name = True
+        populate_by_name = True
+
 
 class ProductCreate(ProductBase):
     """Schema for creating a new product"""
-    pass
+    class Config:
+        allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class ProductUpdate(BaseModel):
@@ -73,9 +79,9 @@ class ProductUpdate(BaseModel):
     images: Optional[List[str]] = None
     hero_image: Optional[str] = None
     gallery_images: Optional[List[str]] = None
-    itinerary: Optional[List[ItineraryItem]] = None
-    total_tour_days: Optional[str] = None
-    day_durations: Optional[Dict[Any, Any]] = None
+    itinerary: Optional[List[ItineraryItem]] = Field(default=None, alias="itineraries")
+    total_tour_days: Optional[str] = Field(default=None, alias="totalTourDays")
+    day_durations: Optional[Dict[Any, Any]] = Field(default=None, alias="dayDurations")
     duration: Optional[str] = None
     guide_type: Optional[str] = None
     activity_type: Optional[str] = None
@@ -97,6 +103,10 @@ class ProductUpdate(BaseModel):
     style_theme: Optional[str] = None
     status: Optional[ProductStatus] = None
     custom_fields: Optional[Dict[str, Any]] = None
+
+    class Config:
+        allow_population_by_field_name = True
+        populate_by_name = True
 
 
 class ProductSummary(BaseModel):

@@ -58,12 +58,8 @@ class ProductService:
         elif "destination" in product and product.get("destination"):
             product["location"] = product.get("destination")
         
-        # Set groupSize from activity_type
-        if "activity_type" in product and product["activity_type"]:
-            if "Private" in product["activity_type"]:
-                product["groupSize"] = "Up to 12"
-            elif "Group" in product["activity_type"]:
-                product["groupSize"] = "Up to 20"
+        # NOTE: groupSize is calculated in the API endpoint from vehicle capacity
+        # Don't set hardcoded values here - let the API endpoint handle it
         
         return product
     
