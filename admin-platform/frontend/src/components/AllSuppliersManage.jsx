@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import ManageSupplierApprovals from './ManageSupplierApprovals';
+import { getActiveSuppliers, getSupplierStats } from '../services/supplierService';
 
 const baseSuppliers = [
   { id: 'SUP-001', name: 'Aurora Tours', category: 'Tours', rating: 4.7, bookings: 842, status: 'Active' },
@@ -84,15 +85,81 @@ const Card = ({ supplier }) => (
 
 const AllSuppliersManage = () => {
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 8; // matches screenshot rows
-  const totalPages = 14; // to display 12,13,14 in pager like mock
-  const suppliersMock = useMemo(() => generateSuppliers(pageSize * totalPages), []);
-  const pageSlice = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return suppliersMock.slice(start, start + pageSize);
-  }, [currentPage, suppliersMock]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const pageSize = 8;
+  const [suppliers, setSuppliers] = useState([]);
+  const [stats, setStats] = useState({
+    total_suppliers: 0,
+    active_suppliers: 0,
+    verification_pending: 0,
+    total_earnings: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState(null);
   const [showManageApprovals, setShowManageApprovals] = useState(false);
+
+  // Fetch suppliers data
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getActiveSuppliers(
+          currentPage,
+          pageSize,
+          searchQuery || null
+        );
+        setSuppliers(response.suppliers || []);
+        setTotalPages(response.total_pages || 1);
+        setTotal(response.total || 0);
+      } catch (err) {
+        console.error('Error fetching suppliers:', err);
+        setError('Failed to load suppliers. Please try again.');
+        setSuppliers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSuppliers();
+  }, [currentPage, searchQuery]);
+
+  // Fetch stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const statsData = await getSupplierStats();
+        setStats(statsData);
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  // Format number with commas
+  const formatNumber = (num) => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'k';
+    }
+    return num.toLocaleString();
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    if (amount >= 1000000) {
+      return '$' + (amount / 1000000).toFixed(1) + 'M';
+    } else if (amount >= 1000) {
+      return '$' + (amount / 1000).toFixed(1) + 'k';
+    }
+    return '$' + amount.toFixed(2);
+  };
 
   const openModal = (payload) => setSelected(payload);
   const closeModal = () => setSelected(null);
@@ -120,22 +187,34 @@ const AllSuppliersManage = () => {
                 className="relative inline-flex items-center gap-2 rounded-full text-sm shadow"
                 style={{ backgroundColor: '#284078', color: '#fff', height: '44px', paddingInline: '20px' }}>
                 Request to approve
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-[10px] leading-none flex items-center justify-center">15</span>
+                {stats.verification_pending > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-[10px] leading-none flex items-center justify-center text-white">
+                    {stats.verification_pending > 99 ? '99+' : stats.verification_pending}
+                  </span>
+                )}
               </button>
             </div>
 
         {/* KPI Cards */}
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 ">
-          <StatCard title="Total Suppliers" value="2,058" bgColor="#DBFCE7" />
-          <StatCard title="Active" value="1,826" bgColor="#A9B3C9" />
-          <StatCard title="Verification Pending" value="12" bgColor="#FEF9C2" />
-          <StatCard title="Total earnings" value="$2.6M" bgColor="#FFD4CE" />
+          <StatCard title="Total Suppliers" value={formatNumber(stats.total_suppliers)} bgColor="#DBFCE7" />
+          <StatCard title="Active" value={formatNumber(stats.active_suppliers)} bgColor="#A9B3C9" />
+          <StatCard title="Verification Pending" value={formatNumber(stats.verification_pending)} bgColor="#FEF9C2" />
+          <StatCard title="Total earnings" value={formatCurrency(stats.total_earnings)} bgColor="#FFD4CE" />
         </div>
 
         {/* Search */}
         <div className="mt-4">
           <div className="relative max-w-xl">
-            <input className="w-full h-11 rounded-full border border-gray-300 bg-white px-5 pr-12 text-sm outline-none shadow-sm focus:ring-2 focus:ring-[#284078]" placeholder="Search by name or ref. number" />
+            <input 
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1); // Reset to first page on search
+              }}
+              className="w-full h-11 rounded-full border border-gray-300 bg-white px-5 pr-12 text-sm outline-none shadow-sm focus:ring-2 focus:ring-[#284078]" 
+              placeholder="Search by name or ref. number" 
+            />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8  bg-white">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="7"></circle>
@@ -168,69 +247,178 @@ const AllSuppliersManage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {pageSlice.map((s, idx) => {
-                  const globalIndex = (currentPage - 1) * pageSize + idx;
-                  const isDown = globalIndex % 7 === 4 || globalIndex % pageSize === pageSize - 1;
-                  const revenue = (isDown ? 4.1 - (idx * 0.3) : 5.4 - (idx * 0.2)).toFixed(1);
-                  return (
-                    <tr key={s.id} className="bg-white">
-                      <td className="px-3 md:px-4 py-2 text-gray-700">#TA-{1002484 + globalIndex}</td>
-                      <td className="px-3 md:px-4 py-2 text-gray-700">asdhjuhh233@gmail.com</td>
-                      <td className="px-3 md:px-4 py-2 text-gray-700">{24 + (globalIndex*3)%90}</td>
-                      <td className="px-3 md:px-4 py-2 text-gray-800">{s.name}</td>
-                      <td className="px-3 md:px-4 py-2 text-gray-700">Active</td>
-                      <td className="px-3 md:px-4 py-2">
-                        <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${isDown ? 'bg-[#FFE3E3] text-[#b33939]' : 'bg-[#E3FFE4] text-[#2c7a4b]'}`}>
-                          ${revenue}k
-                        </span>
-                      </td>
-                      <td className="px-3 md:px-4 py-2 text-gray-700">{s.rating}</td>
-                      <td className="px-3 md:px-4 py-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openModal({
-                              id: `#TA-${1002484 + globalIndex}`,
-                              name: s.name,
-                              email: 'asdhjuhh233@gmail.com',
-                              totalTours: 24 + (globalIndex * 3) % 90,
-                              rating: s.rating,
-                              earnings: `${revenue}k`,
-                              active: true,
-                              verified: true,
-                              initials: initialsOf(s.name),
-                              completionRate: `${90 + (globalIndex % 10)}%`,
-                              responseTime: `${(1 + (globalIndex % 3) * 0.6).toFixed(1)} hours`,
-                              satisfaction: `${(4.5 + (globalIndex % 5) * 0.1).toFixed(1)}/5.0`,
-                            })
-                          }
-                          className="inline-flex items-center justify-center w-7 h-7  hover:bg-gray-50"
-                          aria-label="View"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="1.6" className="w-4 h-4">
-                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"/>
-                            <circle cx="12" cy="12" r="2.5"/>
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {loading ? (
+                  <tr>
+                    <td colSpan="8" className="px-3 md:px-4 py-8 text-center text-gray-500">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5 text-[#284078]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading suppliers...
+                      </div>
+                    </td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan="8" className="px-3 md:px-4 py-8 text-center text-red-500">
+                      {error}
+                    </td>
+                  </tr>
+                ) : suppliers.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-3 md:px-4 py-8 text-center text-gray-500">
+                      No suppliers found
+                    </td>
+                  </tr>
+                ) : (
+                  suppliers.map((supplier) => {
+                    const revenue = supplier.revenue || 0;
+                    const isLowRevenue = revenue < 3000;
+                    return (
+                      <tr key={supplier.supplier_id || supplier.id} className="bg-white hover:bg-gray-50">
+                        <td className="px-3 md:px-4 py-2 text-gray-700 font-medium">{supplier.supplier_id || supplier.id}</td>
+                        <td className="px-3 md:px-4 py-2 text-gray-700">{supplier.email}</td>
+                        <td className="px-3 md:px-4 py-2 text-gray-700">{supplier.total_tours || 0}</td>
+                        <td className="px-3 md:px-4 py-2 text-gray-800 font-medium">{supplier.name}</td>
+                        <td className="px-3 md:px-4 py-2">
+                          <StatusBadge status={supplier.status || 'Active'} />
+                        </td>
+                        <td className="px-3 md:px-4 py-2">
+                          <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${isLowRevenue ? 'bg-[#FFE3E3] text-[#b33939]' : 'bg-[#E3FFE4] text-[#2c7a4b]'}`}>
+                            {formatCurrency(revenue)}
+                          </span>
+                        </td>
+                        <td className="px-3 md:px-4 py-2 text-gray-700">{supplier.rating?.toFixed(1) || '0.0'}</td>
+                        <td className="px-3 md:px-4 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openModal({
+                                id: supplier.supplier_id || supplier.id,
+                                name: supplier.name,
+                                email: supplier.email,
+                                totalTours: supplier.total_tours || 0,
+                                rating: supplier.rating?.toFixed(1) || '0.0',
+                                earnings: formatCurrency(revenue),
+                                active: supplier.status === 'Active' || supplier.status === 'approved',
+                                verified: true,
+                                initials: initialsOf(supplier.name),
+                                phone: supplier.phone,
+                                location: supplier.location,
+                              })
+                            }
+                            className="inline-flex items-center justify-center w-7 h-7  hover:bg-gray-50"
+                            aria-label="View"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="1.6" className="w-4 h-4">
+                              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"/>
+                              <circle cx="12" cy="12" r="2.5"/>
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
           <div className="px-4 md:px-6 py-4 border-t border-gray-200 flex items-center justify-center gap-2 text-[#284078]">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} className="w-8 h-8 rounded-full border border-gray-300 text-[#284078]">‹</button>
-            {[1,2,3].map(n => (
-              <button key={n} onClick={() => setCurrentPage(n)} className={`w-8 h-8 rounded-full border text-sm ${currentPage===n ? 'bg-[#1c2a4f] text-white border-[#1c2a4f]' : 'border-gray-300 text-[#284078]'}`}>{n}</button>
-            ))}
-            <button disabled className="w-8 h-8 rounded-full border border-gray-300 text-[#284078] cursor-default">…</button>
-            {[12,13,14].map(n => (
-              <button key={n} onClick={() => setCurrentPage(n)} className={`w-8 h-8 rounded-full border text-sm ${currentPage===n ? 'bg-[#1c2a4f] text-white border-[#1c2a4f]' : 'border-gray-300 text-[#284078]'}`}>{n}</button>
-            ))}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} className="w-8 h-8 rounded-full border border-gray-300 text-[#284078]">›</button>
-            <button className="ml-2 px-3 h-8 rounded-full border border-gray-300 text-[#284078] text-xs inline-flex items-center gap-1"> {currentPage}\10
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#284078" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p-1))} 
+              disabled={currentPage === 1}
+              className="w-8 h-8 rounded-full border border-gray-300 text-[#284078] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              ‹
+            </button>
+            {totalPages <= 7 ? (
+              // Show all pages if 7 or fewer
+              Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                <button 
+                  key={n} 
+                  onClick={() => setCurrentPage(n)} 
+                  className={`w-8 h-8 rounded-full border text-sm ${
+                    currentPage === n 
+                      ? 'bg-[#1c2a4f] text-white border-[#1c2a4f]' 
+                      : 'border-gray-300 text-[#284078] hover:bg-gray-50'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))
+            ) : (
+              <>
+                {/* Show first 3 pages */}
+                {[1, 2, 3].map(n => (
+                  <button 
+                    key={n} 
+                    onClick={() => setCurrentPage(n)} 
+                    className={`w-8 h-8 rounded-full border text-sm ${
+                      currentPage === n 
+                        ? 'bg-[#1c2a4f] text-white border-[#1c2a4f]' 
+                        : 'border-gray-300 text-[#284078] hover:bg-gray-50'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                {currentPage > 4 && (
+                  <button disabled className="w-8 h-8 rounded-full border border-gray-300 text-[#284078] cursor-default">
+                    …
+                  </button>
+                )}
+                {/* Show current page and neighbors if not in first/last 3 */}
+                {currentPage > 3 && currentPage < totalPages - 2 && (
+                  <>
+                    {[currentPage - 1, currentPage, currentPage + 1].map(n => (
+                      <button 
+                        key={n} 
+                        onClick={() => setCurrentPage(n)} 
+                        className={`w-8 h-8 rounded-full border text-sm ${
+                          currentPage === n 
+                            ? 'bg-[#1c2a4f] text-white border-[#1c2a4f]' 
+                            : 'border-gray-300 text-[#284078] hover:bg-gray-50'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {currentPage < totalPages - 3 && (
+                  <button disabled className="w-8 h-8 rounded-full border border-gray-300 text-[#284078] cursor-default">
+                    …
+                  </button>
+                )}
+                {/* Show last 3 pages */}
+                {[totalPages - 2, totalPages - 1, totalPages].map(n => (
+                  <button 
+                    key={n} 
+                    onClick={() => setCurrentPage(n)} 
+                    className={`w-8 h-8 rounded-full border text-sm ${
+                      currentPage === n 
+                        ? 'bg-[#1c2a4f] text-white border-[#1c2a4f]' 
+                        : 'border-gray-300 text-[#284078] hover:bg-gray-50'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </>
+            )}
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} 
+              disabled={currentPage === totalPages}
+              className="w-8 h-8 rounded-full border border-gray-300 text-[#284078] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              ›
+            </button>
+            <button className="ml-2 px-3 h-8 rounded-full border border-gray-300 text-[#284078] text-xs inline-flex items-center gap-1">
+              {`${currentPage}\\${totalPages}`}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#284078" strokeWidth="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
             </button>
           </div>
         </div>
@@ -254,7 +442,12 @@ const AllSuppliersManage = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => { if (window && window.location) { window.location.hash = '#supplier-profile'; } closeModal(); }}
+                  onClick={() => { 
+                    if (window && window.location) { 
+                      window.location.hash = `#supplier-profile?id=${selected.id}`; 
+                    } 
+                    closeModal(); 
+                  }}
                   className="px-4 py-2 rounded-full border border-gray-300 text-sm text-gray-700 bg-white hover:bg-gray-50"
                 >
                   View Profile

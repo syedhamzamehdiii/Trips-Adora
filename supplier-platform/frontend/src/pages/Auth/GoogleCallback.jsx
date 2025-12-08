@@ -40,6 +40,12 @@ const GoogleCallback = () => {
         if (response.success) {
           updateUser(response.user);
           toast.success('Successfully signed in with Google!');
+          // Check if user is verified, if not redirect to customer platform registration
+          if (!response.user?.is_verified) {
+            const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
+            window.location.href = `${customerAppUrl}/supplier-registration`
+            return
+          }
           if (!redirectToSupplierOnboarding()) {
           navigate(ROUTES.DASHBOARD);
           }

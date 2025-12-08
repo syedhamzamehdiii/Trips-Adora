@@ -15,6 +15,9 @@ export const config = {
   NODE_ENV: import.meta.env.MODE || 'development',
   IS_DEVELOPMENT: import.meta.env.MODE === 'development',
   IS_PRODUCTION: import.meta.env.MODE === 'production',
+  
+  // Customer Platform URL (for supplier registration redirect)
+  CUSTOMER_APP_URL: import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174',
 }
 
 // Google OAuth configuration

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import MonthDropdown from './MonthDropdown';
 import PayoutDetailModal from './PayoutDetailModal';
 import SupplierDocsModal from './SupplierDocsModal';
 import SupplierProducts from './SupplierProducts';
+import { getSupplierDetail } from '../services/supplierService';
 
-const SupplierDetail = () => {
+const SupplierDetail = ({ supplierId }) => {
   const [selectedMonth, setSelectedMonth] = useState('October');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -16,21 +17,48 @@ const SupplierDetail = () => {
   const [docsAnchorRect, setDocsAnchorRect] = useState(null);
   const [showProducts, setShowProducts] = useState(false);
 
-  const payoutHistory = [
-    { date: '26-10-25', product: 'Mount. fuji day trip', bookings: 3, earnings: '$725', commission: '$181.25', commissionBg: '#E8F5E9', commissionText: '#2E7D32', dueAmount: '$543.75', payout: '$543.75' },
-    { date: '26-10-25', product: 'Hakoony tour', bookings: 5, earnings: '$725', commission: '$181.25', commissionBg: '#FFF9C4', commissionText: '#F57F17', dueAmount: '$543.75', payout: '$543.75' },
-    { date: '26-10-25', product: 'Mount. fuji day trip', bookings: 4, earnings: '$725', commission: '$181.25', commissionBg: '#E1F5FE', commissionText: '#0277BD', dueAmount: '$543.75', payout: '$543.75' },
-    { date: '25-10-25', product: 'Hakoony tour', bookings: 2, earnings: '$725', commission: '$181.25', commissionBg: '#F3E5F5', commissionText: '#7B1FA2', dueAmount: '$543.75', payout: '$543.75' },
-    { date: '25-10-25', product: 'Mount. fuji day trip', bookings: 5, earnings: '$725', commission: '$181.25', commissionBg: '#FFE0B2', commissionText: '#E65100', dueAmount: '$543.75', payout: '$543.75' },
-    { date: '25-10-25', product: 'Hakoony tour', bookings: 6, earnings: '$725', commission: '$181.25', commissionBg: '#FCE4EC', commissionText: '#C2185B', dueAmount: '$543.75', payout: '$543.75' },
-    { date: '24-10-25', product: 'Mount. fuji day trip', bookings: 6, earnings: '$725', commission: '$181.25', commissionBg: '#E8EAF6', commissionText: '#3F51B5', dueAmount: '$543.75', payout: '$543.75' },
-    { date: '25-10-25', product: 'Hakoony tour', bookings: 7, earnings: '$725', commission: '$181.25', commissionBg: '#E0F2F1', commissionText: '#00796B', dueAmount: '$543.75', payout: '$543.75' },
-  ];
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!supplierId) return;
+    let active = true;
+
+    const fetchDetail = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getSupplierDetail(supplierId);
+        if (!active) return;
+        setDetail(data);
+      } catch (err) {
+        if (!active) return;
+        console.error('Error fetching supplier detail', err);
+        setError('Unable to load supplier details right now.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchDetail();
+    return () => {
+      active = false;
+    };
+  }, [supplierId]);
+
+  const payouts = useMemo(() => detail?.payouts || [], [detail]);
 
   return (
     <div className="min-h-screen bg-white " style={{ fontFamily: 'Poppins, sans-serif' }}>
+      {loading && (
+        <div className="max-w-7xl mx-auto py-6 px-4 text-sm text-gray-500">Refreshing supplier data...</div>
+      )}
+      {error && (
+        <div className="max-w-7xl mx-auto py-2 px-4 text-sm text-red-500">{error}</div>
+      )}
       {showProducts ? (
-        <SupplierProducts onBack={() => setShowProducts(false)} />
+        <SupplierProducts supplierId={supplierId} onBack={() => setShowProducts(false)} />
       ) : (
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -38,7 +66,7 @@ const SupplierDetail = () => {
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-medium text-green-700">Supplier</h1>
             <span className="text-gray-400 text-2xl">›</span>
-            <span className="text-2xl text-gray-700">#TA-1002484</span>
+            <span className="text-2xl text-gray-700">{detail?.supplier_id || supplierId || '--'}</span>
           </div>
          <div className="flex flex-col gap-3">
   <button
@@ -70,23 +98,25 @@ const SupplierDetail = () => {
               <div className="space-y-4">
                 <div className="flex items-center">
                   <span className="text-sm text-gray-900 w-40">Account type:</span>
-                  <span className="px-4 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-full">Private individual</span>
+                  <span className="px-4 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-full">
+                    {detail?.account_type || 'Unknown'}
+                  </span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-900 w-40">Public name:</span>
-                  <span className="text-sm text-gray-700">Karvaan Tour</span>
+                  <span className="text-sm text-gray-700">{detail?.name || '—'}</span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-900 w-40">Legal name:</span>
-                  <span className="text-sm text-gray-500">SUNEEL PIRKASH</span>
+                  <span className="text-sm text-gray-500">{detail?.legal_name || '—'}</span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-900 w-40">Email:</span>
-                  <span className="text-sm text-gray-700">suneelpirkash@gmail.com</span>
+                  <span className="text-sm text-gray-700">{detail?.email || '—'}</span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-900 w-40">Contact:</span>
-                  <span className="text-sm text-gray-700">92+ 123456789-9</span>
+                  <span className="text-sm text-gray-700">{detail?.phone || '—'}</span>
                 </div>
               </div>
             </div>
@@ -95,10 +125,10 @@ const SupplierDetail = () => {
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Office information</h2>
               <div className="space-y-4">
                 <div className="flex items-center"><span className="text-sm text-gray-900 w-40">Street address:</span><span className="text-sm text-gray-700">1 Chome-1 Nishi-Shinjuku, Shinjuku City, Tokyo</span></div>
-                <div className="flex items-center"><span className="text-sm text-gray-900 w-40">Zip/Post code:</span><span className="text-sm text-gray-700">160-0022</span></div>
-                <div className="flex items-center"><span className="text-sm text-gray-900 w-40">City:</span><span className="text-sm text-gray-700">Shinjuku</span></div>
-                <div className="flex items-center"><span className="text-sm text-gray-900 w-40">State:</span><span className="text-sm text-gray-700">Tokyo Prefecture</span></div>
-                <div className="flex items-center"><span className="text-sm text-gray-900 w-40">Country:</span><span className="text-sm text-gray-700">Japan</span></div>
+                <div className="flex items-center"><span className="text-sm text-gray-900 w-40">Street address:</span><span className="text-sm text-gray-700">{detail?.address || '—'}</span></div>
+                <div className="flex items-center"><span className="text-sm text-gray-900 w-40">City:</span><span className="text-sm text-gray-700">{detail?.city || '—'}</span></div>
+                <div className="flex items-center"><span className="text-sm text-gray-900 w-40">State:</span><span className="text-sm text-gray-700">{detail?.state || '—'}</span></div>
+                <div className="flex items-center"><span className="text-sm text-gray-900 w-40">Country:</span><span className="text-sm text-gray-700">{detail?.country || '—'}</span></div>
               </div>
             </div>
           </div>
@@ -121,17 +151,17 @@ const SupplierDetail = () => {
 
   {/* Stats Boxes */}
   <div className="bg-white rounded-2xl p-6 text-center border border-gray-200 w-[160px]">
-    <div className="text-4xl font-semibold text-gray-900 mb-1">24</div>
+    <div className="text-4xl font-semibold text-gray-900 mb-1">{detail?.total_tours ?? '—'}</div>
     <div className="text-sm text-gray-400">Total Tours</div>
   </div>
 
   <div className="bg-white rounded-2xl p-6 text-center border border-gray-200 w-[160px]">
-    <div className="text-4xl font-semibold text-gray-900 mb-1">4.9</div>
+    <div className="text-4xl font-semibold text-gray-900 mb-1">{(detail?.rating ?? 0).toFixed(1)}</div>
     <div className="text-sm text-gray-400">Rating</div>
   </div>
 
   <div className="bg-white rounded-2xl p-6 text-center border border-gray-200 w-[160px]">
-    <div className="text-4xl font-semibold text-gray-900 mb-1">$23k</div>
+    <div className="text-4xl font-semibold text-gray-900 mb-1">${detail?.earnings ? detail.earnings.toLocaleString() : '0'}</div>
     <div className="text-sm text-gray-400">Earnings</div>
   </div>
 
@@ -178,20 +208,27 @@ const SupplierDetail = () => {
                 </tr>
               </thead>
               <tbody>
-                {payoutHistory.map((row, index) => (
+                {payouts.length === 0 && (
+                  <tr>
+                    <td className="px-4 py-3 text-sm text-gray-500" colSpan={7}>
+                      {loading ? 'Loading...' : 'No payout history yet.'}
+                    </td>
+                  </tr>
+                )}
+                {payouts.map((row, index) => (
                   <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => setIsPayoutOpen(true)}>
-                    <td className="px-4 py-1 text-sm text-gray-900">{row.date}</td>
-                    <td className="px-4 py-1 text-sm text-gray-900">{row.product}</td>
-                    <td className="px-4 py-1 text-sm text-gray-900">{row.bookings}</td>
-                    <td className="px-4 py-1 text-sm text-gray-900">{row.earnings}</td>
+                    <td className="px-4 py-1 text-sm text-gray-900">{row.date || '--'}</td>
+                    <td className="px-4 py-1 text-sm text-gray-900">{row.product || '--'}</td>
+                    <td className="px-4 py-1 text-sm text-gray-900">{row.bookings ?? '--'}</td>
+                    <td className="px-4 py-1 text-sm text-gray-900">{row.earnings ?? '--'}</td>
                     <td className="px-4 py-1">
-                      <span className="inline-flex items-center justify-center px-3 py-0.5 rounded-lg font-semibold text-sm bg-green-100 text-green-700">{row.commission}</span>
+                      <span className="inline-flex items-center justify-center px-3 py-0.5 rounded-lg font-semibold text-sm bg-green-100 text-green-700">{row.commission ?? '--'}</span>
                     </td>
                     <td className="px-4 py-1">
-                      <span className={`inline-flex items-center justify-center px-3 py-0.5 rounded-lg font-semibold text-sm ${index < 3 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{row.dueAmount}</span>
+                      <span className="inline-flex items-center justify-center px-3 py-0.5 rounded-lg font-semibold text-sm bg-red-100 text-red-600">{row.dueAmount ?? '--'}</span>
                     </td>
                     <td className="px-4 py-1">
-                      <span className={`inline-flex items-center justify-center px-3 py-0.5 rounded-lg font-semibold text-sm ${index < 3 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{row.payout}</span>
+                      <span className="inline-flex items-center justify-center px-3 py-0.5 rounded-lg font-semibold text-sm bg-green-100 text-green-700">{row.payout ?? '--'}</span>
                     </td>
                   </tr>
                 ))}
@@ -242,7 +279,12 @@ const SupplierDetail = () => {
 
       {/* Modal */}
       <PayoutDetailModal isOpen={isPayoutOpen} onClose={() => setIsPayoutOpen(false)} />
-      <SupplierDocsModal isOpen={isDocsOpen} onClose={() => setIsDocsOpen(false)} anchorRect={docsAnchorRect} />
+      <SupplierDocsModal
+        isOpen={isDocsOpen}
+        onClose={() => setIsDocsOpen(false)}
+        anchorRect={docsAnchorRect}
+        documents={detail?.documents || []}
+      />
     </div>
   );
 };

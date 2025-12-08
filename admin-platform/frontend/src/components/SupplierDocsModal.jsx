@@ -1,15 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Image as ImageIcon, Download, Eye } from 'lucide-react';
 
-const SupplierDocsModal = ({ isOpen, onClose, anchorRect }) => {
+const SupplierDocsModal = ({ isOpen, onClose, anchorRect, documents = [] }) => {
   const [openPreviewId, setOpenPreviewId] = useState(null);
   const containerRef = useRef(null);
-
-  const docs = [
-    { id: 1, label: 'Insurance Doc.' },
-    { id: 2, label: 'Driving license Doc.' },
-    { id: 3, label: 'Logo Uploaded' },
-  ];
 
   // Calculate position near anchor, with viewport clamping
   const gap = 8;
@@ -31,17 +25,14 @@ const SupplierDocsModal = ({ isOpen, onClose, anchorRect }) => {
     return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClick); };
   }, [isOpen, onClose]);
 
-  const handleDownload = (label) => {
-    const content = `Dummy ${label} contents for download.`;
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
+  const handleDownload = (doc) => {
+    if (!doc.url) return;
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `${label.replace(/\s+/g, '_')}.txt`;
+    a.href = doc.url;
+    a.download = doc.label.replace(/\s+/g, '_');
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
   };
 
   if (!isOpen || !anchorRect) return null;
@@ -54,7 +45,10 @@ const SupplierDocsModal = ({ isOpen, onClose, anchorRect }) => {
         style={{ left: `${left}px`, top: `${top}px`, borderColor: '#E5E7EB' }}
       >
         <div className="space-y-4">
-          {docs.map((doc) => (
+          {documents.length === 0 && (
+            <div className="text-sm text-gray-500">No documents uploaded.</div>
+          )}
+          {documents.map((doc) => (
             <div key={doc.id} className="">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
@@ -66,20 +60,23 @@ const SupplierDocsModal = ({ isOpen, onClose, anchorRect }) => {
                   </div>
                 </div>
                 <div className="flex items-center gap-5 text-gray-700">
-                  <button type="button" className="hover:text-gray-900" aria-label="Download" onClick={() => handleDownload(doc.label)}>
+                  <button type="button" className="hover:text-gray-900" aria-label="Download" onClick={() => handleDownload(doc)}>
                     <Download className="w-4 h-4" />
                   </button>
-                  <button type="button" className="hover:text-gray-900" aria-label="View" onClick={() => setOpenPreviewId(openPreviewId === doc.id ? null : doc.id)}>
-                    <Eye className="w-4 h-4" />
-                  </button>
+                  {doc.url && (
+                    <a href={doc.url} target="_blank" rel="noreferrer" className="hover:text-gray-900" aria-label="View">
+                      <Eye className="w-4 h-4" />
+                    </a>
+                  )}
+                  {!doc.url && (
+                    <span className="text-xs text-gray-400">No file</span>
+                  )}
                 </div>
               </div>
-              {openPreviewId === doc.id && (
+              {openPreviewId === doc.id && doc.url && (
                 <div className="mt-2 ml-2 mr-2 p-3 rounded-lg bg-gray-50 border text-xs text-gray-700" style={{ borderColor: '#E5E7EB' }}>
-                  <p className="font-semibold mb-1">{doc.label} Preview</p>
-                  <p>Holder: Karvaan Tours</p>
-                  <p>Issued: 2024-01-15</p>
-                  <p>Ref: DOC-{String(doc.id).padStart(4, '0')}</p>
+                  <p className="font-semibold mb-1">{doc.label}</p>
+                  <p className="break-all">{doc.url}</p>
                 </div>
               )}
             </div>

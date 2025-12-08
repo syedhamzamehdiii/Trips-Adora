@@ -1,28 +1,48 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import TourDetailPage from './TourDetailPage';
+import { getSupplierProducts } from '../services/supplierService';
 
-const products = Array.from({ length: 8 }).map((_, i) => ({
-  id: i + 1,
-  title: 'Mount Fuji Customized Tour Day tour',
-  desc: 'Discover the breathtaking beauty of Mount Fuji',
-  hours: '10 hours',
-  price: '$ 240 Per Group',
-  badge: 'Private',
-  vehicle: 'Mercedes-Benz A-Class (2018 model)'
-}));
-
-const SupplierProducts = ({ onBack }) => {
+const SupplierProducts = ({ supplierId, onBack }) => {
   const [selected, setSelected] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!supplierId) return;
+    let active = true;
+
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await getSupplierProducts(supplierId, 1, 30);
+        if (!active) return;
+        setProducts(res.products || []);
+      } catch (err) {
+        if (!active) return;
+        console.error('Error loading products', err);
+        setError('Unable to load products right now.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchProducts();
+    return () => { active = false; };
+  }, [supplierId]);
+
   if (selected) {
     return <TourDetailPage onBack={() => setSelected(null)} />;
   }
+
   return (
     <div className="min-h-screen bg-gray-50 p-8" style={{ fontFamily: 'Poppins, sans-serif' }}>
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-green-700 text-2xl mb-6">
           <span className="font-medium">Suppliers</span>
           <span className="text-gray-400">›</span>
-          <span className="text-gray-800">#TA-1002484</span>
+          <span className="text-gray-800">{supplierId || '--'}</span>
           <span className="text-gray-400">›</span>
           <span className="text-gray-800">Products</span>
           {onBack && (
@@ -30,26 +50,43 @@ const SupplierProducts = ({ onBack }) => {
           )}
         </div>
 
+        {loading && (
+          <div className="text-sm text-gray-500 mb-4">Loading products...</div>
+        )}
+        {error && (
+          <div className="text-sm text-red-500 mb-4">{error}</div>
+        )}
+
         <div className="space-y-6">
+          {products.length === 0 && !loading && !error && (
+            <div className="text-sm text-gray-500">No products found.</div>
+          )}
           {products.map((p) => (
             <div key={p.id} className="bg-white rounded-xl border border-gray-300 p-5 cursor-pointer" onClick={() => setSelected(p)}>
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{p.title}</h3>
-                  <p className="text-sm text-gray-500 mt-2">{p.desc}</p>
+                  <p className="text-sm text-gray-500 mt-2">{p.tagline || '—'}</p>
                   <div className="flex items-center gap-2 mt-2 text-gray-500 text-xs">
-                    <span className="inline-flex items-center gap-1">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3"/></svg>
-                      {p.hours}
-                    </span>
+                    {p.duration && (
+                      <span className="inline-flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3"/></svg>
+                        {p.duration}
+                      </span>
+                    )}
+                    {p.category && <span className="inline-flex px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{p.category}</span>}
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 mb-3">{p.badge}</span>
-                  <div className="text-green-700 text-sm font-semibold">{p.price}</div>
+                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 mb-3">{p.status || 'Published'}</span>
+                  <div className="text-green-700 text-sm font-semibold">
+                    {p.price ? `${p.currency || ''} ${p.price} ${p.price_unit ? 'Per ' + p.price_unit.split(' ')[1] || p.price_unit : ''}` : '—'}
+                  </div>
                 </div>
               </div>
-              <div className="mt-3 text-right text-[11px] text-gray-500">{p.vehicle}</div>
+              {p.vehicle && (
+                <div className="mt-3 text-right text-[11px] text-gray-500">{p.vehicle}</div>
+              )}
             </div>
           ))}
         </div>

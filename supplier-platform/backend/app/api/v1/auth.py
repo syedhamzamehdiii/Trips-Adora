@@ -19,6 +19,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User, UserRole
+from app.models.supplier_onboarding import SupplierOnboarding, OnboardingStatus, BusinessType
 from app.models.invitation import SupplierInvitation, InvitationCreate, InvitationResponse
 from app.services.email_service import send_booking_diversion_email
 
@@ -214,6 +215,23 @@ async def register(user_data: UserRegister):
     
     await user.insert()
     await _sync_supplier_code_to_settings(str(user.id), supplier_code)
+
+    # Create onboarding record for admin approval (default pending)
+    try:
+        onboarding = SupplierOnboarding(
+            user_id=str(user.id),
+            email=user.email,
+            user_email=user.email,
+            user_name=user.full_name,
+            business_type=BusinessType.SOLO,  # default until full onboarding form exists
+            business_name=user.business_name or user.full_name,
+            business_country=user.country,
+            status=OnboardingStatus.PENDING,
+            submitted_at=datetime.utcnow(),
+        )
+        await onboarding.insert()
+    except Exception as exc:
+        logger.warning("Failed to create onboarding for new supplier %s: %s", user.email, exc)
     
     # Create tokens
     access_token = create_access_token(data={"sub": str(user.id)})
@@ -808,7 +826,7 @@ async def google_callback(request: GoogleCallbackRequest):
                 business_name=name or email.split('@')[0],
                 role=UserRole.SUPPLIER,
                 is_active=True,
-                is_verified=True,
+                is_verified=False,  # Require admin approval
                 hashed_password="",  # No password for Google users
                 supplier_code=supplier_code,
             )
@@ -821,6 +839,24 @@ async def google_callback(request: GoogleCallbackRequest):
                     status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                     detail="Database operation timed out. Please try again."
                 )
+
+            # Create onboarding record for admin approval
+            try:
+                onboarding = SupplierOnboarding(
+                    user_id=str(user.id),
+                    email=user.email,
+                    user_email=user.email,
+                    user_name=user.full_name,
+                    business_type=BusinessType.SOLO,
+                    business_name=user.business_name or user.full_name,
+                    business_country=user.country,
+                    status=OnboardingStatus.PENDING,
+                    submitted_at=datetime.utcnow(),
+                )
+                await asyncio.wait_for(onboarding.insert(), timeout=5.0)
+            except Exception as exc:
+                logger.warning("Failed to create onboarding for Google user %s: %s", user.email, exc)
+
             logger.info(f"New user created: {user.id}")
         else:
             logger.info(f"Existing user found: {user.id}")

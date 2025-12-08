@@ -65,8 +65,34 @@ import DashboardLayout from './layouts/DashboardLayout'
 import GlobalCacheSync from './components/GlobalCacheSync'
 import ChatPage from './pages/Chat/ChatPage'
 
+// Protected route component that checks verification status
+function VerifiedRoute({ children }) {
+  const { user, isAuthenticated } = useAuth()
+  const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
+  
+  // If not authenticated, let the normal auth guard handle it
+  if (!isAuthenticated) {
+    return children
+  }
+  
+  // If authenticated but not verified, redirect to customer platform registration
+  if (user && !user.is_verified) {
+    window.location.href = `${customerAppUrl}/supplier-registration`
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to registration...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  return children
+}
+
 function AppRoutes() {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, user } = useAuth()
 
   if (loading) {
     return (
@@ -74,6 +100,20 @@ function AppRoutes() {
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // Check if authenticated user is not verified and redirect
+  if (isAuthenticated && user && !user.is_verified) {
+    const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
+    window.location.href = `${customerAppUrl}/supplier-registration`
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to registration...</p>
         </div>
       </div>
     )
@@ -112,14 +152,20 @@ function AppRoutes() {
         {/* Protected Routes */}
         <Route 
           path="/dashboard" 
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? (
+            <VerifiedRoute>
+              <Dashboard />
+            </VerifiedRoute>
+          ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/products" 
           element={isAuthenticated ? (
-            <DashboardLayout>
-              <Products />
-            </DashboardLayout>
+            <VerifiedRoute>
+              <DashboardLayout>
+                <Products />
+              </DashboardLayout>
+            </VerifiedRoute>
           ) : <Navigate to="/login" />} 
         />
         <Route 
@@ -132,14 +178,20 @@ function AppRoutes() {
         />
         <Route 
           path="/products/create" 
-          element={isAuthenticated ? <CreateProductComponent onClose={() => window.history.back()} /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? (
+            <VerifiedRoute>
+              <CreateProductComponent onClose={() => window.history.back()} />
+            </VerifiedRoute>
+          ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/products/add-itinerary" 
           element={isAuthenticated ? (
-            <DashboardLayout>
-              <AddItinerary />
-            </DashboardLayout>
+            <VerifiedRoute>
+              <DashboardLayout>
+                <AddItinerary />
+              </DashboardLayout>
+            </VerifiedRoute>
           ) : <Navigate to="/login" />} 
         />
         <Route 
@@ -149,9 +201,11 @@ function AppRoutes() {
         <Route 
           path="/settings/company-profile" 
           element={isAuthenticated ? (
-            <DashboardLayout>
-              <CompanyProfile />
-            </DashboardLayout>
+            <VerifiedRoute>
+              <DashboardLayout>
+                <CompanyProfile />
+              </DashboardLayout>
+            </VerifiedRoute>
           ) : <Navigate to="/login" />} 
         />
         <Route 
@@ -164,31 +218,47 @@ function AppRoutes() {
         />
         <Route 
           path="/settings/invite-partner" 
-          element={isAuthenticated ? <InvitePartnerComponent isOpen={true} onClose={() => window.history.back()} /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? (
+            <VerifiedRoute>
+              <InvitePartnerComponent isOpen={true} onClose={() => window.history.back()} />
+            </VerifiedRoute>
+          ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/bookings" 
           element={isAuthenticated ? (
-            <DashboardLayout>
-              <BookingsPage />
-            </DashboardLayout>
+            <VerifiedRoute>
+              <DashboardLayout>
+                <BookingsPage />
+              </DashboardLayout>
+            </VerifiedRoute>
           ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/chat" 
-          element={isAuthenticated ? <ChatPage /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? (
+            <VerifiedRoute>
+              <ChatPage />
+            </VerifiedRoute>
+          ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/insights" 
           element={isAuthenticated ? (
-            <DashboardLayout>
-              <InsightsPage />
-            </DashboardLayout>
+            <VerifiedRoute>
+              <DashboardLayout>
+                <InsightsPage />
+              </DashboardLayout>
+            </VerifiedRoute>
           ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/support" 
-          element={isAuthenticated ? <SupportPage /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? (
+            <VerifiedRoute>
+              <SupportPage />
+            </VerifiedRoute>
+          ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/faq" 
@@ -209,23 +279,31 @@ function AppRoutes() {
         <Route 
           path="/availability" 
           element={isAuthenticated ? (
-            <DashboardLayout>
-              <AvailabilityCalendar />
-            </DashboardLayout>
+            <VerifiedRoute>
+              <DashboardLayout>
+                <AvailabilityCalendar />
+              </DashboardLayout>
+            </VerifiedRoute>
           ) : <Navigate to="/login" />} 
         />
         <Route 
           path="/finance" 
           element={isAuthenticated ? (
-            <DashboardLayout>
-              <FinancePage />
-            </DashboardLayout>
+            <VerifiedRoute>
+              <DashboardLayout>
+                <FinancePage />
+              </DashboardLayout>
+            </VerifiedRoute>
           ) : <Navigate to="/login" />} 
         />
         {/* Homepage renders Dashboard */}
         <Route 
           path="/" 
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} 
+          element={isAuthenticated ? (
+            <VerifiedRoute>
+              <Dashboard />
+            </VerifiedRoute>
+          ) : <Navigate to="/login" />} 
         />
         
         {/* Catch all route */}

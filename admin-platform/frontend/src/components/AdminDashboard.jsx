@@ -173,8 +173,8 @@ const AdminDashboard = () => {
 
         {/* Dashboard Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          {hash === '#supplier-profile' ? (
-            <SupplierprofileDetail />
+          {hash.startsWith('#supplier-profile') ? (
+            <SupplierprofileDetail supplierId={hash.split('id=')[1]?.split('&')[0]} />
           ) : showSettings ? (
             <Settings />
           ) : (

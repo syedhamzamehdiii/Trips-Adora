@@ -2,7 +2,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import authService from '@/services/authService'
 import googleAuthService from '@/services/googleAuthService'
-import { markSupplierOnboardingVerified } from '@/utils/onboardingRedirect'
 
 const AuthContext = createContext()
 
@@ -137,7 +136,13 @@ export const AuthProvider = ({ children }) => {
           
           if (userData) {
             persistSupplierId(userData?.supplier_code)
-            markSupplierOnboardingVerified()
+            try {
+              const statusFlag = userData?.is_verified ? 'verified' : 'pending_admin_review'
+              localStorage.setItem('supplier_onboarding_status', statusFlag)
+              sessionStorage.setItem('supplier_onboarding_status', statusFlag)
+            } catch (err) {
+              console.warn('Unable to persist onboarding status', err)
+            }
             hydrateBasicProfileFromUser(userData)
             setUser(userData)
           } else {
@@ -222,7 +227,19 @@ export const AuthProvider = ({ children }) => {
       
       if (result.success) {
         persistSupplierId(result.user?.supplier_code)
-        markSupplierOnboardingVerified()
+        // Check verification status and redirect if not verified
+        if (!result.user?.is_verified) {
+          const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
+          window.location.href = `${customerAppUrl}/supplier-registration`
+          return { success: true, requiresVerification: true }
+        }
+        try {
+          const statusFlag = result.user?.is_verified ? 'verified' : 'pending_admin_review'
+          localStorage.setItem('supplier_onboarding_status', statusFlag)
+          sessionStorage.setItem('supplier_onboarding_status', statusFlag)
+        } catch (err) {
+          console.warn('Unable to persist onboarding status', err)
+        }
         hydrateBasicProfileFromUser(result.user)
         setUser(result.user)
         return { success: true }
@@ -244,10 +261,19 @@ export const AuthProvider = ({ children }) => {
       
       if (result.success) {
         persistSupplierId(result.user?.supplier_code)
-        markSupplierOnboardingVerified()
+        // New suppliers are not verified, redirect to registration page
+        const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
+        try {
+          localStorage.setItem('supplier_onboarding_status', 'pending_admin_review')
+          sessionStorage.setItem('supplier_onboarding_status', 'pending_admin_review')
+        } catch (err) {
+          console.warn('Unable to persist onboarding status', err)
+        }
         hydrateBasicProfileFromUser(result.user)
         setUser(result.user)
-        return { success: true }
+        // Redirect to customer platform registration page
+        window.location.href = `${customerAppUrl}/supplier-registration`
+        return { success: true, requiresVerification: true }
       }
       
       throw new Error('Registration failed')

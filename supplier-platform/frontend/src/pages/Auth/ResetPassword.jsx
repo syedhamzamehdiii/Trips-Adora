@@ -4,7 +4,6 @@ import { FiLock, FiCheckCircle, FiEye, FiEyeOff } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import authService from '@/services/authService';
 import { ROUTES } from '@/utils/constants';
-import { markSupplierOnboardingVerified } from '@/utils/onboardingRedirect';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -64,7 +63,6 @@ const ResetPassword = () => {
       await authService.resetPassword(token.trim(), formData.password);
       const onboardingStatus = getOnboardingStatus();
       setIsVerifiedSupplier(onboardingStatus === 'verified');
-      markSupplierOnboardingVerified();
       setPhase('success');
       toast.success('Password updated!');
     } catch (error) {
