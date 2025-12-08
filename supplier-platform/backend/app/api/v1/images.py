@@ -2,11 +2,11 @@
 Image Upload API Endpoints
 Handles image uploads to Cloudinary
 """
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status, Header
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 from app.models.user import User
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_current_user_optional
 from app.services.cloudinary_service import (
     upload_image,
     upload_multiple_images,
@@ -43,14 +43,24 @@ def init_cloudinary():
 async def upload_single_image(
     file: UploadFile = File(...),
     folder: str = "products",
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Upload a single image to Cloudinary
     
     Returns the image URL to store in your database (instead of base64)
+    
+    Note: Authentication is optional for 'supplier/onboarding' folder to allow
+    unauthenticated users to upload registration documents.
     """
     try:
+        # Allow unauthenticated uploads only for onboarding folder
+        if not current_user and not folder.startswith("supplier/onboarding"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required for this folder"
+            )
+        
         result = await upload_image(file, folder=folder)
         
         return JSONResponse(

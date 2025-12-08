@@ -4,9 +4,69 @@ import { FaPlus, FaMinus } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import { config } from '../config';
 import { SupplierPortalHeader, SupplierPortalFooter } from '../components/SupplierPortalChrome';
+import supplierOnboardingService from '../services/supplierOnboardingService';
+import { useAuth } from '../context/AuthContext';
 
 const SupplierRegistrationPage = () => {
   const navigate = useNavigate();
+  const { user: authUser } = useAuth(); // Get user from AuthContext
+  
+  // State for user info
+  const [userInfo, setUserInfo] = useState({ name: '', email: '' });
+  
+  // Get user info from auth context or localStorage
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      let info = { name: '', email: '' };
+      
+      // Try to get from AuthContext first (customer platform)
+      if (authUser) {
+        info = {
+          name: authUser.full_name || authUser.name || authUser.business_name || '',
+          email: authUser.email || ''
+        };
+      } else {
+        // Fallback to localStorage (customer platform)
+        try {
+          const storedName = localStorage.getItem('customer_profile_name');
+          const storedEmail = localStorage.getItem('customer_profile_email');
+          if (storedName || storedEmail) {
+            info = {
+              name: storedName || '',
+              email: storedEmail || ''
+            };
+          }
+        } catch (_) {}
+        
+        // Try to get from supplier platform API if logged in there
+        if (!info.email) {
+          try {
+            const supplierInfo = await supplierOnboardingService.getSupplierUserInfo();
+            if (supplierInfo) {
+              info = supplierInfo;
+            }
+          } catch (_) {
+            // Ignore errors
+          }
+        }
+      }
+      
+      setUserInfo(info);
+    };
+    
+    fetchUserInfo();
+  }, [authUser]);
+
+  // Pre-fill business email with user's email if available and business email is empty
+  useEffect(() => {
+    if (userInfo.email && !formData.businessEmail.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        businessEmail: userInfo.email
+      }));
+    }
+  }, [userInfo.email]); // Only depend on userInfo.email, not formData to avoid loops
+  
   const initialSupplierStatus = useMemo(() => {
     try {
       const stored =
@@ -84,6 +144,8 @@ const SupplierRegistrationPage = () => {
   const [showPersonCitySuggestions, setShowPersonCitySuggestions] = useState(false);
   const [showIdTypeDropdown, setShowIdTypeDropdown] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState(null);
 
   const businessTypes = [
     {
@@ -360,6 +422,13 @@ const SupplierRegistrationPage = () => {
   };
 
   const handleNext = () => {
+    if (currentStep === 1) {
+      // If solo is selected, skip step 2 and go directly to step 3
+      if (selectedBusinessType === 'solo') {
+        setCurrentStep(3);
+        return;
+      }
+    }
     if (currentStep === 2) {
       if (!validateStepTwo()) return;
     }
@@ -371,20 +440,73 @@ const SupplierRegistrationPage = () => {
         setErrors(prev => ({ ...prev, termsAccepted: 'Please agree to continue.' }));
         return;
       }
-      setSubmissionTimestamp(new Date());
-      setShowSubmissionSummary(true);
-      console.log('Supplier registration payload', {
-        formData,
-        employeeCount,
-        selectedBusinessType
-      });
+      
+      // Submit all data to backend
+      handleSubmitRegistration();
       return;
     }
     setCurrentStep(prev => Math.min(prev + 1, stepsConfig.length));
   };
 
   const handleBack = () => {
+    // If on step 3 and solo is selected, go back to step 1 (skip step 2)
+    if (currentStep === 3 && selectedBusinessType === 'solo') {
+      setCurrentStep(1);
+      return;
+    }
     setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleSubmitRegistration = async () => {
+    setIsSubmitting(true);
+    setSubmissionError(null);
+    
+    try {
+      // Prepare all form data
+      const completeFormData = {
+        selectedBusinessType,
+        employeeCount,
+        ...formData,
+        requiresBackImage,
+        user_name: userInfo.name,
+        user_email: userInfo.email
+      };
+
+      // Prepare all files
+      const files = {
+        logoFile: selectedBusinessType !== 'solo' ? logoFile : null,
+        insuranceFile: selectedBusinessType !== 'solo' ? insuranceFile : null,
+        documentFile: selectedBusinessType !== 'solo' ? documentFile : null,
+        idFrontFile,
+        idBackFile: requiresBackImage ? idBackFile : null
+      };
+
+      // Submit to backend
+      const response = await supplierOnboardingService.submitCompleteRegistration(
+        completeFormData,
+        files
+      );
+
+      // Success - show summary
+      setSubmissionTimestamp(new Date());
+      setShowSubmissionSummary(true);
+      
+      // Store onboarding ID for reference
+      if (response?.id) {
+        localStorage.setItem('supplier_onboarding_id', response.id);
+      }
+      
+      // Update status
+      setSupplierStatus('pending_verification');
+      localStorage.setItem('supplier_onboarding_status', 'pending_verification');
+      
+    } catch (error) {
+      console.error('Error submitting registration:', error);
+      setSubmissionError(error.message || 'Failed to submit registration. Please try again.');
+      setErrors(prev => ({ ...prev, submission: error.message }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderStepOne = () => (
@@ -810,7 +932,7 @@ const SupplierRegistrationPage = () => {
             <input
               ref={logoInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               className="hidden"
               onChange={(e) => handleFileChange(e.target.files[0], setLogoFile, 'logo')}
             />
@@ -1123,10 +1245,18 @@ const SupplierRegistrationPage = () => {
               </button>
               <button
                 onClick={handleNext}
-                className="bg-[#1d236b] text-white px-8 py-3 rounded-full font-medium hover:bg-[#151a4a] transition-colors"
+                disabled={isSubmitting}
+                className={`bg-[#1d236b] text-white px-8 py-3 rounded-full font-medium hover:bg-[#151a4a] transition-colors ${
+                  isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
-                Save &amp; Continue
+                {isSubmitting ? 'Submitting...' : 'Save &amp; Continue'}
               </button>
+              {submissionError && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600">{submissionError}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

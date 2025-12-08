@@ -69,9 +69,20 @@ const Row = ({ item, onClick }) => {
   );
 };
 
-const RequestToApprove = ({ onCardClick }) => {
+const RequestToApprove = ({ onCardClick, onBack }) => {
   return (
     <div className="w-full" style={{ fontFamily: 'Poppins, sans-serif' }}>
+      {onBack && (
+        <button 
+          onClick={onBack}
+          className="mb-4 px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-100 flex items-center gap-2"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+      )}
       <h2 className="text-center text-[34px] md:text-[36px] font-semibold text-[#2c7a4b] mb-4">Request to approve</h2>
       <div className="space-y-5">
         {mockItems.map((it, idx) => (

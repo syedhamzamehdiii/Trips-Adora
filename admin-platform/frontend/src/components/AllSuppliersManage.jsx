@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import RequestToApprove from './RequestToApprove';
-import TourDetailPage from './TourDetailPage';
+import ManageSupplierApprovals from './ManageSupplierApprovals';
 
 const baseSuppliers = [
   { id: 'SUP-001', name: 'Aurora Tours', category: 'Tours', rating: 4.7, bookings: 842, status: 'Active' },
@@ -93,8 +92,7 @@ const AllSuppliersManage = () => {
     return suppliersMock.slice(start, start + pageSize);
   }, [currentPage, suppliersMock]);
   const [selected, setSelected] = useState(null);
-  const [showRequestToApprove, setShowRequestToApprove] = useState(false);
-  const [showTourDetail, setShowTourDetail] = useState(false);
+  const [showManageApprovals, setShowManageApprovals] = useState(false);
 
   const openModal = (payload) => setSelected(payload);
   const closeModal = () => setSelected(null);
@@ -110,31 +108,23 @@ const AllSuppliersManage = () => {
   return (
     <div className="w-full h-full text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {!showTourDetail && (
+        {showManageApprovals ? (
+          <ManageSupplierApprovals onBack={() => setShowManageApprovals(false)} />
+        ) : (
           <>
             {/* Header */}
             <div className="flex items-center justify-between">
               <h1 className="text-3xl md:text-4xl font-semibold text-[#2c7a4b] tracking-tight">Manage All Suppliers</h1>
               <button 
-                onClick={() => setShowRequestToApprove(true)}
+                onClick={() => setShowManageApprovals(true)}
                 className="relative inline-flex items-center gap-2 rounded-full text-sm shadow"
                 style={{ backgroundColor: '#284078', color: '#fff', height: '44px', paddingInline: '20px' }}>
                 Request to approve
                 <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-[10px] leading-none flex items-center justify-center">15</span>
               </button>
             </div>
-          </>
-        )}
 
-        {showTourDetail ? (
-          <TourDetailPage fromRequestToApprove={true} onBack={() => { setShowTourDetail(false); setShowRequestToApprove(true); }} />
-        ) : showRequestToApprove ? (
-          <div className="mt-6">
-            <RequestToApprove onCardClick={() => setShowTourDetail(true)} />
-          </div>
-        ) : (
-          <>
-            {/* KPI Cards */}
+        {/* KPI Cards */}
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 ">
           <StatCard title="Total Suppliers" value="2,058" bgColor="#DBFCE7" />
           <StatCard title="Active" value="1,826" bgColor="#A9B3C9" />
@@ -244,8 +234,6 @@ const AllSuppliersManage = () => {
             </button>
           </div>
         </div>
-          </>
-        )}
 
         {/* Detail Modal */}
         {selected && (
@@ -308,6 +296,8 @@ const AllSuppliersManage = () => {
               </div>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

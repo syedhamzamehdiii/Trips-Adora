@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import RequestToApprove from './RequestToApprove';
+import TourDetailPage from './TourDetailPage';
 
 const STATUS_OPTIONS = ['All status', 'Active', 'Draft', 'Archived'];
 const TYPE_OPTIONS = ['All types', 'Day tour', 'Museum', 'Landmark'];
@@ -98,6 +100,8 @@ const ManageTours = () => {
   const [type, setType] = useState('All types');
   const [country, setCountry] = useState('All countries');
   const [openMenu, setOpenMenu] = useState(null); // 'status' | 'type' | 'country'
+  const [showRequestToApprove, setShowRequestToApprove] = useState(false);
+  const [showTourDetail, setShowTourDetail] = useState(false);
 
   const filtered = useMemo(() => {
     return cards.filter((c) =>
@@ -110,8 +114,33 @@ const ManageTours = () => {
 
   return (
     <div className="p-2">
-      <h1 className="text-3xl font-semibold text-green-800 mb-4">Manage All Tours</h1>
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      {!showTourDetail && (
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-3xl font-semibold text-green-800">Manage All Tours</h1>
+          {!showRequestToApprove && (
+            <button 
+              onClick={() => setShowRequestToApprove(true)}
+              className="relative inline-flex items-center gap-2 rounded-full text-sm shadow"
+              style={{ backgroundColor: '#284078', color: '#fff', height: '44px', paddingInline: '20px' }}>
+              Request to approve
+              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-[10px] leading-none flex items-center justify-center">15</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {showTourDetail ? (
+        <TourDetailPage fromRequestToApprove={true} onBack={() => { setShowTourDetail(false); setShowRequestToApprove(true); }} />
+      ) : showRequestToApprove ? (
+        <div className="mt-6">
+          <RequestToApprove 
+            onCardClick={() => setShowTourDetail(true)} 
+            onBack={() => setShowRequestToApprove(false)} 
+          />
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex items-center w-[360px] max-w-full rounded-full border border-gray-300 px-4 py-2 bg-white">
           <input value={query} onChange={(e)=>setQuery(e.target.value)} className="flex-1 outline-none text-sm" placeholder="Search by name or ref. number" />
           <svg className="text-gray-500" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -179,6 +208,8 @@ const ManageTours = () => {
         </div>
         <button className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-600">›</button>
       </div>
+        </>
+      )}
     </div>
   );
 };

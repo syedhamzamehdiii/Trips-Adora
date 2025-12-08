@@ -1,9 +1,10 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordBearer
+from typing import Optional
 from app.models.user import User
 from app.core.security import decode_token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
@@ -29,4 +30,33 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         raise credentials_exception
     
     return user
+
+
+async def get_current_user_optional(
+    authorization: Optional[str] = Header(None)
+) -> Optional[User]:
+    """
+    Optional dependency to get current authenticated user from JWT token.
+    Returns None if no token is provided or token is invalid.
+    """
+    try:
+        if not authorization or not authorization.startswith("Bearer "):
+            return None
+        
+        token = authorization.replace("Bearer ", "")
+        if not token:
+            return None
+        
+        payload = decode_token(token)
+        if payload is None:
+            return None
+        
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+        
+        user = await User.get(user_id)
+        return user
+    except Exception:
+        return None
 

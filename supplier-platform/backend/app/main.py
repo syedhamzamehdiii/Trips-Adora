@@ -14,6 +14,7 @@ from app.api.v1 import (
     notifications as notifications_router,
     messages as messages_router,
     images as images_router,
+    supplier_onboarding,
 )
 
 app = FastAPI(
@@ -72,6 +73,7 @@ app.include_router(bookings_router.router, prefix="/api/v1", tags=["Bookings"])
 app.include_router(notifications_router.router, prefix="/api/v1", tags=["Notifications"])
 app.include_router(messages_router.router, prefix="/api/v1", tags=["Messages"])
 app.include_router(images_router.router, prefix="/api/v1", tags=["Images"])
+app.include_router(supplier_onboarding.router, prefix="/api/v1", tags=["Supplier Onboarding"])
 
 @app.get("/")
 async def root():

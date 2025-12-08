@@ -59,13 +59,36 @@ async def upload_image(
         )
     
     try:
-        # Validate file type
-        allowed_types = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"]
-        if file.content_type not in allowed_types:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid file type. Allowed types: {', '.join(allowed_types)}"
-            )
+        # Validate file type - allow images and PDFs (especially for onboarding)
+        allowed_image_types = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"]
+        allowed_pdf_types = ["application/pdf"]
+        
+        # Check content type
+        content_type = file.content_type or ""
+        filename = file.filename or ""
+        
+        # Also check file extension as fallback (browsers sometimes don't send correct content-type)
+        file_extension = filename.lower().split('.')[-1] if '.' in filename else ""
+        is_pdf_by_extension = file_extension == "pdf"
+        is_image_by_extension = file_extension in ["jpg", "jpeg", "png", "webp", "gif"]
+        
+        is_pdf = content_type in allowed_pdf_types or is_pdf_by_extension
+        is_image = content_type in allowed_image_types or is_image_by_extension
+        
+        # For onboarding folder, allow both images and PDFs
+        # For other folders, only allow images (unless it's a PDF)
+        if folder.startswith("supplier/onboarding"):
+            if not (is_image or is_pdf):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid file type. Allowed types: {', '.join(allowed_image_types + allowed_pdf_types)}. Received: {content_type or 'unknown'} (file: {filename})"
+                )
+        else:
+            if not is_image:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid file type. Allowed types: {', '.join(allowed_image_types)}. Received: {content_type or 'unknown'} (file: {filename})"
+                )
         
         # Validate file size (10MB limit)
         file_content = await file.read()
@@ -75,32 +98,39 @@ async def upload_image(
                 detail="File size must be less than 10MB"
             )
         
-        # Default transformation: optimize and convert to WebP if possible
-        default_transformation = {
-            "quality": "auto",
-            "fetch_format": "auto",  # Auto WebP/AVIF when supported
-            "flags": "progressive"  # Progressive JPEG
-        }
-        
-        if transformation:
-            default_transformation.update(transformation)
-        
         # Upload to Cloudinary using bytes directly
         # Create BytesIO from file content and ensure it's at position 0
         file_stream = BytesIO(file_content)
         file_stream.seek(0)
         
         # Build upload options
-        upload_options = {
-            "folder": folder,
-            "resource_type": "image",
-            "transformation": [default_transformation]
-        }
+        if is_pdf:
+            # PDFs should be uploaded as "raw" resource type
+            upload_options = {
+                "folder": folder,
+                "resource_type": "raw",  # PDFs are raw files, not images
+            }
+        else:
+            # Images use image resource type with transformations
+            default_transformation = {
+                "quality": "auto",
+                "fetch_format": "auto",  # Auto WebP/AVIF when supported
+                "flags": "progressive"  # Progressive JPEG
+            }
+            
+            if transformation:
+                default_transformation.update(transformation)
+            
+            upload_options = {
+                "folder": folder,
+                "resource_type": "image",
+                "transformation": [default_transformation]
+            }
+        
         if public_id:
             upload_options["public_id"] = public_id
         
-        # Upload to Cloudinary - BytesIO should work, but if it doesn't, 
-        # the error will be logged with full details
+        # Upload to Cloudinary
         upload_result = cloudinary.uploader.upload(
             file_stream,
             **upload_options
@@ -110,10 +140,11 @@ async def upload_image(
             "url": upload_result["secure_url"],  # HTTPS URL
             "public_id": upload_result["public_id"],
             "format": upload_result.get("format"),
-            "width": upload_result.get("width"),
-            "height": upload_result.get("height"),
+            "width": upload_result.get("width"),  # None for PDFs
+            "height": upload_result.get("height"),  # None for PDFs
             "bytes": upload_result.get("bytes"),
-            "folder": folder
+            "folder": folder,
+            "resource_type": upload_result.get("resource_type", "image")  # "image" or "raw" for PDFs
         }
     
     except HTTPException:
