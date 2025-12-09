@@ -1,17 +1,51 @@
-import React from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainHeader from '../../components/MainHeader'
 import Footer from '../../components/Footer'
-import helicopter from '../../../assests/helicopter.jpg'
-import sunshine from '../../../assests/sun-shine.jpg'
-import house from '../../../assests/house.jpg'
-import mountfuj from '../../../assests/mount-fuj.jpg'
 import { Bus, Eye, Camera, MapPin } from "lucide-react"
 import { Star as StarIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { getPublishedProducts } from '../../services/productService'
 
 const ArashiyamaBambooGrovePage = () => {
   const navigate = useNavigate()
+  const productsSectionRef = useRef(null)
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const handleScrollToProducts = () => {
+    if (productsSectionRef.current) {
+      productsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  useEffect(() => {
+    const fetchArashiyamaProducts = async () => {
+      try {
+        setLoading(true)
+        const searchTerms = ['arashiyama', 'bamboo', 'bamboo grove', 'kyoto bamboo', 'sagano']
+        let allProducts = []
+        for (const term of searchTerms) {
+          const response = await getPublishedProducts({ search: term, page_size: 50 })
+          if (response && response.products) {
+            allProducts = [...allProducts, ...response.products]
+          }
+        }
+        const uniqueProducts = Array.from(new Map(allProducts.map(p => [p.id, p])).values())
+        const filtered = uniqueProducts.filter(p => {
+          const text = `${p.title || ''} ${p.description || ''} ${p.destination || ''} ${p.location || ''}`.toLowerCase()
+          return searchTerms.some(term => text.includes(term.toLowerCase()))
+        })
+        setProducts(filtered.slice(0, 4))
+      } catch (err) {
+        console.error('Error fetching Arashiyama products:', err)
+        setProducts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchArashiyamaProducts()
+  }, [])
 
   const handleBookNow = (e, item) => {
     e.preventDefault()
@@ -130,7 +164,7 @@ const ArashiyamaBambooGrovePage = () => {
         </section>
 
         {/* Exclusive Experience */}
-        <section className="py-10 bg-[#F3F7FF] border-t border-[#E9ECF1]">
+        <section className="py-10 bg-[#F3F7FF] border-t border-[#E9ECF1]" ref={productsSectionRef} id="exclusive-experience">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 style={{ fontFamily: "Poppins" }} className="text-center text-[#302E2E] text-xl sm:text-2xl font-bold">
               Exclusive Experience
@@ -140,100 +174,97 @@ const ArashiyamaBambooGrovePage = () => {
             </p>
 
             <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[
-                {
-                  img: bambooImg1,
-                  title: "Early Morning Bamboo Walk",
-                  desc: "Experience the grove in peaceful tranquility before crowds arrive.",
-                  badges: [
-                    { label: "Photography", bg: "#CDFFD3" },
-                    { label: "Nature", bg: "#D3DFFF" },
-                  ],
-                  price: "$1,800",
-                  rating: 4.9,
-                  url: "/tours/bamboo-morning",
-                },
-                {
-                  img: bambooImg2,
-                  title: "Arashiyama Full Day Tour",
-                  desc: "Bamboo Grove, temples, and traditional neighborhoods in one day.",
-                  badges: [
-                    { label: "Cultural", bg: "#FFF1BB" },
-                    { label: "Popular", bg: "#F1D8D3" },
-                  ],
-                  price: "$2,500",
-                  rating: 4.8,
-                  url: "/tours/arashiyama-day",
-                },
-                {
-                  img: bambooImg3,
-                  title: "Private Photography Session",
-                  desc: "Professional guide for the perfect bamboo forest photos.",
-                  badges: [
-                    { label: "Photography", bg: "#D3DFFF" },
-                    { label: "Private", bg: "#CDFFD3" },
-                  ],
-                  price: "$3,200",
-                  rating: 5.0,
-                  url: "/tours/bamboo-photo",
-                },
-                {
-                  img: bambooImg4,
-                  title: "Sunset Bamboo Experience",
-                  desc: "Special evening lighting creates magical atmosphere at dusk.",
-                  badges: [
-                    { label: "Romantic", bg: "#D3DFFF" },
-                    { label: "Exclusive", bg: "#F1D8D3" },
-                  ],
-                  price: "$2,800",
-                  rating: 4.7,
-                  url: "/tours/bamboo-sunset",
-                },
-              ].map((item, i) => (
-                <Link to={item.url} key={i} className="block group focus:outline-none">
-                  <div className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm flex flex-col group-hover:shadow-md transition-shadow">
-                    <div className="h-40 bg-[#E1E3FF] relative rounded-xl overflow-hidden">
-                      <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
-                      <div className="absolute top-2 left-2 flex items-center gap-2">
-                        {item.badges.map((b, idx2) => (
-                          <span key={idx2} className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-[#E9ECF1]" style={{ fontFamily: "Poppins", backgroundColor: b.bg, color: "#284078" }}>
-                            {b.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="p-4 flex-1 flex flex-col">
-                      <h4 style={{ fontFamily: "Poppins" }} className="text-[#284078] font-bold text-base">
-                        {item.title}
-                      </h4>
-                      <p style={{ fontFamily: "Poppins" }} className="text-[#6b7280] font-medium text-base mt-1">
-                        {item.desc}
-                      </p>
-
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#F7F9FF] border border-[#E1E3FF]">
-                          <StarIcon className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" stroke="none" />
-                          <span className="text-[12px] text-[#302E2E] bg-[#E9ECF1]" style={{ fontFamily: "Poppins" }}>
-                            {item.rating}
-                          </span>
-                        </span>
-                        <span className="px-2 py-1 rounded-full bg-[#E9ECF1] border border-[#E9ECF1] text-[12px] font-bold text-[#302E2E]" style={{ fontFamily: "Poppins" }}>
-                          {item.price}
-                        </span>
-                      </div>
-
-                      <button 
-                        onClick={(e) => handleBookNow(e, item)}
-                        style={{ fontFamily: "Poppins" }} 
-                        className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px] text-center hover:bg-[#1e2d56] transition"
-                      >
-                        Book Now
-                      </button>
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm animate-pulse h-full">
+                    <div className="h-40 bg-gray-200"></div>
+                    <div className="p-4 space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-full"></div>
+                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                      <div className="h-8 bg-gray-200 rounded"></div>
                     </div>
                   </div>
-                </Link>
-              ))}
+                ))
+              ) : products.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <p style={{ fontFamily: "Poppins" }} className="text-[#6b7280] font-medium">
+                    No Arashiyama bamboo experiences available right now. Check back soon!
+                  </p>
+                </div>
+              ) : (
+                products.map((product, i) => {
+                  const fullDesc = product.description || product.tagline || 'Experience Arashiyama Bamboo Grove'
+                  const truncatedDesc = fullDesc.length > 100 ? fullDesc.substring(0, 100) + '...' : fullDesc
+                  let imageUrl = 'https://images.unsplash.com/photo-1473186578172-c141e6798cf4?auto=format&fit=crop&w=1400&q=80'
+                  if (product.hero_image) {
+                    imageUrl = typeof product.hero_image === 'string' ? product.hero_image : product.hero_image.url || imageUrl
+                  } else if (product.images && product.images.length > 0) {
+                    const firstImage = product.images[0]
+                    imageUrl = typeof firstImage === 'string' ? firstImage : firstImage.url || imageUrl
+                  }
+                  const item = {
+                    id: product.id,
+                    img: imageUrl,
+                    title: product.title || 'Arashiyama Experience',
+                    desc: truncatedDesc,
+                    badges: [
+                      product.category && { label: product.category.charAt(0).toUpperCase() + product.category.slice(1), bg: "#D3DFFF" },
+                      product.activity_type && { label: product.activity_type, bg: "#CDFFD3" },
+                    ].filter(Boolean).slice(0, 2),
+                    price: product.price ? `$${Math.round(product.price).toLocaleString()}` : 'Price on request',
+                    rating: product.rating || 0,
+                    url: `/products/${product.id}`,
+                    reviews: product.reviews_count?.toString() || '0',
+                    location: product.location || product.destination || 'Arashiyama, Kyoto'
+                  }
+                  return (
+                    <Link to={item.url} key={item.id || i} className="block group focus:outline-none h-full">
+                      <div className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm flex flex-col group-hover:shadow-md transition-shadow h-full">
+                        <div className="h-40 bg-[#E1E3FF] relative rounded-xl overflow-hidden">
+                          <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
+                          <div className="absolute top-2 left-2 flex items-center gap-2">
+                            {item.badges.map((b, idx2) => (
+                              <span key={idx2} className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-[#E9ECF1]" style={{ fontFamily: "Poppins", backgroundColor: b.bg, color: "#284078" }}>
+                                {b.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="p-4 flex-1 flex flex-col">
+                          <h4 style={{ fontFamily: "Poppins" }} className="text-[#284078] font-bold text-base">
+                            {item.title}
+                          </h4>
+                          <p style={{ fontFamily: "Poppins" }} className="text-[#6b7280] font-medium text-base mt-1 flex-1">
+                            {item.desc}
+                          </p>
+
+                          <div className="mt-3 flex items-center justify-between">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#F7F9FF] border border-[#E1E3FF]">
+                              <StarIcon className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" stroke="none" />
+                              <span className="text-[12px] text-[#302E2E] bg-[#E9ECF1]" style={{ fontFamily: "Poppins" }}>
+                                {item.rating}
+                              </span>
+                            </span>
+                            <span className="px-2 py-1 rounded-full bg-[#E9ECF1] border border-[#E9ECF1] text-[12px] font-bold text-[#302E2E]" style={{ fontFamily: "Poppins" }}>
+                              {item.price}
+                            </span>
+                          </div>
+
+                          <button 
+                            onClick={(e) => handleBookNow(e, item)}
+                            style={{ fontFamily: "Poppins" }} 
+                            className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px] text-center hover:bg-[#1e2d56] transition"
+                          >
+                            Book Now
+                          </button>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })
+              )}
             </div>
           </div>
         </section>
@@ -344,7 +375,7 @@ const ArashiyamaBambooGrovePage = () => {
               {[
                 {
                   title: 'Getting There',
-                  img: mountfuj,
+                  img: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1400&q=80', // Bamboo path / approach
                   steps: [
                     { name: 'JR Railway', info: 'Saga Arashiyama Station – 10 min walk' },
                     { name: 'Randen Tram', info: 'Arashiyama Station – 5 min walk' },
@@ -354,7 +385,7 @@ const ArashiyamaBambooGrovePage = () => {
                 },
                 {
                   title: 'Nearby Temples',
-                  img: sunshine,
+                  img: 'https://images.unsplash.com/photo-1549693578-d683be217e58?auto=format&fit=crop&w=1400&q=80', // Kyoto temple/torii
                   steps: [
                     { name: 'Tenryu-ji Temple', info: 'UNESCO Zen temple entrance' },
                     { name: 'Jojakko-ji Temple', info: 'Serene maple trees and pagoda' },
@@ -364,7 +395,7 @@ const ArashiyamaBambooGrovePage = () => {
                 },
                 {
                   title: 'Arashiyama Attractions',
-                  img: house,
+                  img: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1400&q=80', // Togetsukyo bridge / river
                   steps: [
                     { name: 'Monkey Park Iwatayama', info: 'Wild monkeys on mountainside' },
                     { name: 'Hozugawa River Cruise', info: 'Traditional boat ride downstream' },
@@ -374,7 +405,7 @@ const ArashiyamaBambooGrovePage = () => {
                 },
                 {
                   title: 'Dining Options',
-                  img: helicopter,
+                  img: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=1400&q=80', // Kyoto cuisine
                   steps: [
                     { name: 'Traditional Cafes', info: 'Matcha and Japanese sweets' },
                     { name: 'Soba Restaurants', info: 'Fresh buckwheat noodles' },
@@ -433,8 +464,14 @@ const ArashiyamaBambooGrovePage = () => {
           <p style={{fontFamily:'Poppins'}} className='text-[#302E2E] font-medium text-[18px] mt-2 text-center'>
             Let Arashiyama's bamboo grove transport you. Plan your visit today and walk through one of the world's most photographed paths.
           </p>
-          <div className='mt-6 flex items-center justify-center gap-3'>
-            <button style={{fontFamily:'Poppins'}} className='bg-[#284078] text-white px-6 py-2.5 rounded-md text-sm font-semibold'>Start Your Adventure</button>
+            <div className='mt-6 flex items-center justify-center gap-3'>
+            <button 
+              onClick={handleScrollToProducts}
+              style={{fontFamily:'Poppins'}} 
+              className='bg-[#284078] text-white px-6 py-2.5 rounded-md text-sm font-semibold'
+            >
+              Start Your Adventure
+            </button>
             <Link to="/search" style={{fontFamily:'Poppins'}} className='bg-white text-[#302E2E] border border-[#E9ECF1] px-6 py-2.5 rounded-md text-sm font-semibold inline-block'>View All Experience</Link>
           </div>
         </div>

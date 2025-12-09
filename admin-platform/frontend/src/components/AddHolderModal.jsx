@@ -80,8 +80,8 @@ const AddHolderModal = ({ isOpen, onClose }) => {
       alert(invitationInfo);
       
       // Reset form
-      setEmail('');
-      setMessage('');
+    setEmail('');
+    setMessage('');
       setSelectedRole('Select Role');
       setSelectedPermissions({
         productsManagement: false,

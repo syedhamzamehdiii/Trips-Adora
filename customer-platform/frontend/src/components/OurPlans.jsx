@@ -1,17 +1,67 @@
-import React from 'react'
-import helicopter from "../../assests/helicopter.jpg";
-import sunshine from "../../assests/sun-shine.jpg";
-import house from "../../assests/house.jpg";
-import mountfuj from "../../assests/mount-fuj.jpg";
+import React, { useState, useEffect, useRef } from 'react'
 import { Bus } from "lucide-react";
 
 import { Mountain, Eye, MapPin, Search, Play, Star as StarIcon, Calendar, List, Check, X, Camera, Image as ImageIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getPublishedProducts } from '../services/productService';
 
 
 const OurPlans = () => {
     const navigate = useNavigate()
+    const productsSectionRef = useRef(null)
     const hero = '/assests/mount fuji.jpg'
+    const [products, setProducts] = useState([])
+    const [loading, setLoading] = useState(true)
+    
+    const handleScrollToProducts = () => {
+        if (productsSectionRef.current) {
+            productsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+    }
+
+    // Fetch products related to Mount Fuji
+    useEffect(() => {
+        const fetchMountFujiProducts = async () => {
+            try {
+                setLoading(true)
+                // Search for products with Mount Fuji related keywords
+                const searchTerms = ['mount fuji', 'mount fauji', 'fuji', 'fujisan', 'fuji-san']
+                let allProducts = []
+                
+                // Try each search term and combine results
+                for (const term of searchTerms) {
+                    const response = await getPublishedProducts({
+                        search: term,
+                        page_size: 50 // Get more results to filter
+                    })
+                    if (response && response.products) {
+                        allProducts = [...allProducts, ...response.products]
+                    }
+                }
+                
+                // Remove duplicates by product ID
+                const uniqueProducts = Array.from(
+                    new Map(allProducts.map(p => [p.id, p])).values()
+                )
+                
+                // Filter products that actually contain Mount Fuji related keywords
+                const mountFujiProducts = uniqueProducts.filter(product => {
+                    const searchText = `${product.title || ''} ${product.description || ''} ${product.destination || ''} ${product.location || ''}`.toLowerCase()
+                    return searchTerms.some(term => searchText.includes(term.toLowerCase()))
+                })
+                
+                // Limit to first 4 products to match the original layout
+                setProducts(mountFujiProducts.slice(0, 4))
+            } catch (error) {
+                console.error('Error fetching Mount Fuji products:', error)
+                setProducts([])
+            } finally {
+                setLoading(false)
+            }
+        }
+        
+        fetchMountFujiProducts()
+    }, [])
 
     const handleBookNow = (e, item) => {
         e.preventDefault()
@@ -21,17 +71,17 @@ const OurPlans = () => {
         const cart = savedCart ? JSON.parse(savedCart) : []
 
         const cartItem = {
-            id: item.url,
+            id: item.id || item.url,
             name: item.title,
-            image: item.img,
+            image: item.hero_image || item.images?.[0] || item.img,
             price: item.price,
-            rating: item.rating,
-            reviews: '428',
-            tags: ['Sightseeing','Local Food','Private Transport','HiddenGems','Photo Spots'],
+            rating: item.rating || 0,
+            reviews: item.reviews_count?.toString() || '0',
+            tags: item.tags || ['Sightseeing','Local Food','Private Transport','HiddenGems','Photo Spots'],
             host: 'TripsAdora',
-            duration: '8 hours',
-            groupSize: 'Up to 12',
-            location: 'Mount Fuji, Japan'
+            duration: item.duration || '8 hours',
+            groupSize: item.groupSize || 'Up to 12',
+            location: item.location || item.destination || 'Mount Fuji, Japan'
         }
 
         if (!cart.some(p => p.id === cartItem.id)) {
@@ -117,7 +167,7 @@ const OurPlans = () => {
 		</section>
 
 		{/* Exclusive Experience */}
-		<section className="py-10 bg-[#F3F7FF] border-t border-[#E9ECF1]">
+		<section className="py-10 bg-[#F3F7FF] border-t border-[#E9ECF1]" ref={productsSectionRef} id="exclusive-experience">
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <h2
       style={{ fontFamily: "Poppins" }}
@@ -133,56 +183,58 @@ const OurPlans = () => {
     </p>
 
     <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {[
-        {
-          img: mountfuj,
-          title: "Mount Fuji Day Trip from Tokyo",
-          desc: "Experience Japan’s most iconic peak on a comfortable guided tour from Tokyo.",
-          badges: [
-            { label: "Family Friendly", bg: "#CDFFD3" },
-            { label: "Popular", bg: "#D3DFFF" },
-          ],
-          price: "$2,800",
-          rating: 4.9,
-          url: "/tours/mount-fuji-day-trip",
-        },
-        {
-          img: sunshine,
-          title: "Overnight Mount Fuji Climb",
-          desc: "Climb Japan’s highest peak overnight and witness the magical sunrise.",
-          badges: [
-            { label: "Early Bird", bg: "#FFF1BB" },
-            { label: "Adventure", bg: "#F1D8D3" },
-          ],
-          price: "$3,500",
-          rating: 4.8,
-          url: "/tours/overnight-mount-fuji-climb",
-        },
-        {
-          img: house,
-          title: "Traditional Ryokan Retreat",
-          desc: "Relax in a traditional Japanese inn featuring private onsen hot springs.",
-          badges: [
-            { label: "Luxury", bg: "#D3DFFF" },
-            { label: "Wellness", bg: "#CDFFD3" },
-          ],
-          price: "$4,200",
-          rating: 4.7,
-          url: "/stays/ryokan-retreat",
-        },
-        {
-          img: helicopter,
-          title: "Mount Fuji Helicopter Tour",
-          desc: "Get a bird’s-eye view of Mount Fuji, Fuji Five Lakes, and the Tokyo skyline.",
-          badges: [
-            { label: "Luxury", bg: "#D3DFFF" },
-            { label: "Adventure", bg: "#F1D8D3" },
-          ],
-          price: "$5,600",
-          rating: 5.0,
-          url: "/tours/mount-fuji-helicopter",
-        },
-      ].map((item, i) => (
+      {loading ? (
+        // Loading state
+        Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm animate-pulse">
+            <div className="h-40 bg-gray-200"></div>
+            <div className="p-4 space-y-3">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-200 rounded w-full"></div>
+              <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+              <div className="h-8 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        ))
+      ) : products.length === 0 ? (
+        // Empty state - show message if no products found
+        <div className="col-span-full text-center py-8">
+          <p style={{ fontFamily: "Poppins" }} className="text-[#6b7280] font-medium">
+            No Mount Fuji experiences available at the moment. Check back soon!
+          </p>
+        </div>
+      ) : (
+        products.map((product, i) => {
+          // Truncate description if too long
+          const fullDesc = product.description || product.tagline || 'Experience the beauty of Mount Fuji'
+          const truncatedDesc = fullDesc.length > 100 ? fullDesc.substring(0, 100) + '...' : fullDesc
+          
+          // Get image URL - handle both string URLs and object URLs
+          let imageUrl = 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&h=400&fit=crop' // fallback - Mount Fuji image
+          if (product.hero_image) {
+            imageUrl = typeof product.hero_image === 'string' ? product.hero_image : product.hero_image.url || imageUrl
+          } else if (product.images && product.images.length > 0) {
+            const firstImage = product.images[0]
+            imageUrl = typeof firstImage === 'string' ? firstImage : firstImage.url || imageUrl
+          }
+          
+          // Map product data to match the card format
+          const item = {
+            id: product.id,
+            img: imageUrl,
+            title: product.title || 'Mount Fuji Experience',
+            desc: truncatedDesc,
+            badges: [
+              // Add category-based badges
+              product.category && { label: product.category.charAt(0).toUpperCase() + product.category.slice(1), bg: "#D3DFFF" },
+              product.activity_type && { label: product.activity_type, bg: "#CDFFD3" },
+            ].filter(Boolean).slice(0, 2), // Limit to 2 badges
+            price: product.price ? `$${Math.round(product.price).toLocaleString()}` : 'Price on request',
+            rating: product.rating || 0,
+            url: `/products/${product.id}`,
+          }
+          
+          return (
         <Link to={item.url} key={i} className="block group focus:outline-none h-full">
         <div className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm flex flex-col h-full group-hover:shadow-md transition-shadow">
           <div className="h-40 bg-[#E1E3FF] relative rounded-xl overflow-hidden">
@@ -255,7 +307,9 @@ const OurPlans = () => {
           </div>
         </div>
         </Link>
-      ))}
+          )
+        })
+      )}
     </div>
   </div>
 </section>
@@ -391,8 +445,7 @@ const OurPlans = () => {
 		  {[
 		    {
 		      title: 'Getting There',
-		      img: mountfuj,
-		      url: '/plan/getting-there',
+		      img: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800&h=400&fit=crop&q=80',
 		      steps: [
 		        { name: 'Bullet Train (Shinkansen)', info: 'Tokyo to Shin-Fuji – 1 hour' },
 		        { name: 'Express Bus', info: 'Tokyo to Kawaguchiko – 2 hours' },
@@ -402,8 +455,7 @@ const OurPlans = () => {
 		    },
 		    {
 		      title: 'Where to Stay',
-		      img: sunshine,
-		      url: '/plan/where-to-stay',
+		      img: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=400&fit=crop&q=80',
 		      steps: [
 		        { name: 'Ryokan Inn', info: 'Traditional stay with onsen baths' },
 		        { name: 'Mountain Lodge', info: 'Scenic views near Fuji Five Lakes' },
@@ -411,12 +463,11 @@ const OurPlans = () => {
 		        { name: 'Budget Hotel', info: 'Comfortable rooms near train station' },
 		      ],
 		    },
-		    {
-		      title: 'Local Cuisine',
-		      img: house,
-		      url: '/plan/local-cuisine',
+    {
+      title: 'Local Cuisine',
+      img: 'https://images.unsplash.com/photo-1553621042-f6e147245754?w=800&h=400&fit=crop&q=80', // Japanese food spread
 		      steps: [
-		        { name: 'Hōtō Noodles', info: 'Fuji’s signature comfort dish' },
+        { name: 'Hōtō Noodles', info: "Fuji's signature comfort dish" },
 		        { name: 'Fresh Trout', info: 'Grilled over charcoal' },
 		        { name: 'Matcha Desserts', info: 'Local tea-infused sweets' },
 		        { name: 'Sake Tasting', info: 'Brewed in the foothills of Fuji' },
@@ -424,8 +475,7 @@ const OurPlans = () => {
 		    },
 		    {
 		      title: 'Tickets & Permits',
-		      img: helicopter,
-		      url: '/plan/tickets-and-permits',
+      img: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800&h=400&fit=crop&q=80', // Tickets/pass concept
 		      steps: [
 		        { name: 'Climbing Pass', info: 'Available during July–September' },
 		        { name: 'Bus Pass', info: 'Unlimited local routes around Fuji' },
@@ -434,7 +484,7 @@ const OurPlans = () => {
 		      ],
 		    },
 		  ].map((card, idx) => (
-		    <Link to={card.url} key={idx} className="w-full sm:w-[45%] lg:w-[40%] xl:w-[35%] rounded-xl border border-[#E9ECF1] overflow-hidden block group">
+		    <div key={idx} className="w-full sm:w-[45%] lg:w-[40%] xl:w-[35%] rounded-xl border border-[#E9ECF1] overflow-hidden">
 		      {/* IMAGE HEADER */}
 		      <div className="h-36 relative ">
 		        <img
@@ -488,7 +538,7 @@ const OurPlans = () => {
 		          </div>
 		        ))}
 		      </div>
-		    </Link>
+		    </div>
 		  ))}
 		</div>
 		
@@ -509,7 +559,13 @@ const OurPlans = () => {
 					<h4 style={{fontFamily:'Poppins'}} className='text-[#302E2E] font-bold text-2xl'>Experience the Spirit of Fuji</h4>
 					<p style={{fontFamily:'Poppins'}} className='text-[#302E2E] font-medium text-[18px] mt-2 text-center'> Let Fuji's spirit awaken your wanderlust. Plan your journey today and discover the timeless beauty <br />  that has inspired pilgrims and artists for millennia. </p>
 					<div className='mt-6 flex items-center justify-center gap-3'>
-						<button style={{fontFamily:'Poppins'}} className='bg-[#284078] text-white px-6 py-2.5 rounded-md text-sm font-semibold'>Start Your Adventure</button>
+						<button 
+              onClick={handleScrollToProducts}
+              style={{fontFamily:'Poppins'}} 
+              className='bg-[#284078] text-white px-6 py-2.5 rounded-md text-sm font-semibold'
+            >
+              Start Your Adventure
+            </button>
 						<Link to="/search" style={{fontFamily:'Poppins'}} className='bg-white text-[#302E2E] border border-[#E9ECF1] px-6 py-2.5 rounded-md text-sm font-semibold inline-block'>View All Experience</Link>
 					</div>
 				</div>

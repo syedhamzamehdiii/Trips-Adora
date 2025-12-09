@@ -16,6 +16,7 @@ class MessageType(str, Enum):
 class MessageSender(str, Enum):
     CUSTOMER = "customer"
     SUPPLIER = "supplier"
+    ADMIN = "admin"
 
 
 class Message(Document):

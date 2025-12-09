@@ -1,5 +1,6 @@
 # app/api/v1/messages.py
 from fastapi import APIRouter, HTTPException, status, Path, Query, Response
+import logging
 from app.schemas.message import (
     MessageCreate,
     MessageResponse,
@@ -8,7 +9,9 @@ from app.schemas.message import (
     UnreadCountResponse,
 )
 from app.services.message_service import MessageService
-from app.models.message import MessageType
+from app.models.message import MessageType, MessageSender
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
 
@@ -60,19 +63,34 @@ async def get_conversations(
         for conv in conversations:
             last_msg = None
             if conv.get("last_message"):
+                # Convert string sender_type to MessageSender enum
+                sender_type_str = conv["last_message"].get("sender_type", "customer")
+                try:
+                    sender_type = MessageSender(sender_type_str)
+                except ValueError:
+                    # Fallback to customer if invalid
+                    sender_type = MessageSender.CUSTOMER
+                
+                # Convert string message_type to MessageType enum
+                message_type_str = conv["last_message"].get("message_type", "general")
+                try:
+                    message_type = MessageType(message_type_str)
+                except ValueError:
+                    message_type = MessageType.GENERAL
+                
                 last_msg = MessageResponse(
                     id=conv["last_message"]["id"],
                     conversation_id=conv["conversation_id"],
-                    sender_type=conv["last_message"]["sender_type"],
+                    sender_type=sender_type,
                     sender_id=conv["last_message"].get("sender_id", ""),
-                    recipient_id="",
+                    recipient_id=conv["last_message"].get("recipient_id", ""),
                     product_id=conv["last_message"].get("product_id"),
                     product_title=conv["last_message"].get("product_title"),
                     message=conv["last_message"]["message"],
-                    message_type=conv["last_message"].get("message_type", MessageType.GENERAL),
+                    message_type=message_type,
                     reply_to_message_id=conv["last_message"].get("reply_to_message_id"),
                     reply_preview=conv["last_message"].get("reply_preview"),
-                    is_read=False,
+                    is_read=conv["last_message"].get("is_read", False),
                     created_at=conv["last_message"]["created_at"]
                 )
             
@@ -94,6 +112,8 @@ async def get_conversations(
             total=len(conversation_responses)
         )
     except Exception as e:
+        import traceback
+        logger.error(f"Error fetching conversations for customer {customer_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching conversations: {str(e)}"
@@ -111,8 +131,42 @@ async def get_messages(
     try:
         messages = await MessageService.get_messages(conversation_id, customer_id)
         
-        return [MessageResponse(**msg) for msg in messages]
+        message_responses = []
+        for msg in messages:
+            # Convert string sender_type to MessageSender enum
+            sender_type_str = msg.get("sender_type", "customer")
+            try:
+                sender_type = MessageSender(sender_type_str)
+            except ValueError:
+                sender_type = MessageSender.CUSTOMER
+            
+            # Convert string message_type to MessageType enum
+            message_type_str = msg.get("message_type", "general")
+            try:
+                message_type = MessageType(message_type_str)
+            except ValueError:
+                message_type = MessageType.GENERAL
+            
+            message_responses.append(MessageResponse(
+                id=msg.get("id", ""),
+                conversation_id=msg.get("conversation_id", ""),
+                sender_type=sender_type,
+                sender_id=msg.get("sender_id", ""),
+                recipient_id=msg.get("recipient_id", ""),
+                product_id=msg.get("product_id"),
+                product_title=msg.get("product_title"),
+                message=msg.get("message", ""),
+                message_type=message_type,
+                reply_to_message_id=msg.get("reply_to_message_id"),
+                reply_preview=msg.get("reply_preview"),
+                is_read=msg.get("is_read", False),
+                created_at=msg.get("created_at")
+            ))
+        
+        return message_responses
     except Exception as e:
+        import traceback
+        logger.error(f"Error fetching messages: {e}\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching messages: {str(e)}"

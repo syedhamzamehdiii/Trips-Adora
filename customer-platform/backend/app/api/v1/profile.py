@@ -21,6 +21,23 @@ async def get_profile_summary(
     user_id: str = Path(..., description="Customer identifier"),
 ):
     """Lightweight endpoint for header/profile summary - only returns essential user info"""
+    # Update last_seen for real-time status tracking
+    try:
+        from app.core.database import get_database
+        now = datetime.utcnow()
+        db = get_database()
+        await db.customer_profiles.update_one(
+            {"user_id": user_id},
+            {
+                "$set": {
+                    "last_seen": now,
+                    "updated_at": now
+                }
+            }
+        )
+    except:
+        pass  # Don't fail if update fails
+    
     try:
         # Use summary_only=True for ultra-fast header fetching
         profile = await ProfileService.get_profile(user_id, summary_only=True)
@@ -79,7 +96,23 @@ async def get_profile(
     profile["recent_activity"] = recent_activity
     profile["travel_preferences"] = travel_preferences
     profile["refer_and_earn"] = refer_summary
-    profile["last_synced_at"] = datetime.utcnow().isoformat()
+    
+    # Update last_seen and last_synced_at for real-time status tracking
+    now = datetime.utcnow()
+    from app.core.database import get_database
+    db = get_database()
+    await db.customer_profiles.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "last_seen": now,
+                "last_synced_at": now.isoformat(),
+                "updated_at": now
+            }
+        }
+    )
+    
+    profile["last_synced_at"] = now.isoformat()
 
     return ProfileResponse(**profile)
 

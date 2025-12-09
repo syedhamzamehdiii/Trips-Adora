@@ -1,17 +1,51 @@
-import React from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MainHeader from '../../components/MainHeader'
 import Footer from '../../components/Footer'
-import helicopter from '../../../assests/helicopter.jpg'
-import sunshine from '../../../assests/sun-shine.jpg'
-import house from '../../../assests/house.jpg'
-import mountfuj from '../../../assests/mount-fuj.jpg'
 import { Bus, Eye, Camera, MapPin } from "lucide-react"
 import { Star as StarIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { getPublishedProducts } from '../../services/productService'
 
 const TokyoTowerPage = () => {
   const navigate = useNavigate()
+  const productsSectionRef = useRef(null)
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const handleScrollToProducts = () => {
+    if (productsSectionRef.current) {
+      productsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  // Fetch Tokyo Tower related products
+  useEffect(() => {
+    const fetchTowerProducts = async () => {
+      try {
+        setLoading(true)
+        const searchTerms = ['tokyo tower', 'tower', 'minato', 'zojoji', 'shiba park', 'roppongi']
+        let allProducts = []
+        for (const term of searchTerms) {
+          const response = await getPublishedProducts({ search: term, page_size: 50 })
+          if (response && response.products) {
+            allProducts = [...allProducts, ...response.products]
+          }
+        }
+        const uniqueProducts = Array.from(new Map(allProducts.map(p => [p.id, p])).values())
+        const filtered = uniqueProducts.filter(p => {
+          const text = `${p.title || ''} ${p.description || ''} ${p.destination || ''} ${p.location || ''}`.toLowerCase()
+          return searchTerms.some(term => text.includes(term.toLowerCase()))
+        })
+        setProducts(filtered.slice(0, 4))
+      } catch (err) {
+        console.error('Error fetching Tokyo Tower products:', err)
+        setProducts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchTowerProducts()
+  }, [])
 
   const handleBookNow = (e, item) => {
     e.preventDefault()
@@ -50,9 +84,6 @@ const TokyoTowerPage = () => {
   }
 
   const heroImg = '/assests/Screenshot 2025-11-03 at 12.12.27 PM.png'
-  const towerImg1 = '/assests/tokyo tower.jpg'
-  const towerImg2 = '/assests/Tokyo-Tower.jpg'
-  const towerImg3 = '/assests/tower ...jpg'
   return (
     <div className="min-h-screen bg-white">
       <MainHeader />
@@ -129,7 +160,7 @@ const TokyoTowerPage = () => {
         </section>
 
         {/* Exclusive Experience */}
-        <section className="py-10 bg-[#F3F7FF] border-t border-[#E9ECF1]">
+        <section className="py-10 bg-[#F3F7FF] border-t border-[#E9ECF1]" ref={productsSectionRef} id="exclusive-experience">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 style={{ fontFamily: "Poppins" }} className="text-center text-[#302E2E] text-xl sm:text-2xl font-bold">
               Exclusive Experience
@@ -139,100 +170,97 @@ const TokyoTowerPage = () => {
             </p>
 
             <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[
-                {
-                  img: towerImg1,
-                  title: "Tokyo Tower Day Ticket",
-                  desc: "Access to both Main Deck and Top Deck for panoramic views.",
-                  badges: [
-                    { label: "Family Friendly", bg: "#CDFFD3" },
-                    { label: "Popular", bg: "#D3DFFF" },
-                  ],
-                  price: "$900",
-                  rating: 4.7,
-                  url: "/tours/tower-day-ticket",
-                },
-                {
-                  img: towerImg2,
-                  title: "Sunset & Night Experience",
-                  desc: "Special evening viewing as Tokyo lights up below you.",
-                  badges: [
-                    { label: "Romantic", bg: "#FFF1BB" },
-                    { label: "Photography", bg: "#F1D8D3" },
-                  ],
-                  price: "$1,400",
-                  rating: 4.9,
-                  url: "/tours/tower-sunset",
-                },
-                {
-                  img: towerImg3,
-                  title: "Tokyo Tower Complex Tour",
-                  desc: "Explore One Piece Tower, shopping, and dining experiences.",
-                  badges: [
-                    { label: "Shopping", bg: "#D3DFFF" },
-                    { label: "Entertainment", bg: "#CDFFD3" },
-                  ],
-                  price: "$1,500",
-                  rating: 4.6,
-                  url: "/tours/tower-complex",
-                },
-                {
-                  img: towerImg1,
-                  title: "VIP Behind-the-Scenes",
-                  desc: "Exclusive access to Tokyo Tower's broadcast facilities and history.",
-                  badges: [
-                    { label: "Luxury", bg: "#D3DFFF" },
-                    { label: "Educational", bg: "#F1D8D3" },
-                  ],
-                  price: "$3,200",
-                  rating: 4.8,
-                  url: "/tours/tower-vip",
-                },
-              ].map((item, i) => (
-                <Link to={item.url} key={i} className="block group focus:outline-none">
-                  <div className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm flex flex-col group-hover:shadow-md transition-shadow">
-                    <div className="h-40 bg-[#E1E3FF] relative rounded-xl overflow-hidden">
-                      <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
-                      <div className="absolute top-2 left-2 flex items-center gap-2">
-                        {item.badges.map((b, idx2) => (
-                          <span key={idx2} className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-[#E9ECF1]" style={{ fontFamily: "Poppins", backgroundColor: b.bg, color: "#284078" }}>
-                            {b.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="p-4 flex-1 flex flex-col">
-                      <h4 style={{ fontFamily: "Poppins" }} className="text-[#284078] font-bold text-base">
-                        {item.title}
-                      </h4>
-                      <p style={{ fontFamily: "Poppins" }} className="text-[#6b7280] font-medium text-base mt-1">
-                        {item.desc}
-                      </p>
-
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#F7F9FF] border border-[#E1E3FF]">
-                          <StarIcon className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" stroke="none" />
-                          <span className="text-[12px] text-[#302E2E] bg-[#E9ECF1]" style={{ fontFamily: "Poppins" }}>
-                            {item.rating}
-                          </span>
-                        </span>
-                        <span className="px-2 py-1 rounded-full bg-[#E9ECF1] border border-[#E9ECF1] text-[12px] font-bold text-[#302E2E]" style={{ fontFamily: "Poppins" }}>
-                          {item.price}
-                        </span>
-                      </div>
-
-                      <button 
-                        onClick={(e) => handleBookNow(e, item)}
-                        style={{ fontFamily: "Poppins" }} 
-                        className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px] text-center hover:bg-[#1e2d56] transition"
-                      >
-                        Book Now
-                      </button>
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm animate-pulse h-full">
+                    <div className="h-40 bg-gray-200"></div>
+                    <div className="p-4 space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-full"></div>
+                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                      <div className="h-8 bg-gray-200 rounded"></div>
                     </div>
                   </div>
-                </Link>
-              ))}
+                ))
+              ) : products.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <p style={{ fontFamily: "Poppins" }} className="text-[#6b7280] font-medium">
+                    No Tokyo Tower experiences available right now. Check back soon!
+                  </p>
+                </div>
+              ) : (
+                products.map((product, i) => {
+                  const fullDesc = product.description || product.tagline || 'Experience Tokyo Tower'
+                  const truncatedDesc = fullDesc.length > 100 ? fullDesc.substring(0, 100) + '...' : fullDesc
+                  let imageUrl = 'https://images.unsplash.com/photo-1526481280695-3c469c2f88b8?auto=format&fit=crop&w=1400&q=80'
+                  if (product.hero_image) {
+                    imageUrl = typeof product.hero_image === 'string' ? product.hero_image : product.hero_image.url || imageUrl
+                  } else if (product.images && product.images.length > 0) {
+                    const firstImage = product.images[0]
+                    imageUrl = typeof firstImage === 'string' ? firstImage : firstImage.url || imageUrl
+                  }
+                  const item = {
+                    id: product.id,
+                    img: imageUrl,
+                    title: product.title || 'Tokyo Tower Experience',
+                    desc: truncatedDesc,
+                    badges: [
+                      product.category && { label: product.category.charAt(0).toUpperCase() + product.category.slice(1), bg: "#D3DFFF" },
+                      product.activity_type && { label: product.activity_type, bg: "#CDFFD3" },
+                    ].filter(Boolean).slice(0, 2),
+                    price: product.price ? `$${Math.round(product.price).toLocaleString()}` : 'Price on request',
+                    rating: product.rating || 0,
+                    url: `/products/${product.id}`,
+                    reviews: product.reviews_count?.toString() || '0',
+                    location: product.location || product.destination || 'Tokyo Tower, Japan'
+                  }
+                  return (
+                    <Link to={item.url} key={item.id || i} className="block group focus:outline-none h-full">
+                      <div className="bg-white border border-[#E9ECF1] rounded-xl overflow-hidden shadow-sm flex flex-col group-hover:shadow-md transition-shadow h-full">
+                        <div className="h-40 bg-[#E1E3FF] relative rounded-xl overflow-hidden">
+                          <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
+                          <div className="absolute top-2 left-2 flex items-center gap-2">
+                            {item.badges.map((b, idx2) => (
+                              <span key={idx2} className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-[#E9ECF1]" style={{ fontFamily: "Poppins", backgroundColor: b.bg, color: "#284078" }}>
+                                {b.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="p-4 flex-1 flex flex-col">
+                          <h4 style={{ fontFamily: "Poppins" }} className="text-[#284078] font-bold text-base">
+                            {item.title}
+                          </h4>
+                          <p style={{ fontFamily: "Poppins" }} className="text-[#6b7280] font-medium text-base mt-1 flex-1">
+                            {item.desc}
+                          </p>
+
+                          <div className="mt-3 flex items-center justify-between">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#F7F9FF] border border-[#E1E3FF]">
+                              <StarIcon className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" stroke="none" />
+                              <span className="text-[12px] text-[#302E2E] bg-[#E9ECF1]" style={{ fontFamily: "Poppins" }}>
+                                {item.rating}
+                              </span>
+                            </span>
+                            <span className="px-2 py-1 rounded-full bg-[#E9ECF1] border border-[#E9ECF1] text-[12px] font-bold text-[#302E2E]" style={{ fontFamily: "Poppins" }}>
+                              {item.price}
+                            </span>
+                          </div>
+
+                          <button 
+                            onClick={(e) => handleBookNow(e, item)}
+                            style={{ fontFamily: "Poppins" }} 
+                            className="mt-3 bg-[#284078] text-white w-full py-2 rounded-md text-sm text-[14px] text-center hover:bg-[#1e2d56] transition"
+                          >
+                            Book Now
+                          </button>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })
+              )}
             </div>
           </div>
         </section>
@@ -343,7 +371,7 @@ const TokyoTowerPage = () => {
               {[
                 {
                   title: 'Getting There',
-                  img: mountfuj,
+                  img: 'https://images.unsplash.com/photo-1505764706515-aa95265c5abc?auto=format&fit=crop&w=1400&q=80', // Tokyo Tower area / Zojo-ji
                   steps: [
                     { name: 'Tokyo Metro', info: 'Akabanebashi Station – 5 min walk' },
                     { name: 'JR Train', info: 'Hamamatsucho Station – 15 min walk' },
@@ -353,7 +381,7 @@ const TokyoTowerPage = () => {
                 },
                 {
                   title: 'Ticket Options',
-                  img: sunshine,
+                  img: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80', // Observation deck / city lights
                   steps: [
                     { name: 'Main Deck Only', info: 'Observatory at 150 meters' },
                     { name: 'Top Deck Combo', info: 'Both Main + Top Deck access' },
@@ -363,7 +391,7 @@ const TokyoTowerPage = () => {
                 },
                 {
                   title: 'Shopping & Dining',
-                  img: house,
+                  img: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=1400&q=80', // Tokyo food / dining scene
                   steps: [
                     { name: 'Foot Town Complex', info: '5 floors of shops and restaurants' },
                     { name: 'One Piece Tower', info: 'Anime-themed entertainment' },
@@ -373,7 +401,7 @@ const TokyoTowerPage = () => {
                 },
                 {
                   title: 'Nearby Attractions',
-                  img: helicopter,
+                  img: 'https://images.unsplash.com/photo-1505764706515-aa95265c5abc?auto=format&fit=crop&w=1400&q=80', // Zojo-ji with Tokyo Tower backdrop
                   steps: [
                     { name: 'Zojo-ji Temple', info: 'Historic Buddhist temple next door' },
                     { name: 'Shiba Park', info: 'Beautiful gardens and green space' },
@@ -382,7 +410,7 @@ const TokyoTowerPage = () => {
                   ],
                 },
               ].map((card, idx) => (
-                <Link to={card.url} key={idx} className="w-full sm:w-[45%] lg:w-[40%] xl:w-[35%] rounded-xl border border-[#E9ECF1] overflow-hidden block group">
+                <div key={idx} className="w-full sm:w-[45%] lg:w-[40%] xl:w-[35%] rounded-xl border border-[#E9ECF1] overflow-hidden">
                   <div className="h-36 relative">
                     <img src={card.img} alt={card.title} className="absolute inset-0 w-full h-full object-cover" />
                     <div className="absolute inset-0 ring-1 ring-inset ring-[#3B69E2] pointer-events-none"></div>
@@ -411,7 +439,7 @@ const TokyoTowerPage = () => {
                       </div>
                     ))}
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           </div>
@@ -432,8 +460,14 @@ const TokyoTowerPage = () => {
           <p style={{fontFamily:'Poppins'}} className='text-[#302E2E] font-medium text-[18px] mt-2 text-center'>
             Let Tokyo Tower capture your heart. Plan your visit today and see why this landmark has inspired millions since 1958.
           </p>
-          <div className='mt-6 flex items-center justify-center gap-3'>
-            <button style={{fontFamily:'Poppins'}} className='bg-[#284078] text-white px-6 py-2.5 rounded-md text-sm font-semibold'>Start Your Adventure</button>
+            <div className='mt-6 flex items-center justify-center gap-3'>
+            <button 
+              onClick={handleScrollToProducts}
+              style={{fontFamily:'Poppins'}} 
+              className='bg-[#284078] text-white px-6 py-2.5 rounded-md text-sm font-semibold'
+            >
+              Start Your Adventure
+            </button>
             <Link to="/search" style={{fontFamily:'Poppins'}} className='bg-white text-[#302E2E] border border-[#E9ECF1] px-6 py-2.5 rounded-md text-sm font-semibold inline-block'>View All Experience</Link>
           </div>
         </div>

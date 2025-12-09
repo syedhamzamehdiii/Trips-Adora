@@ -18,7 +18,7 @@ const getCachedWallet = (userId) => {
     const cached = localStorage.getItem(`${CACHE_KEY_PREFIX}${userId}`);
     if (cached) {
       // Always return cached data, even if expired
-      return JSON.parse(cached);
+        return JSON.parse(cached);
     }
   } catch (_) {
     // Ignore cache errors

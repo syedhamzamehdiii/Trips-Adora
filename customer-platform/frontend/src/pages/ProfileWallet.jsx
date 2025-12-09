@@ -108,13 +108,13 @@ const ProfileWallet = () => {
       setWallet(data)
     } catch (err) {
       // Show error (getWallet always returns cached if available, so this is rare)
-      setError(err?.message || 'Unable to load wallet information.')
+        setError(err?.message || 'Unable to load wallet information.')
     }
   }, [userId])
 
   useEffect(() => {
     // Always fetch fresh data in background (getWallet returns cached immediately)
-    fetchWallet()
+      fetchWallet()
   }, []) // Only run once on mount
 
   useEffect(() => {

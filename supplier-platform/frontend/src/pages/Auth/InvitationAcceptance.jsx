@@ -122,3 +122,5 @@ const InvitationAcceptance = () => {
 
 export default InvitationAcceptance
 
+
+

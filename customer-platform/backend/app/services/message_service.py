@@ -44,6 +44,13 @@ class MessageService:
         if not conversation_id:
             return False
 
+        # Handle admin conversations: "admin|cust:{customer_id}"
+        if conversation_id.startswith("admin|"):
+            if role == "customer":
+                customer_part = conversation_id.split("cust:")[-1] if "cust:" in conversation_id else ""
+                return customer_part == str(user_id).strip()
+            return False
+
         if MessageService.TOKEN_SEPARATOR in conversation_id:
             tokens = conversation_id.split(MessageService.TOKEN_SEPARATOR)
         else:
@@ -202,12 +209,14 @@ class MessageService:
             
             # Find all conversations where customer is involved
             # Ensure we only get conversations where this customer_id is either sender or recipient
+            # Include admin messages where recipient_id matches customer_id
             pipeline = [
                 {
                     "$match": {
                         "$or": [
                             {"sender_id": customer_id, "sender_type": "customer"},
-                            {"recipient_id": customer_id}
+                            {"recipient_id": customer_id},  # This matches admin messages
+                            {"sender_type": "admin", "recipient_id": customer_id}  # Explicit admin message match
                         ]
                     }
                 },
@@ -240,71 +249,98 @@ class MessageService:
             ]
             
             conversations = []
-            async for group in collection.aggregate(pipeline):
-                conv_id = group["_id"]
-                last_msg = group["last_message"]
-
-                # Verify conversation_id contains customer role for this user (security check)
-                if not MessageService._conversation_contains_user(conv_id, "customer", customer_id):
-                    logger.debug(
-                        "Skipping conversation %s - customer %s not part of it",
-                        conv_id,
-                        customer_id,
-                    )
-                    continue
-                
-                # Determine other party
-                if last_msg.get("sender_id") == customer_id:
-                    other_party_id = last_msg.get("recipient_id")
-                    other_party_type = "supplier"
-                else:
-                    other_party_id = last_msg.get("sender_id")
-                    other_party_type = "supplier"  # Since customer is recipient, sender must be supplier
-                
-                # Get other party name
-                other_party_name = await MessageService._get_user_name(other_party_id)
-                
-                # Get product info if exists
-                product_title = last_msg.get("product_title")
-                product_id = last_msg.get("product_id")
-                if not product_title and product_id:
+            try:
+                async for group in collection.aggregate(pipeline):
                     try:
-                        product = await db.products.find_one(
-                            {"_id": ObjectId(product_id) if ObjectId.is_valid(product_id) else product_id},
-                            {"title": 1}
-                        )
-                        if product:
-                            product_title = product.get("title")
-                    except:
-                        pass
-                
-                conversations.append({
-                    "conversation_id": conv_id,
-                    "other_party_id": other_party_id,
-                    "other_party_name": other_party_name,
-                    "other_party_type": other_party_type,
-                    "product_id": product_id,
-                    "product_title": product_title,
-                    "last_message": {
-                        "id": str(last_msg.get("_id", "")),
-                        "message": last_msg.get("message", ""),
-                        "sender_type": last_msg.get("sender_type", "customer"),
-                        "sender_id": last_msg.get("sender_id", ""),
-                        "product_id": product_id,
-                        "product_title": product_title,
-                        "message_type": last_msg.get("message_type", "general"),
-                        "reply_to_message_id": last_msg.get("reply_to_message_id"),
-                        "reply_preview": last_msg.get("reply_preview"),
-                        "created_at": last_msg.get("created_at", datetime.utcnow())
-                    },
-                    "unread_count": group.get("unread_count", 0),
-                    "created_at": last_msg.get("created_at", datetime.utcnow()),
-                    "updated_at": last_msg.get("created_at", datetime.utcnow())
-                })
+                        conv_id = group.get("_id")
+                        last_msg = group.get("last_message")
+                        
+                        if not conv_id or not last_msg:
+                            logger.warning(f"Skipping invalid conversation group: {group}")
+                            continue
+
+                        # Verify conversation_id contains customer role for this user (security check)
+                        if not MessageService._conversation_contains_user(conv_id, "customer", customer_id):
+                            logger.debug(
+                                "Skipping conversation %s - customer %s not part of it",
+                                conv_id,
+                                customer_id,
+                            )
+                            continue
+                        
+                        # Determine other party
+                        sender_type = last_msg.get("sender_type", "")
+                        if sender_type == "admin":
+                            other_party_id = "admin"
+                            other_party_type = "admin"
+                            other_party_name = last_msg.get("sender_name", "Admin")
+                        elif last_msg.get("sender_id") == customer_id:
+                            other_party_id = last_msg.get("recipient_id")
+                            other_party_type = "supplier"
+                            # Only fetch name if other_party_id is valid
+                            if other_party_id:
+                                other_party_name = await MessageService._get_user_name(other_party_id)
+                            else:
+                                other_party_name = "Unknown"
+                        else:
+                            other_party_id = last_msg.get("sender_id")
+                            other_party_type = sender_type if sender_type else "supplier"
+                            # Only fetch name if other_party_id is valid
+                            if other_party_id:
+                                other_party_name = await MessageService._get_user_name(other_party_id)
+                            else:
+                                other_party_name = "Unknown"
+                        
+                        # Get product info if exists
+                        product_title = last_msg.get("product_title")
+                        product_id = last_msg.get("product_id")
+                        if not product_title and product_id:
+                            try:
+                                product = await db.products.find_one(
+                                    {"_id": ObjectId(product_id) if ObjectId.is_valid(product_id) else product_id},
+                                    {"title": 1}
+                                )
+                                if product:
+                                    product_title = product.get("title")
+                            except:
+                                pass
+                        
+                        conversations.append({
+                            "conversation_id": conv_id,
+                            "other_party_id": other_party_id or "",
+                            "other_party_name": other_party_name or "Unknown",
+                            "other_party_type": other_party_type or "supplier",
+                            "product_id": product_id,
+                            "product_title": product_title,
+                            "last_message": {
+                                "id": str(last_msg.get("_id", "")),
+                                "conversation_id": conv_id,
+                                "message": last_msg.get("message", ""),
+                                "sender_type": last_msg.get("sender_type", "customer"),
+                                "sender_id": last_msg.get("sender_id", ""),
+                                "recipient_id": last_msg.get("recipient_id", ""),
+                                "product_id": product_id,
+                                "product_title": product_title,
+                                "message_type": last_msg.get("message_type", "general"),
+                                "reply_to_message_id": last_msg.get("reply_to_message_id"),
+                                "reply_preview": last_msg.get("reply_preview"),
+                                "is_read": last_msg.get("is_read", False),
+                                "created_at": last_msg.get("created_at", datetime.utcnow())
+                            },
+                            "unread_count": group.get("unread_count", 0),
+                            "created_at": last_msg.get("created_at", datetime.utcnow()),
+                            "updated_at": last_msg.get("created_at", datetime.utcnow())
+                        })
+                    except Exception as conv_error:
+                        logger.error(f"Error processing conversation group: {conv_error}", exc_info=True)
+                        continue
+            except Exception as pipeline_error:
+                logger.error(f"Error in aggregation pipeline: {pipeline_error}", exc_info=True)
+                raise
             
             return conversations
         except Exception as e:
-            logger.error(f"Error getting conversations: {e}")
+            logger.error(f"Error getting conversations for customer {customer_id}: {e}", exc_info=True)
             import traceback
             traceback.print_exc()
             return []
@@ -377,6 +413,9 @@ class MessageService:
     async def _get_user_name(user_id: str) -> str:
         """Get user name from users collection"""
         try:
+            if not user_id or user_id == "admin":
+                return "Admin" if user_id == "admin" else "Unknown"
+            
             db = get_database()
             # Try users collection
             user = await db.users.find_one(
@@ -386,7 +425,8 @@ class MessageService:
             if user:
                 return user.get("business_name") or user.get("full_name") or "Unknown"
             return "Unknown"
-        except:
+        except Exception as e:
+            logger.warning(f"Error getting user name for {user_id}: {e}")
             return "Unknown"
 
     @staticmethod

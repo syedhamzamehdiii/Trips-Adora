@@ -27,5 +27,28 @@ export const customerService = {
   getCustomerStats: async () => {
     return await apiService.get('/customers/stats');
   },
+
+  /**
+   * Get detailed customer information
+   * @param {string} customerId - Customer user ID
+   * @returns {Promise<Object>} Customer details response
+   */
+  getCustomerDetails: async (customerId) => {
+    return await apiService.get(`/customers/${customerId}/details`);
+  },
+
+  /**
+   * Send message from admin to customer
+   * @param {string} customerId - Customer user ID
+   * @param {string} message - Message content
+   * @param {string} adminName - Admin name (optional)
+   * @returns {Promise<Object>} Response
+   */
+  sendMessageToCustomer: async (customerId, message, adminName = 'Admin') => {
+    return await apiService.post(`/customers/${customerId}/message`, {
+      message,
+      admin_name: adminName,
+    });
+  },
 };
 

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import initiate_database
 from app.api.v1 import products, profile, bookings, wallet, reviews, messages, auth, images
+from app.middleware.activity_middleware import ActivityMiddleware
 
 app = FastAPI(
     title="TripsAdora Customer Platform API",
@@ -20,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Activity tracking middleware (updates last_seen on API calls)
+app.add_middleware(ActivityMiddleware)
 
 @app.on_event("startup")
 async def startup_event():
