@@ -4,6 +4,7 @@ import { FaPlus, FaMinus } from 'react-icons/fa';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { config } from '../config';
 import { SupplierPortalHeader, SupplierPortalFooter } from '../components/SupplierPortalChrome';
+import SupplierRejectionScreen from '../components/SupplierRejectionScreen';
 import supplierOnboardingService from '../services/supplierOnboardingService';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,8 +24,9 @@ const SupplierRegistrationPage = () => {
       // First, check URL parameters (passed from supplier platform redirect)
       const emailFromUrl = searchParams.get('email');
       if (emailFromUrl) {
-        info.email = emailFromUrl;
-        console.log('Email found in URL parameter:', emailFromUrl);
+        // Decode URL-encoded email
+        info.email = decodeURIComponent(emailFromUrl);
+        console.log('Email found in URL parameter:', info.email);
       }
       
       // Try to get from AuthContext (customer platform)
@@ -91,6 +93,11 @@ const SupplierRegistrationPage = () => {
         return 'verified';
       }
       
+      if (stored === 'rejected') {
+        // Will be checked via API to get rejection reason
+        return 'rejected';
+      }
+      
       // Return pending status - don't auto-verify
       return stored || 'pending_admin_review';
     } catch (_) {
@@ -132,6 +139,17 @@ const SupplierRegistrationPage = () => {
   const [supplierStatus, setSupplierStatus] = useState(initialSupplierStatus);
   const [showDashboardView, setShowDashboardView] = useState(initialSupplierStatus === 'pending_verification');
   const [showWelcomeScreen, setShowWelcomeScreen] = useState(initialSupplierStatus === 'onboarding');
+  const [showRejectionScreen, setShowRejectionScreen] = useState(() => {
+    // Check localStorage immediately on mount
+    try {
+      const stored = localStorage.getItem('supplier_onboarding_status');
+      return stored === 'rejected';
+    } catch (_) {
+      return false;
+    }
+  });
+  const [rejectionReason, setRejectionReason] = useState(null);
+  const [supplierId, setSupplierId] = useState(null);
   const [needsSelfVerification, setNeedsSelfVerification] = useState(() => {
     try {
       return localStorage.getItem('supplier_requires_self_verification') === 'true';
@@ -216,6 +234,100 @@ const SupplierRegistrationPage = () => {
     // - We stay here until admin approves
     // - After approval, supplier platform will allow access
   }, [supplierStatus]);
+
+  // Check onboarding status on mount and when email is available
+  useEffect(() => {
+    // Prevent redirect loops - check if we're already on supplier platform
+    const currentUrl = window.location.href;
+    const supplierAppUrl = config.SUPPLIER_APP_URL || 'http://localhost:5173';
+    if (currentUrl.includes('5173') || currentUrl.includes(supplierAppUrl.replace('http://', '').replace('https://', ''))) {
+      // Already on supplier platform, don't redirect
+      return;
+    }
+
+    // Check if we've already redirected recently (prevent loops)
+    const lastRedirect = sessionStorage.getItem('last_redirect_to_supplier');
+    if (lastRedirect) {
+      const redirectTime = parseInt(lastRedirect, 10);
+      const now = Date.now();
+      // If redirected in last 5 seconds, don't redirect again
+      if (now - redirectTime < 5000) {
+        return;
+      }
+    }
+
+    const checkOnboardingStatus = async () => {
+      // Get email from userInfo or URL params (decode if from URL)
+      let emailToCheck = userInfo.email;
+      if (!emailToCheck) {
+        const emailFromUrl = searchParams.get('email');
+        if (emailFromUrl) {
+          emailToCheck = decodeURIComponent(emailFromUrl);
+        }
+      }
+      
+      if (!emailToCheck) {
+        // If we have rejected status in localStorage but no email yet, wait for email
+        if (initialSupplierStatus === 'rejected' || supplierStatus === 'rejected') {
+          setShowRejectionScreen(true);
+        }
+        // If verified but no email, don't redirect (might cause loop)
+        return;
+      }
+
+      try {
+        const onboardingData = await supplierOnboardingService.getOnboardingByEmail(emailToCheck);
+        if (onboardingData) {
+          const status = onboardingData.status;
+          
+          if (status === 'rejected') {
+            setShowRejectionScreen(true);
+            setRejectionReason(onboardingData.rejection_reason || null);
+            setSupplierId(onboardingData.id || null);
+            setSupplierStatus('rejected');
+            localStorage.setItem('supplier_onboarding_status', 'rejected');
+          } else if (status === 'approved') {
+            setShowRejectionScreen(false);
+            setSupplierStatus('verified');
+            localStorage.setItem('supplier_onboarding_status', 'verified');
+            // Redirect to supplier platform login (with email) so they can sign in and access dashboard
+            if (!currentUrl.includes('5173') && !currentUrl.includes(supplierAppUrl.replace('http://', '').replace('https://', ''))) {
+              sessionStorage.setItem('last_redirect_to_supplier', Date.now().toString());
+              // Redirect to login with email parameter - after login, they'll be redirected to dashboard
+              const loginUrl = emailToCheck 
+                ? `${supplierAppUrl}/login?email=${encodeURIComponent(emailToCheck)}&approved=true`
+                : `${supplierAppUrl}/login?approved=true`;
+              window.location.href = loginUrl;
+              return; // Exit early to prevent rendering registration form
+            }
+          } else if (status === 'pending') {
+            setShowRejectionScreen(false);
+            setSupplierStatus('pending_verification');
+            localStorage.setItem('supplier_onboarding_status', 'pending_verification');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+        // If status was already rejected in localStorage, show rejection screen even if API fails
+        if (initialSupplierStatus === 'rejected' || supplierStatus === 'rejected') {
+          setShowRejectionScreen(true);
+        }
+        // Also check if error response contains rejection info
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          // If unauthorized, still try to show rejection if we have it in localStorage
+          const storedStatus = localStorage.getItem('supplier_onboarding_status');
+          if (storedStatus === 'rejected') {
+            setShowRejectionScreen(true);
+          }
+        }
+      }
+    };
+
+    // Only check status if we have email or if status is rejected
+    if (userInfo.email || searchParams.get('email') || initialSupplierStatus === 'rejected' || supplierStatus === 'rejected') {
+      checkOnboardingStatus();
+    }
+  }, [userInfo.email, searchParams, initialSupplierStatus, supplierStatus]);
 
   const handleEmployeeCountChange = (increment) => {
     if (increment) {
@@ -1358,6 +1470,14 @@ const SupplierRegistrationPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleReturnToInfoEntry = () => {
+    setShowDashboardView(false);
+    setShowWelcomeScreen(false);
+    setSupplierStatus('onboarding');
+    setCurrentStep(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const renderSubmissionSummary = () => {
     const documentStatuses = [
       { label: 'Front side of ID', uploaded: !!idFrontFile },
@@ -1605,6 +1725,24 @@ const SupplierRegistrationPage = () => {
                     </div>
                   </div>
                 )}
+                {supplierStatus === 'pending_verification' && !requiresSelfVerification && (
+                  <div className="bg-white/80 border border-amber-200 rounded-2xl p-4 flex flex-col gap-3 text-sm text-gray-700 text-left w-full">
+                    <div className="flex items-start gap-3">
+                      <FiInfo className="text-amber-500 mt-1" size={20} />
+                      <div>
+                        <p className="font-semibold text-[#1d1c23]">Some information is missing</p>
+                        <p>Please complete the pending details so we can approve your account.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleReturnToInfoEntry}
+                      className="self-start px-5 py-2 rounded-full bg-[#1d236b] text-white font-semibold hover:bg-[#151a4a] transition-colors"
+                    >
+                      Update information
+                    </button>
+                  </div>
+                )}
 
                 <div className="space-y-3 text-left w-full">
                   <p className="font-semibold text-[#1b1b1f]">Your product setup progress</p>
@@ -1747,6 +1885,11 @@ const SupplierRegistrationPage = () => {
         return null;
     }
   };
+
+  // Show rejection screen if supplier is rejected
+  if (showRejectionScreen) {
+    return <SupplierRejectionScreen rejectionReason={rejectionReason} supplierId={supplierId} />;
+  }
 
   if (showWelcomeScreen) {
     return renderWelcomeScreen();

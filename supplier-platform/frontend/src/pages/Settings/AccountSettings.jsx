@@ -391,11 +391,11 @@ const AccountSettings = () => {
       publicName: ['Your Public Name', ''],
       legalName: ['Your Legal Name', ''],
       email: ['example@gmail.com', 'you@gmail.com', ''],
-      streetAddress: ['1 Chome-1 Nishi-Shinjuku, Shinjuku City, Tokyo', ''],
-      zipCode: ['160-0022', ''],
-      city: ['Shinjuku', ''],
-      state: ['Tokyo Prefecture', ''],
-      country: ['Japan', '']
+      streetAddress: [''],
+      zipCode: [''],
+      city: [''],
+      state: [''],
+      country: ['']
     };
     
     // Check if a value is a default/placeholder value

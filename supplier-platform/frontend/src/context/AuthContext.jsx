@@ -247,7 +247,7 @@ export const AuthProvider = ({ children }) => {
         }
         hydrateBasicProfileFromUser(result.user)
         setUser(result.user)
-        return { success: true }
+        return { success: true, user: result.user }
       }
       
       throw new Error('Login failed')

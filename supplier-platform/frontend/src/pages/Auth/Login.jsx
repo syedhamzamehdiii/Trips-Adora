@@ -1,6 +1,6 @@
 // Frontend/src/pages/Auth/Login.jsx
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -25,23 +25,60 @@ const loginSchema = yup.object().shape({
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showHeaderLabel, setShowHeaderLabel] = useState(false);
-  const { login, googleLogin } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { login, googleLogin, user, isAuthenticated } = useAuth();
+
+  // Get email from URL params if available
+  const emailFromUrl = searchParams.get('email');
+  const isApproved = searchParams.get('approved') === 'true';
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
   } = useForm({
     resolver: yupResolver(loginSchema),
+    defaultValues: {
+      email: emailFromUrl || '',
+    },
   });
+
+  // Pre-fill email if provided in URL
+  useEffect(() => {
+    if (emailFromUrl) {
+      setValue('email', emailFromUrl);
+    }
+    if (isApproved) {
+      toast.success('Your application has been approved! Please sign in to access your dashboard.');
+    }
+  }, [emailFromUrl, isApproved, setValue]);
 
   const onSubmit = async (data) => {
     setIsLoading(true);
     try {
-      await login(data);
+      const result = await login(data);
       const redirected = redirectToSupplierOnboarding();
+      
       if (!redirected) {
-      toast.success('Login successful! Welcome back!');
+        // Check if user is verified (either from result or from auth context)
+        const loggedInUser = result?.user || user;
+        const isVerified = loggedInUser?.is_verified;
+        
+        if (isApproved || isVerified) {
+          if (isApproved) {
+            toast.success('Welcome! Your application has been approved. Redirecting to dashboard...');
+          } else {
+            toast.success('Login successful! Welcome back!');
+          }
+          // Navigate to dashboard for verified users
+          setTimeout(() => {
+            navigate(ROUTES.DASHBOARD);
+          }, 500);
+        } else {
+          toast.success('Login successful!');
+        }
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -50,6 +87,13 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+  
+  // Redirect to dashboard if already authenticated and verified
+  useEffect(() => {
+    if (isAuthenticated && user?.is_verified) {
+      navigate(ROUTES.DASHBOARD);
+    }
+  }, [isAuthenticated, user, navigate]);
 
   useEffect(() => {
     // Reset and animate on every page load

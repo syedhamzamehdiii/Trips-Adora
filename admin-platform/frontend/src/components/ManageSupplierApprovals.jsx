@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import supplierService from '../services/supplierService';
+import { checkSupplierToken } from '../services/api';
 
 // Generate 18 dummy suppliers for approval
 const generatePendingSuppliers = () => {
@@ -165,21 +166,57 @@ const SupplierProfileView = ({ supplier, onBack, onApprove, onReject }) => {
               <p className="text-sm text-gray-500 mt-1">{supplier.id} • {supplier.accountType.charAt(0).toUpperCase() + supplier.accountType.slice(1)} Account</p>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => onReject(supplier.id)}
-                className="px-6 py-2.5 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
-              >
-                Reject
-              </button>
-              <button
-                onClick={() => onApprove(supplier.id)}
-                className="px-6 py-2.5 rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm"
-              >
-                Approve
-              </button>
+              <span className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                supplier.status === 'approved' 
+                  ? 'bg-green-100 text-green-700'
+                  : supplier.status === 'rejected'
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-yellow-100 text-yellow-700'
+              }`}>
+                {supplier.status === 'approved' && '✓ Approved'}
+                {supplier.status === 'rejected' && '✗ Rejected'}
+                {supplier.status === 'pending' && '⏳ Pending'}
+              </span>
+              {supplier.status !== 'approved' && (
+                <button
+                  onClick={() => onApprove(supplier.id)}
+                  className="px-6 py-2.5 rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm"
+                >
+                  {supplier.status === 'rejected' ? 'Approve' : 'Approve'}
+                </button>
+              )}
+              {supplier.status !== 'rejected' && (
+                <button
+                  onClick={() => onReject(supplier.id)}
+                  className="px-6 py-2.5 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                >
+                  {supplier.status === 'approved' ? 'Reject' : 'Reject'}
+                </button>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Rejection Reason Alert */}
+        {supplier.status === 'rejected' && (
+          <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-red-900 mb-1">Rejection Reason</h3>
+                {supplier.rejection_reason ? (
+                  <p className="text-sm text-red-800">{supplier.rejection_reason}</p>
+                ) : (
+                  <p className="text-sm text-red-600 italic">No rejection reason provided.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Profile Content */}
         <div className="bg-white rounded-2xl border-2 border-[#284078] shadow-lg overflow-hidden">
@@ -305,6 +342,10 @@ const ManageSupplierApprovals = ({ onBack }) => {
   const [pendingSuppliers, setPendingSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('pending'); // 'pending', 'approved', 'rejected'
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [supplierToReject, setSupplierToReject] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
   const pageSize = 8;
 
   const mapOnboardingToSupplier = (item) => {
@@ -353,30 +394,39 @@ const ManageSupplierApprovals = ({ onBack }) => {
       idType: item.id_type,
       // Social links
       socialLinks: item.social_links || [],
+      // Status and rejection reason
+      status: item.status,
+      rejection_reason: item.rejection_reason,
       // Keep all original fields for backward compatibility
       ...item,
     };
   };
 
-  const fetchPending = useCallback(async () => {
+  const fetchPending = useCallback(async (status = 'pending') => {
     setLoading(true);
     setError(null);
     try {
-      const data = await supplierService.getPendingOnboardings();
+      const data = await supplierService.getPendingOnboardings(status);
       const list = (data?.onboardings || data || []).map(mapOnboardingToSupplier);
       setPendingSuppliers(list);
       setCurrentPage(1);
     } catch (err) {
-      console.error('Failed to load pending suppliers', err);
-      setError(err?.message || 'Unable to load pending suppliers');
+      console.error('Failed to load suppliers', err);
+      if (err?.response?.status === 401 || err?.message?.includes('401')) {
+        setError('Authentication failed: Token expired or invalid. Please generate a new token using: python supplier-platform/backend/create_admin_user.py');
+      } else {
+        setError(err?.message || 'Unable to load suppliers');
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchPending();
-  }, [fetchPending]);
+    // Check token status on mount
+    checkSupplierToken();
+    fetchPending(statusFilter);
+  }, [fetchPending, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(pendingSuppliers.length / pageSize));
   
@@ -387,8 +437,9 @@ const ManageSupplierApprovals = ({ onBack }) => {
 
   const handleApprove = async (supplierId) => {
     try {
-      await supplierService.updateOnboardingStatus(supplierId, 'approved');
-      await fetchPending();
+      // Clear rejection reason when approving
+      await supplierService.updateOnboardingStatus(supplierId, 'approved', null);
+      await fetchPending(statusFilter);
       if (viewingSupplier) {
         setViewingSupplier(null);
       }
@@ -397,16 +448,50 @@ const ManageSupplierApprovals = ({ onBack }) => {
     }
   };
 
-  const handleReject = async (supplierId) => {
+  const handleRejectClick = (supplierId) => {
+    const supplier = pendingSuppliers.find(s => s.id === supplierId);
+    setSupplierToReject(supplier);
+    setRejectionReason('');
+    setError(null); // Clear any previous errors
+    setShowRejectModal(true);
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!supplierToReject) return;
+    
+    if (!rejectionReason.trim()) {
+      setError('Please provide a reason for rejection');
+      return;
+    }
+
     try {
-      await supplierService.updateOnboardingStatus(supplierId, 'rejected');
-      await fetchPending();
+      await supplierService.updateOnboardingStatus(
+        supplierToReject.id, 
+        'rejected', 
+        rejectionReason.trim()
+      );
+      setShowRejectModal(false);
+      setSupplierToReject(null);
+      setRejectionReason('');
+      await fetchPending(statusFilter);
       if (viewingSupplier) {
         setViewingSupplier(null);
       }
     } catch (err) {
       setError(err?.message || 'Failed to reject supplier');
     }
+  };
+
+  const handleRejectCancel = () => {
+    setShowRejectModal(false);
+    setSupplierToReject(null);
+    setRejectionReason('');
+    setError(null); // Clear any errors
+  };
+
+  const handleFilterChange = (status) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
   };
 
   const handleView = (supplierId) => {
@@ -421,7 +506,7 @@ const ManageSupplierApprovals = ({ onBack }) => {
         supplier={viewingSupplier}
         onBack={() => setViewingSupplier(null)}
         onApprove={handleApprove}
-        onReject={handleReject}
+        onReject={handleRejectClick}
       />
     );
   }
@@ -447,11 +532,53 @@ const ManageSupplierApprovals = ({ onBack }) => {
           </div>
         </div>
 
+        {/* Filter Buttons */}
+        <div className="mt-6 flex items-center gap-3">
+          <button
+            onClick={() => handleFilterChange('pending')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              statusFilter === 'pending'
+                ? 'bg-[#284078] text-white shadow-md'
+                : 'bg-white text-[#284078] border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            Pending
+          </button>
+          <button
+            onClick={() => handleFilterChange('approved')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              statusFilter === 'approved'
+                ? 'bg-green-600 text-white shadow-md'
+                : 'bg-white text-green-600 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            Approved
+          </button>
+          <button
+            onClick={() => handleFilterChange('rejected')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              statusFilter === 'rejected'
+                ? 'bg-red-600 text-white shadow-md'
+                : 'bg-white text-red-600 border border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            Rejected
+          </button>
+        </div>
+
         {/* Suppliers Table */}
         <div className="mt-6 rounded-2xl border-2 border-[#284078] bg-white shadow-sm">
           <div className="px-4 md:px-6 py-4 border-b border-gray-200">
-            <div className="text-[15px] font-semibold text-[#284078]">Pending Supplier Approvals</div>
-            <div className="text-[11px] text-gray-500 mt-0.5">Review and approve or reject supplier registration requests.</div>
+            <div className="text-[15px] font-semibold text-[#284078]">
+              {statusFilter === 'pending' && 'Pending Supplier Approvals'}
+              {statusFilter === 'approved' && 'Approved Suppliers'}
+              {statusFilter === 'rejected' && 'Rejected Suppliers'}
+            </div>
+            <div className="text-[11px] text-gray-500 mt-0.5">
+              {statusFilter === 'pending' && 'Review and approve or reject supplier registration requests.'}
+              {statusFilter === 'approved' && 'List of suppliers that have been approved.'}
+              {statusFilter === 'rejected' && 'List of suppliers that have been rejected.'}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -462,6 +589,7 @@ const ManageSupplierApprovals = ({ onBack }) => {
                   <th className="text-left px-3 md:px-4 py-2 font-medium">Email</th>
                   <th className="text-left px-3 md:px-4 py-2 font-medium">Location</th>
                   <th className="text-left px-3 md:px-4 py-2 font-medium">Account Type</th>
+                  <th className="text-left px-3 md:px-4 py-2 font-medium">Status</th>
                   <th className="text-left px-3 md:px-4 py-2 font-medium">Submitted</th>
                   <th className="text-center px-3 md:px-4 py-2 font-medium">Actions</th>
                 </tr>
@@ -469,20 +597,22 @@ const ManageSupplierApprovals = ({ onBack }) => {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="px-3 md:px-4 py-6 text-center text-gray-500">
-                      Loading pending suppliers...
+                    <td colSpan="8" className="px-3 md:px-4 py-6 text-center text-gray-500">
+                      Loading suppliers...
                     </td>
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan="7" className="px-3 md:px-4 py-6 text-center text-red-500">
+                    <td colSpan="8" className="px-3 md:px-4 py-6 text-center text-red-500">
                       {error}
                     </td>
                   </tr>
                 ) : pageSlice.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-3 md:px-4 py-6 text-center text-gray-500">
-                      No pending supplier approvals.
+                    <td colSpan="8" className="px-3 md:px-4 py-6 text-center text-gray-500">
+                      {statusFilter === 'pending' && 'No pending supplier approvals.'}
+                      {statusFilter === 'approved' && 'No approved suppliers.'}
+                      {statusFilter === 'rejected' && 'No rejected suppliers.'}
                     </td>
                   </tr>
                 ) : (
@@ -504,6 +634,17 @@ const ManageSupplierApprovals = ({ onBack }) => {
                           {supplier.accountType}
                         </span>
                       </td>
+                      <td className="px-3 md:px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize ${
+                          supplier.status === 'approved' 
+                            ? 'bg-green-100 text-green-700' 
+                            : supplier.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {supplier.status || 'pending'}
+                        </span>
+                      </td>
                       <td className="px-3 md:px-4 py-3 text-gray-600 text-xs">
                         {supplier.submittedDate ? new Date(supplier.submittedDate).toLocaleDateString() : '—'}
                       </td>
@@ -520,18 +661,24 @@ const ManageSupplierApprovals = ({ onBack }) => {
                               <circle cx="12" cy="12" r="2.5"/>
                             </svg>
                           </button>
-                          <button
-                            onClick={() => handleApprove(supplier.id)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 transition-colors"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleReject(supplier.id)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
-                          >
-                            Reject
-                          </button>
+                          {supplier.status !== 'approved' && (
+                            <button
+                              onClick={() => handleApprove(supplier.id)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 transition-colors"
+                              title={supplier.status === 'rejected' ? 'Approve this rejected supplier' : 'Approve supplier'}
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {supplier.status !== 'rejected' && (
+                            <button
+                              onClick={() => handleRejectClick(supplier.id)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+                              title={supplier.status === 'approved' ? 'Reject this approved supplier' : 'Reject supplier'}
+                            >
+                              Reject
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -615,6 +762,52 @@ const ManageSupplierApprovals = ({ onBack }) => {
             </button>
           </div>
         </div>
+
+        {/* Rejection Reason Modal */}
+        {showRejectModal && supplierToReject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black bg-opacity-50">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Reject Supplier</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Please provide a reason for rejecting <strong>{supplierToReject.name || supplierToReject.email}</strong>. 
+                This reason will be stored and shown to the supplier.
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rejection Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Enter the reason for rejection..."
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                  required
+                />
+                {error && error.includes('reason') && (
+                  <p className="mt-1 text-sm text-red-500">{error}</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={handleRejectCancel}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRejectConfirm}
+                  disabled={!rejectionReason.trim()}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Confirm Rejection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

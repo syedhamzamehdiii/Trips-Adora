@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-here-change-in-production"
     JWT_SECRET_KEY: str = "your-jwt-secret-key-here-change-in-production"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Regular user tokens
+    ADMIN_TOKEN_EXPIRE_DAYS: int = 30  # Admin tokens (30 days for service-to-service)
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # CORS
@@ -81,4 +82,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

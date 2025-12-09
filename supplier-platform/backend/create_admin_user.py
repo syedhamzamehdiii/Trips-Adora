@@ -62,8 +62,10 @@ async def create_admin_user(email: str, password: str, full_name: str = "Admin U
         await user.insert()
         print(f"✅ Created new admin user: {email}")
     
-    # Generate JWT tokens
-    access_token = create_access_token(data={"sub": str(user.id)})
+    # Generate JWT tokens with extended expiration for admin (30 days)
+    from datetime import timedelta
+    admin_token_expiry = timedelta(days=settings.ADMIN_TOKEN_EXPIRE_DAYS)
+    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=admin_token_expiry)
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
     
     print(f"\n{'='*60}")
@@ -74,6 +76,7 @@ async def create_admin_user(email: str, password: str, full_name: str = "Admin U
     print(f"🔑 Role: {user.role.value}")
     print(f"\n{'='*60}")
     print(f"🔐 JWT TOKEN (Copy this for admin platform):")
+    print(f"⏰ Token expires in {settings.ADMIN_TOKEN_EXPIRE_DAYS} days")
     print(f"{'='*60}")
     print(f"\n{access_token}\n")
     print(f"{'='*60}")

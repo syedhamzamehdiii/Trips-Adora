@@ -25,7 +25,19 @@ const createApi = (baseURL, { staticToken = '', localTokenKey = 'access_token' }
 
   instance.interceptors.response.use(
     (response) => response,
-    async (error) => Promise.reject(error)
+    async (error) => {
+      // Handle 401 errors - token expired or invalid
+      if (error.response?.status === 401) {
+        console.error('❌ Authentication failed (401): Token expired or invalid');
+        console.error('💡 To fix this:');
+        console.error('   1. Run: python supplier-platform/backend/create_admin_user.py');
+        console.error('   2. Copy the new JWT token');
+        console.error('   3. Set it in browser console: localStorage.setItem("supplier_access_token", "YOUR_TOKEN")');
+        console.error('   4. Or add to .env: VITE_SUPPLIER_ADMIN_TOKEN=YOUR_TOKEN');
+        console.error('   5. Refresh the page');
+      }
+      return Promise.reject(error);
+    }
   );
 
   return instance;
@@ -50,6 +62,47 @@ const wrap = (instance) => ({
 // API Service object with common methods
 export const apiService = wrap(api);
 export const supplierApiService = wrap(supplierApi);
+
+// Helper function to check and set supplier admin token
+export const checkSupplierToken = () => {
+  const envToken = config.SUPPLIER_ADMIN_TOKEN;
+  const localToken = localStorage.getItem('supplier_access_token');
+  const token = envToken || localToken;
+  
+  if (!token) {
+    console.warn('⚠️ No supplier admin token found!');
+    console.warn('💡 To set a token:');
+    console.warn('   1. Run: python supplier-platform/backend/create_admin_user.py');
+    console.warn('   2. Copy the JWT token');
+    console.warn('   3. Run in console: localStorage.setItem("supplier_access_token", "YOUR_TOKEN")');
+    return false;
+  }
+  
+  // Check if token is expired (basic check - decode JWT if possible)
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const exp = payload.exp;
+      if (exp) {
+        const now = Math.floor(Date.now() / 1000);
+        if (exp < now) {
+          console.warn('⚠️ Supplier admin token has expired!');
+          console.warn('💡 Generate a new token using: python supplier-platform/backend/create_admin_user.py');
+          return false;
+        }
+        const timeLeft = exp - now;
+        const minutesLeft = Math.floor(timeLeft / 60);
+        console.log(`✅ Supplier token valid (expires in ${minutesLeft} minutes)`);
+      }
+    }
+  } catch (e) {
+    // If we can't decode, assume it's valid and let the API handle it
+    console.log('✅ Supplier token found (unable to verify expiration)');
+  }
+  
+  return true;
+};
 
 // Export axios instances if ever needed directly
 export default api;
