@@ -177,10 +177,10 @@ const CustomerProfileModal = ({ isOpen, onClose, customer, position }) => {
                     </div>
                     <div className="text-[10px] text-gray-500">Total Bookings</div>
                   </div>
-                  {/* Reviews */}
+                  {/* Reviews (count) */}
                   <div className="border border-gray-200 rounded-lg p-2.5 bg-white">
                     <div className="text-lg font-bold text-gray-900 mb-0.5">
-                      {customerDetails.stats.avg_rating || 0}
+                      {customerDetails.stats.total_reviews || 0}
                     </div>
                     <div className="text-[10px] text-gray-500">Reviews</div>
                   </div>

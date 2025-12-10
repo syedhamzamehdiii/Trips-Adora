@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import CustomerProfileModal from './CustomerProfileModal';
 import { customerService } from '../services/customerService';
+import { reviewService } from '../services/reviewService';
 
 const StatCard = ({ value, label, bg, sub }) => (
   <div className={`rounded-xl p-5 ${bg} flex flex-col items-center justify-center text-center`}>
@@ -21,6 +22,10 @@ const ManageAllCustomers = () => {
   const [total, setTotal] = useState(0);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsCache, setReviewsCache] = useState({});
 
   // Fetch customers data
   const fetchCustomers = useCallback(async () => {
@@ -117,6 +122,36 @@ const ManageAllCustomers = () => {
   const initialsOf = (name) => {
     const parts = String(name || '').trim().split(/\s+/);
     return `${(parts[0]?.[0] || '').toUpperCase()}${(parts[1]?.[0] || '').toUpperCase()}` || (parts[0]?.[0] || '').toUpperCase();
+  };
+
+  const openReviews = async (customer) => {
+    setShowReviewsModal(true);
+    const cacheKey = customer.customer_id || customer.id || customer.email;
+    if (reviewsCache[cacheKey]) {
+      setReviews(reviewsCache[cacheKey]);
+      return;
+    }
+    setReviews([]);
+    setReviewsLoading(true);
+    const TIMEOUT_MS = 5000;
+    try {
+      const fetchPromise = reviewService.getReviews(
+        cacheKey,
+        { productOnly: true, limit: 150, email: customer.email }
+      );
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS)
+      );
+      const data = await Promise.race([fetchPromise, timeoutPromise]);
+      const list = data?.reviews || [];
+      setReviews(list);
+      setReviewsCache((prev) => ({ ...prev, [cacheKey]: list }));
+    } catch (err) {
+      console.error('Failed to load reviews', err);
+      setReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
   };
 
   return (
@@ -234,7 +269,15 @@ const ManageAllCustomers = () => {
                               {formatCurrency(spending)}
                             </span>
                           </td>
-                          <td className="px-3 md:px-4 py-2 text-gray-700">{c.reviews || 0}</td>
+                          <td className="px-3 md:px-4 py-2 text-gray-700">
+                            <button
+                              type="button"
+                              onClick={() => openReviews(c)}
+                              className="text-[#284078] underline"
+                            >
+                              {c.reviews || 0}
+                            </button>
+                          </td>
                           <td className="px-3 md:px-4 py-2 text-center">
                             <button
                               type="button"
@@ -322,6 +365,60 @@ const ManageAllCustomers = () => {
           onClose={() => setShowProfile(false)}
           customer={selectedCustomer}
         />
+
+      {showReviewsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-[#284078]">Customer Reviews</h3>
+              <button
+                className="text-gray-500 hover:text-gray-800"
+                onClick={() => { setShowReviewsModal(false); setReviews([]); }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-5 overflow-y-auto space-y-4">
+              {reviewsLoading && <div className="text-sm text-gray-500">Loading reviews...</div>}
+              {!reviewsLoading && reviews.length === 0 && (
+                <div className="text-sm text-gray-500">No reviews found.</div>
+              )}
+              {!reviewsLoading && reviews.map((r) => (
+                <div key={r.id} className="border border-gray-200 rounded-xl p-3 shadow-sm">
+                  <div className="flex items-start gap-3 mb-2">
+                    <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                      {r.author?.avatar_url ? (
+                        <img src={r.author.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-gray-600">
+                          {(r.author?.name || 'C').slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between text-sm text-gray-600">
+                        <span className="font-semibold text-gray-800">{r.author?.name || 'Customer'}</span>
+                        <span>{r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}</span>
+                      </div>
+                      <div className="text-xs text-[#284078] mt-1">
+                        {r.product_title || r.booking_id || 'Product'}
+                      </div>
+                      <div className="flex items-center gap-2 text-[#f59e0b] text-sm mt-1 mb-1">
+                        {r.rating ? `★ ${r.rating}` : 'No rating'}
+                        {r.title && <span className="text-gray-700">• {r.title}</span>}
+                      </div>
+                      <div className="text-sm text-gray-800 whitespace-pre-wrap">
+                        {r.content || r.text || 'No review text'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

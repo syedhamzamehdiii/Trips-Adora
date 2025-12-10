@@ -68,6 +68,43 @@ class ReviewService:
         return [ReviewService._serialize(doc) for doc in documents]
 
     @staticmethod
+    async def list_reviews_by_product(product_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Fetch reviews for a specific product.
+        """
+        try:
+            match = {"product_id": product_id}
+            # Support ObjectId stored ids
+            if ObjectId.is_valid(product_id):
+                match = {"$or": [{"product_id": product_id}, {"product_id": ObjectId(product_id)}]}
+
+            cursor = (
+                ReviewService._collection()
+                .find(
+                    match,
+                    {
+                        "user_id": 1,
+                        "product_id": 1,
+                        "product_title": 1,
+                        "booking_id": 1,
+                        "rating": 1,
+                        "title": 1,
+                        "content": 1,
+                        "visited_at": 1,
+                        "author": 1,
+                        "created_at": 1,
+                        "updated_at": 1,
+                    }
+                )
+                .sort("created_at", -1)
+                .limit(limit)
+            )
+            documents = await cursor.to_list(length=limit)
+        except (ConnectionError, AutoReconnect, ServerSelectionTimeoutError) as exc:
+            raise DatabaseUnavailableError("Review data is currently unavailable.") from exc
+        return [ReviewService._serialize(doc) for doc in documents]
+
+    @staticmethod
     async def _resolve_author(user_id: str, author: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         author = dict(author or {})
 

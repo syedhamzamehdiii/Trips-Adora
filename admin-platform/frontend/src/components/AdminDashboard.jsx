@@ -17,11 +17,11 @@ import AllSuppliersManage from './AllSuppliersManage';
 import ManageAllCustomers from './ManageAllCustomers';
 import Settings from './Settings';
 import Finance from './Finance';
+import { messageService } from '../services/messageService';
 
 const AdminDashboard = () => {
   const menuItems = [
     'Dashboard Overview',
-    'Bookings Management',
     'Products Management',
     'Suppliers',
     'Customers',
@@ -35,7 +35,10 @@ const AdminDashboard = () => {
   const [useModal, setUseModal] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [msgAnchorRect, setMsgAnchorRect] = useState(null);
+  const [notifHasNew, setNotifHasNew] = useState(false);
+  const [greeting, setGreeting] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [userAnchorRect, setUserAnchorRect] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [hash, setHash] = useState(window.location.hash);
@@ -45,6 +48,34 @@ const AdminDashboard = () => {
     const onHash = () => setHash(window.location.hash);
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) setGreeting('Good morning');
+    else if (hour < 18) setGreeting('Good afternoon');
+    else setGreeting('Good evening');
+  }, []);
+
+  // Poll unread messages to trigger notification dot
+  useEffect(() => {
+    let timer;
+    const fetchUnread = async () => {
+      try {
+        const conversations = await messageService.getConversations();
+        const unreadTotal = Array.isArray(conversations)
+          ? conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0)
+          : 0;
+        setUnreadCount(unreadTotal);
+        setNotifHasNew(unreadTotal > 0);
+      } catch (e) {
+        // silent fail; keep previous state
+      } finally {
+        timer = setTimeout(fetchUnread, 10000); // 10s poll
+      }
+    };
+    fetchUnread();
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -122,7 +153,7 @@ const AdminDashboard = () => {
         <header className="bg-white px-6 py-4 flex items-center justify-between">
           <div className="flex flex-col">
             <h2 className="text-3xl md:text-4xl font-semibold text-[#2C7A49] leading-tight">Welcome back!</h2>
-            <p className="text-sm text-[#2C7A49]/80 mt-1">Good evening, Zubair Ahmad</p>
+            <p className="text-sm text-[#2C7A49]/80 mt-1" id="admin-greeting">{greeting}, Zubair Ahmad</p>
           </div>
           <div className="flex items-center space-x-8">
             <button
@@ -132,26 +163,18 @@ const AdminDashboard = () => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 setNotifAnchorRect(rect);
                 setIsNotificationsOpen(true);
+                setNotifHasNew(false);
+                // Navigate to messages & contact when clicking notifications
+                setActiveIndex(menuItems.indexOf('Massages & contact'));
               }}
               aria-label="Notifications"
             >
               {/* Bell icon (bold outline + base dash) */}
-              <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <svg className={`w-7 h-7 ${notifHasNew ? 'animate-ring' : ''}`} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M24 23H8c.8-1.03 1.33-2.3 1.33-3.67V15a6.67 6.67 0 1 1 13.34 0v4.33c0 1.37.53 2.64 1.33 3.67Z"/>
                 <path d="M12.5 26h7"/>
               </svg>
-              <span className="absolute -top-1 right-0 w-3.5 h-3.5 bg-red-500 rounded-full"></span>
-            </button>
-
-            <button
-              className="text-black"
-              onClick={(e) => { setMsgAnchorRect(e.currentTarget.getBoundingClientRect()); setIsMessagesOpen(true); }}
-              aria-label="Messages"
-            >
-              {/* Chat bubble icon */}
-              <svg className="w-8 h-8" viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M30 18a11 11 0 0 1-11 11c-1.47 0-2.88-.28-4.16-.79L8 30l1.79-6.84A11 11 0 1 1 30 18Z"/>
-              </svg>
+              {notifHasNew && <span className="absolute -top-1 right-0 w-3.5 h-3.5 bg-red-500 rounded-full"></span>}
             </button>
 
             <button

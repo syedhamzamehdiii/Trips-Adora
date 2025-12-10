@@ -41,7 +41,7 @@ class ConversationResponse(BaseModel):
     conversation_id: str
     other_party_id: str
     other_party_name: str
-    other_party_type: str  # "supplier" or "customer"
+    other_party_type: str  # "supplier", "customer", or "admin"
     product_id: Optional[str] = None
     product_title: Optional[str] = None
     last_message: Optional[MessageResponse] = None

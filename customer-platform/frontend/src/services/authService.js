@@ -190,11 +190,19 @@ class AuthService {
         throw new Error('Invalid authorization code received')
       }
     try {
+      // Best-effort backend reachability check; warn but do not block
+      try {
+        await axios.get(`${API_BASE_URL}/health`, { timeout: 8000 })
+      } catch (healthErr) {
+        console.warn('Backend health check failed before Google code exchange (continuing):', healthErr?.message || healthErr)
+      }
+
       const response = await api.post('/auth/google/callback', {
         code: code.trim(),
         redirect_uri: redirectUri || window.location.origin + '/auth/google/callback'
       }, {
-        timeout: 45000
+        // Keep reasonable but allow for external call; backend itself uses ~8s budget
+        timeout: 12000
       })
       const { token, refresh_token, user } = response.data
       if (!token || !user) {
@@ -211,7 +219,9 @@ class AuthService {
     } catch (error) {
       console.error('Google code exchange error:', error)
       if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-        throw new Error('Request timed out. Please check if the backend server is running and try again.')
+        throw new Error(
+          `Request timed out. Please ensure the customer backend is running at ${API_BASE_URL} and reachable.`
+        )
       }
       if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
         throw new Error('Network error. Please ensure the backend is running at ' + API_BASE_URL)

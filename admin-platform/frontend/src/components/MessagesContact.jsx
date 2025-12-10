@@ -1,146 +1,155 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import CustomerProfileModal from './CustomerProfileModal';
+import { messageService } from '../services/messageService';
+
+const typeLabelMap = {
+  customer: 'Customer',
+  supplier: 'Supplier',
+  admin: 'Admin',
+};
+
+const avatarInitials = (name = '') => {
+  const parts = name.trim().split(' ').filter(Boolean);
+  if (!parts.length) return 'U';
+  if (parts.length === 1) return parts[0][0]?.toUpperCase() || 'U';
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+};
+
+const formatTime = (ts) => {
+  if (!ts) return '';
+  try {
+    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return '';
+  }
+};
 
 const MessagesContact = () => {
-  const [selectedConversation, setSelectedConversation] = useState(0);
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversationId, setSelectedConversationId] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isCustomersDropdownOpen, setIsCustomersDropdownOpen] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [messageInput, setMessageInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [profileModalPosition, setProfileModalPosition] = useState(null);
   const [isThreeDotMenuOpen, setIsThreeDotMenuOpen] = useState(false);
-  const customersDropdownRef = useRef(null);
+  const dropdownRef = useRef(null);
   const threeDotMenuRef = useRef(null);
-  const viewProfileButtonRef = useRef(null);
+  const pollRef = useRef(null);
 
-  const conversations = [
-    {
-      id: 0,
-      name: 'Jhon suhmit',
-      initial: 'JS',
-      timeAgo: '2 min ago',
-      preview: 'Thank you for the quick response!',
-      email: 'Jhonsuhmit@gmail.com',
-      customerId: 'CTA-00568',
-      messages: [
-        { type: 'user', text: 'Hi, I have a question about my upcoming tour to Mount Fuji.', time: '10:30 AM' },
-        { type: 'agent', text: "Hello John! I'd be happy to help. What would you like to know?", time: '10:30 AM', read: true },
-        { type: 'user', text: 'What should I bring for the tour? And is lunch included?', time: '10:33 AM' },
-        { type: 'agent', text: 'Great questions! Please bring comfortable walking shoes, warm clothing (it can be cold at high altitude), and sunscreen. Yes, lunch is included in your tour package.', time: '10:33 AM', read: true },
-        { type: 'user', text: 'Thank you for the quick response!', time: '10:33 AM' },
-      ]
-    },
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      initial: 'SJ',
-      timeAgo: '5 min ago',
-      preview: 'I need to update my booking details.',
-      messages: [
-        { type: 'user', text: 'I need to update my booking details.', time: '10:25 AM' },
-        { type: 'agent', text: 'Sure, I can help you with that. What changes would you like to make?', time: '10:26 AM', read: true },
-      ]
-    },
-    {
-      id: 2,
-      name: 'Michael Brown',
-      initial: 'MB',
-      timeAgo: '10 min ago',
-      preview: 'When will I receive my confirmation?',
-      messages: [
-        { type: 'user', text: 'When will I receive my confirmation?', time: '10:20 AM' },
-        { type: 'agent', text: 'You should receive it within 24 hours via email.', time: '10:21 AM', read: true },
-      ]
-    },
-    {
-      id: 3,
-      name: 'Emily Davis',
-      initial: 'ED',
-      timeAgo: '15 min ago',
-      preview: 'Can I cancel my reservation?',
-      messages: [
-        { type: 'user', text: 'Can I cancel my reservation?', time: '10:15 AM' },
-        { type: 'agent', text: 'Yes, you can cancel up to 48 hours before the tour for a full refund.', time: '10:16 AM', read: true },
-      ]
-    },
-  ];
-
-  const filteredConversations = conversations.filter(conv =>
-    conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.preview.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const currentConversation = conversations[selectedConversation];
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isCustomersDropdownOpen && customersDropdownRef.current && !customersDropdownRef.current.contains(event.target)) {
-        setIsCustomersDropdownOpen(false);
+  const loadConversations = async ({ showSpinner = false } = {}) => {
+    try {
+      if (showSpinner) setLoading(true);
+      const data = await messageService.getConversations({
+        participantType: filter === 'all' ? undefined : filter,
+        search: searchQuery || undefined,
+      });
+      const items = data?.conversations || [];
+      setConversations(items);
+      if (!selectedConversationId && items.length) {
+        setSelectedConversationId(items[0].conversation_id);
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isCustomersDropdownOpen]);
+      if (showSpinner) setLoading(false);
+    } catch (error) {
+      console.error('Error loading conversations', error);
+      if (showSpinner) setLoading(false);
+    }
+  };
 
-  // Close dropdown on Escape key
+  const loadMessages = async (conversationId) => {
+    if (!conversationId) return;
+    try {
+      const data = await messageService.getMessages(conversationId);
+      setMessages(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading messages', error);
+    }
+  };
+
   useEffect(() => {
-    const handleEscape = (event) => {
-      if (event.key === 'Escape') {
-        if (isCustomersDropdownOpen) setIsCustomersDropdownOpen(false);
-        if (isThreeDotMenuOpen) setIsThreeDotMenuOpen(false);
+    loadConversations({ showSpinner: true });
+  }, [filter, searchQuery]);
+
+  useEffect(() => {
+    if (selectedConversationId) {
+      loadMessages(selectedConversationId);
+    }
+  }, [selectedConversationId]);
+
+  useEffect(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(() => {
+      loadConversations({ showSpinner: false });
+      if (selectedConversationId) {
+        loadMessages(selectedConversationId);
       }
+    }, 4000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
     };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isCustomersDropdownOpen, isThreeDotMenuOpen]);
+  }, [selectedConversationId, filter, searchQuery]);
 
-  // Close three-dot menu on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isThreeDotMenuOpen && threeDotMenuRef.current && !threeDotMenuRef.current.contains(event.target)) {
+    const handleOutside = (e) => {
+      if (isDropdownOpen && dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsDropdownOpen(false);
+      }
+      if (isThreeDotMenuOpen && threeDotMenuRef.current && !threeDotMenuRef.current.contains(e.target)) {
         setIsThreeDotMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isThreeDotMenuOpen]);
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isDropdownOpen, isThreeDotMenuOpen]);
+
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery) return conversations;
+    const q = searchQuery.toLowerCase();
+    return conversations.filter(
+      (c) =>
+        c.other_party_name?.toLowerCase().includes(q) ||
+        c.last_message?.message?.toLowerCase().includes(q)
+    );
+  }, [conversations, searchQuery]);
+
+  const currentConversation = filteredConversations.find(
+    (c) => c.conversation_id === selectedConversationId
+  );
+
+  const handleSend = async () => {
+    if (!messageInput.trim() || !currentConversation || sending) return;
+    setSending(true);
+    try {
+      await messageService.sendMessage({
+        recipientType: currentConversation.other_party_type,
+        recipientId: currentConversation.other_party_id,
+        message: messageInput.trim(),
+      });
+      setMessageInput('');
+      await loadMessages(currentConversation.conversation_id);
+      await loadConversations();
+    } catch (error) {
+      console.error('Failed to send message', error);
+      alert('Failed to send message. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="w-full flex flex-col" style={{ fontFamily: 'Poppins, sans-serif', height: 'calc(100vh - 120px)' }}>
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-[36px] font-normal" style={{ color: '#27804A' }}>
           Messages & contact
         </h1>
-        <div className="relative" ref={customersDropdownRef}>
-          <button
-            onClick={() => setIsCustomersDropdownOpen(!isCustomersDropdownOpen)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
-          >
-            <span>Customers</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {isCustomersDropdownOpen && (
-            <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-2 w-48 z-10">
-              <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition">
-                Customers
-              </button>
-              <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition">
-                Suppliers
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Filter removed per request */}
       </div>
 
-      {/* Two Column Layout */}
       <div className="flex gap-6 flex-1 overflow-hidden">
-        {/* Left Panel - Conversations List */}
         <div className="w-80 bg-white rounded-lg border border-gray-200 flex flex-col overflow-hidden">
-          {/* Search Bar */}
           <div className="p-4 border-b border-gray-200">
             <div className="relative">
               <input
@@ -161,183 +170,150 @@ const MessagesContact = () => {
             </div>
           </div>
 
-          {/* Conversations List */}
-          <div 
-            className="flex-1 overflow-y-auto conversations-list" 
-            style={{ 
-              scrollbarWidth: 'thin', 
+          <div
+            className="flex-1 overflow-y-auto conversations-list"
+            style={{
+              scrollbarWidth: 'thin',
               scrollbarColor: '#1B3166 transparent'
             }}
           >
             <style>{`
-              .conversations-list::-webkit-scrollbar {
-                width: 6px;
-              }
-              .conversations-list::-webkit-scrollbar-track {
-                background: transparent;
-              }
-              .conversations-list::-webkit-scrollbar-thumb {
-                background-color: #1B3166;
-                border-radius: 3px;
-              }
+              .conversations-list::-webkit-scrollbar { width: 6px; }
+              .conversations-list::-webkit-scrollbar-track { background: transparent; }
+              .conversations-list::-webkit-scrollbar-thumb { background-color: #1B3166; border-radius: 3px; }
             `}</style>
-            {filteredConversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                onClick={() => setSelectedConversation(conversation.id)}
-                className={`w-full text-left p-4 transition relative ${
-                  selectedConversation === conversation.id 
-                    ? 'bg-[#E0E7F0] border-l-4' 
-                    : 'border-l border-gray-200 hover:bg-gray-50'
-                }`}
-                style={selectedConversation === conversation.id ? { borderLeftColor: '#1B3166', borderLeftWidth: '4px' } : { borderLeftWidth: '1px' }}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold" style={{ backgroundColor: '#1B3166' }}>
-                    {conversation.initial}
-                  </div>
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-gray-900">{conversation.name}</span>
-                      <span className="text-xs text-gray-500">{conversation.timeAgo}</span>
+            {loading && (
+              <div className="p-4 text-sm text-gray-500">Loading conversations...</div>
+            )}
+            {!loading && !filteredConversations.length && (
+              <div className="p-4 text-sm text-gray-500">No conversations found</div>
+            )}
+            {filteredConversations.map((conversation) => {
+              const isActive = conversation.conversation_id === selectedConversationId;
+              const lastMessage = conversation.last_message;
+              return (
+                <button
+                  key={conversation.conversation_id}
+                  onClick={() => setSelectedConversationId(conversation.conversation_id)}
+                  className={`w-full text-left p-4 transition relative ${
+                    isActive ? 'bg-[#E0E7F0] border-l-4' : 'border-l border-gray-200 hover:bg-gray-50'
+                  }`}
+                  style={isActive ? { borderLeftColor: '#1B3166', borderLeftWidth: '4px' } : { borderLeftWidth: '1px' }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold" style={{ backgroundColor: '#1B3166' }}>
+                      {avatarInitials(conversation.other_party_name)}
                     </div>
-                    <div className="mb-1">
-                      <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-gray-100 border border-gray-200 text-gray-600">
-                        Customer
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold text-gray-900">{conversation.other_party_name}</span>
+                        <span className="text-xs text-gray-500">{formatTime(lastMessage?.created_at)}</span>
+                      </div>
+                      <div className="mb-1">
+                        <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-gray-100 border border-gray-200 text-gray-600">
+                          {typeLabelMap[conversation.other_party_type] || 'User'}
+                        </span>
+                        {conversation.unread_count > 0 && (
+                          <span className="ml-2 text-[11px] text-white px-2 py-0.5 rounded-full" style={{ backgroundColor: '#1B3166' }}>
+                            {conversation.unread_count}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 truncate">{lastMessage?.message || ''}</p>
                     </div>
-                    <p className="text-sm text-gray-600 truncate">{conversation.preview}</p>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Right Panel - Active Conversation */}
         <div className="flex-1 bg-white rounded-lg shadow-sm flex flex-col overflow-hidden">
-          {currentConversation && (
+          {currentConversation ? (
             <>
-              {/* Header */}
               <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold" style={{ backgroundColor: '#1B3166' }}>
-                    {currentConversation.initial}
+                    {avatarInitials(currentConversation.other_party_name)}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">{currentConversation.name}</h3>
-                    <p className="text-xs text-gray-500">Customer</p>
+                    <h3 className="font-semibold text-gray-900">{currentConversation.other_party_name}</h3>
+                    <p className="text-xs text-gray-500">{typeLabelMap[currentConversation.other_party_type] || 'User'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500">{currentConversation.timeAgo}</span>
+                  <span className="text-xs text-gray-500">
+                    {formatTime(currentConversation.last_message?.created_at)}
+                  </span>
                   <button
-                    ref={viewProfileButtonRef}
-                    className="px-4 py-2 rounded-lg text-white font-medium text-sm"
-                    style={{ backgroundColor: '#77FFAA' }}
-                    onClick={() => {
-                      setIsProfileModalOpen(true);
+                    onClick={async () => {
+                      if (window.confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+                        try {
+                          await messageService.deleteConversation(selectedConversationId);
+                          setSelectedConversationId(null);
+                          setMessages([]);
+                          loadConversations({ showSpinner: false });
+                        } catch (err) {
+                          console.error('Failed to delete conversation:', err);
+                          alert('Failed to delete conversation. Please try again.');
+                        }
+                      }
                     }}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                    aria-label="Delete conversation"
+                    title="Delete conversation"
                   >
-                    View profile
-                  </button>
-                  <div className="relative" ref={threeDotMenuRef}>
-                    <button
-                      className="p-2 hover:bg-gray-100 rounded-lg transition"
-                      onClick={() => setIsThreeDotMenuOpen(!isThreeDotMenuOpen)}
-                    >
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                      </svg>
-                    </button>
-                    {isThreeDotMenuOpen && (
-                      <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-2 w-48 z-50">
-                        <div className="flex flex-col gap-2">
-                          <button
-                            className="w-full px-4 py-2.5 rounded-lg text-white font-medium text-sm transition"
-                            style={{ backgroundColor: '#77FFAA' }}
-                            onClick={() => {
-                              setIsThreeDotMenuOpen(false);
-                              setIsProfileModalOpen(true);
-                            }}
-                          >
-                            View profile
-                          </button>
-                          <button
-                            className="w-full px-4 py-2.5 rounded-lg text-white font-medium text-sm transition"
-                            style={{ backgroundColor: '#FF4A43' }}
-                            onClick={() => {
-                              setIsThreeDotMenuOpen(false);
-                              // Handle block action
-                              if (window.confirm('Are you sure you want to block this customer?')) {
-                                alert('Customer blocked');
-                              }
-                            }}
-                          >
-                            Block
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Chat Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {currentConversation.messages.map((message, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex ${message.type === 'agent' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-lg px-4 py-2.5 ${
-                        message.type === 'agent'
-                          ? 'text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                      style={message.type === 'agent' ? { backgroundColor: '#1B3166BF' } : {}}
-                    >
-                      <p className="text-sm leading-relaxed">{message.text}</p>
-                      <div className={`flex items-center gap-2 mt-1 ${message.type === 'agent' ? 'justify-end' : 'justify-start'}`}>
-                        <span className="text-xs opacity-70">{message.time}</span>
-                        {message.type === 'agent' && message.read && (
-                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Message Input Area */}
-              <div className="p-4 border-t border-gray-200">
-                <div className="flex items-center gap-3">
-                  <button className="p-2 hover:bg-gray-100 rounded-lg transition">
-                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {messages.map((msg) => {
+                  const isAdminMessage = msg.sender_type === 'admin' || msg.sender_id === 'admin';
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex ${isAdminMessage ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[70%] rounded-lg px-4 py-2.5 ${
+                          isAdminMessage ? 'text-white' : 'bg-gray-100 text-gray-900'
+                        }`}
+                        style={isAdminMessage ? { backgroundColor: '#1B3166BF' } : {}}
+                      >
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                        <div className={`flex items-center gap-2 mt-1 ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
+                          <span className="text-xs opacity-70">{formatTime(msg.created_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="p-4 border-t border-gray-200">
+                <div className="flex items-center gap-3">
                   <input
                     type="text"
                     placeholder="Type your message here."
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
                     className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <button
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white transition"
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-white transition ${sending ? 'opacity-70 cursor-not-allowed' : ''}`}
                     style={{ backgroundColor: '#1B3166' }}
-                    onClick={() => {
-                      if (messageInput.trim()) {
-                        // Handle send message logic here
-                        setMessageInput('');
-                      }
-                    }}
+                    onClick={handleSend}
+                    disabled={sending}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -346,16 +322,23 @@ const MessagesContact = () => {
                 </div>
               </div>
             </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+              Select a conversation to view messages.
+            </div>
           )}
         </div>
       </div>
 
-      {/* Customer Profile Modal */}
       <CustomerProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
-        customer={currentConversation}
-        position={profileModalPosition}
+        customer={
+          currentConversation?.other_party_type === 'customer'
+            ? { id: currentConversation.other_party_id, name: currentConversation.other_party_name }
+            : null
+        }
+        position={null}
       />
     </div>
   );

@@ -21,8 +21,11 @@ from app.schemas.product import (
     CancellationPolicy,
     CancellationTier,
 )
+from app.schemas.review import ReviewListResponse
 from app.services.product_service import ProductService
 from app.services.currency_service import convert_to_usd
+from app.services.review_service import ReviewService
+from app.core.exceptions import DatabaseUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -895,4 +898,22 @@ async def get_product(product_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching product: {str(e)}"
         )
+
+
+@router.get("/{product_id}/reviews", response_model=ReviewListResponse)
+async def get_product_reviews(
+    product_id: str,
+    limit: int = Query(50, ge=1, le=200, description="Max reviews to return for product"),
+):
+    try:
+        reviews = await ReviewService.list_reviews_by_product(product_id, limit=limit)
+        return ReviewListResponse(reviews=reviews)
+    except DatabaseUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to reach the database. Please try again shortly.",
+        )
+    except Exception as e:
+        logger.error(f"Error fetching product reviews: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching product reviews")
 

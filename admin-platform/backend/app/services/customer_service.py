@@ -141,7 +141,7 @@ class CustomerService:
             
             # Batch fetch profiles
             profiles_map = {}
-            async for profile in profiles_collection.find({"user_id": {"$in": user_ids}}):
+            async for profile in profiles_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "customer_id": 1, "user.email": 1, "user.name": 1}):
                 user_id = str(profile.get("user_id", ""))
                 profiles_map[user_id] = profile
             
@@ -285,11 +285,17 @@ class CustomerService:
                 # Status: "Active" = currently online, "Inactive" = offline
                 status = "Active" if is_online else "Inactive"
                 
-                # Generate customer ID
-                customer_id_num = hash(user_id) % 10000000
-                if customer_id_num < 0:
-                    customer_id_num = abs(customer_id_num)
-                customer_id = f"CU-{1000000 + customer_id_num}"
+                # Use stored customer_id if available, else deterministic fallback
+                profile_customer_id = None
+                prof = profiles_map.get(user_id)
+                if prof:
+                    profile_customer_id = prof.get("customer_id")
+                customer_id = profile_customer_id or user.get("customer_id")
+                if not customer_id:
+                    customer_id_num = hash(user_id) % 10000000
+                    if customer_id_num < 0:
+                        customer_id_num = abs(customer_id_num)
+                    customer_id = f"CU-{1000000 + customer_id_num}"
                 
                 customers.append({
                     "id": user_id,

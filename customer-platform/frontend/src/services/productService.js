@@ -864,3 +864,9 @@ export const transformProductForFrontend = (product) => {
   
   return transformed;
 };
+
+// Fetch reviews for a specific product
+export async function getProductReviews(productId, { limit = 50 } = {}) {
+  if (!productId) throw new Error('productId is required');
+  return await fetchJsonWithFallback(`/products/${productId}/reviews?limit=${limit}`);
+}

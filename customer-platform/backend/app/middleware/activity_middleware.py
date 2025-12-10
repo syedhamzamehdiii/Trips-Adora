@@ -9,6 +9,7 @@ from datetime import datetime
 from app.core.database import get_database
 from bson import ObjectId
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,10 @@ class ActivityMiddleware(BaseHTTPMiddleware):
                 # Don't fail the request if activity tracking fails
                 logger.debug(f"Failed to update last_seen for user {user_id}: {e}")
         
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except asyncio.CancelledError:
+            # Client disconnected; avoid noisy stack traces
+            return Response(status_code=499, content="Client Closed Request")
         return response
 

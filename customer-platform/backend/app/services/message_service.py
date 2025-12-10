@@ -15,6 +15,7 @@ class MessageService:
     CUSTOMER_PREFIX = "cust:"
     SUPPLIER_PREFIX = "sup:"
     TOKEN_SEPARATOR = "|"
+    ADMIN_ID = "admin"
 
     @staticmethod
     def _format_customer_token(customer_id: str) -> str:
@@ -138,11 +139,15 @@ class MessageService:
     ) -> Dict[str, Any]:
         """Send a message from customer to supplier"""
         try:
-            product_title, canonical_supplier_id = await MessageService._get_product_metadata(product_id)
-            if canonical_supplier_id:
-                supplier_id = str(canonical_supplier_id)
-
-            conversation_id = MessageService._generate_conversation_id(customer_id, supplier_id)
+            # Admin thread bypasses product lookup and uses dedicated conversation id
+            if supplier_id == MessageService.ADMIN_ID:
+                product_title = None
+                conversation_id = f"admin|cust:{customer_id}"
+            else:
+                product_title, canonical_supplier_id = await MessageService._get_product_metadata(product_id)
+                if canonical_supplier_id:
+                    supplier_id = str(canonical_supplier_id)
+                conversation_id = MessageService._generate_conversation_id(customer_id, supplier_id)
             
             # Create message document (using raw MongoDB since customer platform doesn't use Beanie)
             db = get_database()
@@ -270,26 +275,29 @@ class MessageService:
                         
                         # Determine other party
                         sender_type = last_msg.get("sender_type", "")
-                        if sender_type == "admin":
-                            other_party_id = "admin"
+                        recipient_id = last_msg.get("recipient_id")
+                        sender_id = last_msg.get("sender_id")
+                        if sender_type == "admin" or recipient_id == MessageService.ADMIN_ID:
+                            other_party_id = MessageService.ADMIN_ID
                             other_party_type = "admin"
                             other_party_name = last_msg.get("sender_name", "Admin")
-                        elif last_msg.get("sender_id") == customer_id:
-                            other_party_id = last_msg.get("recipient_id")
-                            other_party_type = "supplier"
-                            # Only fetch name if other_party_id is valid
-                            if other_party_id:
-                                other_party_name = await MessageService._get_user_name(other_party_id)
+                        elif sender_id == customer_id:
+                            other_party_id = recipient_id
+                            # Determine if talking to supplier or admin via recipient
+                            if recipient_id == MessageService.ADMIN_ID:
+                                other_party_type = "admin"
+                                other_party_name = "Admin"
                             else:
-                                other_party_name = "Unknown"
+                                other_party_type = "supplier"
+                                other_party_name = await MessageService._get_user_name(other_party_id) if other_party_id else "Unknown"
                         else:
-                            other_party_id = last_msg.get("sender_id")
-                            other_party_type = sender_type if sender_type else "supplier"
-                            # Only fetch name if other_party_id is valid
-                            if other_party_id:
-                                other_party_name = await MessageService._get_user_name(other_party_id)
+                            other_party_id = sender_id
+                            if sender_id == MessageService.ADMIN_ID:
+                                other_party_type = "admin"
+                                other_party_name = last_msg.get("sender_name", "Admin")
                             else:
-                                other_party_name = "Unknown"
+                                other_party_type = sender_type if sender_type else "supplier"
+                                other_party_name = await MessageService._get_user_name(other_party_id) if other_party_id else "Unknown"
                         
                         # Get product info if exists
                         product_title = last_msg.get("product_title")

@@ -1,14 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { apiService } from '../services/api';
 
 const RevenueChart = () => {
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filterBySupplier, setFilterBySupplier] = useState(true);
-  const supplierBtnRef = useRef(null);
-  const popoverRef = useRef(null);
-
   const [monthOpen, setMonthOpen] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState('October');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('default', { month: 'long' }));
   const monthBtnRef = useRef(null);
   const monthPopoverRef = useRef(null);
 
@@ -16,40 +12,42 @@ const RevenueChart = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('semi-annually');
   const periodDropdownRef = useRef(null);
 
+  const [chartData, setChartData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showBookings, setShowBookings] = useState(false);
+
   useEffect(() => {
     const onClickOutside = (e) => {
-      const btn = supplierBtnRef.current;
-      const pop = popoverRef.current;
       const mBtn = monthBtnRef.current;
       const mPop = monthPopoverRef.current;
       const pDrop = periodDropdownRef.current;
-      if ((btn && btn.contains(e.target)) || (pop && pop.contains(e.target))) return;
       if ((mBtn && mBtn.contains(e.target)) || (mPop && mPop.contains(e.target))) return;
       if (pDrop && pDrop.contains(e.target)) return;
-      setFilterOpen(false);
       setMonthOpen(false);
       setShowPeriodDropdown(false);
     };
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [filterOpen, monthOpen, showPeriodDropdown]);
-  // toggle for tooltip content
-  const [showBookings, setShowBookings] = useState(false);
+  }, [monthOpen, showPeriodDropdown]);
 
-  // New chart data and structure per request
-  const chartData = [
-    { month: 'Jan', bookings: 250, revenue: 40 },
-    { month: '', bookings: 380, revenue: 52 },
-    { month: 'Feb', bookings: 160, revenue: 38 },
-    { month: '', bookings: 200, revenue: 43 },
-    { month: 'Mar', bookings: 290, revenue: 43 },
-    { month: '', bookings: 350, revenue: 46 },
-    { month: 'Apr', bookings: 400, revenue: 46 },
-    { month: '', bookings: 420, revenue: 53 },
-    { month: 'Jul', bookings: 380, revenue: 48 },
-    { month: '', bookings: 220, revenue: 35 },
-    { month: 'Jun', bookings: 260, revenue: 44 }
-  ];
+  useEffect(() => {
+    const fetchChartData = async () => {
+      try {
+        setLoading(true);
+        const months = selectedPeriod === 'annually' ? 12 : 6;
+        const data = await apiService.get('/dashboard/chart', { months });
+        setChartData(data?.data || []);
+      } catch (err) {
+        console.error('Failed to load chart data:', err);
+        setChartData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchChartData();
+    const interval = setInterval(fetchChartData, 60000); // Refresh every minute
+    return () => clearInterval(interval);
+  }, [selectedPeriod]);
 
   const [hoverInfo, setHoverInfo] = useState({ month: '', revenue: 0, bookings: 0 });
 
@@ -57,8 +55,8 @@ const RevenueChart = () => {
     if (!active || !payload || !payload.length) return null;
     const point = payload[0]?.payload || {};
     const monthText = label || point.month || selectedMonth || '';
-    const bookingsVal = point.bookings ?? 0;
-    const revenueVal = point.revenue ?? 0;
+    const bookingsVal = Number(point.bookings) || 0;
+    const revenueVal = Number(point.revenue) || 0;
 
     if (showBookings) {
       // Show month, bookings, revenue and top 4 countries
@@ -75,7 +73,9 @@ const RevenueChart = () => {
             <span className="opacity-90">Bookings</span>
             <span className="text-right font-semibold">{bookingsVal}</span>
             <span className="opacity-90">Revenue</span>
-            <span className="text-right font-semibold">${revenueVal}k</span>
+            <span className="text-right font-semibold">
+              {revenueVal >= 1000 ? `$${(revenueVal / 1000).toFixed(1)}k` : `$${Number(revenueVal).toFixed(0)}`}
+            </span>
           </div>
           <div className="h-px bg-white/30 my-1" />
           <div className="space-y-0.5 text-[10.5px]">
@@ -89,14 +89,19 @@ const RevenueChart = () => {
     }
 
     // OFF: Show improved summary with extras
-    const avgTicket = bookingsVal ? (revenueVal / bookingsVal).toFixed(2) : '0.00';
+    const avgTicketNum = bookingsVal ? (revenueVal / bookingsVal) : 0;
+    const formatRevenue = (val) => {
+      if (typeof val !== 'number' || isNaN(val)) return '$0';
+      if (val >= 1000) return `$${(val / 1000).toFixed(1)}k`;
+      return `$${val.toFixed(0)}`;
+    };
     return (
       <div style={{ backgroundColor: '#284078', borderRadius: '8px' }} className="text-white px-3.5 py-3 shadow-lg min-w-[180px]">
         <div className="text-[11.5px] font-semibold mb-1">{monthText || 'Period'} — Summary</div>
         <div className="space-y-0.5 text-[10.5px]">
           <div className="flex justify-between"><span>Bookings</span><span className="font-semibold">{bookingsVal}</span></div>
-          <div className="flex justify-between"><span>Revenue</span><span className="font-semibold">${revenueVal}k</span></div>
-          <div className="flex justify-between"><span>Avg ticket</span><span className="font-semibold">${avgTicket}k</span></div>
+          <div className="flex justify-between"><span>Revenue</span><span className="font-semibold">{formatRevenue(revenueVal)}</span></div>
+          <div className="flex justify-between"><span>Avg ticket</span><span className="font-semibold">{formatRevenue(avgTicketNum)}</span></div>
           <div className="flex justify-between"><span>Tip</span><span className="opacity-90">Toggle ON for top countries</span></div>
         </div>
       </div>
@@ -132,49 +137,6 @@ const RevenueChart = () => {
             </div>
           </div>
           <div className="flex items-center gap-3 relative">
-            <button
-              ref={supplierBtnRef}
-              onClick={() => setFilterOpen((v) => !v)}
-              className="px-4 py-1.5 rounded-full border border-gray-300 text-sm text-gray-700 bg-white hover:bg-gray-50 flex items-center gap-1"
-            >
-              <span>Supplier</span>
-              <span className="text-gray-600">▾</span>
-            </button>
-            {filterOpen && (
-              <div
-                ref={popoverRef}
-                className="absolute top-10 left-0 z-20 w-56 bg-white rounded-2xl shadow-lg border border-gray-200 p-4"
-                style={{
-                  boxShadow:
-                    '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)'
-                }}
-              >
-                <div className="flex items-center justify-between py-1.5">
-                  <span className="text-[15px] text-gray-900">By Supplier</span>
-                  <button
-                    onClick={() => setFilterBySupplier(true)}
-                    className={`w-6 h-6 rounded-md border flex items-center justify-center ${
-                      filterBySupplier ? 'bg-[#1e2a4a] border-[#1e2a4a] text-white' : 'border-gray-300 text-transparent'
-                    }`}
-                    aria-pressed={filterBySupplier}
-                  >
-                    ✓
-                  </button>
-                </div>
-                <div className="flex items-center justify-between py-1.5">
-                  <span className="text-[15px] text-gray-900">By Customer</span>
-                  <button
-                    onClick={() => setFilterBySupplier(false)}
-                    className={`w-6 h-6 rounded-md border flex items-center justify-center ${
-                      !filterBySupplier ? 'bg-[#1e2a4a] border-[#1e2a4a] text-white' : 'border-gray-300 text-transparent'
-                    }`}
-                    aria-pressed={!filterBySupplier}
-                  >
-                    ✓
-                  </button>
-                </div>
-              </div>
-            )}
             <div className="relative">
               <button
                 ref={monthBtnRef}
@@ -273,46 +235,64 @@ const RevenueChart = () => {
                 </div>
               )}
             </div>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart 
-                data={chartData} 
-                margin={{ top: 10, right: 30, bottom: 35, left: 10 }}
-                onMouseMove={(state) => {
-                  if (state && state.activePayload && state.activePayload.length) {
-                    const bookingsVal = state.activePayload.find(p => p.dataKey === 'bookings')?.value ?? 0;
-                    const revenueVal = state.activePayload.find(p => p.dataKey === 'revenue')?.value ?? 0;
-                    setHoverInfo({ month: state.activeLabel || '', revenue: revenueVal, bookings: bookingsVal });
-                  }
-                }}
-                onMouseLeave={() => setHoverInfo({ month: '', revenue: 0, bookings: 0 })}
-              >
-                <defs>
-                  <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#D5E0FF" stopOpacity={0.1}/>
-                    <stop offset="30%" stopColor="#B0C4FF" stopOpacity={0.3}/>
-                    <stop offset="70%" stopColor="#7B96FF" stopOpacity={0.7}/>
-                    <stop offset="100%" stopColor="#4F6FFF" stopOpacity={1}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#E5E7EB" strokeDasharray="0" vertical={false}/>
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#FFFFFF', fontSize: 14, fontWeight: 600 }} height={45} interval={0} dy={10} />
-                <YAxis
-                  yAxisId="left"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#374151', fontSize: 13, fontWeight: 500 }}
-                  tickFormatter={() => `$457`}
-                  ticks={[0, 100, 200, 300, 400, 500]}
-                  interval={0}
-                  domain={[0, 500]}
-                  width={50}
-                />
-                <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#374151', fontSize: 13, fontWeight: 500 }} ticks={[21,27,37,42,47,54]} domain={[20,60]} width={35} />
-                <Tooltip content={<CustomTooltip />} cursor={false} />
-                <Area yAxisId="left" type="monotone" dataKey="bookings" stroke="#7B92FF" strokeWidth={1.5} fill="url(#blueGrad)" fillOpacity={1} />
-                <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#5FD98D" strokeWidth={2.5} dot={{ fill: '#5FD98D', strokeWidth: 0, r: 5 }} activeDot={{ r: 6 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-gray-500">Loading chart data...</div>
+              </div>
+            ) : chartData.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-gray-500">No data available</div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart 
+                  data={chartData} 
+                  margin={{ top: 10, right: 30, bottom: 35, left: 10 }}
+                  onMouseMove={(state) => {
+                    if (state && state.activePayload && state.activePayload.length) {
+                      const bookingsVal = Number(state.activePayload.find(p => p.dataKey === 'bookings')?.value) || 0;
+                      const revenueVal = Number(state.activePayload.find(p => p.dataKey === 'revenue')?.value) || 0;
+                      setHoverInfo({ month: state.activeLabel || '', revenue: revenueVal, bookings: bookingsVal });
+                    }
+                  }}
+                  onMouseLeave={() => setHoverInfo({ month: '', revenue: 0, bookings: 0 })}
+                >
+                  <defs>
+                    <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#D5E0FF" stopOpacity={0.1}/>
+                      <stop offset="30%" stopColor="#B0C4FF" stopOpacity={0.3}/>
+                      <stop offset="70%" stopColor="#7B96FF" stopOpacity={0.7}/>
+                      <stop offset="100%" stopColor="#4F6FFF" stopOpacity={1}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#E5E7EB" strokeDasharray="0" vertical={false}/>
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#FFFFFF', fontSize: 14, fontWeight: 600 }} height={45} interval={0} dy={10} />
+                  <YAxis
+                    yAxisId="left"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#374151', fontSize: 13, fontWeight: 500 }}
+                    tickFormatter={(val) => val.toLocaleString()}
+                    width={50}
+                  />
+                  <YAxis 
+                    yAxisId="right" 
+                    orientation="right" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#374151', fontSize: 13, fontWeight: 500 }}
+                    tickFormatter={(val) => {
+                      const numVal = Number(val) || 0;
+                      return `$${numVal >= 1000 ? (numVal / 1000).toFixed(0) + 'k' : numVal.toFixed(0)}`;
+                    }}
+                    width={50}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={false} />
+                  <Area yAxisId="left" type="monotone" dataKey="bookings" stroke="#7B92FF" strokeWidth={1.5} fill="url(#blueGrad)" fillOpacity={1} />
+                  <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#5FD98D" strokeWidth={2.5} dot={{ fill: '#5FD98D', strokeWidth: 0, r: 5 }} activeDot={{ r: 6 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
           </div>
           {/* Bottom hover readout */}
           <div className="mt-3 flex items-center justify-center gap-6 text-sm text-gray-800">
@@ -323,7 +303,9 @@ const RevenueChart = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: '#5FD98D' }}></span>
-              <span>Revenue: <span className="font-semibold">${hoverInfo.revenue || 0}</span></span>
+              <span>Revenue: <span className="font-semibold">
+                {Number(hoverInfo.revenue) >= 1000 ? `$${(Number(hoverInfo.revenue) / 1000).toFixed(1)}k` : `$${Number(hoverInfo.revenue) || 0}`}
+              </span></span>
             </div>
           </div>
         </div>

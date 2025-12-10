@@ -12,7 +12,7 @@ import TourCard from './TourCard'
 import ClimateWidget from './ClimateWidget'
 import SupplierChatModal from './SupplierChatModal'
 import CancellationPolicyModal from './CancellationPolicyModal'
-import { getPublishedProducts, transformProductForFrontend, addRecentlyViewed, recordProductClick, getProductClicks, getProductById, getCachedPublishedProductsSync } from '../services/productService'
+import { getPublishedProducts, transformProductForFrontend, addRecentlyViewed, recordProductClick, getProductClicks, getProductById, getCachedPublishedProductsSync, getProductReviews } from '../services/productService'
 import { ensureProductLocationResolved } from '../services/climateService'
 
 const ProductDetails = () => {
@@ -49,6 +49,9 @@ const ProductDetails = () => {
   const [selectedMeetingPointIndex, setSelectedMeetingPointIndex] = useState(null)
   const [isInWishlist, setIsInWishlist] = useState(false)
   const quickDetailRef = useRef(null)
+  const [productReviews, setProductReviews] = useState([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [showAllReviews, setShowAllReviews] = useState(false)
 
   const handleScrollToQuickDetail = useCallback(() => {
     if (quickDetailRef.current) {
@@ -1401,6 +1404,46 @@ const ProductDetails = () => {
     return entries.filter(Boolean)
   }, [product])
 
+  // Fetch live product reviews
+  useEffect(() => {
+    let active = true
+    const fetchReviews = async () => {
+      if (!product?.id) return
+      setReviewsLoading(true)
+      try {
+        const data = await getProductReviews(product.id, { limit: 150 })
+        if (!active) return
+        setProductReviews(data?.reviews || [])
+      } catch (err) {
+        if (!active) return
+        console.error('Failed to load product reviews', err)
+        setProductReviews([])
+      } finally {
+        if (active) setReviewsLoading(false)
+      }
+    }
+    fetchReviews()
+    return () => { active = false }
+  }, [product?.id])
+
+  const hasLiveReviews = productReviews.length > 0
+
+  const liveRatingData = useMemo(() => {
+    if (!hasLiveReviews) return []
+    const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+    productReviews.forEach((r) => {
+      const rt = Math.round(Number(r.rating) || 0)
+      if (rt >= 1 && rt <= 5) counts[rt] += 1
+    })
+    const total = productReviews.length || 1
+    return [5, 4, 3, 2, 1].map((star) => ({
+      stars: star,
+      count: counts[star] || 0,
+      percentage: Math.min(100, Math.round(((counts[star] || 0) / total) * 100)),
+    }))
+  }, [productReviews, hasLiveReviews])
+
+  // Fallback to static bundle when no live reviews
   const reviewBundle = useMemo(() => {
     if (!product) return reviewBundles[0]
     const key = String(product.id || product.name || '').trim()
@@ -1409,13 +1452,55 @@ const ProductDetails = () => {
     return reviewBundles[hash % reviewBundles.length]
   }, [product?.id, product?.name, reviewBundles])
 
-  const averageRating = reviewBundle.averageRating
-  const totalReviews = reviewBundle.totalReviews
-  const ratingData = reviewBundle.ratingBreakdown.map((item) => {
-    const percentage = totalReviews ? Math.round((item.count / totalReviews) * 100) : 0
-    return { ...item, percentage: Math.min(100, percentage) }
-  })
-  const reviewList = reviewBundle.reviews
+  const combinedCounts = useMemo(() => {
+    const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+    liveRatingData.forEach((item) => {
+      counts[item.stars] += item.count || 0
+    })
+    reviewBundle.ratingBreakdown.forEach((item) => {
+      counts[item.stars] += item.count || 0
+    })
+    return counts
+  }, [liveRatingData, reviewBundle])
+
+  const totalReviews = useMemo(() => {
+    const live = productReviews.length
+    const bundle = reviewBundle.totalReviews || 0
+    return live + bundle
+  }, [productReviews.length, reviewBundle.totalReviews])
+
+  const averageRating = useMemo(() => {
+    const liveSum = productReviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0)
+    const bundleCount = reviewBundle.totalReviews || 0
+    const bundleSum = (reviewBundle.averageRating || 0) * bundleCount
+    const totalCount = productReviews.length + bundleCount
+    if (!totalCount) return reviewBundle.averageRating || 0
+    return Number(((liveSum + bundleSum) / totalCount).toFixed(2))
+  }, [productReviews, reviewBundle])
+
+  const ratingData = useMemo(() => {
+    if (!totalReviews) return []
+    return [5, 4, 3, 2, 1].map((star) => {
+      const count = combinedCounts[star] || 0
+      const percentage = Math.min(100, Math.round((count / totalReviews) * 100))
+      return { stars: star, count, percentage }
+    })
+  }, [combinedCounts, totalReviews])
+
+  const reviewList = useMemo(() => {
+    const live = productReviews.map((r, idx) => ({
+      id: r.id || idx,
+      name: r.author?.name || 'Guest',
+      avatar: r.author?.avatar_url,
+      initials: (r.author?.name || 'G')[0],
+      date: r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
+      rating: Number(r.rating) || 0,
+      text: r.content || r.title || '',
+      title: r.title || '',
+    }))
+    const dummy = reviewBundle.reviews || []
+    return [...live, ...dummy]
+  }, [productReviews, reviewBundle])
   const FALLBACK_SUPPLIER_NAME = 'TripsAdora Partner'
   const rawSupplierName =
     product?.supplierBusinessName ||
@@ -2668,7 +2753,7 @@ const ProductDetails = () => {
                     />
                   ))}
                 </div>
-                <p className="text-sm text-gray-600">{totalReviews} Reviews</p>
+                {/* Reviews count removed per request */}
               </div>
 
               {/* Right Side - Rating Breakdown with White Background */}
@@ -2702,36 +2787,58 @@ const ProductDetails = () => {
 
             {/* Individual Reviews */}
             <div className="space-y-6 mt-8">
-              {reviewList.map((review, idx) => (
-                <div key={`${review.name}-${idx}`} className="flex gap-4 bg-white shadow-md rounded-lg p-4">
-                  <div className="w-10 h-10 rounded-full bg-[#D9D9D9] flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-semibold text-[#3B69E2]">
-                      {review.initials || review.name?.[0] || 'G'}
-                    </span>
-                  </div>
-
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900">{review.name}</h4>
-                        <p className="text-xs text-gray-500">{review.date}</p>
+              {reviewsLoading && <div className="text-sm text-gray-500">Loading reviews...</div>}
+              {!reviewsLoading && reviewList.length === 0 && (
+                <div className="text-sm text-gray-500">No reviews yet for this product.</div>
+              )}
+              {!reviewsLoading &&
+                reviewList
+                  .slice(0, 5 + (showAllReviews ? reviewList.length : 0) - (showAllReviews ? 5 : 0))
+                  .map((review, idx) => (
+                    <div key={`${review.name}-${idx}`} className="flex gap-4 bg-white shadow-md rounded-lg p-4">
+                      <div className="w-10 h-10 rounded-full bg-[#D9D9D9] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {review.avatar ? (
+                          <img src={review.avatar} alt={review.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-sm font-semibold text-[#3B69E2]">
+                            {review.initials || review.name?.[0] || 'G'}
+                          </span>
+                        )}
                       </div>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star
-                            key={s}
-                            className={`w-4 h-4 ${s <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
-                            fill={s <= review.rating ? 'currentColor' : 'none'}
-                          />
-                        ))}
+
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900">{review.name}</h4>
+                            <p className="text-xs text-gray-500">{review.date}</p>
+                          </div>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star
+                                key={s}
+                                className={`w-4 h-4 ${s <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                                fill={s <= review.rating ? 'currentColor' : 'none'}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {review.title && <span className="font-semibold mr-1">{review.title}</span>}
+                          {review.text}
+                        </p>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-700 leading-relaxed">
-                      {review.text}
-                    </p>
-                  </div>
+                  ))}
+              {!reviewsLoading && reviewList.length > 5 && (
+                <div className="mt-2">
+                  <button
+                    onClick={() => setShowAllReviews((v) => !v)}
+                    className="text-sm text-[#3B69E2] underline"
+                  >
+                    {showAllReviews ? 'Show fewer reviews' : `Show all ${reviewList.length} reviews`}
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

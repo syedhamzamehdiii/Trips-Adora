@@ -1,51 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 const NotificationsModalFull = ({ isOpen, onClose }) => {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [filterOption, setFilterOption] = useState('All Notification');
+  const [isFilterOpen] = useState(false);
+  const [filterOption] = useState('All Notification');
   const filterButtonRef = useRef(null);
 
-  const notifications = [
-    {
-      id: 1,
-      initial: 'S',
-      title: 'Platform Reminder',
-      date: 'August 2025',
-      tag: 'Payout',
-      tagColor: 'purple',
-      message:
-        'You can no longer sign in to Envato | API #12353 | API #12353 | API #12353 | AP...',
-    },
-    {
-      id: 2,
-      initial: 'S',
-      name: 'Sarah Jhonson',
-      date: 'August 2025',
-      reference: '#TA-1002484',
-      tag: 'Supplier',
-      tagColor: 'green',
-      message: 'Hi,Admin is a great platform to work with! It is so nice, the...',
-    },
-    {
-      id: 3,
-      initial: 'S',
-      name: 'Sarah Jhonson',
-      date: 'August 2025',
-      reference: '#TA-1002484',
-      tag: 'Customer',
-      tagColor: 'orange',
-      message: 'Hi,Admin is a great platform to work with! It is so nice, the...',
-    },
-  ];
-
-  const handleFilterClick = () => {
-    setIsFilterOpen(!isFilterOpen);
-  };
-
-  const handleFilterSelect = (option) => {
-    setFilterOption(option);
-    setIsFilterOpen(false);
-  };
+  const notifications = [];
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -83,37 +43,6 @@ const NotificationsModalFull = ({ isOpen, onClose }) => {
                 <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 11-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
               </svg>
             </button>
-            {/* Filter Button with Dropdown */}
-            <div className="relative" ref={filterButtonRef}>
-              <button
-                onClick={handleFilterClick}
-                className="px-4 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50 transition font-medium"
-              >
-                {filterOption}
-              </button>
-              {isFilterOpen && (
-                <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-2 w-56 z-10">
-                  <button
-                    onClick={() => handleFilterSelect('All Notification')}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-                  >
-                    All messages
-                  </button>
-                  <button
-                    onClick={() => handleFilterSelect('Suppliers Only')}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-                  >
-                    By suppliers only
-                  </button>
-                  <button
-                    onClick={() => handleFilterSelect('Customers Only')}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-                  >
-                    By customers only
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 

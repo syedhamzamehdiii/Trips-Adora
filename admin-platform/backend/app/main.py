@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import initiate_database
-from app.api.v1 import suppliers, customers
+from app.api.v1 import suppliers, customers, messages, feedbacks, reviews, dashboard
 
 app = FastAPI(
     title="TripsAdora Admin Platform API",
@@ -45,7 +45,11 @@ async def startup_event():
 
 # Include routers
 app.include_router(suppliers.router, prefix="/api/v1", tags=["Suppliers"])
-app.include_router(customers.router, prefix="/api/v1", tags=["Customers"]) 
+app.include_router(customers.router, prefix="/api/v1", tags=["Customers"])
+app.include_router(messages.router, prefix="/api/v1", tags=["Messages"])
+app.include_router(feedbacks.router, prefix="/api/v1", tags=["Feedbacks"])
+app.include_router(reviews.router, prefix="/api/v1", tags=["Reviews"])
+app.include_router(dashboard.router, prefix="/api/v1", tags=["Dashboard"])
 
 @app.get("/")
 async def root():

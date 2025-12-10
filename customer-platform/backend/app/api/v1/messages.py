@@ -26,7 +26,7 @@ async def send_message(
     """
     try:
         supplier_id = payload.recipient_id
-        if not supplier_id and not payload.product_id:
+        if supplier_id != "admin" and not supplier_id and not payload.product_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Either supplier ID or product ID is required",

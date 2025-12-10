@@ -15,6 +15,7 @@ class MessageService:
     CUSTOMER_PREFIX = "cust:"
     SUPPLIER_PREFIX = "sup:"
     TOKEN_SEPARATOR = "|"
+    ADMIN_ID = "admin"
 
     @staticmethod
     def _format_customer_token(customer_id: str) -> str:
@@ -135,20 +136,26 @@ class MessageService:
     ) -> Dict[str, Any]:
         """Send a message from supplier to customer"""
         try:
-            conversation_id = MessageService._generate_conversation_id(customer_id, supplier_id)
+            if customer_id == MessageService.ADMIN_ID:
+                conversation_id = f"admin|sup:{supplier_id}"
+                product_title = None
+                reply_id = None
+                reply_preview = None
+            else:
+                conversation_id = MessageService._generate_conversation_id(customer_id, supplier_id)
 
-            product_title, product_supplier_id = await MessageService._get_product_metadata(product_id)
-            if product_supplier_id and str(product_supplier_id) != str(supplier_id):
-                logger.warning(
-                    "Supplier %s attempted to send message for product %s owned by %s",
-                    supplier_id,
-                    product_id,
-                    product_supplier_id,
+                product_title, product_supplier_id = await MessageService._get_product_metadata(product_id)
+                if product_supplier_id and str(product_supplier_id) != str(supplier_id):
+                    logger.warning(
+                        "Supplier %s attempted to send message for product %s owned by %s",
+                        supplier_id,
+                        product_id,
+                        product_supplier_id,
+                    )
+
+                reply_id, reply_preview = await MessageService._build_reply_metadata(
+                    reply_to_message_id, conversation_id
                 )
-
-            reply_id, reply_preview = await MessageService._build_reply_metadata(
-                reply_to_message_id, conversation_id
-            )
             
             # Create message document
             message_doc = Message(
@@ -156,7 +163,7 @@ class MessageService:
                 sender_type=MessageSender.SUPPLIER,
                 sender_id=supplier_id,
                 recipient_id=customer_id,
-                product_id=product_id,
+                product_id=product_id if customer_id != MessageService.ADMIN_ID else None,
                 product_title=product_title,
                 message=message,
                 message_type=message_type,
@@ -246,15 +253,18 @@ class MessageService:
                     )
                     continue
                 
-                # Determine other party (customer)
+                # Determine other party (customer/admin)
                 if last_msg["sender_id"] == supplier_id:
                     other_party_id = last_msg["recipient_id"]
                 else:
                     other_party_id = last_msg["sender_id"]
-                other_party_type = "customer"
-                
-                # Get customer name
-                other_party_name = await MessageService._get_customer_name(other_party_id)
+
+                if other_party_id == MessageService.ADMIN_ID:
+                    other_party_type = "admin"
+                    other_party_name = "Admin"
+                else:
+                    other_party_type = "customer"
+                    other_party_name = await MessageService._get_customer_name(other_party_id)
                 
                 # Get product info if exists
                 product_title = last_msg.get("product_title")

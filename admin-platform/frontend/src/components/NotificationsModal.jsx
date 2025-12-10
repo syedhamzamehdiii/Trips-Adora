@@ -1,36 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const notifications = [
-  {
-    id: 1,
-    initial: 'S',
-    title: 'Platform Reminder',
-    date: 'August 2025',
-    tag: 'Payout',
-    tagColor: 'purple',
-    message: 'You can no longer sign in to Envato | API #12353 | API #12353 | API #12353 | AP...'
-  },
-  {
-    id: 2,
-    initial: 'S',
-    name: 'Sarah Jhonson',
-    date: 'August 2025',
-    reference: '#TA-1002484',
-    tag: 'Supplier',
-    tagColor: 'green',
-    message: 'Hi,Admin is a great platform to work with! It is so nice, the...'
-  },
-  {
-    id: 3,
-    initial: 'S',
-    name: 'Sarah Jhonson',
-    date: 'August 2025',
-    reference: '#TA-1002484',
-    tag: 'Customer',
-    tagColor: 'orange',
-    message: 'Hi,Admin is a great platform to work with! It is so nice, the...'
-  }
-];
+const notifications = [];
 
 const ModalCard = ({ item }) => {
   const tagColor =
@@ -103,26 +73,6 @@ const NotificationsModal = ({ isOpen, onClose }) => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 relative">
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 relative">
           <h2 className="text-xl font-bold text-blue-600">Notifications</h2>
-          <div className="relative" ref={filterBtnRef}>
-            <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="px-4 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50 transition font-medium">{selectedFilter}</button>
-            {isFilterOpen && (
-              <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-2 w-56 z-10">
-                {['All messages','By suppliers only','By customers only'].map((opt) => {
-                  const isActive = selectedFilter === opt;
-                  return (
-                    <button
-                      key={opt}
-                      onClick={() => { setSelectedFilter(opt); setIsFilterOpen(false); }}
-                      className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
-                    >
-                      <span>{opt}</span>
-                      <span className={`w-3.5 h-3.5 rounded-sm border ${isActive ? 'border-green-500 bg-green-500' : 'border-gray-300 bg-white'}`}></span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
         <div className="px-6 py-4 space-y-4 max-h-[500px] overflow-y-auto">
           {notifications.map((n) => (
