@@ -94,7 +94,23 @@ const SupplierProfileView = ({ supplier, onBack, onApprove, onReject }) => {
   const InfoField = ({ label, value, isImage = false, isLink = false }) => {
     const isPdf =
       typeof value === 'string' &&
-      value.toLowerCase().trim().endsWith('.pdf');
+      (value.toLowerCase().trim().endsWith('.pdf') || 
+       value.includes('cloudinary.com') && value.includes('/raw/'));
+    
+    // Generate a proper filename from the label
+    const getFilename = (url, docLabel) => {
+      if (!url) return '';
+      // Extract file extension from URL or default to .pdf for Cloudinary raw files
+      const extension = url.toLowerCase().includes('.pdf') ? '.pdf' : 
+                       (url.includes('cloudinary.com') && url.includes('/raw/')) ? '.pdf' : 
+                       url.match(/\.(jpg|jpeg|png|gif|webp)$/i)?.[0] || '.pdf';
+      // Create filename from label, sanitized
+      const sanitizedLabel = docLabel
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+      return `${sanitizedLabel}${extension}`;
+    };
 
     return (
       <div className="py-3 border-b border-gray-100">
@@ -107,6 +123,7 @@ const SupplierProfileView = ({ supplier, onBack, onApprove, onReject }) => {
               href={value}
               target="_blank"
               rel="noopener noreferrer"
+              download={getFilename(value, label)}
               className="text-sm text-blue-600 hover:text-blue-800 underline"
             >
               Open PDF

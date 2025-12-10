@@ -71,7 +71,8 @@ async def upload_single_image(
                 "public_id": result["public_id"],
                 "width": result.get("width"),
                 "height": result.get("height"),
-                "bytes": result.get("bytes")
+                "bytes": result.get("bytes"),
+                "original_filename": result.get("original_filename")  # Include original filename
             }
         )
     except HTTPException:

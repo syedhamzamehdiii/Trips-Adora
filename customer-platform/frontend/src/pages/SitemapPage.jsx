@@ -144,7 +144,6 @@ const SitemapPage = () => {
             </div>
             <ul className="space-y-2 text-gray-700 text-sm flex-1">
               <li><Link to="/privacy" onClick={scrollToTop} className="block py-1.5 px-2 rounded-md hover:bg-[#1d236b]/10 hover:text-[#1d236b] hover:translate-x-1 transition-all duration-200">Privacy Policy</Link></li>
-              <li><Link to="/supplier-registration" onClick={scrollToTop} className="block py-1.5 px-2 rounded-md hover:bg-[#1d236b]/10 hover:text-[#1d236b] hover:translate-x-1 transition-all duration-200">Supplier Registration</Link></li>
             </ul>
           </div>
 

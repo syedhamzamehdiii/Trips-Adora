@@ -27,9 +27,25 @@ const SupplierDocsModal = ({ isOpen, onClose, anchorRect, documents = [] }) => {
 
   const handleDownload = (doc) => {
     if (!doc.url) return;
+    
+    // Generate proper filename
+    const getFilename = (url, label) => {
+      if (!url) return label.replace(/\s+/g, '_');
+      // Check if it's a PDF (Cloudinary raw file or ends with .pdf)
+      const isPdf = url.toLowerCase().includes('.pdf') || 
+                   (url.includes('cloudinary.com') && url.includes('/raw/'));
+      const extension = isPdf ? '.pdf' : 
+                       url.match(/\.(jpg|jpeg|png|gif|webp)$/i)?.[0] || '';
+      const sanitizedLabel = label
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+      return `${sanitizedLabel}${extension}`;
+    };
+    
     const a = document.createElement('a');
     a.href = doc.url;
-    a.download = doc.label.replace(/\s+/g, '_');
+    a.download = getFilename(doc.url, doc.label);
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -64,7 +80,24 @@ const SupplierDocsModal = ({ isOpen, onClose, anchorRect, documents = [] }) => {
                     <Download className="w-4 h-4" />
                   </button>
                   {doc.url && (
-                    <a href={doc.url} target="_blank" rel="noreferrer" className="hover:text-gray-900" aria-label="View">
+                    <a 
+                      href={doc.url} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      download={(() => {
+                        const isPdf = doc.url.toLowerCase().includes('.pdf') || 
+                                     (doc.url.includes('cloudinary.com') && doc.url.includes('/raw/'));
+                        const extension = isPdf ? '.pdf' : 
+                                         doc.url.match(/\.(jpg|jpeg|png|gif|webp)$/i)?.[0] || '';
+                        const sanitizedLabel = doc.label
+                          .replace(/[^a-zA-Z0-9\s]/g, '')
+                          .replace(/\s+/g, '_')
+                          .toLowerCase();
+                        return `${sanitizedLabel}${extension}`;
+                      })()}
+                      className="hover:text-gray-900" 
+                      aria-label="View"
+                    >
                       <Eye className="w-4 h-4" />
                     </a>
                   )}

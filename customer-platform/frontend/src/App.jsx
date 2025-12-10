@@ -7,7 +7,6 @@ import Register from './pages/Auth/Register'
 import GoogleCallback from './pages/Auth/GoogleCallback'
 import ForgotPassword from './pages/Auth/ForgotPassword'
 import ResetPassword from './pages/Auth/ResetPassword'
-import SupplierRegistrationPage from './pages/SupplierRegistrationPage'
 import AboutUsPage from './pages/AboutUsPage'
 import ProductDetails from './components/ProductDetails'
 import OurPlansPage from './pages/OurPlansPage'
@@ -45,14 +44,6 @@ import CustomerPrivacyPolicy from './pages/CustomerPrivacyPolicy'
 import ContactUsPage from './pages/ContactUsPage'
 import ChatPage from './pages/ChatPage'
 import SitemapPage from './pages/SitemapPage'
-import SupplierAboutPage from './pages/SupplierPortal/SupplierAboutPage'
-import SupplierContactPage from './pages/SupplierPortal/SupplierContactPage'
-import SupplierFAQPage from './pages/SupplierPortal/SupplierFAQPage'
-import SupplierSupportPage from './pages/SupplierPortal/SupplierSupportPage'
-import SupplierPrivacyPolicy from './pages/SupplierPortal/SupplierPrivacyPolicy'
-import SupplierRefundPolicy from './pages/SupplierPortal/SupplierRefundPolicy'
-import SupplierSafetyGuidelines from './pages/SupplierPortal/SupplierSafetyGuidelines'
-import SupplierTermsPage from './pages/SupplierPortal/SupplierTermsPage'
 
 function App() {
   return (
@@ -85,7 +76,6 @@ function App() {
         <Route path="/payment-details" element={<PaymentDetailsPage />} />
         <Route path="/payment-success" element={<PaymentSuccessPage />} />
         <Route path="/comparison/detail/:ids" element={<ProductComparisonDetail />} />
-        <Route path="/supplier-registration" element={<SupplierRegistrationPage />} />
         <Route path="/about-us" element={<AboutUsPage />} />
         <Route path="/product-details" element={<ProductDetails />} />
         <Route path="/product-details/:id" element={<ProductDetails />} />
@@ -107,14 +97,6 @@ function App() {
         <Route path="/support" element={<CustomerSupportPage />} />
           <Route path="/sitemap" element={<SitemapPage />} />
         <Route path="/privacy" element={<CustomerPrivacyPolicy />} />
-        <Route path="/supplier/about" element={<SupplierAboutPage />} />
-        <Route path="/supplier/contact" element={<SupplierContactPage />} />
-        <Route path="/supplier/faq" element={<SupplierFAQPage />} />
-        <Route path="/supplier/support" element={<SupplierSupportPage />} />
-        <Route path="/supplier/privacy" element={<SupplierPrivacyPolicy />} />
-        <Route path="/supplier/refund-policy" element={<SupplierRefundPolicy />} />
-        <Route path="/supplier/safety-guidelines" element={<SupplierSafetyGuidelines />} />
-        <Route path="/supplier/terms" element={<SupplierTermsPage />} />
         </Routes>
       </div>
     </AuthProvider>

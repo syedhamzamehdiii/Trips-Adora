@@ -46,8 +46,8 @@ const GoogleCallback = () => {
             const email = response.user?.email || ''
             // Pass email as URL parameter so customer platform can access it
             const redirectUrl = email 
-              ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
-              : `${customerAppUrl}/supplier-registration`
+              ? `/supplier-registration?email=${encodeURIComponent(email)}`
+              : `/supplier-registration`
             window.location.href = redirectUrl
             return
           }

@@ -144,7 +144,8 @@ async def upload_image(
             "height": upload_result.get("height"),  # None for PDFs
             "bytes": upload_result.get("bytes"),
             "folder": folder,
-            "resource_type": upload_result.get("resource_type", "image")  # "image" or "raw" for PDFs
+            "resource_type": upload_result.get("resource_type", "image"),  # "image" or "raw" for PDFs
+            "original_filename": filename  # Store original filename for proper download names
         }
     
     except HTTPException:

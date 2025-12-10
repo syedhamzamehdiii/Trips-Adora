@@ -65,6 +65,13 @@ import SafetyGuidelinesPage from './pages/SafetyGuidelinesPage'
 import DashboardLayout from './layouts/DashboardLayout'
 import GlobalCacheSync from './components/GlobalCacheSync'
 import ChatPage from './pages/Chat/ChatPage'
+import SupplierRegistrationPage from './pages/SupplierRegistrationPage'
+import SupplierFAQPage from './pages/SupplierPortal/SupplierFAQPage'
+import SupplierSupportPage from './pages/SupplierPortal/SupplierSupportPage'
+import SupplierPrivacyPolicy from './pages/SupplierPortal/SupplierPrivacyPolicy'
+import SupplierRefundPolicy from './pages/SupplierPortal/SupplierRefundPolicy'
+import SupplierSafetyGuidelines from './pages/SupplierPortal/SupplierSafetyGuidelines'
+import SupplierTermsPage from './pages/SupplierPortal/SupplierTermsPage'
 
 // Protected route component that checks verification status
 function VerifiedRoute({ children }) {
@@ -74,15 +81,14 @@ function VerifiedRoute({ children }) {
   useEffect(() => {
     if (isAuthenticated && user && !user.is_verified) {
       const currentUrl = window.location.href
-      const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
       const email = user?.email || ''
-      // Pass email as URL parameter so customer platform can access it
+      // Redirect to local supplier registration page
       const registrationUrl = email 
-        ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
-        : `${customerAppUrl}/supplier-registration`
+        ? `/supplier-registration?email=${encodeURIComponent(email)}`
+        : `/supplier-registration`
       
-      // Redirect if we're not already on customer platform
-      if (!currentUrl.includes('5174') && !currentUrl.includes('supplier-registration')) {
+      // Redirect if we're not already on registration page
+      if (!currentUrl.includes('supplier-registration')) {
         setShouldRedirect(true)
         window.location.href = registrationUrl
       }
@@ -128,15 +134,14 @@ function AppRoutes() {
   useEffect(() => {
     if (isAuthenticated && user && !user.is_verified) {
       const currentUrl = window.location.href
-      const customerAppUrl = import.meta.env.VITE_CUSTOMER_APP_URL || 'http://localhost:5174'
       const email = user?.email || ''
-      // Pass email as URL parameter so customer platform can access it
+      // Redirect to local supplier registration page
       const registrationUrl = email 
-        ? `${customerAppUrl}/supplier-registration?email=${encodeURIComponent(email)}`
-        : `${customerAppUrl}/supplier-registration`
+        ? `/supplier-registration?email=${encodeURIComponent(email)}`
+        : `/supplier-registration`
       
-      // Redirect if we're not already on customer platform
-      if (!currentUrl.includes('5174') && !currentUrl.includes('supplier-registration')) {
+      // Redirect if we're not already on registration page
+      if (!currentUrl.includes('supplier-registration')) {
         window.location.href = registrationUrl
       }
     }
@@ -170,6 +175,34 @@ function AppRoutes() {
         <Route 
           path="/auth/invitation/:token" 
           element={<InvitationAcceptance />} 
+        />
+        <Route 
+          path="/supplier-registration" 
+          element={<SupplierRegistrationPage />} 
+        />
+        <Route 
+          path="/supplier/faq" 
+          element={<SupplierFAQPage />} 
+        />
+        <Route 
+          path="/supplier/support" 
+          element={<SupplierSupportPage />} 
+        />
+        <Route 
+          path="/supplier/privacy" 
+          element={<SupplierPrivacyPolicy />} 
+        />
+        <Route 
+          path="/supplier/refund-policy" 
+          element={<SupplierRefundPolicy />} 
+        />
+        <Route 
+          path="/supplier/safety-guidelines" 
+          element={<SupplierSafetyGuidelines />} 
+        />
+        <Route 
+          path="/supplier/terms" 
+          element={<SupplierTermsPage />} 
         />
         
         {/* Protected Routes */}
