@@ -74,7 +74,26 @@ const TopCountriesSection = () => {
           </button>
         </div>
         <div id="top-destinations" style={{ display: activeTab === 'destinations' ? 'block' : 'none' }}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Mobile swipe */}
+          <div className="sm:hidden flex overflow-x-auto space-x-4 pb-2 snap-x snap-mandatory">
+            {destinations.map((c, idx) => (
+              <div 
+                key={c.id}
+                onClick={() => navigate(c.to)}
+                className="min-w-[240px] snap-start cursor-pointer"
+              >
+                <ExperienceCard 
+                  image={c.image} 
+                  title={`${c.name} ${c.description ? '- ' + c.description : ''}`} 
+                  price={c.price} 
+                  liked={idx % 2 === 0}
+                  id={c.id}
+                />
+              </div>
+            ))}
+          </div>
+          {/* Desktop grid */}
+          <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-6">
             {destinations.map((c, idx) => (
               <div 
                 key={c.id}
@@ -93,22 +112,41 @@ const TopCountriesSection = () => {
           </div>
         </div>
         <div id="top-attractions" style={{ display: activeTab === 'attractions' ? 'block' : 'none' }}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Mobile swipe */}
+          <div className="sm:hidden flex overflow-x-auto space-x-4 pb-2 snap-x snap-mandatory">
             {attractions.map((c, idx) => (
-            <div 
-              key={c.id}
-              onClick={() => navigate(c.to)}
-              className="cursor-pointer transform hover:scale-105 transition-transform duration-200"
-            >
-              <ExperienceCard 
-                image={c.image} 
-                title={`${c.name} ${c.description ? '- ' + c.description : ''}`} 
-                price={c.price} 
-                liked={idx % 2 === 0}
-                id={c.id}
-              />
-            </div>
-          ))}
+              <div 
+                key={c.id}
+                onClick={() => navigate(c.to)}
+                className="min-w-[240px] snap-start cursor-pointer"
+              >
+                <ExperienceCard 
+                  image={c.image} 
+                  title={`${c.name} ${c.description ? '- ' + c.description : ''}`} 
+                  price={c.price} 
+                  liked={idx % 2 === 0}
+                  id={c.id}
+                />
+              </div>
+            ))}
+          </div>
+          {/* Desktop grid */}
+          <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {attractions.map((c, idx) => (
+              <div 
+                key={c.id}
+                onClick={() => navigate(c.to)}
+                className="cursor-pointer transform hover:scale-105 transition-transform duration-200"
+              >
+                <ExperienceCard 
+                  image={c.image} 
+                  title={`${c.name} ${c.description ? '- ' + c.description : ''}`} 
+                  price={c.price} 
+                  liked={idx % 2 === 0}
+                  id={c.id}
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>

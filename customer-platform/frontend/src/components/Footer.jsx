@@ -9,7 +9,8 @@ const Footer = () => {
   return (
     <footer className="bg-[#1d236b] text-white">
       <div className="max-w-7xl mx-auto px-6 py-10">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8">
+        {/* Desktop / Tablet layout */}
+        <div className="hidden md:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8 gap-y-10">
           <div>
             <h4 className="font-semibold mb-3">Company</h4>
             <ul className="space-y-2 text-gray-200 text-sm">
@@ -73,13 +74,13 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">Stay Connected</h3>
             <div className="space-y-4">
               <p className="text-white">Get travel deals & inspiration</p>
-              <div className="flex max-w-xs">
+              <div className="flex flex-col sm:flex-row max-w-full sm:max-w-xs gap-2 sm:gap-0">
               <input 
                 type="email" 
                 placeholder="Enter your email" 
-                  className="flex-1 px-3 py-2 bg-gray-400 text-white placeholder-white border border-gray-400 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 bg-gray-400 text-white placeholder-white border border-gray-400 rounded-lg sm:rounded-l-lg sm:rounded-r-none focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
                 />
-                <button className="px-4 py-2 bg-gray-400 hover:bg-gray-500 rounded-r-lg transition-colors">
+                <button className="px-4 py-2 bg-gray-400 hover:bg-gray-500 rounded-lg sm:rounded-l-none sm:rounded-r-lg transition-colors">
                   <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
@@ -143,6 +144,88 @@ const Footer = () => {
           </div>
         </div>
 
+        {/* Mobile accordion layout */}
+        <div className="md:hidden space-y-3">
+          {[
+            {
+              title: 'Company',
+              links: [
+                { label: 'About us', to: '/about-us' },
+                { label: 'Careers', to: '/about-us#careers' },
+                { label: 'Blogs', to: '/blogs' },
+                { label: 'Contact Us', to: '/contact' }
+              ]
+            },
+            {
+              title: 'Support',
+              links: [
+                { label: 'Help Center', to: '/support' },
+                { label: 'FAQs', to: '/faq' },
+                { label: 'Privacy Policy', to: '/privacy' },
+                { label: 'Sitemap', to: '/sitemap' }
+              ]
+            },
+            {
+              title: 'Partner With Us',
+              links: [
+                { label: 'Become a Partner', href: `${config.SUPPLIER_APP_URL}/login` },
+                { label: 'Join as an Affiliate', href: `${config.SUPPLIER_APP_URL}/login` }
+              ]
+            },
+            {
+              title: 'Explore',
+              links: [
+                { label: 'Case Studies', to: '#' },
+                { label: 'Resources', to: '#' },
+                { label: 'Customer Reviews', to: '/profile/reviews' }
+              ]
+            },
+            {
+              title: 'Payments & Settings',
+              links: [
+                { label: 'AMEX' },
+                { label: 'Master' },
+                { label: 'Visa' },
+                { label: 'Apple' },
+                { label: 'PayPal' },
+                { label: 'Google' }
+              ]
+            },
+            {
+              title: 'Stay Connected',
+              links: [
+                { label: 'Instagram' },
+                { label: 'LinkedIn' },
+                { label: 'Facebook' },
+                { label: 'Twitter' }
+              ]
+            }
+          ].map((section, idx) => (
+            <details key={idx} className="bg-white/5 rounded-xl border border-white/10">
+              <summary className="px-4 py-3 cursor-pointer font-semibold">{section.title}</summary>
+              <div className="px-4 pb-3">
+                <ul className="space-y-2 text-gray-200 text-sm">
+                  {section.links.map((link, i) => (
+                    <li key={i}>
+                      {link.to ? (
+                        <Link to={link.to} onClick={scrollToTop} className="block">
+                          {link.label}
+                        </Link>
+                      ) : link.href ? (
+                        <a href={link.href} target="_blank" rel="noopener noreferrer" className="block">
+                          {link.label}
+                        </a>
+                      ) : (
+                        <span className="block">{link.label}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </details>
+          ))}
+        </div>
+
         <div className="mt-6 border-t border-white/30 pt-4 flex flex-wrap items-center justify-between text-gray-200 text-xs">
           <div>© 2025 TripAdora. All rights reserved.</div>
           <div className="flex flex-wrap gap-6 items-center">
@@ -151,6 +234,17 @@ const Footer = () => {
             <div className="flex items-center gap-2"><Phone size={16}/> +1-800-Travel</div>
             <div className="flex items-center gap-2"><Headphones size={16}/> 24/7 Support</div>
           </div>
+        </div>
+
+        {/* Mobile footer end alignment */}
+        <div className="md:hidden mt-5 border-t border-white/30 pt-5 flex flex-col gap-4 text-gray-200 text-xs">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2"><ShieldCheck size={16}/> Secure Booking</div>
+            <div className="flex items-center gap-2"><UsersRound size={16}/> 10M+ Travels</div>
+            <div className="flex items-center gap-2"><Phone size={16}/> +1-800-Travel</div>
+            <div className="flex items-center gap-2"><Headphones size={16}/> 24/7 Support</div>
+          </div>
+          <div>© 2025 TripAdora. All rights reserved.</div>
         </div>
       </div>
     </footer>

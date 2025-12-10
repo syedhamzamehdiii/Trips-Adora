@@ -121,7 +121,7 @@ const ToursSection = () => {
   }
 
   return (
-    <section id="tours" className="py-16 bg-gray-200">
+    <section id="tours" className="py-12 sm:py-14 bg-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold text-gray-900">Explore our tours</h2>
@@ -173,7 +173,27 @@ const ToursSection = () => {
           </div>
         </div>
         {/* Removed slideshow ticker */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        {/* Mobile swipe */}
+        <div className="sm:hidden mb-8">
+          {loading ? (
+            <div className="text-center text-gray-600">Loading tours...</div>
+          ) : error ? (
+            <div className="text-center text-red-600">{error}</div>
+          ) : tours.length === 0 ? (
+            <div className="text-center text-gray-600">No tours available</div>
+          ) : (
+            <div className="flex overflow-x-auto space-x-4 pb-2 snap-x snap-mandatory">
+              {tours.slice(0,4).map((t) => (
+                <div key={t.id} className="min-w-[260px] snap-start">
+                  <TourCard tour={t} onClick={() => handleCardClick(t)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop / tablet grid */}
+        <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10 sm:mb-12">
           {loading ? (
             <div className="col-span-4 text-center text-gray-600">Loading tours...</div>
           ) : error ? (
@@ -191,7 +211,19 @@ const ToursSection = () => {
           <h3 className="text-2xl font-semibold text-gray-900">Recently Viewed</h3>
           <Link to="/search" className="text-sm text-gray-600 hover:text-gray-800">See more</Link>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Mobile swipe for recently viewed */}
+        <div className="sm:hidden mb-6">
+          <div className="flex overflow-x-auto space-x-4 pb-2 snap-x snap-mandatory">
+            {tours.slice(0,4).map((t) => (
+              <div key={`recent-${t.id}`} className="min-w-[260px] snap-start">
+                <TourCard tour={t} onClick={() => handleCardClick(t)} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Desktop grid for recently viewed */}
+        <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {tours.slice(0,4).map((t) => (
             <TourCard key={`recent-${t.id}`} tour={t} onClick={() => handleCardClick(t)} />
           ))}
@@ -204,13 +236,26 @@ const ToursSection = () => {
         <StatsBanner />
         <h3 className="text-2xl font-semibold text-gray-900 mt-10 mb-6">You Might Like These</h3>
         {shuffledBlogs.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {shuffledBlogs.slice(0,4).map((b) => (
-              <Link key={`like-${b.id}`} to={`/blogs/${b.id}`}>
-                <ExperienceCard image={b.image} title={b.title} price={b.readTime ? `${b.readTime} min read` : b.date || ''} liked={false} id={`blog-${b.id}`} />
-              </Link>
-            ))}
-          </div>
+          <>
+            {/* Mobile swipe */}
+            <div className="sm:hidden flex overflow-x-auto space-x-4 pb-2 snap-x snap-mandatory">
+              {shuffledBlogs.slice(0,4).map((b) => (
+                <div key={`like-${b.id}`} className="min-w-[260px] snap-start">
+                  <Link to={`/blogs/${b.id}`}>
+                    <ExperienceCard image={b.image} title={b.title} price={b.readTime ? `${b.readTime} min read` : b.date || ''} liked={false} id={`blog-${b.id}`} />
+                  </Link>
+                </div>
+              ))}
+            </div>
+            {/* Desktop grid */}
+            <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {shuffledBlogs.slice(0,4).map((b) => (
+                <Link key={`like-${b.id}`} to={`/blogs/${b.id}`}>
+                  <ExperienceCard image={b.image} title={b.title} price={b.readTime ? `${b.readTime} min read` : b.date || ''} liked={false} id={`blog-${b.id}`} />
+                </Link>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </section>

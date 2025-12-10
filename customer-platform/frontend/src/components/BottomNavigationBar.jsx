@@ -16,17 +16,18 @@ const BottomNavigationBar = () => {
 
   return (
     <>
-      <div className="absolute top-24 left-0 right-0 z-40">
+      {/* Desktop navigation */}
+      <div className="absolute top-24 left-0 right-0 z-40 hidden lg:block">
         <div className="max-w-7xl mx-auto px-6">
           {/* Bottom Navigation Bar */}
           <div className="border-b border-white/10">
             {/* Top Row - Secondary Navigation */}
             <div className="flex items-center justify-between h-12 px-6">
               {/* Left Side Dropdowns */}
-              <div className="flex items-center space-x-8">
+              <div className="flex items-center space-x-2 sm:space-x-8 text-[10px] sm:text-sm">
                 <div 
                   ref={attractionsRef}
-                  className="flex items-center text-gray-400 cursor-pointer group transition-colors"
+                  className="flex items-center text-gray-400 cursor-pointer group transition-colors text-[10px] sm:text-sm"
                   onClick={() => setIsAttractionsOpen(!isAttractionsOpen)}
                 >
                   <span className="text-sm font-medium group-hover:text-white">Top Attractions</span>
@@ -34,7 +35,7 @@ const BottomNavigationBar = () => {
                 </div>
                 <div 
                   ref={destinationsRef}
-                  className="flex items-center text-gray-400 cursor-pointer group transition-colors"
+                  className="flex items-center text-gray-400 cursor-pointer group transition-colors text-[10px] sm:text-sm"
                   onClick={() => setIsDestinationsOpen(!isDestinationsOpen)}
                 >
                   <span className="text-sm font-medium group-hover:text-white">Top Destinations</span>
@@ -42,7 +43,7 @@ const BottomNavigationBar = () => {
                 </div>
                 <div 
                   ref={exploreRef}
-                  className="flex items-center text-gray-400 cursor-pointer group transition-colors"
+                  className="flex items-center text-gray-400 cursor-pointer group transition-colors text-[10px] sm:text-sm"
                   onClick={() => setIsExploreOpen(!isExploreOpen)}
                 >
                   <span className="text-sm font-medium group-hover:text-white">Explore TripsAdora</span>
@@ -73,6 +74,42 @@ const BottomNavigationBar = () => {
           </div>
         </div>
       </div>
+
+      {/* Mobile navigation (clean + no bubble background) */}
+      <div className="lg:hidden fixed top-24 left-0 right-0 z-40 px-4">
+<div className="grid grid-cols-3 gap-2 text-xs">
+
+
+     <button
+       ref={attractionsRef}
+       onClick={() => setIsAttractionsOpen(!isAttractionsOpen)}
+       className="flex-1 flex items-center justify-center gap-1 text-white font-medium py-2"
+     >
+       <span>Attractions</span>
+       <FiChevronDown className="text-xs" />
+     </button>
+
+     <button
+       ref={destinationsRef}
+       onClick={() => setIsDestinationsOpen(!isDestinationsOpen)}
+       className="flex-1 flex items-center justify-center gap-1 text-white font-medium py-2"
+     >
+       <span>Destinations</span>
+       <FiChevronDown className="text-xs" />
+     </button>
+
+     <button
+       ref={exploreRef}
+       onClick={() => setIsExploreOpen(!isExploreOpen)}
+       className="flex-1 flex items-center justify-center gap-1 text-white font-medium py-2"
+     >
+       <span>Explore</span>
+       <FiChevronDown className="text-xs" />
+     </button>
+
+  </div>
+</div>
+
 
       {/* Attractions Dropdown */}
       <AttractionsDropdown 

@@ -9,8 +9,8 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
     if (!isOpen || !triggerRef?.current) return
     
     const rect = triggerRef.current.getBoundingClientRect()
-    const dropdownWidth = 400
-    const padding = 20
+    const padding = 16
+    const dropdownWidth = Math.min(400, window.innerWidth - padding * 2)
     
     // Position dropdown below the link, aligned to left edge of trigger
     let left = rect.left
@@ -27,7 +27,8 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
     
     setPosition({
       top: rect.bottom + 5,
-      left: left
+      left: left,
+      width: dropdownWidth
     })
   }, [isOpen, triggerRef])
 
@@ -72,9 +73,9 @@ const AttractionsDropdown = ({ isOpen, onClose, triggerRef }) => {
       {/* Dropdown positioned below link */}
       <div 
         className="fixed z-50 pointer-events-none"
-        style={{ top: `${position.top}px`, left: `${position.left}px` }}
+        style={{ top: `${position.top}px`, left: `${position.left}px`, width: `${position.width || 400}px` }}
       >
-        <div className="bg-white rounded-[20px] shadow-2xl w-[400px] pointer-events-auto overflow-hidden">
+        <div className="bg-white rounded-[20px] shadow-2xl w-full pointer-events-auto overflow-hidden">
           {/* Header */}
           <div className="px-6 pt-5 pb-3 flex items-center gap-2">
             <FiMapPin className="text-red-600 text-xl" />

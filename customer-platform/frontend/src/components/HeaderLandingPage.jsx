@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FiChevronDown } from 'react-icons/fi'
+import { FiChevronDown, FiMenu, FiX } from 'react-icons/fi'
 import SettingsModal from './SettingsModal'
 import { getProfileSummary } from '../services/profileService'
 import { useAuth } from '../context/AuthContext'
@@ -9,6 +9,7 @@ const HeaderLandingPage = ({ backgroundVariant = 'transparent' }) => {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const profileRef = useRef(null)
   
   // Get userId only if authenticated - don't use default
@@ -114,7 +115,7 @@ const HeaderLandingPage = ({ backgroundVariant = 'transparent' }) => {
                 <img 
                   src="/assests/logo1.png" 
                   alt="TripsAdora Logo" 
-                  className="h-14 w-auto object-contain"
+                  className="h-8 sm:h-10 w-auto object-contain"
                 />
               </Link>
 
@@ -161,7 +162,7 @@ const HeaderLandingPage = ({ backgroundVariant = 'transparent' }) => {
                 </Link>
               </nav>
 
-              <div className="flex items-center space-x-6 relative">
+              <div className="hidden md:flex items-center space-x-6 relative">
                 <div className={`flex items-center space-x-1 cursor-pointer transition ${
                   backgroundVariant === 'white' 
                     ? 'text-gray-700 hover:text-[#1d236b]' 
@@ -215,8 +216,65 @@ const HeaderLandingPage = ({ backgroundVariant = 'transparent' }) => {
                   </button>
                 )}
               </div>
+
+              {/* Mobile controls */}
+              <div className="flex items-center gap-3 md:hidden">
+                <div className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                  <span className="text-xs">{languageCode}</span>
+                  <FiChevronDown className="text-xs" />
+                </div>
+                <button
+                  type="button"
+                  aria-label="Toggle menu"
+                  onClick={() => setIsMobileNavOpen(v => !v)}
+                  className="p-2 rounded-lg border border-white/30 bg-white/70 backdrop-blur-sm text-gray-800 hover:bg-white"
+                >
+                  {isMobileNavOpen ? <FiX /> : <FiMenu />}
+                </button>
+              </div>
             </div>
           </div>
+          {/* Mobile drawer */}
+          {isMobileNavOpen && (
+            <div className="md:hidden mt-2 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+              <div className="flex flex-col divide-y divide-gray-100">
+                {[
+                  { label: 'Home', to: '/dashboard' },
+                  { label: 'Blogs', to: '/blogs' },
+                  { label: 'About', to: '/about-us' },
+                  { label: 'Contact', to: '/contact' },
+                ].map(link => (
+                  <Link
+                    key={link.label}
+                    to={link.to}
+                    className="px-5 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                    onClick={() => setIsMobileNavOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                <div className="px-5 py-3">
+                  {isAuthenticated ? (
+                    <button
+                      type="button"
+                      className="w-full bg-[#1d236b] text-white text-sm font-semibold rounded-xl py-2.5"
+                      onClick={() => { setIsSettingsOpen(true); setIsMobileNavOpen(false); }}
+                    >
+                      Profile
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="w-full bg-[#1d236b] text-white text-sm font-semibold rounded-xl py-2.5"
+                      onClick={() => { navigate('/login'); setIsMobileNavOpen(false); }}
+                    >
+                      Login / Sign up
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 

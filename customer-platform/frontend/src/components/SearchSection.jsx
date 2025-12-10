@@ -19,13 +19,13 @@ const SearchSection = () => {
   }
 
   return (
-    <section id="search" className="relative -mt-12 z-20">
+    <section id="search" className="relative -mt-10 sm:-mt-12 z-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-3xl shadow-2xl p-10">
+        <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 lg:p-10">
           {/* Title */}
-          <h2 className="text-4xl font-bold text-gray-900 mb-10 mt-8">Find Your Escape</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6 sm:mb-8 mt-4 sm:mt-6">Find Your Escape</h2>
           {/* Search Form */}
-          <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
             {/* Search Destination */}
             <div className="relative">
               <label className="block text-sm font-semibold text-gray-700 mb-3">Where to?</label>
@@ -35,7 +35,7 @@ const SearchSection = () => {
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   placeholder="Search destination"
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-blue focus:border-custom-blue outline-none text-lg"
+                  className="w-full px-4 py-3 sm:py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-blue focus:border-custom-blue outline-none text-base sm:text-lg"
                   onKeyDown={(e) => { if (e.key === 'Enter') onSubmit(e) }}
                 />
                 <FiSearch className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl" />
@@ -51,7 +51,7 @@ const SearchSection = () => {
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   placeholder="Check dates"
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-blue focus:border-custom-blue outline-none text-lg"
+                  className="w-full px-4 py-3 sm:py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-blue focus:border-custom-blue outline-none text-base sm:text-lg"
                   onFocus={(e) => { if (e.target.showPicker) e.target.showPicker() }}
                   onClick={(e) => { if (e.target.showPicker) e.target.showPicker() }}
                 />
@@ -65,7 +65,7 @@ const SearchSection = () => {
                 <select
                   value={theme}
                   onChange={(e) => setTheme(e.target.value)}
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-blue focus:border-custom-blue outline-none appearance-none bg-white text-lg"
+                  className="w-full px-4 py-3 sm:py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-blue focus:border-custom-blue outline-none appearance-none bg-white text-base sm:text-lg"
                 >
                   <option value="">Select Theme</option>
                   <option value="adventure">Adventure</option>
@@ -79,7 +79,7 @@ const SearchSection = () => {
             
             {/* Search Button */}
             <div className="flex items-end">
-              <button type="submit" className="w-full bg-custom-blue text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-opacity-90 transition-all duration-200 shadow-lg">
+              <button type="submit" className="w-full bg-custom-blue text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg hover:bg-opacity-90 transition-all duration-200 shadow-lg">
                 Find
               </button>
             </div>

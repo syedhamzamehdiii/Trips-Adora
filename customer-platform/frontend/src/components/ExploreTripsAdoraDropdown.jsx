@@ -10,8 +10,8 @@ const ExploreTripsAdoraDropdown = ({ isOpen, onClose, triggerRef }) => {
     if (!isOpen || !triggerRef?.current) return
     
     const rect = triggerRef.current.getBoundingClientRect()
-    const dropdownWidth = 560
-    const padding = 20
+    const padding = 16
+    const dropdownWidth = Math.min(560, window.innerWidth - padding * 2)
     
     // Position dropdown below the link, aligned to left edge of trigger
     let left = rect.left
@@ -28,7 +28,8 @@ const ExploreTripsAdoraDropdown = ({ isOpen, onClose, triggerRef }) => {
     
     setPosition({ 
       top: rect.bottom + 5, 
-      left: left 
+      left: left,
+      width: dropdownWidth
     })
   }, [isOpen, triggerRef])
 
@@ -72,9 +73,9 @@ const ExploreTripsAdoraDropdown = ({ isOpen, onClose, triggerRef }) => {
 
       <div
         className="fixed z-50 pointer-events-none"
-        style={{ top: `${position.top}px`, left: `${position.left}px` }}
+        style={{ top: `${position.top}px`, left: `${position.left}px`, width: `${position.width || 560}px` }}
       >
-        <div className="bg-white rounded-[20px] shadow-2xl w-[560px] pointer-events-auto overflow-hidden">
+        <div className="bg-white rounded-[20px] shadow-2xl w-full pointer-events-auto overflow-hidden">
           <div className="grid grid-cols-2 gap-6 px-6 pt-5 pb-5">
             <div>
               <div className="flex items-center gap-2 mb-2">
