@@ -87,7 +87,7 @@ const SupplierPerformanceTable = () => {
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-gray-800">Top supplier performance</h2>
+        <h2 className="text-xl font-bold text-gray-800">Supplier's Performance</h2>
         <p className="text-gray-500 text-sm mt-1">
           Complete breakdown of booking metrics and product preferences by country.
         </p>

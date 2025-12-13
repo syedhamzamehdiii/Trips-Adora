@@ -69,7 +69,11 @@ const AdminDashboard = () => {
         setUnreadCount(unreadTotal);
         setNotifHasNew(unreadTotal > 0);
       } catch (e) {
-        // silent fail; keep previous state
+        // silent fail for network errors (backend might be starting up)
+        if (e.code !== 'ERR_NETWORK' && e.message !== 'Network Error') {
+          // Only log non-network errors
+          console.warn('Failed to fetch unread messages:', e);
+        }
       } finally {
         timer = setTimeout(fetchUnread, 10000); // 10s poll
       }

@@ -1,16 +1,23 @@
 import React, { useMemo } from 'react';
 import { SupplierPortalHeader, SupplierPortalFooter } from './SupplierPortalChrome';
 
-const SupplierRejectionScreen = ({ rejectionReason, supplierId }) => {
+const SupplierRejectionScreen = ({ rejectionReason, supplierId, isBlocked = false }) => {
+  // Check if this is a blocked account (from localStorage or props)
+  const isBlockedAccount = isBlocked || localStorage.getItem('supplier_onboarding_status') === 'blocked';
+  
   // Create Gmail compose link with pre-filled email
   const gmailLink = useMemo(() => {
     const recipient = 'support@tripsadora.com';
-    const subject = encodeURIComponent('Supplier Application Rejection Inquiry');
+    const subject = encodeURIComponent(
+      isBlockedAccount 
+        ? 'Supplier Account Blocked Inquiry' 
+        : 'Supplier Application Rejection Inquiry'
+    );
     
     // Build email body
     let body = 'This is my SUPP-ID: ' + (supplierId || 'N/A');
     if (rejectionReason) {
-      body += '\n\nThe reason for rejection is this: ' + rejectionReason;
+      body += '\n\nThe reason for ' + (isBlockedAccount ? 'blocking' : 'rejection') + ' is this: ' + rejectionReason;
     }
     body += '\n\n';
     
@@ -18,7 +25,7 @@ const SupplierRejectionScreen = ({ rejectionReason, supplierId }) => {
     
     // Gmail compose URL format
     return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipient)}&su=${subject}&body=${bodyEncoded}`;
-  }, [supplierId, rejectionReason]);
+  }, [supplierId, rejectionReason, isBlockedAccount]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -48,23 +55,34 @@ const SupplierRejectionScreen = ({ rejectionReason, supplierId }) => {
 
           {/* Title */}
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-            Unsuccessful
+            {isBlockedAccount ? 'Account Blocked' : 'Unsuccessful'}
           </h1>
 
-          {/* Rejection Message */}
+          {/* Rejection/Blocked Message */}
           <div className="space-y-4 mb-8">
             <p className="text-lg md:text-xl text-gray-700 leading-relaxed">
-              Thanks for reaching out to partner with us! Unfortunately, we can't move forward with your application right now.
+              {isBlockedAccount 
+                ? 'Your supplier account has been blocked. You cannot access your dashboard or perform any actions until an admin unblocks your account.'
+                : "Thanks for reaching out to partner with us! Unfortunately, we can't move forward with your application right now."}
             </p>
             {rejectionReason && (
               <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-left">
-                <p className="text-sm font-semibold text-red-900 mb-2">Reason for rejection:</p>
+                <p className="text-sm font-semibold text-red-900 mb-2">
+                  Reason for {isBlockedAccount ? 'blocking' : 'rejection'}:
+                </p>
                 <p className="text-sm text-red-800">{rejectionReason}</p>
               </div>
             )}
-            <p className="text-lg md:text-xl text-gray-700 leading-relaxed">
-              However, we'll be in touch if we decide to resume with your application later.
-            </p>
+            {!isBlockedAccount && (
+              <p className="text-lg md:text-xl text-gray-700 leading-relaxed">
+                However, we'll be in touch if we decide to resume with your application later.
+              </p>
+            )}
+            {isBlockedAccount && (
+              <p className="text-lg md:text-xl text-gray-700 leading-relaxed">
+                Please contact support if you believe this is an error or if you have any questions.
+              </p>
+            )}
           </div>
 
           {/* Contact Support Button */}

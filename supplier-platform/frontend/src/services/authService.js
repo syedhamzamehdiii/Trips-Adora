@@ -156,6 +156,18 @@ class AuthService {
       }
     } catch (error) {
       console.error('Login error:', error)
+      
+      // Check if user is blocked (403 Forbidden)
+      if (error.response?.status === 403) {
+        const blockedReason = error.response?.data?.detail || 'Your account has been blocked.'
+        return {
+          success: false,
+          blocked: true,
+          reason: blockedReason,
+          error: blockedReason
+        }
+      }
+      
       throw new Error(
         error.response?.data?.detail || 
         'Login failed. Please check your credentials.'
@@ -183,6 +195,18 @@ class AuthService {
       }
     } catch (error) {
       console.error('Google login error:', error)
+      
+      // Check if user is blocked (403 Forbidden)
+      if (error.response?.status === 403) {
+        const blockedReason = error.response?.data?.detail || 'Your account has been blocked.'
+        return {
+          success: false,
+          blocked: true,
+          reason: blockedReason,
+          error: blockedReason
+        }
+      }
+      
       throw new Error(
         error.response?.data?.detail || 
         'Google login failed. Please try again.'
@@ -215,6 +239,17 @@ class AuthService {
       }
     } catch (error) {
       console.error('Google code exchange error:', error)
+      
+      // Check if user is blocked (403 Forbidden)
+      if (error.response?.status === 403) {
+        const blockedReason = error.response?.data?.detail || 'Your account has been blocked.'
+        return {
+          success: false,
+          blocked: true,
+          reason: blockedReason,
+          error: blockedReason
+        }
+      }
       
       // Provide more specific error messages
       if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
@@ -258,6 +293,16 @@ class AuthService {
       return response.data
     } catch (error) {
       console.error('Get current user error:', error)
+      
+      // Check if user is blocked (403 Forbidden)
+      if (error.response?.status === 403) {
+        const blockedReason = error.response?.data?.detail || 'Your account has been blocked.'
+        return {
+          is_active: false,
+          blocked_reason: blockedReason,
+          blocked: true
+        }
+      }
       
       // Handle network errors gracefully
       if (error.code === 'ERR_NETWORK' || error.message.includes('CORS')) {

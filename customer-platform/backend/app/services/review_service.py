@@ -71,15 +71,41 @@ class ReviewService:
     async def list_reviews_by_product(product_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """
         Fetch reviews for a specific product.
+        Supports matching by string or ObjectId format.
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
-            match = {"product_id": product_id}
-            # Support ObjectId stored ids
+            if not product_id:
+                logger.warning(f"[list_reviews_by_product] Empty product_id provided")
+                return []
+            
+            logger.info(f"[list_reviews_by_product] Fetching reviews for product_id: {product_id}, limit: {limit}")
+            
+            # Build match query to handle both string and ObjectId formats
+            match_conditions = [{"product_id": product_id}]
+            
+            # If product_id is a valid ObjectId string, also try matching as ObjectId
             if ObjectId.is_valid(product_id):
-                match = {"$or": [{"product_id": product_id}, {"product_id": ObjectId(product_id)}]}
+                try:
+                    obj_id = ObjectId(product_id)
+                    match_conditions.append({"product_id": obj_id})
+                    # Also try string version in case DB stores as string
+                    match_conditions.append({"product_id": str(obj_id)})
+                    logger.debug(f"[list_reviews_by_product] Added ObjectId match conditions for {product_id}")
+                except Exception as e:
+                    logger.warning(f"[list_reviews_by_product] Failed to create ObjectId from {product_id}: {e}")
+            
+            # Use $or to match any of the conditions
+            match = {"$or": match_conditions} if len(match_conditions) > 1 else match_conditions[0]
+            logger.debug(f"[list_reviews_by_product] Using match query: {match}")
 
+            collection = ReviewService._collection()
+            logger.debug(f"[list_reviews_by_product] Collection: {collection.name}")
+            
             cursor = (
-                ReviewService._collection()
+                collection
                 .find(
                     match,
                     {
@@ -100,9 +126,22 @@ class ReviewService:
                 .limit(limit)
             )
             documents = await cursor.to_list(length=limit)
+            logger.info(f"[list_reviews_by_product] Found {len(documents) if documents else 0} reviews for product {product_id}")
+            
+            if not documents:
+                return []
+            
+            serialized = [ReviewService._serialize(doc) for doc in documents]
+            logger.debug(f"[list_reviews_by_product] Serialized {len(serialized)} reviews")
+            return serialized
+            
         except (ConnectionError, AutoReconnect, ServerSelectionTimeoutError) as exc:
+            logger.error(f"[list_reviews_by_product] Database connection error for product {product_id}: {exc}", exc_info=True)
             raise DatabaseUnavailableError("Review data is currently unavailable.") from exc
-        return [ReviewService._serialize(doc) for doc in documents]
+        except Exception as e:
+            # Log error but return empty list to prevent breaking the frontend
+            logger.error(f"[list_reviews_by_product] Error fetching reviews for product {product_id}: {e}", exc_info=True)
+            return []
 
     @staticmethod
     async def _resolve_author(user_id: str, author: Optional[Dict[str, Any]]) -> Dict[str, Any]:

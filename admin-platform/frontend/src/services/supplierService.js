@@ -51,6 +51,20 @@ export const getSupplierProducts = async (supplierId, page = 1, pageSize = 10) =
   return await apiService.get(`${BASE_PATH}/${encodeURIComponent(supplierId)}/products`, params);
 };
 
+export const getBlockedSuppliers = async (page = 1, pageSize = 10, search = null) => {
+  const params = { page, page_size: pageSize };
+  if (search) params.search = search;
+  return await apiService.get(`${BASE_PATH}/blocked`, params);
+};
+
+export const blockSupplier = async (supplierId, reason = null) => {
+  return await apiService.post(`${BASE_PATH}/${encodeURIComponent(supplierId)}/block`, { reason });
+};
+
+export const unblockSupplier = async (supplierId) => {
+  return await apiService.post(`${BASE_PATH}/${encodeURIComponent(supplierId)}/unblock`, {});
+};
+
 export const getPendingOnboardings = async (status = 'pending') => {
   const params = status ? { status_filter: status } : {};
   return await supplierApiService.get(SUPPLIER_ONBOARDING_PATH, params);
@@ -70,4 +84,7 @@ export default {
   getSupplierProducts,
   getPendingOnboardings,
   updateOnboardingStatus,
+  getBlockedSuppliers,
+  blockSupplier,
+  unblockSupplier,
 };

@@ -23,6 +23,9 @@ class User(Document):
     role: UserRole = UserRole.SUPPLIER
     is_active: bool = True
     is_verified: bool = False
+    blocked_reason: Optional[str] = None
+    blocked_at: Optional[datetime] = None
+    blocked_by: Optional[str] = None
     permissions: Dict[str, bool] = Field(
         default_factory=lambda: {
             "productsManagement": False,

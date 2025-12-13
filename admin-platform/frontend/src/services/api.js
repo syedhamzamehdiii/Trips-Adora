@@ -26,6 +26,12 @@ const createApi = (baseURL, { staticToken = '', localTokenKey = 'access_token' }
   instance.interceptors.response.use(
     (response) => response,
     async (error) => {
+      // Suppress network error logs (backend might be starting up)
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        // Silently handle network errors - don't log them
+        return Promise.reject(error);
+      }
+      
       // Handle 401 errors - token expired or invalid
       if (error.response?.status === 401) {
         console.error('❌ Authentication failed (401): Token expired or invalid');

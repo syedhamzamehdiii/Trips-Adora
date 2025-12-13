@@ -29,6 +29,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     if user is None:
         raise credentials_exception
     
+    # Check if user is blocked
+    if not user.is_active and user.blocked_reason:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Account has been blocked: {user.blocked_reason}",
+        )
+    
     return user
 
 

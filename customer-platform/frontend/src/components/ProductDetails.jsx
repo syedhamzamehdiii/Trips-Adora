@@ -1408,22 +1408,46 @@ const ProductDetails = () => {
   useEffect(() => {
     let active = true
     const fetchReviews = async () => {
-      if (!product?.id) return
-      setReviewsLoading(true)
-      try {
-        const data = await getProductReviews(product.id, { limit: 150 })
-        if (!active) return
-        setProductReviews(data?.reviews || [])
-      } catch (err) {
-        if (!active) return
-        console.error('Failed to load product reviews', err)
-        setProductReviews([])
-      } finally {
-        if (active) setReviewsLoading(false)
+      if (!product?.id) {
+        console.log('[ProductDetails] No product ID, skipping review fetch');
+        return;
       }
-    }
-    fetchReviews()
-    return () => { active = false }
+      
+      console.log(`[ProductDetails] Fetching reviews for product: ${product.id}`);
+      setReviewsLoading(true);
+      
+      try {
+        const data = await getProductReviews(product.id, { limit: 150 });
+        console.log(`[ProductDetails] Received review data:`, data);
+        
+        if (!active) {
+          console.log('[ProductDetails] Component unmounted, skipping state update');
+          return;
+        }
+        
+        const reviews = data?.reviews || [];
+        console.log(`[ProductDetails] Setting ${reviews.length} reviews`);
+        setProductReviews(reviews);
+      } catch (err) {
+        if (!active) {
+          console.log('[ProductDetails] Component unmounted during error, skipping state update');
+          return;
+        }
+        console.error('[ProductDetails] Failed to load product reviews', err);
+        setProductReviews([]);
+      } finally {
+        if (active) {
+          console.log('[ProductDetails] Review fetch completed, setting loading to false');
+          setReviewsLoading(false);
+        }
+      }
+    };
+    
+    fetchReviews();
+    return () => { 
+      console.log('[ProductDetails] Cleaning up review fetch');
+      active = false;
+    };
   }, [product?.id])
 
   const hasLiveReviews = productReviews.length > 0
@@ -2795,40 +2819,40 @@ const ProductDetails = () => {
                 reviewList
                   .slice(0, 5 + (showAllReviews ? reviewList.length : 0) - (showAllReviews ? 5 : 0))
                   .map((review, idx) => (
-                    <div key={`${review.name}-${idx}`} className="flex gap-4 bg-white shadow-md rounded-lg p-4">
+                <div key={`${review.name}-${idx}`} className="flex gap-4 bg-white shadow-md rounded-lg p-4">
                       <div className="w-10 h-10 rounded-full bg-[#D9D9D9] flex items-center justify-center flex-shrink-0 overflow-hidden">
                         {review.avatar ? (
                           <img src={review.avatar} alt={review.name} className="w-full h-full object-cover" />
                         ) : (
-                          <span className="text-sm font-semibold text-[#3B69E2]">
-                            {review.initials || review.name?.[0] || 'G'}
-                          </span>
+                    <span className="text-sm font-semibold text-[#3B69E2]">
+                      {review.initials || review.name?.[0] || 'G'}
+                    </span>
                         )}
-                      </div>
+                  </div>
 
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-900">{review.name}</h4>
-                            <p className="text-xs text-gray-500">{review.date}</p>
-                          </div>
-                          <div className="flex gap-1">
-                            {[1, 2, 3, 4, 5].map((s) => (
-                              <Star
-                                key={s}
-                                className={`w-4 h-4 ${s <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
-                                fill={s <= review.rating ? 'currentColor' : 'none'}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-700 leading-relaxed">
-                          {review.title && <span className="font-semibold mr-1">{review.title}</span>}
-                          {review.text}
-                        </p>
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-900">{review.name}</h4>
+                        <p className="text-xs text-gray-500">{review.date}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`w-4 h-4 ${s <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                            fill={s <= review.rating ? 'currentColor' : 'none'}
+                          />
+                        ))}
                       </div>
                     </div>
-                  ))}
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                          {review.title && <span className="font-semibold mr-1">{review.title}</span>}
+                      {review.text}
+                    </p>
+                  </div>
+                </div>
+              ))}
               {!reviewsLoading && reviewList.length > 5 && (
                 <div className="mt-2">
                   <button

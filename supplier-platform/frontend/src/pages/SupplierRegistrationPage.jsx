@@ -131,12 +131,20 @@ const SupplierRegistrationPage = () => {
     // Check localStorage immediately on mount
     try {
       const stored = localStorage.getItem('supplier_onboarding_status');
-      return stored === 'rejected';
+      const urlParams = new URLSearchParams(window.location.search);
+      const isBlocked = urlParams.get('blocked') === 'true';
+      return stored === 'rejected' || stored === 'blocked' || isBlocked;
     } catch (_) {
       return false;
     }
   });
-  const [rejectionReason, setRejectionReason] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState(() => {
+    try {
+      return localStorage.getItem('supplier_blocked_reason') || null;
+    } catch (_) {
+      return null;
+    }
+  });
   const [supplierId, setSupplierId] = useState(null);
   const [needsSelfVerification, setNeedsSelfVerification] = useState(() => {
     try {
@@ -227,10 +235,27 @@ const SupplierRegistrationPage = () => {
         }
       }
       
+      // Check if blocked from URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const isBlocked = urlParams.get('blocked') === 'true';
+      if (isBlocked) {
+        const blockedReason = localStorage.getItem('supplier_blocked_reason');
+        setShowRejectionScreen(true);
+        setRejectionReason(blockedReason);
+        setSupplierStatus('blocked');
+        localStorage.setItem('supplier_onboarding_status', 'blocked');
+        return;
+      }
+
       if (!emailToCheck) {
-        // If we have rejected status in localStorage but no email yet, wait for email
-        if (initialSupplierStatus === 'rejected' || supplierStatus === 'rejected') {
+        // If we have rejected/blocked status in localStorage but no email yet, wait for email
+        if (initialSupplierStatus === 'rejected' || supplierStatus === 'rejected' || 
+            initialSupplierStatus === 'blocked' || supplierStatus === 'blocked') {
           setShowRejectionScreen(true);
+          const blockedReason = localStorage.getItem('supplier_blocked_reason');
+          if (blockedReason) {
+            setRejectionReason(blockedReason);
+          }
         }
         return;
       }
@@ -1840,9 +1865,10 @@ const SupplierRegistrationPage = () => {
     }
   };
 
-  // Show rejection screen if supplier is rejected
+  // Show rejection screen if supplier is rejected or blocked
   if (showRejectionScreen) {
-    return <SupplierRejectionScreen rejectionReason={rejectionReason} supplierId={supplierId} />;
+    const isBlocked = supplierStatus === 'blocked' || localStorage.getItem('supplier_onboarding_status') === 'blocked';
+    return <SupplierRejectionScreen rejectionReason={rejectionReason} supplierId={supplierId} isBlocked={isBlocked} />;
   }
 
   if (showWelcomeScreen) {

@@ -905,15 +905,34 @@ async def get_product_reviews(
     product_id: str,
     limit: int = Query(50, ge=1, le=200, description="Max reviews to return for product"),
 ):
+    """
+    Get reviews for a specific product.
+    Returns empty list if no reviews found.
+    """
+    logger.info(f"[get_product_reviews] Request received for product_id: {product_id}, limit: {limit}")
+    
     try:
-        reviews = await ReviewService.list_reviews_by_product(product_id, limit=limit)
-        return ReviewListResponse(reviews=reviews)
+        if not product_id or not product_id.strip():
+            logger.warning(f"[get_product_reviews] Empty product_id provided")
+            return ReviewListResponse(reviews=[])
+        
+        product_id_clean = product_id.strip()
+        logger.info(f"[get_product_reviews] Fetching reviews for product: {product_id_clean}")
+        
+        reviews = await ReviewService.list_reviews_by_product(product_id_clean, limit=limit)
+        reviews_list = reviews or []
+        
+        logger.info(f"[get_product_reviews] Returning {len(reviews_list)} reviews for product {product_id_clean}")
+        return ReviewListResponse(reviews=reviews_list)
+        
     except DatabaseUnavailableError:
+        logger.warning(f"[get_product_reviews] Database unavailable when fetching reviews for product {product_id}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to reach the database. Please try again shortly.",
         )
     except Exception as e:
-        logger.error(f"Error fetching product reviews: {e}")
-        raise HTTPException(status_code=500, detail="Error fetching product reviews")
+        logger.error(f"[get_product_reviews] Error fetching product reviews for {product_id}: {e}", exc_info=True)
+        # Return empty list instead of error to prevent frontend issues
+        return ReviewListResponse(reviews=[])
 

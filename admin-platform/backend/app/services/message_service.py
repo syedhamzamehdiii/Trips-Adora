@@ -110,9 +110,9 @@ class AdminMessageService:
         """
         try:
             messages_collection = AdminMessageService._get_collection(AdminMessageService.MESSAGES_COLLECTION)
-
+            
             conversation_id = AdminMessageService._conversation_id(recipient_type, recipient_id)
-
+            
             message_doc = {
                 "conversation_id": conversation_id,
                 "sender_type": "admin",
@@ -130,15 +130,15 @@ class AdminMessageService:
                 "attachments": [],
                 "created_at": datetime.utcnow()
             }
-
+            
             result = await messages_collection.insert_one(message_doc)
             message_doc["_id"] = result.inserted_id
             message_doc["id"] = str(result.inserted_id)
-
+            
             logger.info(f"Admin message sent to {recipient_type} {recipient_id}")
-
+            
             return message_doc
-
+            
         except Exception as e:
             logger.error(f"Error sending admin message: {e}")
             raise
