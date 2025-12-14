@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext';
 const SupplierRegistrationPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user: authUser } = useAuth(); // Get user from AuthContext
+  const { user: authUser, updateUser } = useAuth(); // Get user and updateUser from AuthContext
   
   // State for user info
   const [userInfo, setUserInfo] = useState({ name: '', email: '' });
@@ -69,16 +69,23 @@ const SupplierRegistrationPage = () => {
     }
   }, [userInfo.email]); // Only depend on userInfo.email, not formData to avoid loops
   
+  const hasSubmittedRegistration = () => {
+    try {
+      return localStorage.getItem('supplier_onboarding_submitted') === 'true';
+    } catch (_) {
+      return false;
+    }
+  };
+
   const initialSupplierStatus = useMemo(() => {
     try {
       const stored =
         localStorage.getItem('supplier_onboarding_status') ||
         sessionStorage.getItem('supplier_onboarding_status');
 
-      // Don't auto-verify - only use stored status if it exists
-      // Default to 'pending_admin_review' for new suppliers
+      // Never trust a cached "verified" status; force a fresh check/pending view
       if (stored === 'verified') {
-        return 'verified';
+        return 'pending_verification';
       }
       
       if (stored === 'rejected') {
@@ -125,7 +132,13 @@ const SupplierRegistrationPage = () => {
   const [submissionTimestamp, setSubmissionTimestamp] = useState(null);
   const [supplierMode, setSupplierMode] = useState(true);
   const [supplierStatus, setSupplierStatus] = useState(initialSupplierStatus);
-  const [showDashboardView, setShowDashboardView] = useState(initialSupplierStatus === 'pending_verification');
+  const [showDashboardView, setShowDashboardView] = useState(() => {
+    // Only show dashboard if we have a confirmed pending_verification status
+    // If status is 'onboarding' or undefined, show registration form
+    const stored = localStorage.getItem('supplier_onboarding_status');
+    const submitted = hasSubmittedRegistration();
+    return stored === 'pending_verification' && submitted;
+  });
   const [showWelcomeScreen, setShowWelcomeScreen] = useState(initialSupplierStatus === 'onboarding');
   const [showRejectionScreen, setShowRejectionScreen] = useState(() => {
     // Check localStorage immediately on mount
@@ -153,6 +166,7 @@ const SupplierRegistrationPage = () => {
       return false;
     }
   });
+  const [approvedFromApi, setApprovedFromApi] = useState(false);
 
   const logoInputRef = useRef(null);
   const insuranceInputRef = useRef(null);
@@ -160,6 +174,7 @@ const SupplierRegistrationPage = () => {
   const idFrontInputRef = useRef(null);
   const idBackInputRef = useRef(null);
   const dashboardProfileRef = useRef(null);
+  const statusPollIntervalRef = useRef(null);
   const [showSocialInfo, setShowSocialInfo] = useState(false);
   const [showCountrySuggestions, setShowCountrySuggestions] = useState(false);
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
@@ -171,6 +186,19 @@ const SupplierRegistrationPage = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState(null);
+  const hasRegistrationProgress = useMemo(() => {
+    return (
+      currentStep > 1 ||
+      !!formData.businessName ||
+      !!formData.businessPhone ||
+      !!formData.businessEmail ||
+      !!formData.businessWebsite ||
+      !!formData.personCountry ||
+      !!formData.personCity ||
+      !!formData.personAddress
+    );
+  }, [currentStep, formData]);
+  const [isStatusLoading, setIsStatusLoading] = useState(true);
 
   const businessTypes = [
     {
@@ -219,12 +247,19 @@ const SupplierRegistrationPage = () => {
       localStorage.setItem('supplier_onboarding_status', supplierStatus);
     } catch (_) {}
 
-    setShowWelcomeScreen(supplierStatus === 'onboarding');
+    // Only set welcome screen if status is onboarding AND we haven't started registration
+    // Don't override if user has already started the registration process
+    if (supplierStatus === 'onboarding' && currentStep === 1 && !formData.businessName) {
+      setShowWelcomeScreen(true);
+    }
     setShowDashboardView(supplierStatus === 'pending_verification');
-  }, [supplierStatus]);
+  }, [supplierStatus, currentStep, formData.businessName]);
 
   // Check onboarding status on mount and when email is available
   useEffect(() => {
+    let isMounted = true;
+    let hasCheckedStatus = false; // Track if we've done initial status check
+
     const checkOnboardingStatus = async () => {
       // Get email from userInfo or URL params (decode if from URL)
       let emailToCheck = userInfo.email;
@@ -256,35 +291,115 @@ const SupplierRegistrationPage = () => {
           if (blockedReason) {
             setRejectionReason(blockedReason);
           }
+        if (!emailToCheck) {
+        // If we have rejected status in localStorage but no email yet, wait for email
+        if (initialSupplierStatus === 'rejected' || supplierStatus === 'rejected') {
+          setShowRejectionScreen(true);
+        } else if (!hasCheckedStatus) {
+          // For new users without email yet, show welcome screen
+          setShowWelcomeScreen(true);
+          setSupplierStatus('onboarding');
         }
         return;
       }
 
       try {
         const onboardingData = await supplierOnboardingService.getOnboardingByEmail(emailToCheck);
+        if (!isMounted) return; // Component unmounted, don't update state
+        
+        hasCheckedStatus = true;
+        
         if (onboardingData) {
           const status = onboardingData.status;
           
           if (status === 'rejected') {
+            // Clear any polling interval
+            if (statusPollIntervalRef.current) {
+              clearInterval(statusPollIntervalRef.current);
+              statusPollIntervalRef.current = null;
+            }
             setShowRejectionScreen(true);
             setRejectionReason(onboardingData.rejection_reason || null);
             setSupplierId(onboardingData.id || null);
             setSupplierStatus('rejected');
             localStorage.setItem('supplier_onboarding_status', 'rejected');
+            setShowWelcomeScreen(false);
           } else if (status === 'approved') {
+            // Clear any polling interval
+            if (statusPollIntervalRef.current) {
+              clearInterval(statusPollIntervalRef.current);
+              statusPollIntervalRef.current = null;
+            }
+            
+            // Update user context to mark as verified
+            if (authUser && updateUser) {
+              updateUser({ is_verified: true });
+            }
+            
+            setApprovedFromApi(true);
             setShowRejectionScreen(false);
+            setShowWelcomeScreen(false);
             setSupplierStatus('verified');
             localStorage.setItem('supplier_onboarding_status', 'verified');
+            localStorage.removeItem('supplier_requires_self_verification');
+            
             // Redirect to dashboard if approved
-            navigate('/dashboard');
+            // Use window.location to ensure full page navigation and prevent redirect loops
+            // This will cause a full page reload, which will refresh the auth context
+            setTimeout(() => {
+              window.location.href = '/dashboard';
+            }, 100);
             return;
-          } else if (status === 'pending') {
+      } else if (status === 'pending' || status === 'pending_admin_review') {
             setShowRejectionScreen(false);
-            setSupplierStatus('pending_verification');
-            localStorage.setItem('supplier_onboarding_status', 'pending_verification');
-          }
+        const submitted = hasSubmittedRegistration();
+        if (submitted) {
+          setShowWelcomeScreen(false); // Hide welcome screen if they have pending status
+          setSupplierStatus('pending_verification');
+          localStorage.setItem('supplier_onboarding_status', 'pending_verification');
+          setShowDashboardView(true);
+        } else {
+          // If we somehow have a pending status but no submission flag, keep user on registration
+          setSupplierStatus('onboarding');
+          localStorage.removeItem('supplier_onboarding_status');
+          setShowDashboardView(false);
+          setShowWelcomeScreen(true);
         }
+            
+            // Start polling if not already polling (check every 2 minutes)
+            if (!statusPollIntervalRef.current) {
+              statusPollIntervalRef.current = setInterval(() => {
+                if (isMounted) {
+                  checkOnboardingStatus();
+                }
+              }, 120000); // Poll every 2 minutes
+            }
+          }
+        } else {
+          // No onboarding record found - show welcome screen for new users
+          // Clear any polling interval
+          if (statusPollIntervalRef.current) {
+            clearInterval(statusPollIntervalRef.current);
+            statusPollIntervalRef.current = null;
+          }
+          
+          console.log('No onboarding record found, showing welcome screen');
+          setShowRejectionScreen(false);
+          setSupplierStatus('onboarding');
+          setShowDashboardView(false);
+          // Show welcome screen for new users who haven't started registration
+          if (!hasRegistrationProgress) {
+            setShowWelcomeScreen(true);
+          }
+          // Clear any stale status from localStorage
+          localStorage.removeItem('supplier_onboarding_status');
+          localStorage.removeItem('supplier_onboarding_submitted');
+          localStorage.removeItem('supplier_requires_self_verification');
+        }
+        setIsStatusLoading(false);
       } catch (error) {
+        if (!isMounted) return; // Component unmounted, don't update state
+        
         console.error('Error checking onboarding status:', error);
         // If status was already rejected in localStorage, show rejection screen even if API fails
         if (initialSupplierStatus === 'rejected' || supplierStatus === 'rejected') {
@@ -298,14 +413,55 @@ const SupplierRegistrationPage = () => {
             setShowRejectionScreen(true);
           }
         }
+        setIsStatusLoading(false);
       }
     };
 
     // Only check status if we have email or if status is rejected
-    if (userInfo.email || searchParams.get('email') || initialSupplierStatus === 'rejected' || supplierStatus === 'rejected') {
-      checkOnboardingStatus();
+    // Add a small delay to allow welcome screen to render first for new users
+    const shouldCheck = userInfo.email || searchParams.get('email') || initialSupplierStatus === 'rejected' || supplierStatus === 'rejected';
+    
+    if (shouldCheck) {
+      // Delay status check slightly to let welcome screen render first
+      const timeoutId = setTimeout(() => {
+        checkOnboardingStatus();
+        
+        // If status is pending_verification, start polling immediately
+        if (supplierStatus === 'pending_verification' || initialSupplierStatus === 'pending_verification') {
+          if (!statusPollIntervalRef.current) {
+            statusPollIntervalRef.current = setInterval(() => {
+              if (isMounted) {
+                checkOnboardingStatus();
+              }
+            }, 120000); // Poll every 2 minutes
+          }
+        }
+      }, 300); // Small delay to let welcome screen render first
+      
+      // Cleanup function
+      return () => {
+        isMounted = false;
+        clearTimeout(timeoutId);
+        if (statusPollIntervalRef.current) {
+          clearInterval(statusPollIntervalRef.current);
+          statusPollIntervalRef.current = null;
+        }
+      };
+    } else {
+      // No email yet - show welcome screen for new users
+      setShowWelcomeScreen(true);
+      setSupplierStatus('onboarding');
+      setIsStatusLoading(false);
+      
+      return () => {
+        isMounted = false;
+        if (statusPollIntervalRef.current) {
+          clearInterval(statusPollIntervalRef.current);
+          statusPollIntervalRef.current = null;
+        }
+      };
     }
-  }, [userInfo.email, searchParams, initialSupplierStatus, supplierStatus, navigate]);
+  }, [userInfo.email, searchParams, initialSupplierStatus, supplierStatus, authUser, updateUser, currentStep, formData.businessName]);
 
   const handleEmployeeCountChange = (increment) => {
     if (increment) {
@@ -640,6 +796,7 @@ const SupplierRegistrationPage = () => {
       // Update status
       setSupplierStatus('pending_verification');
       localStorage.setItem('supplier_onboarding_status', 'pending_verification');
+      localStorage.setItem('supplier_onboarding_submitted', 'true');
       
     } catch (error) {
       console.error('Error submitting registration:', error);
@@ -1418,8 +1575,10 @@ const SupplierRegistrationPage = () => {
 
   const handleStartVerification = () => {
     updateSelfVerificationFlag(false);
-    setSupplierStatus('registering');
+    setSupplierStatus('onboarding');
     setShowDashboardView(false);
+    setShowWelcomeScreen(false); // Hide welcome screen and show registration form
+    setCurrentStep(1); // Reset to first step
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1866,12 +2025,43 @@ const SupplierRegistrationPage = () => {
   };
 
   // Show rejection screen if supplier is rejected or blocked
+  // If supplier is verified (confirmed via API or auth context), redirect to dashboard
+  if ((approvedFromApi || authUser?.is_verified) && supplierStatus === 'verified' && !showSubmissionSummary) {
+    // Use window.location for full page reload to ensure auth context is refreshed
+    if (window.location.pathname !== '/dashboard') {
+      window.location.href = '/dashboard';
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#c6dbfa]">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Redirecting to dashboard...</p>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Show rejection screen if supplier is rejected
   if (showRejectionScreen) {
     const isBlocked = supplierStatus === 'blocked' || localStorage.getItem('supplier_onboarding_status') === 'blocked';
     return <SupplierRejectionScreen rejectionReason={rejectionReason} supplierId={supplierId} isBlocked={isBlocked} />;
   }
 
-  if (showWelcomeScreen) {
+  // If user already started filling the form, never show the welcome screen
+  const shouldShowWelcome = showWelcomeScreen && !hasRegistrationProgress;
+
+  if (isStatusLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#c6dbfa]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking your onboarding status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (shouldShowWelcome) {
     return renderWelcomeScreen();
   }
 

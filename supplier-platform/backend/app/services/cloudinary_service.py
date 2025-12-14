@@ -10,11 +10,19 @@ from fastapi import UploadFile, HTTPException, status
 from io import BytesIO
 import logging
 from app.core.config import settings
+from pathlib import Path
+import re
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 # Initialize Cloudinary (will be configured in startup)
 cloudinary_configured = False
+
+def _slugify_filename(name: str) -> str:
+    """Create a safe, readable slug from a filename (without extension)."""
+    slug = re.sub(r"[^a-zA-Z0-9\-_.]+", "-", name).strip("-_.")
+    return slug or "file"
 
 
 def configure_cloudinary(
@@ -66,6 +74,11 @@ async def upload_image(
         # Check content type
         content_type = file.content_type or ""
         filename = file.filename or ""
+        original_stem = Path(filename).stem if filename else "file"
+        slug_base = _slugify_filename(original_stem)
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        auto_public_id = f"{slug_base}-{timestamp}"
+        safe_public_id = public_id or auto_public_id
         
         # Also check file extension as fallback (browsers sometimes don't send correct content-type)
         file_extension = filename.lower().split('.')[-1] if '.' in filename else ""
@@ -75,8 +88,22 @@ async def upload_image(
         is_pdf = content_type in allowed_pdf_types or is_pdf_by_extension
         is_image = content_type in allowed_image_types or is_image_by_extension
         
+        # Validate file size (10MB limit) and sniff magic header
+        file_content = await file.read()
+        if len(file_content) > 10 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File size must be less than 10MB"
+            )
+        
+        # Detect PDF by magic number if content-type/extension are missing
+        is_pdf_magic = file_content[:4] == b"%PDF"
+        if is_pdf_magic:
+            is_pdf = True
+            is_image = False
+        
         # For onboarding folder, allow both images and PDFs
-        # For other folders, only allow images (unless it's a PDF)
+        # For other folders, only allow images unless it's detected as PDF
         if folder.startswith("supplier/onboarding"):
             if not (is_image or is_pdf):
                 raise HTTPException(
@@ -84,19 +111,11 @@ async def upload_image(
                     detail=f"Invalid file type. Allowed types: {', '.join(allowed_image_types + allowed_pdf_types)}. Received: {content_type or 'unknown'} (file: {filename})"
                 )
         else:
-            if not is_image:
+            if not (is_image or is_pdf):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid file type. Allowed types: {', '.join(allowed_image_types)}. Received: {content_type or 'unknown'} (file: {filename})"
                 )
-        
-        # Validate file size (10MB limit)
-        file_content = await file.read()
-        if len(file_content) > 10 * 1024 * 1024:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File size must be less than 10MB"
-            )
         
         # Upload to Cloudinary using bytes directly
         # Create BytesIO from file content and ensure it's at position 0
@@ -106,9 +125,15 @@ async def upload_image(
         # Build upload options
         if is_pdf:
             # PDFs should be uploaded as "raw" resource type
+            # Keep original content; don't force inline open. Let the client decide (download attr / fl_attachment).
             upload_options = {
                 "folder": folder,
-                "resource_type": "raw",  # PDFs are raw files, not images
+                "resource_type": "raw",      # PDFs are raw files, not images
+                "type": "upload",
+                "use_filename": True,
+                "unique_filename": False,
+                "filename_override": slug_base,
+                "public_id": safe_public_id, # human-friendly base name + timestamp
             }
         else:
             # Images use image resource type with transformations
@@ -126,9 +151,8 @@ async def upload_image(
                 "resource_type": "image",
                 "transformation": [default_transformation]
             }
-        
-        if public_id:
-            upload_options["public_id"] = public_id
+            # Ensure a deterministic, readable public_id so downloads keep a friendly filename
+            upload_options["public_id"] = safe_public_id
         
         # Upload to Cloudinary
         upload_result = cloudinary.uploader.upload(
