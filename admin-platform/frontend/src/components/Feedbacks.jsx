@@ -12,18 +12,49 @@ const StatCard = ({ tone, value, label }) => (
   </div>
 );
 
-const FeedbackCard = ({ name, date, reference, text }) => (
+const FeedbackCard = ({ id, name, date, reference, text, rating, title, onDelete, deleting }) => (
   <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-4">
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm">S</div>
+      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm">
+        {name ? name.charAt(0).toUpperCase() : 'S'}
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="text-gray-900 font-semibold">{name}</div>
-            <div className="text-[11px] text-gray-500">{reference}</div>
+            {reference && <div className="text-[11px] text-gray-500">{reference}</div>}
           </div>
-          <div className="text-[11px] text-gray-500">{date}</div>
+          <div className="flex items-center gap-2">
+            <div className="text-[11px] text-gray-500">{date}</div>
+            {onDelete && (
+              <button
+                onClick={() => onDelete(id)}
+                disabled={deleting}
+                className="text-red-500 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                title="Delete feedback"
+                type="button"
+              >
+                {deleting ? (
+                  <span className="text-xs text-red-500">Deleting...</span>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
         </div>
+        {rating && (
+          <div className="flex items-center gap-1 mt-1">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <span key={index} className={index < (rating || 0) ? 'text-yellow-400' : 'text-gray-300'}>
+                ★
+              </span>
+            ))}
+          </div>
+        )}
+        {title && <div className="mt-2 text-sm font-semibold text-gray-900">{title}</div>}
         <p className="mt-2 text-sm text-gray-700 leading-relaxed">{text}</p>
       </div>
     </div>
@@ -39,6 +70,7 @@ const Feedbacks = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({ total_reviews: 0, avg_rating: 0, pending_replies: 0 });
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     const onClick = (e) => {
@@ -91,6 +123,36 @@ const Feedbacks = () => {
   const filtered = useMemo(() => {
     return feedbacks;
   }, [feedbacks]);
+
+  const handleDeleteFeedback = async (reviewId) => {
+    if (!reviewId || deletingId) return;
+    
+    if (!window.confirm('Are you sure you want to delete this feedback? This action cannot be undone.')) {
+      return;
+    }
+
+    console.log('[handleDeleteFeedback] Attempting to delete review:', reviewId);
+    setDeletingId(reviewId);
+    try {
+      await feedbackService.deleteFeedback(reviewId);
+      console.log('[handleDeleteFeedback] Successfully deleted review:', reviewId);
+      // Remove from local state
+      setFeedbacks((prev) => prev.filter((f) => f.id !== reviewId));
+      // Reload stats
+      try {
+        const data = await feedbackService.getStats(month);
+        setStats(data || { total_reviews: 0, avg_rating: 0, pending_replies: 0 });
+      } catch (err) {
+        console.error('Failed to reload stats after delete:', err);
+      }
+    } catch (err) {
+      console.error('[handleDeleteFeedback] Failed to delete feedback:', err);
+      const errorMessage = err?.response?.data?.detail || err?.message || 'Failed to delete feedback. Please try again.';
+      alert(errorMessage);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="p-2">
@@ -172,7 +234,18 @@ const Feedbacks = () => {
       <div className="space-y-3">
         {loading && <div className="text-sm text-gray-500">Loading feedbacks...</div>}
         {!loading && filtered.map((f)=> (
-          <FeedbackCard key={f.id} name={f.name} reference={f.reference} date={f.date} text={f.text} />
+          <FeedbackCard 
+            key={f.id} 
+            id={f.id}
+            name={f.name} 
+            reference={f.reference} 
+            date={f.date} 
+            text={f.text}
+            rating={f.rating}
+            title={f.title}
+            onDelete={handleDeleteFeedback}
+            deleting={deletingId === f.id}
+          />
         ))}
         {!loading && filtered.length === 0 && <div className="text-sm text-gray-500">No feedbacks found.</div>}
       </div>

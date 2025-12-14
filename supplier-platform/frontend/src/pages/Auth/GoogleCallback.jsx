@@ -37,7 +37,27 @@ const GoogleCallback = () => {
         // Exchange code for token via backend
         const response = await authService.googleLoginWithCode(code, 'http://localhost:5173/auth/google/callback');
         
+        // Check if user is blocked (from error response)
+        if (response.blocked) {
+          localStorage.setItem('supplier_blocked_reason', response.reason || 'Your account has been blocked.')
+          localStorage.setItem('supplier_onboarding_status', 'blocked')
+          sessionStorage.setItem('supplier_onboarding_status', 'blocked')
+          // Redirect to rejection screen immediately
+          window.location.href = '/supplier-registration?blocked=true'
+          return
+        }
+        
         if (response.success) {
+          // Check if user is blocked (from user object - double check)
+          if (!response.user?.is_active && response.user?.blocked_reason) {
+            localStorage.setItem('supplier_blocked_reason', response.user.blocked_reason)
+            localStorage.setItem('supplier_onboarding_status', 'blocked')
+            sessionStorage.setItem('supplier_onboarding_status', 'blocked')
+            // Redirect to rejection screen
+            window.location.href = '/supplier-registration?blocked=true'
+            return
+          }
+          
           updateUser(response.user);
           toast.success('Successfully signed in with Google!');
           // Check if user is verified, if not redirect to customer platform registration

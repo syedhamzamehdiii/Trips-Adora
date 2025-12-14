@@ -5,6 +5,7 @@ from app.models.supplier import Supplier
 from app.models.supplier_onboarding import SupplierOnboarding
 from app.models.user import User
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +62,17 @@ async def connect_to_mongo():
 
 
 async def close_mongo_connection():
-    """Close database connection."""
+    """Close database connection gracefully."""
     if db.client:
-        db.client.close()
-        logger.info("Disconnected from MongoDB!")
+        try:
+            # Give pending operations a moment to complete
+            await asyncio.sleep(0.1)
+            # Close the connection
+            db.client.close()
+            logger.info("✅ Disconnected from MongoDB!")
+        except Exception as e:
+            # Suppress errors during shutdown - connection will close anyway
+            logger.debug(f"MongoDB close error (ignored during shutdown): {e}")
 
 
 def get_database():

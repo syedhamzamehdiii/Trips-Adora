@@ -14,14 +14,13 @@ const BookingRevenueChart = () => {
   });
   const [showMenuDropdown, setShowMenuDropdown] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [manualMonth, setManualMonth] = useState('');
-  const [manualBookings, setManualBookings] = useState('');
-  const [manualRevenue, setManualRevenue] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState('Semi annually');
+  const [selectedPeriod, setSelectedPeriod] = useState('semi-annually');
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [customDateRange, setCustomDateRange] = useState({ startDate: null, endDate: null });
   const [countryData, setCountryData] = useState([]);
   const menuRef = useRef(null);
   const infoRef = useRef(null);
+  const calendarRef = useRef(null);
   
   const [data, setData] = useState([]);
 
@@ -45,19 +44,22 @@ const BookingRevenueChart = () => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setShowMenuDropdown(false);
-      }
+      const menu = menuRef.current;
+      const cal = calendarRef.current;
+      if (menu && menu.contains(event.target)) return;
+      if (cal && cal.contains(event.target)) return;
+      setShowMenuDropdown(false);
+      setShowCalendar(false);
     };
 
-    if (showMenuDropdown) {
+    if (showMenuDropdown || showCalendar) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showMenuDropdown]);
+  }, [showMenuDropdown, showCalendar]);
 
   // Close info when clicking outside
   useEffect(() => {
@@ -81,17 +83,15 @@ const BookingRevenueChart = () => {
       try {
         const bookingsRaw = localStorage.getItem('bookings') || sessionStorage.getItem('bookings');
         const productsRaw = localStorage.getItem('all_products');
-        const manualRaw = localStorage.getItem('insights_manual_bookings');
         const bookings = bookingsRaw ? JSON.parse(bookingsRaw) : [];
         const products = productsRaw ? JSON.parse(productsRaw) : [];
-        const manual = manualRaw ? JSON.parse(manualRaw) : [];
 
         const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         const now = new Date();
         
         // Determine number of months based on selected period
         let monthCount = 6; // Default: Semi annually
-        if (selectedPeriod === 'Annually') {
+        if (selectedPeriod === 'annually') {
           monthCount = 12;
         }
 
@@ -113,17 +113,25 @@ const BookingRevenueChart = () => {
           if (!counters.has(key)) return; const agg = counters.get(key);
           agg.revenue += parseAmountNumber(p.revenue);
         });
-        // Merge manual entries (month names expected like 'Jan', 'Feb', ...)
-        (manual||[]).forEach(m => {
-          const key = m.month;
-          if (!counters.has(key)) return; const agg = counters.get(key);
-          const b = parseInt(m.bookings || 0, 10);
-          const r = parseAmountNumber(m.revenue || 0);
-          if (!isNaN(b)) agg.bookings += b;
-          agg.revenue += r;
-        });
         const out = labels.map(m => ({ month: m, bookings: counters.get(m)?.bookings || 0, revenue: Math.round((counters.get(m)?.revenue || 0)/100) }));
-        setData(out);
+
+        // If custom range selected, filter by date range
+        if (selectedPeriod === 'custom' && customDateRange.startDate && customDateRange.endDate) {
+          const start = new Date(customDateRange.startDate);
+          const end = new Date(customDateRange.endDate);
+          end.setHours(23,59,59,999);
+          const monthIndexMap = new Map(months.map((m, idx) => [m, idx]));
+          const currentYear = now.getFullYear();
+          const filtered = out.filter(item => {
+            const idx = monthIndexMap.get(item.month);
+            if (idx === undefined) return false;
+            const itemDate = new Date(currentYear, idx, 1);
+            return itemDate >= start && itemDate <= end;
+          });
+          setData(filtered.length ? filtered : out);
+        } else {
+          setData(out);
+        }
 
         // Calculate top countries from bookings for real-time country data
         const countryCounts = new Map();
@@ -153,7 +161,7 @@ const BookingRevenueChart = () => {
       window.removeEventListener('insights_updated', build);
       window.removeEventListener('insights_toggle_updated', build);
     };
-  }, [selectedPeriod]);
+  }, [selectedPeriod, customDateRange]);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload || !payload.length) return null;
@@ -237,20 +245,21 @@ const BookingRevenueChart = () => {
                       <input
                         type="radio"
                         name="period"
-                        value="Semi annually"
-                        checked={selectedPeriod === 'Semi annually'}
+                        value="semi-annually"
+                        checked={selectedPeriod === 'semi-annually'}
                         onChange={(e) => {
                           setSelectedPeriod(e.target.value);
+                          setCustomDateRange({ startDate: null, endDate: null });
                           setShowMenuDropdown(false);
                         }}
                         className="sr-only"
                       />
                       <div className={`w-5 h-5 border-2 rounded flex items-center justify-center ${
-                        selectedPeriod === 'Semi annually'
+                        selectedPeriod === 'semi-annually'
                           ? 'border-[#1d236b] bg-[#1d236b]'
                           : 'border-gray-300 bg-white'
                       }`}>
-                        {selectedPeriod === 'Semi annually' && (
+                        {selectedPeriod === 'semi-annually' && (
                           <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
@@ -265,20 +274,21 @@ const BookingRevenueChart = () => {
                       <input
                         type="radio"
                         name="period"
-                        value="Annually"
-                        checked={selectedPeriod === 'Annually'}
+                        value="annually"
+                        checked={selectedPeriod === 'annually'}
                         onChange={(e) => {
                           setSelectedPeriod(e.target.value);
+                          setCustomDateRange({ startDate: null, endDate: null });
                           setShowMenuDropdown(false);
                         }}
                         className="sr-only"
                       />
                       <div className={`w-5 h-5 border-2 rounded flex items-center justify-center ${
-                        selectedPeriod === 'Annually'
+                        selectedPeriod === 'annually'
                           ? 'border-blue-600 bg-blue-600'
                           : 'border-gray-300 bg-white'
                       }`}>
-                        {selectedPeriod === 'Annually' && (
+                        {selectedPeriod === 'annually' && (
                           <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
@@ -289,76 +299,77 @@ const BookingRevenueChart = () => {
                   </label>
                 </div>
                 
-                {/* Add manually */}
-                {!showManualForm ? (
-                  <button 
-                    onClick={() => setShowManualForm(true)}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm text-gray-900"
-                  >
-                    <span>Add manually</span>
-                    <FiCalendar className="w-4 h-4 text-[#1d236b]" />
-                  </button>
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      <select 
-                        value={manualMonth} 
-                        onChange={(e)=>setManualMonth(e.target.value)}
-                        className="col-span-1 px-2 py-2 border border-gray-300 rounded"
-                      >
-                        <option value="">Month</option>
-                        {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map(m=> (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                      <input 
-                        type="number" 
-                        placeholder="Bookings" 
-                        value={manualBookings}
-                        onChange={(e)=>setManualBookings(e.target.value)}
-                        className="col-span-1 px-2 py-2 border border-gray-300 rounded"
-                      />
-                      <input 
-                        type="number" 
-                        placeholder="Revenue ($)" 
-                        value={manualRevenue}
-                        onChange={(e)=>setManualRevenue(e.target.value)}
-                        className="col-span-1 px-2 py-2 border border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => { setShowManualForm(false); setManualMonth(''); setManualBookings(''); setManualRevenue(''); }}
-                        className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => {
-                          try {
-                            const manualRaw = localStorage.getItem('insights_manual_bookings');
-                            const list = manualRaw ? JSON.parse(manualRaw) : [];
-                            const entry = { month: manualMonth, bookings: Number(manualBookings||0), revenue: Number(manualRevenue||0), ts: Date.now() };
-                            const updated = Array.isArray(list) ? [...list, entry] : [entry];
-                            localStorage.setItem('insights_manual_bookings', JSON.stringify(updated));
-                            setShowManualForm(false);
-                            setManualMonth(''); setManualBookings(''); setManualRevenue('');
-                            // trigger realtime update
-                            window.dispatchEvent(new Event('insights_updated'));
-                          } catch (_) {}
-                        }}
-                        disabled={!manualMonth}
-                        className={`px-3 py-1.5 text-sm rounded text-white ${manualMonth ? 'bg-[#1d236b] hover:bg-[#151a4a]' : 'bg-gray-400 cursor-not-allowed'}`}
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Add manually -> open calendar for custom range */}
+                <button 
+                  onClick={() => { setShowMenuDropdown(false); setShowCalendar(true); }}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm text-gray-900"
+                >
+                  <span>Add manually</span>
+                  <FiCalendar className="w-4 h-4 text-[#1d236b]" />
+                </button>
               </div>
             </div>
           )}
         </div>
+
+        {/* Calendar modal for custom date range */}
+        {showCalendar && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowCalendar(false)}>
+            <div
+              ref={calendarRef}
+              className="bg-white rounded-lg shadow-xl p-6 w-96 max-w-[90vw]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Date Range</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                  <input
+                    type="date"
+                    value={customDateRange.startDate || ''}
+                    onChange={(e) => setCustomDateRange({ ...customDateRange, startDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    max={customDateRange.endDate || new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                  <input
+                    type="date"
+                    value={customDateRange.endDate || ''}
+                    onChange={(e) => setCustomDateRange({ ...customDateRange, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min={customDateRange.startDate || undefined}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setCustomDateRange({ startDate: null, endDate: null });
+                      setShowCalendar(false);
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (customDateRange.startDate && customDateRange.endDate) {
+                        setSelectedPeriod('custom');
+                        setShowCalendar(false);
+                      }
+                    }}
+                    disabled={!customDateRange.startDate || !customDateRange.endDate}
+                    className="flex-1 px-4 py-2 bg-[#1d236b] text-white rounded-md hover:bg-[#151a4a] disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         <h1 className="text-xl font-semibold text-gray-900 mb-2">
           Bookings & revenue

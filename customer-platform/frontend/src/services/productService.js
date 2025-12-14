@@ -867,6 +867,58 @@ export const transformProductForFrontend = (product) => {
 
 // Fetch reviews for a specific product
 export async function getProductReviews(productId, { limit = 50 } = {}) {
-  if (!productId) throw new Error('productId is required');
-  return await fetchJsonWithFallback(`/products/${productId}/reviews?limit=${limit}`);
+  if (!productId) {
+    console.warn('[getProductReviews] No productId provided');
+    return { reviews: [] };
+  }
+  
+  // Reviews are customer-platform specific, don't use fallback
+  const url = `${API_BASE_URL}/products/${productId}/reviews?limit=${limit}`;
+  console.log(`[getProductReviews] API_BASE_URL: ${API_BASE_URL}`);
+  console.log(`[getProductReviews] Fetching reviews from: ${url}`);
+  console.log(`[getProductReviews] Product ID: ${productId}`);
+  
+  try {
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    console.log(`[getProductReviews] Response status: ${response.status} for ${url}`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`[getProductReviews] No reviews found (404) for product ${productId}`);
+        return { reviews: [] };
+      }
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error(`[getProductReviews] HTTP error ${response.status}:`, errorText);
+      throw new Error(`Failed to fetch reviews: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`[getProductReviews] Successfully fetched ${data?.reviews?.length || 0} reviews for product ${productId}`);
+    return data;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.error(`[getProductReviews] Request timeout for ${url}`);
+    } else {
+      console.error(`[getProductReviews] Error fetching product reviews from ${url}:`, error);
+      console.error(`[getProductReviews] Error details:`, {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
+    }
+    // Return empty reviews on error instead of throwing
+    return { reviews: [] };
+  }
 }

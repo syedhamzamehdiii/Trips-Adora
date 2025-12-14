@@ -303,6 +303,11 @@ async def login(user_data: UserLogin):
         )
     
     if not user.is_active:
+        if user.blocked_reason:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Account has been blocked: {user.blocked_reason}",
+            )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is inactive",
@@ -802,6 +807,13 @@ async def google_login(google_data: GoogleLogin):
                     logger.warning(f"Found existing user {u.id} with different case email: {u.email} -> {normalized_email}")
                     break
         
+        # Check if user is blocked
+        if user and not user.is_active and user.blocked_reason:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Account has been blocked: {user.blocked_reason}",
+            )
+        
         if not user:
             # Create new user from Google data with normalized email
             supplier_code = await _generate_supplier_code()
@@ -968,6 +980,14 @@ async def google_callback(request: GoogleCallbackRequest):
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail="Database query timed out. Please try again."
+            )
+        
+        # Check if user is blocked (before creating new user or logging in)
+        if user and not user.is_active and user.blocked_reason:
+            logger.warning(f"Blocked user attempted Google login: {email}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Account has been blocked: {user.blocked_reason}",
             )
         
         if not user:

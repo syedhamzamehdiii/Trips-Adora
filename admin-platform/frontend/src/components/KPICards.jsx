@@ -23,7 +23,10 @@ const KPICards = () => {
         const data = await apiService.get('/dashboard/stats');
         setStats(data);
       } catch (err) {
-        console.error('Failed to load dashboard stats:', err);
+        // Only log non-network errors (backend might be starting up)
+        if (err.code !== 'ERR_NETWORK' && err.message !== 'Network Error') {
+          console.error('Failed to load dashboard stats:', err);
+        }
       } finally {
         setLoading(false);
       }

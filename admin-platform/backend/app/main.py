@@ -1,8 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.core.database import initiate_database
+from app.core.database import initiate_database, close_mongo_connection
 from app.api.v1 import suppliers, customers, messages, feedbacks, reviews, dashboard
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="TripsAdora Admin Platform API",
@@ -43,9 +47,22 @@ async def startup_event():
     except Exception as e:
         print(f"❌ Database initialization failed: {e}")
 
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on server shutdown."""
+    try:
+        logger.info("Shutting down server...")
+        # Close MongoDB connection gracefully
+        await close_mongo_connection()
+        logger.info("✅ Server shutdown complete")
+    except Exception as e:
+        # Suppress errors during shutdown to prevent noisy logs
+        logger.debug(f"Shutdown cleanup error (ignored): {e}")
+
 # Include routers
 app.include_router(suppliers.router, prefix="/api/v1", tags=["Suppliers"])
-app.include_router(customers.router, prefix="/api/v1", tags=["Customers"])
+app.include_router(customers.router, prefix="/api/v1", tags=["Customers"]) 
 app.include_router(messages.router, prefix="/api/v1", tags=["Messages"])
 app.include_router(feedbacks.router, prefix="/api/v1", tags=["Feedbacks"])
 app.include_router(reviews.router, prefix="/api/v1", tags=["Reviews"])

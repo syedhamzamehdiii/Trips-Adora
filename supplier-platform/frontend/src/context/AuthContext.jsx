@@ -135,6 +135,16 @@ export const AuthProvider = ({ children }) => {
           const userData = await Promise.race([userDataPromise, apiTimeout])
           
           if (userData) {
+            // Check if user is blocked (from blocked flag or user object)
+            if (userData.blocked || (!userData.is_active && userData.blocked_reason)) {
+              const blockedReason = userData.blocked_reason || userData.reason || 'Your account has been blocked.'
+              localStorage.setItem('supplier_blocked_reason', blockedReason)
+              localStorage.setItem('supplier_onboarding_status', 'blocked')
+              sessionStorage.setItem('supplier_onboarding_status', 'blocked')
+              // Redirect to rejection screen
+              window.location.href = '/supplier-registration?blocked=true'
+              return
+            }
             persistSupplierId(userData?.supplier_code)
             try {
               const statusFlag = userData?.is_verified ? 'verified' : 'pending_admin_review'
@@ -225,7 +235,26 @@ export const AuthProvider = ({ children }) => {
       setLoading(true)
       const result = await authService.login(credentials)
       
+      // Check if user is blocked (from error response)
+      if (result.blocked) {
+        localStorage.setItem('supplier_blocked_reason', result.reason || 'Your account has been blocked.')
+        localStorage.setItem('supplier_onboarding_status', 'blocked')
+        sessionStorage.setItem('supplier_onboarding_status', 'blocked')
+        // Redirect to rejection screen immediately
+        window.location.href = '/supplier-registration?blocked=true'
+        return { success: false, blocked: true, reason: result.reason }
+      }
+      
       if (result.success) {
+        // Check if user is blocked (from user object - double check)
+        if (!result.user?.is_active && result.user?.blocked_reason) {
+          localStorage.setItem('supplier_blocked_reason', result.user.blocked_reason)
+          localStorage.setItem('supplier_onboarding_status', 'blocked')
+          sessionStorage.setItem('supplier_onboarding_status', 'blocked')
+          // Redirect to rejection screen
+          window.location.href = '/supplier-registration?blocked=true'
+          return { success: false, blocked: true, reason: result.user.blocked_reason }
+        }
         persistSupplierId(result.user?.supplier_code)
         // Check verification status and redirect if not verified
         if (!result.user?.is_verified) {

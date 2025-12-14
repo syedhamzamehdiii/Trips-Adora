@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, LabelList } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, LabelList } from 'recharts';
 import { getResponseAnalytics } from '@/services/chatService';
 
 export default function ResponseInsightsChart() {
@@ -58,7 +58,14 @@ export default function ResponseInsightsChart() {
           <div className="h-10 w-32 mb-4 bg-gray-100 rounded-full animate-pulse" />
         )}
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+          <ComposedChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+            <defs>
+              <linearGradient id="orangeGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ffa94d" stopOpacity={0.45} />
+                <stop offset="60%" stopColor="#ffa94d" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#ffa94d" stopOpacity={0.1} />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="0" stroke="#f0f0f0" vertical={false} />
             <XAxis 
               dataKey="date" 
@@ -81,13 +88,23 @@ export default function ResponseInsightsChart() {
                 fontSize: '12px'
               }}
             />
+            {/* Orange flow area + line (matches feedbacks graph style) */}
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke="none"
+              fill="url(#orangeGrad)"
+              fillOpacity={1}
+              connectNulls
+            />
             <Line 
               type="monotone" 
               dataKey="value" 
               stroke="#ff9933" 
-              strokeWidth={2}
-              dot={{ fill: '#ff9933', r: 4 }}
-              activeDot={{ r: 6 }}
+              strokeWidth={3}
+              dot={{ fill: '#ff9933', stroke: '#fff', strokeWidth: 2, r: 5 }}
+              activeDot={{ r: 6, fill: '#ff9933', stroke: '#fff', strokeWidth: 2 }}
+              connectNulls
             >
               {/* Labels above points so analytics are visible without hover */}
               <LabelList
@@ -95,9 +112,9 @@ export default function ResponseInsightsChart() {
                 position="top"
                 className="text-[10px]"
                 formatter={(value) => (value > 0 ? value : '')}
-            />
+              />
             </Line>
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>

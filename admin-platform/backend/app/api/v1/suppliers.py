@@ -91,6 +91,71 @@ async def get_supplier_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class BlockSupplierRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+# IMPORTANT: /suppliers/blocked must be defined BEFORE /suppliers/{supplier_code}
+# Otherwise FastAPI will match "blocked" as a supplier_code parameter
+@router.get("/suppliers/blocked", response_model=SupplierListResponse)
+async def list_blocked_suppliers(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    search: Optional[str] = Query(None, description="Search by name or email")
+):
+    """
+    List blocked suppliers with pagination/search.
+    """
+    try:
+        result = await SupplierService.get_blocked_suppliers(page=page, page_size=page_size, search=search)
+        # Ensure result is a dict with required fields
+        if not isinstance(result, dict):
+            result = {"suppliers": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
+        return SupplierListResponse(**result)
+    except Exception as e:
+        logger.error(f"Error listing blocked suppliers: {e}", exc_info=True)
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        # Return empty response instead of 500 to prevent frontend errors
+        return SupplierListResponse(
+            suppliers=[],
+            total=0,
+            page=page,
+            page_size=page_size,
+            total_pages=0
+        )
+
+
+@router.post("/suppliers/{supplier_code}/block")
+async def block_supplier(supplier_code: str, payload: BlockSupplierRequest):
+    """
+    Block a supplier. Sets is_active=False and stores block metadata.
+    """
+    try:
+        result = await SupplierService.block_supplier(supplier_code, payload.reason)
+        return {"message": "Supplier blocked", "supplier_id": result.get("supplier_id"), "blocked_reason": result.get("blocked_reason")}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error blocking supplier {supplier_code}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to block supplier")
+
+
+@router.post("/suppliers/{supplier_code}/unblock")
+async def unblock_supplier(supplier_code: str):
+    """
+    Unblock a supplier. Sets is_active=True and clears block metadata.
+    """
+    try:
+        result = await SupplierService.unblock_supplier(supplier_code)
+        return {"message": "Supplier unblocked", "supplier_id": result.get("supplier_id")}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error unblocking supplier {supplier_code}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to unblock supplier")
+
+
 @router.get("/suppliers/{supplier_code}", response_model=SupplierDetailResponse)
 async def get_supplier_detail(supplier_code: str):
     """
@@ -99,6 +164,8 @@ async def get_supplier_detail(supplier_code: str):
     try:
         result = await SupplierService.get_supplier_detail(supplier_code)
         return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error in get_supplier_detail endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))

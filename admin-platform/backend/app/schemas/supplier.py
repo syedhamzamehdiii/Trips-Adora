@@ -14,6 +14,9 @@ class SupplierResponse(BaseModel):
     status: str
     revenue: float = 0.0
     rating: float = 0.0
+    bookings: int = 0
+    reviews: int = 0
+    performance: float = 0.0
     account_type: Optional[str] = None
     created_at: Optional[datetime] = None
     

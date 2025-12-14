@@ -76,7 +76,7 @@ const MessagesContact = () => {
   useEffect(() => {
     if (selectedConversationId) {
       loadMessages(selectedConversationId);
-    }
+      }
   }, [selectedConversationId]);
 
   useEffect(() => {
@@ -170,10 +170,10 @@ const MessagesContact = () => {
             </div>
           </div>
 
-          <div
-            className="flex-1 overflow-y-auto conversations-list"
-            style={{
-              scrollbarWidth: 'thin',
+          <div 
+            className="flex-1 overflow-y-auto conversations-list" 
+            style={{ 
+              scrollbarWidth: 'thin', 
               scrollbarColor: '#1B3166 transparent'
             }}
           >
@@ -192,37 +192,37 @@ const MessagesContact = () => {
               const isActive = conversation.conversation_id === selectedConversationId;
               const lastMessage = conversation.last_message;
               return (
-                <button
+              <button
                   key={conversation.conversation_id}
                   onClick={() => setSelectedConversationId(conversation.conversation_id)}
-                  className={`w-full text-left p-4 transition relative ${
+                className={`w-full text-left p-4 transition relative ${
                     isActive ? 'bg-[#E0E7F0] border-l-4' : 'border-l border-gray-200 hover:bg-gray-50'
-                  }`}
+                }`}
                   style={isActive ? { borderLeftColor: '#1B3166', borderLeftWidth: '4px' } : { borderLeftWidth: '1px' }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold" style={{ backgroundColor: '#1B3166' }}>
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold" style={{ backgroundColor: '#1B3166' }}>
                       {avatarInitials(conversation.other_party_name)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
                         <span className="font-semibold text-gray-900">{conversation.other_party_name}</span>
                         <span className="text-xs text-gray-500">{formatTime(lastMessage?.created_at)}</span>
-                      </div>
-                      <div className="mb-1">
-                        <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-gray-100 border border-gray-200 text-gray-600">
+                    </div>
+                    <div className="mb-1">
+                      <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-gray-100 border border-gray-200 text-gray-600">
                           {typeLabelMap[conversation.other_party_type] || 'User'}
                         </span>
                         {conversation.unread_count > 0 && (
                           <span className="ml-2 text-[11px] text-white px-2 py-0.5 rounded-full" style={{ backgroundColor: '#1B3166' }}>
                             {conversation.unread_count}
-                          </span>
+                      </span>
                         )}
-                      </div>
-                      <p className="text-sm text-gray-600 truncate">{lastMessage?.message || ''}</p>
                     </div>
+                      <p className="text-sm text-gray-600 truncate">{lastMessage?.message || ''}</p>
                   </div>
-                </button>
+                </div>
+              </button>
               );
             })}
           </div>
@@ -274,16 +274,16 @@ const MessagesContact = () => {
                 {messages.map((msg) => {
                   const isAdminMessage = msg.sender_type === 'admin' || msg.sender_id === 'admin';
                   return (
-                    <div
+                  <div
                       key={msg.id}
                       className={`flex ${isAdminMessage ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[70%] rounded-lg px-4 py-2.5 ${
+                  >
+                    <div
+                      className={`max-w-[70%] rounded-lg px-4 py-2.5 ${
                           isAdminMessage ? 'text-white' : 'bg-gray-100 text-gray-900'
-                        }`}
+                      }`}
                         style={isAdminMessage ? { backgroundColor: '#1B3166BF' } : {}}
-                      >
+                    >
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
                         <div className={`flex items-center gap-2 mt-1 ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
                           <span className="text-xs opacity-70">{formatTime(msg.created_at)}</span>
