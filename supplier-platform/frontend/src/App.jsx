@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { SettingsProvider } from './context/SettingsContext'
 import { useLoadScript } from '@react-google-maps/api'
@@ -74,33 +74,59 @@ import SupplierSafetyGuidelines from './pages/SupplierPortal/SupplierSafetyGuide
 import SupplierTermsPage from './pages/SupplierPortal/SupplierTermsPage'
 
 // Protected route component that checks verification status
+function getStoredOnboardingStatus() {
+  try {
+    return (
+      localStorage.getItem('supplier_onboarding_status') ||
+      sessionStorage.getItem('supplier_onboarding_status') ||
+      null
+    )
+  } catch (_) {
+    return null
+  }
+}
+
 function VerifiedRoute({ children }) {
   const { user, isAuthenticated } = useAuth()
   const [shouldRedirect, setShouldRedirect] = useState(false)
-  
+
   useEffect(() => {
-    if (isAuthenticated && user && !user.is_verified) {
+    const onboardingStatus = getStoredOnboardingStatus()
+
+    // If onboarding exists and is not verified, force registration regardless of auth flag
+    if (isAuthenticated && onboardingStatus && onboardingStatus !== 'verified') {
       const currentUrl = window.location.href
       const email = user?.email || ''
-      // Redirect to local supplier registration page
-      const registrationUrl = email 
+      const registrationUrl = email
         ? `/supplier-registration?email=${encodeURIComponent(email)}`
         : `/supplier-registration`
-      
-      // Redirect if we're not already on registration page
+
+      if (!currentUrl.includes('supplier-registration')) {
+        setShouldRedirect(true)
+        window.location.href = registrationUrl
+      }
+      return
+    }
+
+    // If no onboarding status yet, fall back to auth flag: unverified users go to registration
+    if (isAuthenticated && !user?.is_verified) {
+      const currentUrl = window.location.href
+      const email = user?.email || ''
+      const registrationUrl = email
+        ? `/supplier-registration?email=${encodeURIComponent(email)}`
+        : `/supplier-registration`
+
       if (!currentUrl.includes('supplier-registration')) {
         setShouldRedirect(true)
         window.location.href = registrationUrl
       }
     }
   }, [isAuthenticated, user])
-  
-  // If not authenticated, let the normal auth guard handle it
+
   if (!isAuthenticated) {
     return children
   }
-  
-  // If redirecting, show loading state
+
   if (shouldRedirect) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -111,12 +137,13 @@ function VerifiedRoute({ children }) {
       </div>
     )
   }
-  
+
   return children
 }
 
 function AppRoutes() {
   const { isAuthenticated, loading, user } = useAuth()
+  const location = useLocation()
 
   if (loading) {
     return (
@@ -129,18 +156,35 @@ function AppRoutes() {
     )
   }
   
-  // Check if authenticated user is not verified and redirect
-  // Use useEffect to prevent redirect on every render
+  // Redirect unverified suppliers to onboarding unless already verified via stored status.
+  // Only run when authenticated to avoid redirect loops on /login or public pages.
   useEffect(() => {
+    if (!isAuthenticated || !user) return
+
+    const onboardingStatus = getStoredOnboardingStatus()
+
+    // If onboarding status exists and is not verified, force registration route
+    if (onboardingStatus && onboardingStatus !== 'verified') {
+      const currentUrl = window.location.href
+      const email = user?.email || ''
+      const registrationUrl = email
+        ? `/supplier-registration?email=${encodeURIComponent(email)}`
+        : `/supplier-registration`
+
+      if (!currentUrl.includes('supplier-registration')) {
+        window.location.href = registrationUrl
+      }
+      return
+    }
+
+    // Fallback to auth flag
     if (isAuthenticated && user && !user.is_verified) {
       const currentUrl = window.location.href
       const email = user?.email || ''
-      // Redirect to local supplier registration page
-      const registrationUrl = email 
+      const registrationUrl = email
         ? `/supplier-registration?email=${encodeURIComponent(email)}`
         : `/supplier-registration`
-      
-      // Redirect if we're not already on registration page
+
       if (!currentUrl.includes('supplier-registration')) {
         window.location.href = registrationUrl
       }
@@ -178,7 +222,11 @@ function AppRoutes() {
         />
         <Route 
           path="/supplier-registration" 
-          element={<SupplierRegistrationPage />} 
+          element={isAuthenticated ? (
+            <SupplierRegistrationPage />
+          ) : (
+            <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
+          )} 
         />
         <Route 
           path="/supplier/faq" 

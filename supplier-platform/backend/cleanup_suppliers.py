@@ -23,6 +23,7 @@ from app.models.invitation import SupplierInvitation
 from app.core.config import settings
 from beanie import init_beanie
 import motor.motor_asyncio
+from beanie.operators import In
 from datetime import datetime
 
 
@@ -231,8 +232,13 @@ async def cleanup_suppliers():
     
     print(f"   ✅ Deleted {deleted_counts['invitations']} invitation(s)")
     
+    # Note: We're NOT resetting verification for kept suppliers - they should remain verified
+    print("\n9. Kept suppliers will remain with their current verification status...")
+    for supplier in suppliers_to_keep:
+        print(f"   ✅ Keeping: {supplier.supplier_code or 'N/A'} - {supplier.email} (verified: {supplier.is_verified})")
+    
     # Finally, delete the supplier users
-    print("\n9. Deleting supplier users...")
+    print("\n10. Deleting supplier users...")
     for supplier in suppliers_to_delete:
         try:
             await supplier.delete()
@@ -261,6 +267,44 @@ async def cleanup_suppliers():
     print(f"\n✅ Kept {len(suppliers_to_keep)} supplier(s):")
     for supplier in suppliers_to_keep:
         print(f"   - {supplier.supplier_code or 'N/A'} - {supplier.email} ({supplier.full_name})")
+
+    # Verification pass: count any remaining records for deleted suppliers
+    print("\n🔎 Verification pass (remaining records for suppliers that should be deleted):")
+    remaining_users = await User.find(In(User.id, user_ids_to_delete)).count()
+    remaining_products = await Product.find({"supplier_id": {"$in": user_ids_to_delete}}).count()
+    remaining_onboardings = await SupplierOnboarding.find({"email": {"$in": [s.email for s in suppliers_to_delete]}}).count()
+    remaining_vehicles = await SupplierVehicle.find({"supplier_id": {"$in": user_ids_to_delete}}).count()
+    remaining_settings = await SupplierAccountSettings.find({"supplier_id": {"$in": user_ids_to_delete}}).count()
+    remaining_coi = await COIDocument.find({"user_id": {"$in": user_ids_to_delete}}).count()
+    remaining_notifications = await Notification.find({"user_id": {"$in": user_ids_to_delete}}).count()
+    remaining_messages = await Message.find({"$or": [{"sender_id": {"$in": user_ids_to_delete}}, {"receiver_id": {"$in": user_ids_to_delete}}]}).count()
+    remaining_invitations = await SupplierInvitation.find({"supplier_code": {"$in": supplier_codes_to_delete}}).count()
+
+    print(f"   Remaining supplier users: {remaining_users}")
+    print(f"   Remaining products: {remaining_products}")
+    print(f"   Remaining onboarding records: {remaining_onboardings}")
+    print(f"   Remaining vehicles: {remaining_vehicles}")
+    print(f"   Remaining account settings: {remaining_settings}")
+    print(f"   Remaining COI documents: {remaining_coi}")
+    print(f"   Remaining notifications: {remaining_notifications}")
+    print(f"   Remaining messages: {remaining_messages}")
+    print(f"   Remaining invitations: {remaining_invitations}")
+
+    if any([
+        remaining_users,
+        remaining_products,
+        remaining_onboardings,
+        remaining_vehicles,
+        remaining_settings,
+        remaining_coi,
+        remaining_notifications,
+        remaining_messages,
+        remaining_invitations,
+    ]):
+        print("\n⚠️  Some records were not deleted. You may need to retry or remove them manually using MongoDB.")
+        print("   Tip: ensure the supplier_id/email/supplier_code values match the stored data types in your collections.")
+    else:
+        print("\n✅ Verification check passed: no remaining records for deleted suppliers.")
 
 
 async def main():
