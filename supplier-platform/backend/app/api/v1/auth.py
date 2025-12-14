@@ -190,8 +190,25 @@ def _user_response(user: User) -> UserResponse:
 @router.post("/register", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserRegister):
     """Register a new supplier"""
-    # Check if user already exists
-    existing_user = await User.find_one(User.email == user_data.email)
+    # Normalize email to lowercase to prevent duplicates
+    normalized_email = user_data.email.lower().strip() if user_data.email else None
+    if not normalized_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is required"
+        )
+    
+    # Check if user already exists (case-insensitive)
+    existing_user = await User.find_one(User.email == normalized_email)
+    if not existing_user:
+        # Also check case-insensitively for existing records with different case
+        all_users = await User.find_all().to_list()
+        for u in all_users:
+            if u.email and u.email.lower().strip() == normalized_email:
+                existing_user = u
+                logger.warning(f"Found existing user {u.id} with different case email: {u.email} -> {normalized_email}")
+                break
+    
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -200,9 +217,9 @@ async def register(user_data: UserRegister):
     
     supplier_code = await _generate_supplier_code()
 
-    # Create new user
+    # Create new user with normalized email
     user = User(
-        email=user_data.email,
+        email=normalized_email,
         hashed_password=get_password_hash(user_data.password),
         full_name=user_data.full_name,
         business_name=user_data.business_name,
@@ -213,7 +230,20 @@ async def register(user_data: UserRegister):
         role=UserRole.SUPPLIER,
     )
     
-    await user.insert()
+    try:
+        await user.insert()
+    except Exception as e:
+        # Handle race condition - if duplicate was created between check and insert
+        error_str = str(e).lower()
+        if "duplicate" in error_str or "e11000" in error_str:
+            # Check again if user was created by another request
+            existing_user = await User.find_one(User.email == normalized_email)
+            if existing_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
+        raise
     await _sync_supplier_code_to_settings(str(user.id), supplier_code)
 
     # Create onboarding record for admin approval (default pending)
@@ -248,7 +278,23 @@ async def register(user_data: UserRegister):
 @router.post("/login", response_model=dict)
 async def login(user_data: UserLogin):
     """Login user"""
-    user = await User.find_one(User.email == user_data.email)
+    # Normalize email to lowercase for consistent lookup
+    normalized_email = user_data.email.lower().strip() if user_data.email else None
+    if not normalized_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is required"
+        )
+    
+    # Try exact match first
+    user = await User.find_one(User.email == normalized_email)
+    # Also check case-insensitively for existing records with different case
+    if not user:
+        all_users = await User.find_all().to_list()
+        for u in all_users:
+            if u.email and u.email.lower().strip() == normalized_email:
+                user = u
+                break
     
     if not user or not verify_password(user_data.password, user.hashed_password):
         raise HTTPException(
@@ -278,8 +324,25 @@ async def login(user_data: UserLogin):
 @router.post("/invite", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def invite_user(invite_data: UserInvite):
     """Invite a new user to the supplier platform (called by admin)"""
-    # Check if user already exists
-    existing_user = await User.find_one(User.email == invite_data.email)
+    # Normalize email to lowercase to prevent duplicates
+    normalized_email = invite_data.email.lower().strip() if invite_data.email else None
+    if not normalized_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is required"
+        )
+    
+    # Check if user already exists (case-insensitive)
+    existing_user = await User.find_one(User.email == normalized_email)
+    if not existing_user:
+        # Also check case-insensitively for existing records with different case
+        all_users = await User.find_all().to_list()
+        for u in all_users:
+            if u.email and u.email.lower().strip() == normalized_email:
+                existing_user = u
+                logger.warning(f"Found existing user {u.id} with different case email: {u.email} -> {normalized_email}")
+                break
+    
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -293,9 +356,9 @@ async def invite_user(invite_data: UserInvite):
     
     supplier_code = await _generate_supplier_code()
 
-    # Create new user with invited permissions
+    # Create new user with invited permissions (use normalized email)
     user = User(
-        email=invite_data.email,
+        email=normalized_email,
         hashed_password=get_password_hash(temp_password),
         full_name=invite_data.full_name,
         business_name=invite_data.full_name,  # Use full_name as business_name if not provided
@@ -306,7 +369,20 @@ async def invite_user(invite_data: UserInvite):
         permissions=invite_data.permissions,
     )
     
-    await user.insert()
+    try:
+        await user.insert()
+    except Exception as e:
+        # Handle race condition - if duplicate was created between check and insert
+        error_str = str(e).lower()
+        if "duplicate" in error_str or "e11000" in error_str:
+            # Check again if user was created by another request
+            existing_user = await User.find_one(User.email == normalized_email)
+            if existing_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
+        raise
     await _sync_supplier_code_to_settings(str(user.id), supplier_code)
     
     # In a real implementation, you would send an email with the temporary password
@@ -410,8 +486,24 @@ async def accept_invitation(token: str):
             detail="This invitation has expired. Please request a new one."
         )
     
-    # Find or create the user
-    user = await User.find_one(User.email == invitation.email)
+    # Normalize email to lowercase to prevent duplicates
+    normalized_email = invitation.email.lower().strip() if invitation.email else None
+    if not normalized_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid invitation email"
+        )
+    
+    # Find or create the user (case-insensitive check)
+    user = await User.find_one(User.email == normalized_email)
+    if not user:
+        # Also check case-insensitively for existing records with different case
+        all_users = await User.find_all().to_list()
+        for u in all_users:
+            if u.email and u.email.lower().strip() == normalized_email:
+                user = u
+                logger.warning(f"Found existing user {u.id} with different case email: {u.email} -> {normalized_email}")
+                break
     
     if not user:
         # Create new user account
@@ -420,10 +512,10 @@ async def accept_invitation(token: str):
         temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
         
         # Extract name from email
-        full_name = invitation.email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
+        full_name = normalized_email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
         
         user = User(
-            email=invitation.email,
+            email=normalized_email,
             hashed_password=get_password_hash(temp_password),
             full_name=full_name,
             business_name=full_name,
@@ -432,7 +524,20 @@ async def accept_invitation(token: str):
             is_verified=True,
             supplier_access={invitation.supplier_code: invitation.permissions}
         )
-        await user.insert()
+        try:
+            await user.insert()
+        except Exception as e:
+            # Handle race condition - if duplicate was created between check and insert
+            error_str = str(e).lower()
+            if "duplicate" in error_str or "e11000" in error_str:
+                # Check again if user was created by another request
+                existing_user = await User.find_one(User.email == normalized_email)
+                if existing_user:
+                    user = existing_user
+                else:
+                    raise
+            else:
+                raise
     else:
         # User exists - grant access to the supplier account
         if not user.supplier_access:
@@ -678,24 +783,54 @@ async def google_login(google_data: GoogleLogin):
                 detail="No email found in Google token"
             )
         
-        # Check if user already exists
-        user = await User.find_one(User.email == email)
+        # Normalize email to lowercase to prevent duplicates
+        normalized_email = email.lower().strip() if email else None
+        if not normalized_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No email found in Google token"
+            )
+        
+        # Check if user already exists (case-insensitive)
+        user = await User.find_one(User.email == normalized_email)
+        if not user:
+            # Also check case-insensitively for existing records with different case
+            all_users = await User.find_all().to_list()
+            for u in all_users:
+                if u.email and u.email.lower().strip() == normalized_email:
+                    user = u
+                    logger.warning(f"Found existing user {u.id} with different case email: {u.email} -> {normalized_email}")
+                    break
         
         if not user:
-            # Create new user from Google data
+            # Create new user from Google data with normalized email
             supplier_code = await _generate_supplier_code()
             user = User(
-                email=email,
-                full_name=name or email.split('@')[0],
-                business_name=name or email.split('@')[0],
+                email=normalized_email,
+                full_name=name or normalized_email.split('@')[0],
+                business_name=name or normalized_email.split('@')[0],
                 role=UserRole.SUPPLIER,
                 is_active=True,
                 # No password for Google users
                 hashed_password="",
                 supplier_code=supplier_code,
             )
-            await user.insert()
-            await _sync_supplier_code_to_settings(str(user.id), supplier_code)
+            try:
+                await user.insert()
+                await _sync_supplier_code_to_settings(str(user.id), supplier_code)
+            except Exception as e:
+                # Handle race condition - if duplicate was created between check and insert
+                error_str = str(e).lower()
+                if "duplicate" in error_str or "e11000" in error_str:
+                    # Check again if user was created by another request
+                    existing_user = await User.find_one(User.email == normalized_email)
+                    if existing_user:
+                        logger.warning(f"Race condition: User {existing_user.id} already exists for {normalized_email}, using existing")
+                        user = existing_user
+                    else:
+                        raise
+                else:
+                    raise
         else:
             await _ensure_supplier_code(user)
         
@@ -801,14 +936,33 @@ async def google_callback(request: GoogleCallbackRequest):
                 detail="No email found in Google token"
             )
         
-        logger.info(f"Looking up user with email: {email}")
+        # Normalize email to lowercase to prevent duplicates
+        normalized_email = email.lower().strip() if email else None
+        if not normalized_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No email found in Google token"
+            )
         
-        # Check if user already exists with timeout
+        logger.info(f"Looking up user with email: {normalized_email}")
+        
+        # Check if user already exists with timeout (case-insensitive)
         try:
             user = await asyncio.wait_for(
-                User.find_one(User.email == email),
+                User.find_one(User.email == normalized_email),
                 timeout=5.0
             )
+            # Also check case-insensitively for existing records with different case
+            if not user:
+                all_users = await asyncio.wait_for(
+                    User.find_all().to_list(),
+                    timeout=3.0
+                )
+                for u in all_users:
+                    if u.email and u.email.lower().strip() == normalized_email:
+                        user = u
+                        logger.warning(f"Found existing user {u.id} with different case email: {u.email} -> {normalized_email}")
+                        break
         except asyncio.TimeoutError:
             logger.error("MongoDB query timed out while looking up user")
             raise HTTPException(
@@ -817,13 +971,13 @@ async def google_callback(request: GoogleCallbackRequest):
             )
         
         if not user:
-            logger.info(f"Creating new user for email: {email}")
-            # Create new user from Google data
+            logger.info(f"Creating new user for email: {normalized_email}")
+            # Create new user from Google data with normalized email
             supplier_code = await _generate_supplier_code()
             user = User(
-                email=email,
-                full_name=name or email.split('@')[0],
-                business_name=name or email.split('@')[0],
+                email=normalized_email,
+                full_name=name or normalized_email.split('@')[0],
+                business_name=name or normalized_email.split('@')[0],
                 role=UserRole.SUPPLIER,
                 is_active=True,
                 is_verified=False,  # Require admin approval
@@ -839,6 +993,19 @@ async def google_callback(request: GoogleCallbackRequest):
                     status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                     detail="Database operation timed out. Please try again."
                 )
+            except Exception as e:
+                # Handle race condition - if duplicate was created between check and insert
+                error_str = str(e).lower()
+                if "duplicate" in error_str or "e11000" in error_str:
+                    # Check again if user was created by another request
+                    existing_user = await User.find_one(User.email == normalized_email)
+                    if existing_user:
+                        logger.warning(f"Race condition: User {existing_user.id} already exists for {normalized_email}, using existing")
+                        user = existing_user
+                    else:
+                        raise
+                else:
+                    raise
 
             # Create onboarding record for admin approval
             try:
