@@ -4,9 +4,17 @@ Handles HTTP requests for supplier management
 """
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 from app.services.supplier_service import SupplierService
-from app.schemas.supplier import SupplierListResponse, SupplierStatsResponse, SupplierDetailResponse, ProductListResponse, SupplierOnboardingListResponse
+from app.schemas.supplier import (
+    SupplierListResponse,
+    SupplierStatsResponse,
+    SupplierDetailResponse,
+    ProductListResponse,
+    SupplierOnboardingListResponse,
+    SupplierInsightsResponse,
+    ProductDetailResponse,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -186,3 +194,51 @@ async def get_supplier_products(
     except Exception as e:
         logger.error(f"Error in get_supplier_products endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/suppliers/{supplier_code}/insights", response_model=SupplierInsightsResponse)
+async def get_supplier_insights(supplier_code: str):
+  """
+  Get aggregated performance insights for a supplier (matches supplier Insights page).
+  """
+  try:
+      result = await SupplierService.get_supplier_insights(supplier_code)
+      return result
+  except ValueError as e:
+      raise HTTPException(status_code=404, detail=str(e))
+  except Exception as e:
+      logger.error(f"Error in get_supplier_insights endpoint: {e}")
+      raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/suppliers/products/{product_id}", response_model=ProductDetailResponse)
+async def get_product_detail(product_id: str):
+    """
+    Get full product detail by product_id for admin.
+    """
+    try:
+        result = await SupplierService.get_product_detail(product_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in get_product_detail endpoint: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch product detail")
+
+
+@router.put("/suppliers/products/{product_id}", response_model=ProductDetailResponse)
+async def update_product_detail(product_id: str, payload: Dict[str, Any]):
+    """
+    Update product detail on behalf of admin.
+
+    Admin edits are written directly into the shared products collection so
+    changes are reflected for supplier and customer platforms.
+    """
+    try:
+        result = await SupplierService.update_product_detail(product_id, payload)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in update_product_detail endpoint: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update product detail")

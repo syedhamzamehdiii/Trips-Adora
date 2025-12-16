@@ -3,7 +3,7 @@ import TourDetailPage from './TourDetailPage';
 import { getSupplierProducts } from '../services/supplierService';
 
 const SupplierProducts = ({ supplierId, onBack }) => {
-  const [selected, setSelected] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -32,8 +32,8 @@ const SupplierProducts = ({ supplierId, onBack }) => {
     return () => { active = false; };
   }, [supplierId]);
 
-  if (selected) {
-    return <TourDetailPage onBack={() => setSelected(null)} />;
+  if (selectedId) {
+    return <TourDetailPage productId={selectedId} onBack={() => setSelectedId(null)} />;
   }
 
   return (
@@ -62,7 +62,7 @@ const SupplierProducts = ({ supplierId, onBack }) => {
             <div className="text-sm text-gray-500">No products found.</div>
           )}
           {products.map((p) => (
-            <div key={p.id} className="bg-white rounded-xl border border-gray-300 p-5 cursor-pointer" onClick={() => setSelected(p)}>
+          <div key={p.id} className="bg-white rounded-xl border border-gray-300 p-5 cursor-pointer" onClick={() => setSelectedId(p.id)}>
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{p.title}</h3>
@@ -78,9 +78,17 @@ const SupplierProducts = ({ supplierId, onBack }) => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 mb-3">{p.status || 'Published'}</span>
+                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 mb-3">
+                    {p.status || 'published'}
+                  </span>
                   <div className="text-green-700 text-sm font-semibold">
-                    {p.price ? `${p.currency || ''} ${p.price} ${p.price_unit ? 'Per ' + p.price_unit.split(' ')[1] || p.price_unit : ''}` : '—'}
+                    {p.price
+                      ? (() => {
+                          const symbol = p.currency === 'USD' ? '$' : '';
+                          const unit = p.price_unit || '';
+                          return `${symbol}${p.price} ${unit}`.trim();
+                        })()
+                      : '—'}
                   </div>
                 </div>
               </div>

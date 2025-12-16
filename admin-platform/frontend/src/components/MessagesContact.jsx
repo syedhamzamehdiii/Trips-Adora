@@ -24,7 +24,7 @@ const formatTime = (ts) => {
   }
 };
 
-const MessagesContact = () => {
+const MessagesContact = ({ initialTarget }) => {
   const [conversations, setConversations] = useState([]);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -49,7 +49,21 @@ const MessagesContact = () => {
       });
       const items = data?.conversations || [];
       setConversations(items);
-      if (!selectedConversationId && items.length) {
+      // If we have an initial target (e.g., from supplier quick modal), try to focus that conversation
+      if (initialTarget && initialTarget.type === 'supplier') {
+        const match = items.find(
+          (c) =>
+            c.other_party_type === 'supplier' &&
+            (c.other_party_id === initialTarget.id ||
+              c.other_party_name?.toLowerCase() === initialTarget.name?.toLowerCase())
+        );
+        if (match) {
+          setSelectedConversationId(match.conversation_id);
+        } else if (!selectedConversationId && items.length) {
+          // Fall back to first conversation if no direct match
+          setSelectedConversationId(items[0].conversation_id);
+        }
+      } else if (!selectedConversationId && items.length) {
         setSelectedConversationId(items[0].conversation_id);
       }
       if (showSpinner) setLoading(false);
@@ -71,7 +85,7 @@ const MessagesContact = () => {
 
   useEffect(() => {
     loadConversations({ showSpinner: true });
-  }, [filter, searchQuery]);
+  }, [filter, searchQuery, initialTarget]);
 
   useEffect(() => {
     if (selectedConversationId) {

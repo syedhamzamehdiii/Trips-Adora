@@ -25,7 +25,7 @@ const SupplierDocsModal = ({ isOpen, onClose, anchorRect, documents = [] }) => {
     return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onClick); };
   }, [isOpen, onClose]);
 
-  const handleDownload = (doc) => {
+  const handleDownload = async (doc) => {
     if (!doc.url) return;
     
     // Generate proper filename
@@ -42,13 +42,28 @@ const SupplierDocsModal = ({ isOpen, onClose, anchorRect, documents = [] }) => {
         .toLowerCase();
       return `${sanitizedLabel}${extension}`;
     };
-    
-    const a = document.createElement('a');
-    a.href = doc.url;
-    a.download = getFilename(doc.url, doc.label);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+
+    try {
+      // Fetch the file as a Blob so we can force a real download regardless of server headers
+      const res = await fetch(doc.url);
+      if (!res.ok) {
+        throw new Error(`Download failed with status ${res.status}`);
+      }
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = getFilename(doc.url, doc.label);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Failed to download document', err);
+      // Fallback: open in new tab so user can save manually
+      window.open(doc.url, '_blank', 'noopener');
+    }
   };
 
   if (!isOpen || !anchorRect) return null;

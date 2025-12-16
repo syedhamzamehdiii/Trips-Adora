@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime
 
 
@@ -93,6 +93,52 @@ class SupplierDetailResponse(BaseModel):
     class Config:
         populate_by_name = True
         from_attributes = True
+
+
+class ProductDetailResponse(BaseModel):
+    """Full product detail for admin view (mirrors supplier ProductResponse shape)."""
+    id: str
+    supplier_id: str
+    title: str
+    category: str
+    tagline: Optional[str] = None
+    description: str
+    highlights: list[dict] = []
+    images: list[str] = []
+    hero_image: Optional[str] = None
+    gallery_images: list[str] = []
+    itinerary: list[dict] = []
+    duration: Optional[str] = None
+    guide_type: Optional[str] = None
+    activity_type: Optional[str] = None
+    languages: list[str] = []
+    things_to_carry: list[str] = []
+    included_excluded: Optional[dict] = None
+    accessibility: Optional[dict] = None
+    vehicle_details: Optional[dict] = None
+    pickup_dropoff: Optional[dict] = None
+    price: float
+    currency: str
+    price_unit: str
+    faqs: list[dict] = []
+    destination: Optional[str] = None
+    breadcrumb: list[str] = []
+    status: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    published_at: Optional[datetime] = None
+    custom_fields: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SupplierInsightsResponse(BaseModel):
+    """Aggregated performance insights for a supplier (admin view, matches supplier Insights)."""
+    booking_this_month: int
+    total_bookings: int
+    cancellation_rate: float
+    completion_rate: float
+    average_rating: float
+    response_rate: float
+    satisfaction: float
 
 
 class SupplierOnboardingAdminResponse(BaseModel):

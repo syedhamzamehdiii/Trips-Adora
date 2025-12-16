@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import ManageSupplierApprovals from './ManageSupplierApprovals';
-import { getActiveSuppliers, getSupplierStats } from '../services/supplierService';
+import { getActiveSuppliers, getSupplierStats, getSupplierInsights } from '../services/supplierService';
 
 const baseSuppliers = [
   { id: 'SUP-001', name: 'Aurora Tours', category: 'Tours', rating: 4.7, bookings: 842, status: 'Active' },
@@ -99,6 +99,7 @@ const AllSuppliersManage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState(null);
+  const [selectedInsights, setSelectedInsights] = useState(null);
   const [showManageApprovals, setShowManageApprovals] = useState(false);
 
   // Fetch suppliers data
@@ -112,7 +113,32 @@ const AllSuppliersManage = () => {
           pageSize,
           searchQuery || null
         );
-        setSuppliers(response.suppliers || []);
+
+        let baseSuppliers = response.suppliers || [];
+
+        // Enhance with realtime insights rating so the table rating matches supplier Insights
+        try {
+          const enhanced = await Promise.all(
+            baseSuppliers.map(async (s) => {
+              const id = s.supplier_id || s.id;
+              try {
+                const insights = await getSupplierInsights(id);
+                const avg = typeof insights.average_rating === 'number' ? insights.average_rating : null;
+                return {
+                  ...s,
+                  rating: avg != null ? avg : s.rating,
+                };
+              } catch {
+                return s;
+              }
+            })
+          );
+          baseSuppliers = enhanced;
+        } catch (e) {
+          console.warn('Failed to enhance suppliers with insights', e);
+        }
+
+        setSuppliers(baseSuppliers);
         setTotalPages(response.total_pages || 1);
         setTotal(response.total || 0);
       } catch (err) {
@@ -161,8 +187,31 @@ const AllSuppliersManage = () => {
     return '$' + amount.toFixed(2);
   };
 
-  const openModal = (payload) => setSelected(payload);
-  const closeModal = () => setSelected(null);
+  const openModal = async (payload) => {
+    setSelected(payload);
+    setSelectedInsights(null);
+    try {
+      const insights = await getSupplierInsights(payload.id);
+      setSelectedInsights(insights);
+      if (typeof insights.average_rating === 'number' && !Number.isNaN(insights.average_rating)) {
+        setSelected((prev) =>
+          prev
+            ? {
+                ...prev,
+                rating: insights.average_rating.toFixed(1),
+              }
+            : prev,
+        );
+      }
+    } catch (err) {
+      console.error('Failed to load supplier insights', err);
+    }
+  };
+
+  const closeModal = () => {
+    setSelected(null);
+    setSelectedInsights(null);
+  };
 
   const initialsOf = (fullName) => {
     const parts = String(fullName || '')
@@ -293,21 +342,32 @@ const AllSuppliersManage = () => {
                         <td className="px-3 md:px-4 py-2 text-center">
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
+                              const performance = typeof supplier.performance === 'number'
+                                ? supplier.performance
+                                : 0;
+                              const ratingVal = typeof supplier.rating === 'number'
+                                ? supplier.rating
+                                : 0;
                               openModal({
                                 id: supplier.supplier_id || supplier.id,
                                 name: supplier.name,
                                 email: supplier.email,
                                 totalTours: supplier.total_tours || 0,
-                                rating: supplier.rating?.toFixed(1) || '0.0',
-                                earnings: formatCurrency(revenue),
+                                rating: ratingVal.toFixed(1),
+                                // keep raw revenue number; format inside modal
+                                earnings: revenue,
                                 active: supplier.status === 'Active' || supplier.status === 'approved',
                                 verified: true,
                                 initials: initialsOf(supplier.name),
                                 phone: supplier.phone,
                                 location: supplier.location,
-                              })
-                            }
+                                // Basic performance numbers from list; detailed ones come from insights API
+                                completionRate: `${performance.toFixed(1)}%`,
+                                responseTime: null,
+                                satisfaction: null,
+                              });
+                            }}
                             className="inline-flex items-center justify-center w-7 h-7  hover:bg-gray-50"
                             aria-label="View"
                           >
@@ -464,7 +524,9 @@ const AllSuppliersManage = () => {
                   <div className="text-xs text-gray-500 mt-1">Rating</div>
                 </div>
                 <div className="rounded-xl border border-gray-300 p-5 text-center">
-                  <div className="text-2xl font-semibold text-gray-800">{'$' + selected.earnings}</div>
+                  <div className="text-2xl font-semibold text-gray-800">
+                    {formatCurrency(typeof selected.earnings === 'number' ? selected.earnings : 0)}
+                  </div>
                   <div className="text-xs text-gray-500 mt-1">Earnings</div>
                 </div>
               </div>
@@ -472,14 +534,48 @@ const AllSuppliersManage = () => {
               <div className="mt-8">
                 <div className="text-lg font-semibold text-gray-800">Performance Insights</div>
                 <div className="mt-4 space-y-4 text-sm">
-                  <div className="flex items-center justify-between"><span className="text-gray-700">Booking Completion Rate</span><span className="text-gray-900 font-medium">{selected.completionRate}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-gray-700">Average Response Time</span><span className="text-gray-900 font-medium">{selected.responseTime}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-gray-700">Customer Satisfaction</span><span className="text-gray-900 font-medium">{selected.satisfaction}</span></div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Booking Completion Rate</span>
+                    <span className="text-gray-900 font-medium">
+                      {selectedInsights
+                        ? `${selectedInsights.completion_rate.toFixed(1)}%`
+                        : selected.completionRate ?? '0.0%'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Average Response Rate</span>
+                    <span className="text-gray-900 font-medium">
+                      {selectedInsights
+                        ? `${selectedInsights.response_rate.toFixed(1)}%`
+                        : '0.0%'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Customer Satisfaction</span>
+                    <span className="text-gray-900 font-medium">
+                      {selectedInsights
+                        ? `${selectedInsights.satisfaction.toFixed(1)}%`
+                        : `${selected.rating || '0.0'}/5.0`}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                <button className="flex-1 px-5 py-3 rounded-full bg-[#1c2a4f] text-white text-sm">Send Message</button>
+                <button
+                  className="flex-1 px-5 py-3 rounded-full bg-[#1c2a4f] text-white text-sm"
+                  onClick={() => {
+                    // Navigate admin UI to Messages & contact with supplier context via hash
+                    if (window && window.location) {
+                      window.location.hash = `#message-supplier=${encodeURIComponent(
+                        selected.id,
+                      )}&name=${encodeURIComponent(selected.name || '')}`;
+                    }
+                    closeModal();
+                  }}
+                >
+                  Send Message
+                </button>
                 <button
                   onClick={() => { if (window && window.location) { window.location.hash = '#supplier-profile'; } closeModal(); }}
                   className="flex-1 px-5 py-3 rounded-full border border-gray-300 text-gray-700 text-sm bg-white"

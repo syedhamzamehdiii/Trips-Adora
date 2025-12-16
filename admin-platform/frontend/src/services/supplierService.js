@@ -51,6 +51,28 @@ export const getSupplierProducts = async (supplierId, page = 1, pageSize = 10) =
   return await apiService.get(`${BASE_PATH}/${encodeURIComponent(supplierId)}/products`, params);
 };
 
+/**
+ * Get full product details by ID (via admin backend, shared products collection).
+ */
+export const getSupplierProductById = async (productId) => {
+  if (!productId) throw new Error('productId is required');
+  return await apiService.get(`/suppliers/products/${encodeURIComponent(productId)}`);
+};
+
+/**
+ * Update a supplier product from the admin panel.
+ * This writes directly to the shared products collection so changes
+ * are reflected in supplier and customer platforms.
+ */
+export const updateSupplierProductById = async (productId, payload) => {
+  if (!productId) throw new Error('productId is required');
+  return await apiService.put(`/suppliers/products/${encodeURIComponent(productId)}`, payload);
+};
+
+export const getSupplierInsights = async (supplierId) => {
+  return await apiService.get(`${BASE_PATH}/${encodeURIComponent(supplierId)}/insights`);
+};
+
 export const getBlockedSuppliers = async (page = 1, pageSize = 10, search = null) => {
   const params = { page, page_size: pageSize };
   if (search) params.search = search;
@@ -82,6 +104,9 @@ export default {
   getSupplierStats,
   getSupplierDetail,
   getSupplierProducts,
+  getSupplierProductById,
+  updateSupplierProductById,
+  getSupplierInsights,
   getPendingOnboardings,
   updateOnboardingStatus,
   getBlockedSuppliers,

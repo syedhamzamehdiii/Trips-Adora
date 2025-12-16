@@ -283,18 +283,18 @@ const SupplierRegistrationPage = () => {
       }
 
       if (!emailToCheck) {
-        // If we have rejected/blocked status in localStorage but no email yet, wait for email
-        if (initialSupplierStatus === 'rejected' || supplierStatus === 'rejected' || 
-            initialSupplierStatus === 'blocked' || supplierStatus === 'blocked') {
+        // If we have rejected/blocked status in localStorage but no email yet, show rejection screen
+        if (
+          initialSupplierStatus === 'rejected' ||
+          supplierStatus === 'rejected' ||
+          initialSupplierStatus === 'blocked' ||
+          supplierStatus === 'blocked'
+        ) {
           setShowRejectionScreen(true);
           const blockedReason = localStorage.getItem('supplier_blocked_reason');
           if (blockedReason) {
             setRejectionReason(blockedReason);
           }
-        if (!emailToCheck) {
-        // If we have rejected status in localStorage but no email yet, wait for email
-        if (initialSupplierStatus === 'rejected' || supplierStatus === 'rejected') {
-          setShowRejectionScreen(true);
         } else if (!hasCheckedStatus) {
           // For new users without email yet, show welcome screen
           setShowWelcomeScreen(true);

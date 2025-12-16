@@ -292,6 +292,7 @@ class CustomerService:
                     profile_customer_id = prof.get("customer_id")
                 customer_id = profile_customer_id or user.get("customer_id")
                 if not customer_id:
+                    # Deterministic fallback ID based on user_id (keeps old behavior but fixes indentation)
                     customer_id_num = hash(user_id) % 10000000
                     if customer_id_num < 0:
                         customer_id_num = abs(customer_id_num)

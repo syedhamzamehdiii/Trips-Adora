@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import PayoutDetail from './PayoutDetail';
 
-const PayoutDetailModal = ({ isOpen, onClose }) => {
+const PayoutDetailModal = ({ isOpen, onClose, payouts = [], supplier }) => {
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') onClose();
@@ -21,7 +21,7 @@ const PayoutDetailModal = ({ isOpen, onClose }) => {
             <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
           </div>
           <div className="px-5 pb-5 overflow-auto max-h-[70vh]">
-            <PayoutDetail />
+            <PayoutDetail payouts={payouts} supplier={supplier} />
           </div>
         </div>
       </div>

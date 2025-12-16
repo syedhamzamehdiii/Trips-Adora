@@ -2,8 +2,8 @@
 Supplier Service
 Handles business logic for supplier operations
 """
-from typing import Optional
-from datetime import datetime
+from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
 from app.models.supplier import Supplier
 from app.models.supplier_onboarding import SupplierOnboarding, OnboardingStatus
 from app.models.user import User
@@ -14,6 +14,8 @@ from app.schemas.supplier import (
     ProductListResponse,
     ProductSummary,
     DocumentInfo,
+    SupplierInsightsResponse,
+    ProductDetailResponse,
 )
 from app.core.database import get_database
 import logging
@@ -205,6 +207,7 @@ class SupplierService:
                 # Use supplier_code as the canonical identifier (matches supplier-platform)
                 supplier_code = user.supplier_code or f"SUP-{user_id_str[:8]}"
 
+                # Look up aggregated bookings/revenue stats
                 bookings_info = bookings_stats_map.get(user_id_str, {})
                 bookings = bookings_info.get("bookings", 0)
                 revenue_val = bookings_info.get("revenue", 0.0)
@@ -219,6 +222,24 @@ class SupplierService:
                 if perf_den > 0:
                     performance = min(100.0, round((successful / perf_den) * 100, 1))
 
+                # Enrich with Supplier document to get average rating and total revenue
+                rating_val: float = 0.0
+                try:
+                    supplier_doc = await Supplier.find_one(Supplier.user_id == user_id_str)
+                    if supplier_doc and getattr(supplier_doc, "rating", None) is not None:
+                        rating_val = float(supplier_doc.rating)
+                        # If Supplier.total_revenue is present and non-zero, prefer it for revenue
+                        total_rev = getattr(supplier_doc, "total_revenue", None)
+                        if isinstance(total_rev, (int, float)) and total_rev:
+                            revenue_val = float(total_rev)
+                except Exception as e:
+                    logger.debug(f"Could not enrich supplier rating/revenue for {user_id_str}: {e}")
+
+                # Status behaviour similar to customers list:
+                # - "Active"  -> supplier account is active AND verified
+                # - "Inactive" -> anything else (blocked, unverified, etc.)
+                status = "Active" if (getattr(user, "is_active", False) and getattr(user, "is_verified", False)) else "Inactive"
+
                 suppliers_data.append({
                     "id": supplier_code,
                     "supplier_id": supplier_code,
@@ -227,9 +248,9 @@ class SupplierService:
                     "phone": user.phone,
                     "location": location,
                     "total_tours": total_tours,
-                    "status": "Active",
+                    "status": status,
                     "revenue": revenue_val,
-                    "rating": 0,
+                    "rating": rating_val,
                     "bookings": bookings,
                     "reviews": reviews_count,
                     "performance": performance,
@@ -292,6 +313,7 @@ class SupplierService:
 
             # Totals derived from supplier-platform users collection
             total_suppliers = await User.find(User.role == UserRole.SUPPLIER).count()
+            # Active suppliers: verified + active (previous behaviour, as requested)
             active_suppliers = await User.find(
                 And(
                     User.role == UserRole.SUPPLIER,
@@ -315,9 +337,34 @@ class SupplierService:
                 total_suppliers = onboarding_approved
                 active_suppliers = onboarding_approved
             
-            # Total earnings: we currently don't track revenue on User; keep Supplier total_revenue if present
-            suppliers = await Supplier.find().to_list()
-            total_earnings = sum(supplier.total_revenue or 0 for supplier in suppliers)
+            # Total earnings for admin:
+            # Sum ALL customer booking amounts and take the admin commission (25%)
+            db = get_database()
+            bookings_collection = db["customer_bookings"]
+
+            total_gross_amount: float = 0.0
+            try:
+                pipeline = [
+                    {
+                        "$group": {
+                            "_id": None,
+                            "total_amount": {
+                                "$sum": {
+                                    "$ifNull": ["$total_amount", 0]
+                                }
+                            },
+                        }
+                    }
+                ]
+                agg = await bookings_collection.aggregate(pipeline).to_list(length=1)
+                if agg:
+                    total_gross_amount = float(agg[0].get("total_amount", 0) or 0.0)
+            except Exception as e:
+                logger.error(f"Error aggregating total supplier earnings from bookings: {e}", exc_info=True)
+
+            # Admin keeps 25% commission, suppliers receive 75% as payouts.
+            # For the 'Total earnings' card we want the ADMIN'S earnings (commission).
+            total_earnings = round(total_gross_amount * 0.25, 2) if total_gross_amount else 0.0
             
             return SupplierStatsResponse(
                 total_suppliers=total_suppliers,
@@ -366,33 +413,203 @@ class SupplierService:
             onboarding = await SupplierOnboarding.find_one(SupplierOnboarding.user_id == user_id_str)
             account_type = onboarding.business_type.value if onboarding and onboarding.business_type else None
 
+            # Base location info from onboarding / user
             address = user.address or (onboarding.person_address if onboarding else None)
             city = getattr(onboarding, "business_city", None) if onboarding else None
             state = getattr(onboarding, "business_state", None) if onboarding else None
             country = user.country or (onboarding.business_country if onboarding else None)
+            legal_name = onboarding.user_name if onboarding else None
+            contact_phone: Optional[str] = user.phone
 
-            # Placeholder payouts until payouts collection exists
+            # Overlay with latest supplier account settings (profileData + editableInfo + contactNumbers)
+            try:
+                settings_doc = await db["supplier_account_settings"].find_one({"supplier_id": user_id_str})
+                if settings_doc:
+                    data = settings_doc.get("data") or {}
+                    profile_data = data.get("profileData") or {}
+                    editable_info = data.get("editableInfo") or {}
+
+                    def pick(src: dict, key: str, current: Optional[str]) -> Optional[str]:
+                        val = src.get(key)
+                        if isinstance(val, str) and val.strip():
+                            return val
+                        return current
+
+                    # Account type and identity
+                    account_type = pick(profile_data, "accountType", account_type)
+                    account_type = pick(editable_info, "accountType", account_type)
+                    legal_name = pick(profile_data, "legalName", legal_name)
+                    legal_name = pick(editable_info, "legalName", legal_name)
+
+                    # Contact info (prefer explicit contactValue, otherwise first contactNumbers.value)
+                    contact_phone = pick(profile_data, "contactValue", contact_phone)
+                    contact_numbers = data.get("contactNumbers")
+                    if isinstance(contact_numbers, list):
+                        for c in contact_numbers:
+                            val = c.get("value")
+                            if isinstance(val, str) and val.strip():
+                                contact_phone = val
+                                break
+
+                    # Office information (street, city, state, country)
+                    address = pick(profile_data, "streetAddress", address)
+                    address = pick(editable_info, "streetAddress", address)
+                    city = pick(profile_data, "city", city)
+                    city = pick(editable_info, "city", city)
+                    state = pick(profile_data, "state", state)
+                    state = pick(editable_info, "state", state)
+                    country = pick(profile_data, "country", country)
+                    country = pick(editable_info, "country", country)
+            except Exception as settings_err:
+                logger.debug(f"Could not overlay supplier settings for {supplier_code}: {settings_err}")
+
+            # Derive basic payout rows from customer bookings (realtime)
             payouts: list[dict] = []
+            total_payout_earnings = 0.0
+            try:
+                bookings_collection = db["customer_bookings"]
+                pipeline = [
+                    {"$match": {"supplier_id": user_id_str}},
+                    {
+                        "$project": {
+                            "created_at": 1,
+                            "product_title": 1,
+                            "title": 1,
+                            "tour_name": 1,
+                            "reference_code": 1,
+                            "total_amount": {"$ifNull": ["$total_amount", 0]},
+                        }
+                    },
+                    {
+                        "$addFields": {
+                            "payout_date": {
+                                "$dateToString": {
+                                    "format": "%Y-%m-%d",
+                                    "date": "$created_at",
+                                }
+                            },
+                            "payout_product": {
+                                "$ifNull": [
+                                    "$product_title",
+                                    {
+                                        "$ifNull": ["$title", "$tour_name"]
+                                    }
+                                ]
+                            },
+                        }
+                    },
+                    {
+                        "$group": {
+                            "_id": {
+                                "date": "$payout_date",
+                                "product": "$payout_product",
+                            },
+                            "bookings": {"$sum": 1},
+                            "earnings": {"$sum": "$total_amount"},
+                            "sample_ref": {"$first": "$reference_code"},
+                        }
+                    },
+                    {"$sort": {"_id.date": -1}},
+                    {"$limit": 50},
+                ]
+
+                async for row in bookings_collection.aggregate(pipeline):
+                    key = row.get("_id", {}) or {}
+                    date_str = key.get("date") or ""
+                    # Prefer product title from aggregation, with sensible fallbacks
+                    raw_product = key.get("product")
+                    if isinstance(raw_product, dict):
+                        product_name = raw_product.get("title") or raw_product.get("product_title") or raw_product.get("tour_name") or "—"
+                    else:
+                        product_name = raw_product or "—"
+                    bookings_count = int(row.get("bookings", 0) or 0)
+                    earnings_val = float(row.get("earnings", 0) or 0.0)
+
+                    commission_val = round(earnings_val * 0.25, 2)
+                    payout_amount = round(earnings_val - commission_val, 2)
+                    due_amount = payout_amount  # until we track paid vs. unpaid
+
+                    total_payout_earnings += payout_amount
+
+                    payouts.append(
+                        {
+                            "date": date_str,
+                            "product": product_name,
+                            "reference": row.get("sample_ref"),
+                            "bookings": bookings_count,
+                            "earnings": earnings_val,
+                            "commission": commission_val,
+                            "dueAmount": due_amount,
+                            "payout": payout_amount,
+                        }
+                    )
+            except Exception as e:
+                logger.debug(
+                    f"Could not derive payouts for supplier {user_id_str}: {e}"
+                )
+
+            # If we don't have a stored Supplier.total_revenue, derive earnings from payouts
+            if not earnings and total_payout_earnings:
+                earnings = total_payout_earnings
+
+            # Optionally enrich rating from the same logic used in get_supplier_insights
+            try:
+                insights = await SupplierService.get_supplier_insights(user.supplier_code or supplier_code)
+                if insights and insights.average_rating is not None:
+                    rating = insights.average_rating
+                # If earnings is still zero, use total bookings-based earnings if we ever add it there
+            except Exception as ins_err:
+                logger.debug(f"Could not enrich supplier detail with insights for {supplier_code}: {ins_err}")
 
             documents: list[DocumentInfo] = []
+            # Documents from original onboarding (registration)
             if onboarding:
                 doc_fields = [
-                    ("Insurance Doc.", onboarding.insurance_document_url),
-                    ("Business Doc.", onboarding.business_document_url),
-                    ("Logo Uploaded", onboarding.logo_url),
+                    ("Business license", onboarding.business_document_url),
+                    ("Public liability insurance", onboarding.insurance_document_url),
+                    ("Logo", onboarding.logo_url),
                     ("ID Front", onboarding.id_front_url),
                     ("ID Back", onboarding.id_back_url),
                 ]
                 for label, url in doc_fields:
                     if url:
-                        documents.append(DocumentInfo(id=f"{label}".replace(" ", "_"), label=label, url=url))
+                        documents.append(
+                            DocumentInfo(
+                                id=f"{label}".replace(" ", "_"),
+                                label=label,
+                                url=url,
+                            )
+                        )
+
+            # Documents from latest account settings (previews / public IDs)
+            try:
+                settings_doc = await db["supplier_account_settings"].find_one({"supplier_id": user_id_str})
+                if settings_doc:
+                    data = settings_doc.get("data") or {}
+                    preview_fields = [
+                        ("Business license", "businessLicensePreview"),
+                        ("Public liability insurance", "liabilityInsurancePreview"),
+                        ("Logo", "logoPreview"),
+                    ]
+                    for label, key in preview_fields:
+                        url = data.get(key)
+                        if url and not any(d.label == label for d in documents):
+                            documents.append(
+                                DocumentInfo(
+                                    id=f"settings_{label}".replace(" ", "_"),
+                                    label=label,
+                                    url=url,
+                                )
+                            )
+            except Exception as docs_err:
+                logger.debug(f"Could not enrich supplier documents from settings for {supplier_code}: {docs_err}")
 
             return SupplierDetailResponse(
                 id=user.supplier_code or f"SUP-{user_id_str[:8]}",
                 name=user.business_name or user.full_name,
-                legal_name=onboarding.user_name if onboarding else None,
+                legal_name=legal_name,
                 email=user.email,
-                phone=user.phone,
+                phone=contact_phone,
                 address=address,
                 city=city,
                 state=state,
@@ -407,6 +624,136 @@ class SupplierService:
             )
         except Exception as e:
             logger.error(f"Error fetching supplier detail for {supplier_code}: {e}")
+            raise
+
+    @staticmethod
+    async def get_supplier_insights(supplier_code: str) -> SupplierInsightsResponse:
+        """
+        Compute high-level performance insights for a supplier, mirroring the supplier platform
+        Insights page (bookings, cancellation rate, average rating, response rate, satisfaction).
+        """
+        try:
+            # Resolve supplier user by supplier_code
+            user = await User.find_one(User.supplier_code == supplier_code)
+            if not user and supplier_code.startswith("SUP-"):
+                # Fallback: try without prefix if needed
+                user = await User.find_one(User.supplier_code == supplier_code.replace("SUP-", ""))
+            if not user:
+                raise ValueError("Supplier not found")
+
+            supplier_id = str(user.id)
+            db = get_database()
+
+            # Fetch bookings for this supplier
+            bookings_cursor = db["customer_bookings"].find({"supplier_id": supplier_id})
+            bookings = await bookings_cursor.to_list(length=1000)
+
+            total_bookings = len(bookings)
+            booking_this_month = 0
+            cancellations = 0
+
+            from datetime import datetime
+
+            now = datetime.utcnow()
+            month_key = (now.year, now.month)
+
+            # Local definition of cancellation statuses (kept in sync with dashboard logic)
+            CANCELLED_STATUSES = {"cancelled", "canceled", "refund", "refund/dispute"}
+
+            for b in bookings:
+                status = (b.get("status") or "").lower()
+                created_at = b.get("created_at")
+                if isinstance(created_at, datetime):
+                    key = (created_at.year, created_at.month)
+                    if key == month_key:
+                        booking_this_month += 1
+                if status in CANCELLED_STATUSES:
+                    cancellations += 1
+
+            cancellation_rate = (
+                round((cancellations / total_bookings) * 100, 2) if total_bookings else 0.0
+            )
+            completion_rate = max(0.0, min(100.0, round(100.0 - cancellation_rate, 2)))
+
+            # Average rating from customer_reviews for this supplier's products
+            average_rating = 0.0
+            try:
+                product_ids = []
+                prod_cursor = db["products"].find({"supplier_id": supplier_id}, {"_id": 1})
+                async for p in prod_cursor:
+                    pid = p.get("_id")
+                    if pid:
+                        product_ids.append(str(pid))
+                if product_ids:
+                    reviews_coll = db["customer_reviews"]
+                    pipeline = [
+                        {"$match": {"product_id": {"$in": product_ids}}},
+                        {
+                            "$group": {
+                                "_id": None,
+                                "avg_rating": {"$avg": "$rating"},
+                            }
+                        },
+                    ]
+                    docs = await reviews_coll.aggregate(pipeline).to_list(length=1)
+                    if docs:
+                        avg = docs[0].get("avg_rating")
+                        if avg is not None:
+                            average_rating = round(float(avg), 1)
+            except Exception as rating_err:
+                logger.debug(f"Could not compute average rating for {supplier_code}: {rating_err}")
+
+            # Response rate based on supplier reply activity (messages collection)
+            response_rate = 0.0
+            try:
+                from datetime import timedelta
+
+                days = 30
+                since = now - timedelta(days=days)
+                messages_coll = db["messages"]
+                pipeline = [
+                    {
+                        "$match": {
+                            "sender_id": supplier_id,
+                            "sender_type": "supplier",
+                            "created_at": {"$gte": since},
+                        }
+                    },
+                    {
+                        "$group": {
+                            "_id": {
+                                "$dateToString": {
+                                    "format": "%Y-%m-%d",
+                                    "date": "$created_at",
+                                }
+                            },
+                            "replies": {"$sum": 1},
+                        }
+                    },
+                ]
+                reply_docs = await messages_coll.aggregate(pipeline).to_list(length=None)
+                active_days = len(reply_docs)
+                if days > 0:
+                    response_rate = round((active_days / days) * 100.0, 2)
+            except Exception as resp_err:
+                logger.debug(f"Could not compute response rate for {supplier_code}: {resp_err}")
+
+            # Customer satisfaction as a percentage based on average rating (out of 5)
+            satisfaction = 0.0
+            if average_rating > 0:
+                satisfaction = round((average_rating / 5.0) * 100.0, 2)
+
+            return SupplierInsightsResponse(
+                booking_this_month=booking_this_month,
+                total_bookings=total_bookings,
+                cancellation_rate=cancellation_rate,
+                completion_rate=completion_rate,
+                average_rating=average_rating,
+                response_rate=response_rate,
+                satisfaction=satisfaction,
+            )
+        except Exception as e:
+            logger.error(f"Error fetching insights for supplier {supplier_code}: {e}")
             raise
 
     @staticmethod
@@ -517,8 +864,31 @@ class SupplierService:
             for doc in docs:
                 vehicle = None
                 try:
-                    vehicle_details = doc.get("vehicle_details") or {}
-                    vehicle = vehicle_details.get("vehicle_model") or vehicle_details.get("vehicle_type")
+                    # Prefer rich vehicle info from custom_fields.vehicles_full[0]
+                    custom_fields = doc.get("custom_fields") or {}
+                    vehicles_full = custom_fields.get("vehicles_full") or custom_fields.get("vehiclesFull") or []
+                    primary_vehicle = vehicles_full[0] if isinstance(vehicles_full, list) and vehicles_full else None
+
+                    if isinstance(primary_vehicle, dict):
+                        vehicle = (
+                            primary_vehicle.get("title")
+                            or primary_vehicle.get("model")
+                            or primary_vehicle.get("type")
+                        )
+
+                    # Fallback to vehicle_details if nothing found in custom_fields
+                    if not vehicle:
+                        vehicle_details = doc.get("vehicle_details") or {}
+                        vehicle = vehicle_details.get("vehicle_model") or vehicle_details.get("vehicle_type")
+
+                    # Final cleanup: normalize short codes like "suv" -> "SUV"
+                    if isinstance(vehicle, str):
+                        v = vehicle.strip()
+                        if v.lower() in {"suv", "van", "bus", "car"}:
+                            vehicle = v.upper()
+                        else:
+                            # Title-case longer labels for nicer display
+                            vehicle = v.title()
                 except Exception:
                     vehicle = None
 
@@ -552,6 +922,135 @@ class SupplierService:
             )
         except Exception as e:
             logger.error(f"Error fetching supplier products for {supplier_code}: {e}")
+            raise
+
+    @staticmethod
+    async def get_product_detail(product_id: str) -> ProductDetailResponse:
+        """
+        Get full product detail by product_id for admin view.
+        Reads directly from the shared `products` collection so it matches
+        supplier and customer platforms.
+        """
+        from bson import ObjectId
+
+        try:
+            db = get_database()
+            products_collection = db["products"]
+
+            if not ObjectId.is_valid(product_id):
+                raise ValueError("Invalid product id")
+
+            doc = await products_collection.find_one({"_id": ObjectId(product_id)})
+            if not doc:
+                raise ValueError("Product not found")
+
+            # Normalize fields into a flat dict compatible with ProductDetailResponse
+            data = dict(doc)
+            data["id"] = str(data.pop("_id"))
+
+            # Normalize custom fields: documents may store this as `customFields` (camelCase)
+            custom_fields = data.get("custom_fields") or data.get("customFields") or {}
+            # Remove camelCase duplicate if present
+            if "customFields" in data:
+                data.pop("customFields", None)
+            data["custom_fields"] = custom_fields
+
+            # Convert enum-like status to plain string if needed
+            status_val = data.get("status")
+            if hasattr(status_val, "value"):
+                data["status"] = status_val.value
+
+            # Ensure list/dict fields are not None
+            for key in [
+                "highlights",
+                "images",
+                "gallery_images",
+                "itinerary",
+                "languages",
+                "things_to_carry",
+                "faqs",
+                "breadcrumb",
+            ]:
+                if data.get(key) is None:
+                    data[key] = []
+
+            if data.get("custom_fields") is None:
+                data["custom_fields"] = {}
+
+            return ProductDetailResponse(**data)
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching product detail for {product_id}: {e}", exc_info=True)
+            raise
+
+    @staticmethod
+    async def update_product_detail(product_id: str, payload: Dict[str, Any]) -> ProductDetailResponse:
+        """
+        Update product detail by product_id on behalf of admin.
+
+        Admin edits should overwrite the published product so that changes
+        are reflected in supplier and customer platforms in real-time.
+        Only a controlled set of fields is updated to avoid breaking metadata.
+        """
+        from bson import ObjectId
+
+        try:
+            if not ObjectId.is_valid(product_id):
+                raise ValueError("Invalid product id")
+
+            db = get_database()
+            products_collection = db["products"]
+
+            # Whitelisted fields that admin is allowed to update
+            allowed_fields = {
+                "title",
+                "tagline",
+                "description",
+                "hero_image",
+                "gallery_images",
+                "images",
+                "duration",
+                "guide_type",
+                "activity_type",
+                "languages",
+                "things_to_carry",
+                "included_excluded",
+                "accessibility",
+                "vehicle_details",
+                "pickup_dropoff",
+                "price",
+                "currency",
+                "price_unit",
+                "faqs",
+                "cancellation_policy",
+                "destination",
+                "breadcrumb",
+                "selling_points",
+                "style_theme",
+                "custom_fields",
+            }
+
+            update_doc: Dict[str, Any] = {}
+            for key, value in (payload or {}).items():
+                if key in allowed_fields:
+                    update_doc[key] = value
+
+            if not update_doc:
+                # Nothing to update; just return current detail
+                return await SupplierService.get_product_detail(product_id)
+
+            await products_collection.update_one(
+                {"_id": ObjectId(product_id)},
+                {"$set": update_doc},
+            )
+
+            # Return refreshed product detail
+            return await SupplierService.get_product_detail(product_id)
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating product detail for {product_id}: {e}", exc_info=True)
             raise
 
     @staticmethod

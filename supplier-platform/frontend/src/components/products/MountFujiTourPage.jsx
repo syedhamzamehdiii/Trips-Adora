@@ -343,6 +343,19 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
   });
   const [expandedFaqIndex, setExpandedFaqIndex] = useState(null);
 
+  // Commission / earnings display (real-time from product price)
+  const COMMISSION_RATE = 0.25; // 25% admin commission, supplier keeps 75%
+  const commissionPercentLabel = `${Math.round(COMMISSION_RATE * 100)}%`;
+  const basePriceRaw = productData?.price ?? productData?.productAmount ?? 0;
+  const basePrice =
+    typeof basePriceRaw === 'number'
+      ? basePriceRaw
+      : parseFloat(basePriceRaw || 0);
+  const supplierEarningsLabel =
+    basePrice && !Number.isNaN(basePrice)
+      ? `$${(basePrice * (1 - COMMISSION_RATE)).toFixed(2)} Per Booking`
+      : '-';
+
   useEffect(() => {
     const loadProfileFromStorage = () => {
       try {
@@ -1985,21 +1998,54 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
 
   // Get available days from productData
   const availableDays = useMemo(() => {
-    // Priority 1: From pickup_dropoff.available_days
-    if (Array.isArray(productData?.pickup_dropoff?.available_days) && productData.pickup_dropoff.available_days.length > 0) {
+    // Priority 1: From pickup_dropoff.available_days (published data)
+    if (
+      Array.isArray(productData?.pickup_dropoff?.available_days) &&
+      productData.pickup_dropoff.available_days.length > 0
+    ) {
       return productData.pickup_dropoff.available_days;
     }
-    // Priority 2: From productData.availableDays
+    // Priority 2: From explicit productData.availableDays (builder state)
     if (Array.isArray(productData?.availableDays) && productData.availableDays.length > 0) {
       return productData.availableDays;
     }
-    // Priority 3: From productData.weekDay (single day)
+    // Priority 3: Derive from time_slots_by_day or timeSlots (any day that has slots)
+    const daysFromSlots = (() => {
+      const days = [];
+      const seen = new Set();
+
+      const addDaysFromMap = (map) => {
+        if (!map || typeof map !== 'object') return;
+        Object.keys(map).forEach((day) => {
+          const slots = map[day];
+          if (Array.isArray(slots) && slots.length > 0 && !seen.has(day)) {
+            seen.add(day);
+            days.push(day);
+          }
+        });
+      };
+
+      addDaysFromMap(productData?.pickup_dropoff?.time_slots_by_day);
+      addDaysFromMap(productData?.timeSlots);
+
+      return days;
+    })();
+    if (daysFromSlots.length > 0) {
+      return daysFromSlots;
+    }
+    // Priority 4: From single weekDay value
     if (productData?.weekDay) {
       return [productData.weekDay];
     }
     // Fallback to default days
     return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  }, [productData?.pickup_dropoff?.available_days, productData?.availableDays, productData?.weekDay]);
+  }, [
+    productData?.pickup_dropoff?.available_days,
+    productData?.availableDays,
+    productData?.pickup_dropoff?.time_slots_by_day,
+    productData?.timeSlots,
+    productData?.weekDay,
+  ]);
 
   // Get time slots for selected vehicle and selected day
   const timeSlotsForSelectedDay = useMemo(() => {
@@ -2457,16 +2503,23 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                     <div>
                       <h4 className="font-semibold text-gray-900">Accessibility</h4>
                       <p className="text-gray-600">
-                        {productData?.accessibility 
+                        {productData?.accessibility
                           ? Object.entries(productData.accessibility)
                               .filter(([key, value]) => value)
-                              .map(([key]) => key === 'wheelchair' ? 'Wheelchair accessible' :
-                                              key === 'serviceAnimals' ? 'Service animals allowed' :
-                                              key === 'infantSeat' ? 'Infant seat available' :
-                                              key === 'stroller' ? 'Stroller friendly' : '')
+                              .map(([key]) =>
+                                key === 'wheelchair'
+                                  ? 'Wheelchair accessible'
+                                  : key === 'serviceAnimals'
+                                  ? 'Service animals allowed'
+                                  : key === 'infantSeat'
+                                  ? 'Infant seat available'
+                                  : key === 'stroller'
+                                  ? 'Stroller friendly'
+                                  : ''
+                              )
                               .filter(Boolean)
                               .join(', ')
-                          : 'Wheelchair accessible, stroller friendly'}
+                          : ''}
                       </p>
                     </div>
                   </div>
@@ -2723,18 +2776,19 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
                   </div>
                 </div>
                 <div>
-                  {productData?.weekDay && (
+                  {/* Selected Days – show all actually available days, not just a single legacy weekDay */}
+                  {availableDays.length > 0 && (
                     <div className="mb-4">
                       <h4 className="font-bold text-black mb-2">Selected Days</h4>
-                      <div className="flex items-center gap-2">
-                        <div className="px-3 py-1 rounded-full text-sm font-medium bg-blue-600 text-white">
-                          {productData.weekDay}
-                        </div>
-                        {productData.selectedDate && (
-                          <div className="px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-700">
-                            {productData.selectedDate}
+                      <div className="flex flex-wrap gap-2">
+                        {availableDays.map((day) => (
+                          <div
+                            key={day}
+                            className="px-3 py-1 rounded-full text-sm font-medium bg-blue-600 text-white"
+                          >
+                            {day}
                           </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                   )}
@@ -2952,15 +3006,17 @@ const MountFujiTourPage = ({ coverImage, uploadedPhotos, productData, onBack }) 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-green-600">All requirements met</span>
-                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm font-medium">20%</span>
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm font-medium">
+                    {commissionPercentLabel}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-green-700">Commission Rate</span>
-                  <span className="text-green-600">-</span>
+                  <span className="text-green-700 font-semibold">{commissionPercentLabel}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-green-700">Your Earnings</span>
-                  <span className="text-green-600 font-semibold">$192 Per Booking</span>
+                  <span className="text-green-600 font-semibold">{supplierEarningsLabel}</span>
                 </div>
               </div>
             </div>

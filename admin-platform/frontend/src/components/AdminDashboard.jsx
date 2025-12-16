@@ -42,6 +42,7 @@ const AdminDashboard = () => {
   const [userAnchorRect, setUserAnchorRect] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [hash, setHash] = useState(window.location.hash);
+  const [initialMessageTarget, setInitialMessageTarget] = useState(null);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
 
   useEffect(() => {
@@ -49,6 +50,35 @@ const AdminDashboard = () => {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+
+  // React to hash-based deep links (supplier profile, jump-to-messages, etc.)
+  useEffect(() => {
+    if (!hash) return;
+
+    if (hash.startsWith('#supplier-profile')) {
+      // Supplier profile handled in render branch below
+      return;
+    }
+
+    if (hash.startsWith('#message-supplier=')) {
+      const [, rest] = hash.split('=');
+      const [supplierIdPart, namePart] = (rest || '').split('&name=');
+      const supplierId = decodeURIComponent(supplierIdPart || '');
+      const supplierName = namePart ? decodeURIComponent(namePart) : '';
+
+      setInitialMessageTarget({
+        type: 'supplier',
+        id: supplierId,
+        name: supplierName,
+      });
+      setActiveIndex(menuItems.indexOf('Massages & contact'));
+
+      // Clear hash so back/forward works cleanly
+      if (window && window.location) {
+        window.location.hash = '';
+      }
+    }
+  }, [hash]);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -210,7 +240,9 @@ const AdminDashboard = () => {
               {menuItems[activeIndex] === 'Suppliers' && <AllSuppliersManage />}
               {menuItems[activeIndex] === 'Customers' && <ManageAllCustomers />}
               {menuItems[activeIndex] === 'Reviews & Feedbacks' && <Feedbacks />}
-              {menuItems[activeIndex] === 'Massages & contact' && <MessagesContact />}
+              {menuItems[activeIndex] === 'Massages & contact' && (
+                <MessagesContact initialTarget={initialMessageTarget} />
+              )}
               {menuItems[activeIndex] === 'Finance' && <Finance />}
               {menuItems[activeIndex] !== 'Products Management' &&
                menuItems[activeIndex] !== 'Suppliers' &&

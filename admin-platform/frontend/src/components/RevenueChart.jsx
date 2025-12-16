@@ -481,28 +481,28 @@ const RevenueChart = () => {
                 <div className="text-gray-500">Loading chart data...</div>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart 
-                  data={chartData} 
-                  margin={{ top: 10, right: 30, bottom: 35, left: 10 }}
-                  onMouseMove={(state) => {
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart 
+                data={chartData} 
+                margin={{ top: 10, right: 30, bottom: 35, left: 10 }}
+                onMouseMove={(state) => {
                     // Update hoverInfo for tooltip, but don't affect static display
-                    if (state && state.activePayload && state.activePayload.length) {
+                  if (state && state.activePayload && state.activePayload.length) {
                       const bookingsVal = Number(state.activePayload.find(p => p.dataKey === 'bookings')?.value) || 0;
                       const revenueVal = Number(state.activePayload.find(p => p.dataKey === 'revenue')?.value) || 0;
                       setHoverInfo({ label: state.activeLabel || '', revenue: revenueVal, bookings: bookingsVal });
-                    }
-                  }}
-                >
-                  <defs>
+                  }
+                }}
+              >
+                <defs>
                     {/* Blue fill for the area under the revenue line */}
-                    <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#C3D4FF" stopOpacity={0.9} />
                       <stop offset="60%" stopColor="#C3D4FF" stopOpacity={0.5} />
                       <stop offset="100%" stopColor="#C3D4FF" stopOpacity={0.2} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#E5E7EB" strokeDasharray="0" vertical={false}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#E5E7EB" strokeDasharray="0" vertical={false}/>
                   <XAxis 
                     dataKey="month" 
                     axisLine={false} 
@@ -512,10 +512,10 @@ const RevenueChart = () => {
                     interval={0} 
                     dy={10} 
                   />
-                  <YAxis
-                    yAxisId="left"
-                    axisLine={false}
-                    tickLine={false}
+                <YAxis
+                  yAxisId="left"
+                  axisLine={false}
+                  tickLine={false}
                     tick={{ fill: '#6B7280', fontSize: 12, fontWeight: 500 }}
                     tickFormatter={(val) => val.toLocaleString()}
                     domain={bookingsDomain}
@@ -532,9 +532,9 @@ const RevenueChart = () => {
                       return `$${numVal >= 1000 ? (numVal / 1000).toFixed(0) + 'k' : numVal.toFixed(0)}`;
                     }}
                     domain={revenueDomain}
-                    width={50}
-                  />
-                  <Tooltip content={<CustomTooltip />} cursor={false} />
+                  width={50}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={false} />
                   {/* Area + line for revenue only (green flow like supplier reference) */}
                   <Area
                     yAxisId="right"
@@ -555,8 +555,8 @@ const RevenueChart = () => {
                     activeDot={{ r: 7, fill: '#5FAF6E', stroke: '#fff', strokeWidth: 2 }}
                     connectNulls={true}
                   />
-                </ComposedChart>
-              </ResponsiveContainer>
+              </ComposedChart>
+            </ResponsiveContainer>
             )}
           </div>
           {/* Bottom static readout - always shows real-time data */}

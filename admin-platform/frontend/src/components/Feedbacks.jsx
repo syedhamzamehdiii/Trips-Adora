@@ -25,7 +25,7 @@ const FeedbackCard = ({ id, name, date, reference, text, rating, title, onDelete
             {reference && <div className="text-[11px] text-gray-500">{reference}</div>}
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-[11px] text-gray-500">{date}</div>
+          <div className="text-[11px] text-gray-500">{date}</div>
             {onDelete && (
               <button
                 onClick={() => onDelete(id)}
