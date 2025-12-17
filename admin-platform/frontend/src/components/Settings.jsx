@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AddHolderModal from './AddHolderModal';
 import HoldersModal from './HoldersModal';
+import platformSettingsService from '../services/platformSettingsService';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('Platform info');
@@ -11,18 +12,17 @@ const Settings = () => {
   });
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   
-  // Toggle states for Two-Factor Authentication
-  const [twoFactorAuth, setTwoFactorAuth] = useState({
-    sms: true,
-    email: true,
-    app: false,
-  });
-  
   // Toggle states for Payment Gateways
   const [paymentGateways, setPaymentGateways] = useState({
     stripe: true,
     paypal: true,
   });
+
+  // Commission settings (persisted via admin backend)
+  const [commissionPercent, setCommissionPercent] = useState(25);
+  const [payoutSchedule, setPayoutSchedule] = useState('Bi-Weekly');
+  const [savingPayments, setSavingPayments] = useState(false);
+  const [paymentsSaved, setPaymentsSaved] = useState(false);
   
   // Refund Policy Modal state
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
@@ -74,6 +74,24 @@ const Settings = () => {
     setIsRefundModalOpen(false);
     setEditingRefund(null);
   };
+
+  // Load commission settings once (applies to admin finance + supplier payouts)
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const s = await platformSettingsService.getPlatformSettings();
+        if (!active) return;
+        if (typeof s?.commission_percent === 'number') setCommissionPercent(s.commission_percent);
+        else if (typeof s?.commission_rate === 'number') setCommissionPercent(Math.round(s.commission_rate * 100));
+        if (s?.payout_schedule) setPayoutSchedule(s.payout_schedule);
+      } catch (_) {
+        // keep defaults
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, []);
 
   return (
     <div className="w-full" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -302,73 +320,7 @@ const Settings = () => {
 
           {/* Right Column */}
           <div>
-            <h2 className="text-lg font-bold text-gray-900 mb-6">Two-Factor Authentication</h2>
-            <div className="space-y-6">
-              {/* SMS Authentication */}
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">SMS Authentication</h3>
-                    <p className="text-sm text-gray-600">Receive OPT via WhatsApp or SMS</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={twoFactorAuth.sms}
-                      onChange={(e) => setTwoFactorAuth({ ...twoFactorAuth, sms: e.target.checked })}
-                    />
-                    <div className={`w-11 h-6 rounded-full peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                      twoFactorAuth.sms ? 'bg-blue-600' : 'bg-gray-200'
-                    }`} style={twoFactorAuth.sms ? { backgroundColor: '#3B69E2' } : {}}></div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Email Authentication */}
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Email Authentication</h3>
-                    <p className="text-sm text-gray-600">Receive OPT via Email</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={twoFactorAuth.email}
-                      onChange={(e) => setTwoFactorAuth({ ...twoFactorAuth, email: e.target.checked })}
-                    />
-                    <div className={`w-11 h-6 rounded-full peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                      twoFactorAuth.email ? 'bg-blue-600' : 'bg-gray-200'
-                    }`} style={twoFactorAuth.email ? { backgroundColor: '#3B69E2' } : {}}></div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Authentication app */}
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Authentication app</h3>
-                    <p className="text-sm text-gray-600">
-                      An authentication app generates secure verification codes to confirm your identity when logging in.
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={twoFactorAuth.app}
-                      onChange={(e) => setTwoFactorAuth({ ...twoFactorAuth, app: e.target.checked })}
-                    />
-                    <div className={`w-11 h-6 rounded-full peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                      twoFactorAuth.app ? 'bg-blue-600' : 'bg-gray-200'
-                    }`} style={twoFactorAuth.app ? { backgroundColor: '#3B69E2' } : {}}></div>
-                  </label>
-                </div>
-              </div>
-            </div>
+            {/* Two-Factor Authentication section removed per requirement */}
           </div>
         </div>
       )}
@@ -456,8 +408,19 @@ const Settings = () => {
                   <label className="text-sm font-medium text-gray-700">
                     Platform commission rate
                   </label>
-                  <div className="px-4 py-2.5 rounded-lg text-sm font-semibold" style={{ backgroundColor: '#E3F2FD', color: '#3B69E2' }}>
-                    25%
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={commissionPercent}
+                      onChange={(e) => { setCommissionPercent(e.target.value); setPaymentsSaved(false); }}
+                      className="px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      style={{ width: '90px' }}
+                    />
+                    <div className="px-3 py-2.5 rounded-lg text-sm font-semibold" style={{ backgroundColor: '#E3F2FD', color: '#3B69E2' }}>
+                      %
+                    </div>
                   </div>
                 </div>
                 <p className="text-sm text-gray-500">
@@ -475,6 +438,8 @@ const Settings = () => {
                     <select
                       className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
                       style={{ minWidth: '150px' }}
+                      value={payoutSchedule}
+                      onChange={(e) => { setPayoutSchedule(e.target.value); setPaymentsSaved(false); }}
                     >
                       <option>Bi-Weekly</option>
                       <option>Weekly</option>
@@ -568,10 +533,24 @@ const Settings = () => {
       {activeTab === 'Payments' && (
         <div className="flex justify-end mt-8">
           <button
+            onClick={async () => {
+              try {
+                setSavingPayments(true);
+                setPaymentsSaved(false);
+                await platformSettingsService.updatePlatformSettings({
+                  commissionPercent,
+                  payoutSchedule,
+                });
+                setPaymentsSaved(true);
+              } finally {
+                setSavingPayments(false);
+              }
+            }}
+            disabled={savingPayments}
             className="px-8 py-3 rounded-lg text-white font-bold text-sm"
             style={{ backgroundColor: '#3B69E2' }}
           >
-            Update settings
+            {savingPayments ? 'Saving…' : (paymentsSaved ? 'Saved' : 'Update settings')}
           </button>
         </div>
       )}

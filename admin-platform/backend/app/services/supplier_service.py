@@ -20,6 +20,7 @@ from app.schemas.supplier import (
 from app.core.database import get_database
 import logging
 from bson import ObjectId
+from app.services.platform_settings_service import PlatformSettingsService
 
 logger = logging.getLogger(__name__)
 
@@ -362,9 +363,9 @@ class SupplierService:
             except Exception as e:
                 logger.error(f"Error aggregating total supplier earnings from bookings: {e}", exc_info=True)
 
-            # Admin keeps 25% commission, suppliers receive 75% as payouts.
-            # For the 'Total earnings' card we want the ADMIN'S earnings (commission).
-            total_earnings = round(total_gross_amount * 0.25, 2) if total_gross_amount else 0.0
+            # Admin commission is controlled from Settings.
+            commission_rate = await PlatformSettingsService.get_commission_rate()
+            total_earnings = round(total_gross_amount * commission_rate, 2) if total_gross_amount else 0.0
             
             return SupplierStatsResponse(
                 total_suppliers=total_suppliers,
@@ -481,6 +482,7 @@ class SupplierService:
             total_payout_earnings = 0.0
             try:
                 bookings_collection = db["customer_bookings"]
+                commission_rate = await PlatformSettingsService.get_commission_rate()
                 pipeline = [
                     {"$match": {"supplier_id": user_id_str}},
                     {
@@ -538,7 +540,7 @@ class SupplierService:
                     bookings_count = int(row.get("bookings", 0) or 0)
                     earnings_val = float(row.get("earnings", 0) or 0.0)
 
-                    commission_val = round(earnings_val * 0.25, 2)
+                    commission_val = round(earnings_val * commission_rate, 2)
                     payout_amount = round(earnings_val - commission_val, 2)
                     due_amount = payout_amount  # until we track paid vs. unpaid
 

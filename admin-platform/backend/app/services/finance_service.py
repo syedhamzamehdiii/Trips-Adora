@@ -10,6 +10,7 @@ from bson import ObjectId
 
 from app.core.database import get_database
 import logging
+from app.services.platform_settings_service import PlatformSettingsService
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class FinanceService:
     USERS_COLLECTION = "users"
     PRODUCTS_COLLECTION = "products"
 
-    ADMIN_COMMISSION_RATE = 0.25  # 25% admin commission
+    # Commission rate is dynamic (Admin Settings) via PlatformSettingsService.
 
     @staticmethod
     def _db():
@@ -81,6 +82,7 @@ class FinanceService:
     async def get_summary() -> Dict[str, Any]:
         db = FinanceService._db()
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
+        commission_rate = await PlatformSettingsService.get_commission_rate()
 
         now = datetime.utcnow()
         this_month_start = datetime(now.year, now.month, 1)
@@ -122,16 +124,16 @@ class FinanceService:
 
         revenue_change = pct_change(revenue_this_month, revenue_last_month)
 
-        total_commission = round(total_revenue * FinanceService.ADMIN_COMMISSION_RATE, 2)
-        total_supplier_payouts = round(total_revenue * (1 - FinanceService.ADMIN_COMMISSION_RATE), 2)
+        total_commission = round(total_revenue * commission_rate, 2)
+        total_supplier_payouts = round(total_revenue * (1 - commission_rate), 2)
 
         commission_change = pct_change(
-            revenue_this_month * FinanceService.ADMIN_COMMISSION_RATE,
-            revenue_last_month * FinanceService.ADMIN_COMMISSION_RATE,
+            revenue_this_month * commission_rate,
+            revenue_last_month * commission_rate,
         )
         payouts_change = pct_change(
-            revenue_this_month * (1 - FinanceService.ADMIN_COMMISSION_RATE),
-            revenue_last_month * (1 - FinanceService.ADMIN_COMMISSION_RATE),
+            revenue_this_month * (1 - commission_rate),
+            revenue_last_month * (1 - commission_rate),
         )
 
         return {
@@ -150,6 +152,7 @@ class FinanceService:
 
         db = FinanceService._db()
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
+        commission_rate = await PlatformSettingsService.get_commission_rate()
 
         base_match = FinanceService._non_cancelled_match()
 
@@ -169,8 +172,8 @@ class FinanceService:
         for row in rows:
             m = int(row["_id"]["month"])
             revenue = float(row.get("revenue", 0) or 0)
-            commission = revenue * FinanceService.ADMIN_COMMISSION_RATE
-            payout = revenue * (1 - FinanceService.ADMIN_COMMISSION_RATE)
+            commission = revenue * commission_rate
+            payout = revenue * (1 - commission_rate)
             points.append({
                 "month": FinanceService._month_abbr(m),
                 "revenue": round(revenue, 2),
@@ -194,6 +197,7 @@ class FinanceService:
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
         users = db[FinanceService.USERS_COLLECTION]
         products = db[FinanceService.PRODUCTS_COLLECTION]
+        commission_rate = await PlatformSettingsService.get_commission_rate()
 
         base_match = FinanceService._non_cancelled_match()
 
@@ -286,8 +290,8 @@ class FinanceService:
             if (not pname) and pid:
                 pname = product_title_by_id.get(str(pid), "") or "Product"
             earnings = float(row.get("earnings", 0) or 0)
-            commission = earnings * FinanceService.ADMIN_COMMISSION_RATE
-            payout = earnings * (1 - FinanceService.ADMIN_COMMISSION_RATE)
+            commission = earnings * commission_rate
+            payout = earnings * (1 - commission_rate)
             month_num = int(_id.get("month_num") or 0) or None
 
             rows_out.append({
@@ -323,6 +327,7 @@ class FinanceService:
 
         db = FinanceService._db()
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
+        commission_rate = await PlatformSettingsService.get_commission_rate()
 
         base_match = FinanceService._non_cancelled_match()
         match_parts: List[Dict[str, Any]] = [base_match]
@@ -358,8 +363,8 @@ class FinanceService:
         for row in page_rows:
             month_num = int(row.get("_id", {}).get("month_num") or 0)
             earnings = float(row.get("total_earnings", 0) or 0)
-            commission = earnings * FinanceService.ADMIN_COMMISSION_RATE
-            supplier_payouts = earnings * (1 - FinanceService.ADMIN_COMMISSION_RATE)
+            commission = earnings * commission_rate
+            supplier_payouts = earnings * (1 - commission_rate)
             rows_out.append({
                 "month": FinanceService._month_abbr(month_num) if month_num else "",
                 "total_earnings": round(earnings, 2),
@@ -397,6 +402,7 @@ class FinanceService:
         db = FinanceService._db()
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
         users = db[FinanceService.USERS_COLLECTION]
+        commission_rate = await PlatformSettingsService.get_commission_rate()
 
         base_match = FinanceService._non_cancelled_match()
         match_parts: List[Dict[str, Any]] = [base_match]
@@ -515,7 +521,7 @@ class FinanceService:
             bookings_count = int(r.get("bookings", 0) or 0)
             earnings_val = float(r.get("earnings", 0) or 0.0)
 
-            commission_val = round(earnings_val * FinanceService.ADMIN_COMMISSION_RATE, 2)
+            commission_val = round(earnings_val * commission_rate, 2)
             payout_amount = round(earnings_val - commission_val, 2)
             due_amount = payout_amount
 

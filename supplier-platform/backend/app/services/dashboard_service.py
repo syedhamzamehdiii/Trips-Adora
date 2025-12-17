@@ -10,6 +10,7 @@ from bson import ObjectId
 from app.core.database import get_database
 from app.models.product import ProductStatus
 from app.models.user import User
+from app.services.platform_settings_service import PlatformSettingsService
 
 
 ACTIVE_BOOKING_STATUSES = {"pending", "customized", "confirmed", "completed"}
@@ -144,7 +145,12 @@ class SupplierDashboardService:
             return []
 
     @staticmethod
-    def _serialize_booking(document: Dict[str, Any], product_lookup: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def _serialize_booking(
+        document: Dict[str, Any],
+        product_lookup: Dict[str, Dict[str, Any]],
+        *,
+        commission_rate: float,
+    ) -> Dict[str, Any]:
         booking_id = SupplierDashboardService._ensure_object_id(document.get("_id") or document.get("id"))
         product_id = str(document.get("product_id") or "")
         product = product_lookup.get(product_id, {})
@@ -162,6 +168,9 @@ class SupplierDashboardService:
         payout_status = (document.get("payout_status") or "").strip().lower()
         status = (document.get("status") or "").strip().lower()
 
+        # Supplier net = total - admin commission
+        net_rate = max(0.0, min(1.0 - float(commission_rate or 0.0), 1.0))
+
         return {
             "id": booking_id,
             "product_id": product_id,
@@ -173,7 +182,7 @@ class SupplierDashboardService:
             "updated_at": updated_at.isoformat() if updated_at else None,
             "amount": total_amount,
             "currency": document.get("currency") or "USD",
-            "net_amount": round(total_amount * 0.8, 2),
+            "net_amount": round(total_amount * net_rate, 2),
             "customer_name": document.get("customer_name"),
             "customer_email": document.get("customer_email"),
             "payout_status": payout_status or "pending",
@@ -371,6 +380,7 @@ class SupplierDashboardService:
 
     @staticmethod
     async def get_overview(supplier_id: str) -> Dict[str, Any]:
+        commission_rate = await PlatformSettingsService.get_commission_rate()
         # Fetch products first (needed for product_map)
         products = await SupplierDashboardService._fetch_products(supplier_id)
         product_map = {str(product.get("id")): product for product in products}
@@ -406,7 +416,11 @@ class SupplierDashboardService:
         # Serialize bookings and update customer_email with authenticated email
         bookings = []
         for booking in bookings_raw:
-            serialized = SupplierDashboardService._serialize_booking(booking, product_map)
+            serialized = SupplierDashboardService._serialize_booking(
+                booking,
+                product_map,
+                commission_rate=commission_rate,
+            )
             # Override customer_email with authenticated email if available
             user_id = str(booking.get("user_id", ""))
             if user_id in customer_emails_map:
