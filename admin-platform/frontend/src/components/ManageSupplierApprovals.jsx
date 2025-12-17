@@ -242,9 +242,18 @@ const SupplierProfileView = ({ supplier, onBack, onApprove, onReject }) => {
             <div className="p-6 md:p-8">
               <div className="mb-6 pb-6 border-b-2 border-gray-200">
                 <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-full bg-[#1c2a4f] text-white flex items-center justify-center text-2xl font-semibold">
-                    {supplier.initials}
-                  </div>
+                  {supplier.avatarUrl ? (
+                    <img
+                      src={supplier.avatarUrl}
+                      alt={supplier.supplierName || supplier.name}
+                      className="w-20 h-20 rounded-full object-cover border border-gray-200"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-[#1c2a4f] text-white flex items-center justify-center text-2xl font-semibold">
+                      {supplier.initials}
+                    </div>
+                  )}
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">{supplier.supplierName || supplier.name}</h2>
                     <p className="text-sm text-gray-500 mt-1">Solo Supplier Account</p>
@@ -366,12 +375,15 @@ const ManageSupplierApprovals = ({ onBack }) => {
   const pageSize = 8;
 
   const mapOnboardingToSupplier = (item) => {
-    const name = item.business_name || item.user_name || item.email;
+    const name = item.resolved_name || item.business_name || item.user_name || item.email;
     const businessLocationParts = [item.business_city, item.business_country].filter(Boolean);
     const personLocationParts = [item.person_city, item.person_country].filter(Boolean);
     const personLocation = personLocationParts.length > 0 
       ? personLocationParts.join(', ') 
       : item.person_address || null;
+    const resolvedLocation = item.resolved_location || businessLocationParts.join(', ') || personLocation || '—';
+    const resolvedPhone = item.resolved_phone || item.business_phone || item.person_contact || null;
+    const avatarUrl = item.profile_photo_url || item.logo_url || null;
     const initials = name
       .split(' ')
       .map((n) => n[0])
@@ -384,16 +396,17 @@ const ManageSupplierApprovals = ({ onBack }) => {
       id: item.id,
       name,
       email: item.email || item.user_email,
-      phone: item.business_phone || item.person_contact || null,
-      location: businessLocationParts.join(', ') || personLocation || '—',
+      phone: resolvedPhone,
+      location: resolvedLocation,
       accountType: item.business_type,
       submittedDate: item.submitted_at,
       initials,
+      avatarUrl,
       // Business fields
       businessName: item.business_name,
       businessEmail: item.business_email || item.email,
       businessPhone: item.business_phone,
-      businessLocation: businessLocationParts.join(', ') || null,
+      businessLocation: resolvedLocation || businessLocationParts.join(', ') || null,
       businessWebsite: item.business_website,
       businessBio: item.short_bio,
       companyLogo: item.logo_url,
@@ -403,8 +416,8 @@ const ManageSupplierApprovals = ({ onBack }) => {
       // Supplier/Person fields
       supplierName: item.user_name,
       supplierEmail: item.user_email || item.email,
-      supplierPhone: item.person_contact,
-      supplierLocation: personLocation,
+      supplierPhone: resolvedPhone,
+      supplierLocation: resolvedLocation,
       numberOfEmployees: item.employee_count,
       identification: item.id_front_url,
       identificationBack: item.id_back_url,
@@ -424,7 +437,22 @@ const ManageSupplierApprovals = ({ onBack }) => {
     setError(null);
     try {
       const data = await supplierService.getPendingOnboardings(status);
-      const list = (data?.onboardings || data || []).map(mapOnboardingToSupplier);
+      const raw = (data?.onboardings || data || []).map(mapOnboardingToSupplier);
+
+      // Defensive dedupe: if backend already has duplicate onboardings for same email,
+      // keep only the latest submission to avoid showing "two requests" in admin.
+      const bestByEmail = new Map();
+      for (const s of raw) {
+        const key = String(s.email || '').toLowerCase().trim() || String(s.id);
+        const prev = bestByEmail.get(key);
+        const score = (v) => {
+          const dt = v?.submittedDate ? new Date(v.submittedDate) : null;
+          return dt && !Number.isNaN(dt.getTime()) ? dt.getTime() : 0;
+        };
+        if (!prev || score(s) >= score(prev)) bestByEmail.set(key, s);
+      }
+      const list = Array.from(bestByEmail.values());
+
       setPendingSuppliers(list);
       setCurrentPage(1);
     } catch (err) {
@@ -638,9 +666,18 @@ const ManageSupplierApprovals = ({ onBack }) => {
                       <td className="px-3 md:px-4 py-3 text-gray-700 font-medium">{supplier.id}</td>
                       <td className="px-3 md:px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-[#1c2a4f] text-white flex items-center justify-center text-xs font-semibold">
-                            {supplier.initials}
-                          </div>
+                          {supplier.avatarUrl ? (
+                            <img
+                              src={supplier.avatarUrl}
+                              alt={supplier.name}
+                              className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-[#1c2a4f] text-white flex items-center justify-center text-xs font-semibold">
+                              {supplier.initials}
+                            </div>
+                          )}
                           <span className="text-gray-800 font-medium">{supplier.name}</span>
                         </div>
                       </td>

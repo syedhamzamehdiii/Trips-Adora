@@ -1,24 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import RequestToApprove from './RequestToApprove';
 import TourDetailPage from './TourDetailPage';
+import adminProductService from '../services/adminProductService';
 
-const STATUS_OPTIONS = ['All status', 'Active', 'Draft', 'Archived'];
-const TYPE_OPTIONS = ['All types', 'Day tour', 'Museum', 'Landmark'];
-const COUNTRY_OPTIONS = ['All countries', 'Japan', 'UAE'];
-
-const cards = new Array(12).fill(0).map((_, i) => ({
-  id: i + 1,
-  title: i % 3 === 0 ? 'Mount Fuji Highlights & Hidden Gems Tour' : i % 3 === 1 ? 'Hakoney Highlights & Hidden Gems Tour' : 'Burj Khalifa Highlights & Hidden Gems Tour',
-  price: i % 3 === 2 ? 167 : i % 3 === 1 ? 245 : 119,
-  img: i % 3 === 0
-    ? 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=1200&auto=format&fit=crop'
-    : i % 3 === 1
-    ? 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=1200&auto=format&fit=crop'
-    : 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?q=80&w=1200&auto=format&fit=crop',
-  status: i % 4 === 0 ? 'Active' : i % 4 === 1 ? 'Draft' : 'Archived',
-  type: i % 3 === 0 ? 'Day tour' : i % 3 === 1 ? 'Museum' : 'Landmark',
-  country: i % 3 === 2 ? 'UAE' : 'Japan'
-}));
+// Admin should not see draft/archived filters here (per requirement)
+const STATUS_OPTIONS = ['All status', 'published', 'pending_review', 'rejected'];
 
 const Star = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="#FFC107"><path d="M12 .587l3.668 7.431 8.2 1.193-5.934 5.787 1.402 8.168L12 18.896 4.664 23.166l1.402-8.168L.132 9.211l8.2-1.193z"/></svg>
@@ -30,11 +16,27 @@ const Chip = ({ children }) => (
   <span className="text-[10px] px-2 py-1 rounded bg-gray-100 text-gray-700 border border-gray-200">{children}</span>
 );
 
-const Card = ({ item }) => (
+const formatPrice = (item) => {
+  const price = Number(item.price || 0);
+  const currency = item.currency || 'USD';
+  const unit = item.price_unit || 'Per person';
+  const sym = currency === 'USD' ? '$' : `${currency} `;
+  return `${sym}${price.toFixed(0)}/${String(unit || '').toLowerCase().includes('group') ? 'group' : 'person'}`;
+};
+
+const initialsOf = (name) =>
+  String(name || 'S')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || '')
+    .join('') || 'S';
+
+const Card = ({ item, onClick }) => (
   <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
     <div className="relative">
-      <img src={item.img} alt={item.title} className="w-full h-56 object-cover" />
-      <span className="absolute top-3 left-3 text-[10px] text-white bg-[var(--brand-red)] px-2 py-1 rounded-full">Only 2 Slots left</span>
+      <img src={item.hero_image || (item.images && item.images[0]) || ''} alt={item.title} className="w-full h-56 object-cover" onClick={onClick} />
       <button className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white flex items-center justify-center text-gray-700 border">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
       </button>
@@ -42,14 +44,14 @@ const Card = ({ item }) => (
     <div className="p-4">
       <div className="flex items-center text-sm">
         <div className="flex items-center gap-1 text-yellow-400"><Star /><Star /><Star /><Star /></div>
-        <span className="ml-2 text-gray-800 font-medium">4.8</span>
-        <span className="ml-1 text-gray-400 text-xs">(384)</span>
+        <span className="ml-2 text-gray-800 font-medium">{(Number(item.rating || 0)).toFixed(1)}</span>
+        <span className="ml-1 text-gray-400 text-xs">({item.reviews_count || 0})</span>
       </div>
       <div className="mt-2 text-xs text-gray-500 flex items-center">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        <span className="ml-1">Tokyo Japan</span>
+        <span className="ml-1">{item.destination || '—'}</span>
       </div>
-      <h3 className="mt-1 text-base font-semibold text-gray-900 leading-snug">{item.title}</h3>
+      <h3 className="mt-1 text-base font-semibold text-gray-900 leading-snug cursor-pointer" onClick={onClick}>{item.title}</h3>
       {/* Right aligned badges like screenshot */}
       <div className="mt-1 flex items-center justify-end gap-2">
         <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--brand-green)] text-[var(--brand-dark)] border border-[var(--brand-green)]">Tripadvisor's Choice</span>
@@ -64,10 +66,21 @@ const Card = ({ item }) => (
       </div>
 
       <div className="mt-4 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-[var(--brand-dark)] text-white flex items-center justify-center text-sm">K</div>
+        {item.supplier_avatar_url ? (
+          <img
+            src={item.supplier_avatar_url}
+            alt={item.supplier_name || 'Supplier'}
+            className="w-8 h-8 rounded-full object-cover border border-gray-200"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-[var(--brand-dark)] text-white flex items-center justify-center text-sm">
+            {initialsOf(item.supplier_name)}
+          </div>
+        )}
         <div className="leading-tight">
           <div className="text-[11px] text-gray-500">Hosted by</div>
-          <div className="text-xs text-gray-800">Karvaan Tours</div>
+          <div className="text-xs text-gray-800">{item.supplier_name || 'Supplier'}</div>
         </div>
       </div>
 
@@ -83,8 +96,7 @@ const Card = ({ item }) => (
       <div className="mt-4 border-t border-gray-200" />
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-baseline gap-3">
-          <div className="text-[12px] text-gray-400 line-through">$125</div>
-          <div className="text-xl font-semibold text-gray-900">${item.price}/person</div>
+          <div className="text-xl font-semibold text-gray-900">{formatPrice(item)}</div>
         </div>
         <button className="w-9 h-9 rounded-full border border-gray-300 text-gray-700 flex items-center justify-center">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="1"/><circle cx="6" cy="12" r="1"/><circle cx="18" cy="19" r="1"/><path d="M7 12h10M7 12L17 5M7 12l10 7"/></svg>
@@ -97,20 +109,94 @@ const Card = ({ item }) => (
 const ManageTours = () => {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('All status');
-  const [type, setType] = useState('All types');
-  const [country, setCountry] = useState('All countries');
-  const [openMenu, setOpenMenu] = useState(null); // 'status' | 'type' | 'country'
+  const [openMenu, setOpenMenu] = useState(null); // 'status'
   const [showRequestToApprove, setShowRequestToApprove] = useState(false);
   const [showTourDetail, setShowTourDetail] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
-  const filtered = useMemo(() => {
-    return cards.filter((c) =>
-      (status === 'All status' || c.status === status) &&
-      (type === 'All types' || c.type === type) &&
-      (country === 'All countries' || c.country === country) &&
-      c.title.toLowerCase().includes(query.toLowerCase())
-    );
-  }, [query, status, type, country]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [products, setProducts] = useState([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [pendingItems, setPendingItems] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+
+  // Load pending count for button badge
+  useEffect(() => {
+    let active = true;
+    const loadCount = async () => {
+      try {
+        const res = await adminProductService.getPendingCount();
+        if (active) setPendingCount(Number(res?.pending || 0));
+      } catch (_) {
+        if (active) setPendingCount(0);
+      }
+    };
+    loadCount();
+    const t = setInterval(loadCount, 20000);
+    return () => { active = false; clearInterval(t); };
+  }, []);
+
+  // Load products list for main view (published by default)
+  useEffect(() => {
+    if (showRequestToApprove || showTourDetail) return;
+    let active = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const res = await adminProductService.listProducts({
+          page,
+          pageSize: 12,
+          // When "All status" is selected, show all products (no status filter)
+          status: status === 'All status' ? null : status,
+          search: query,
+        });
+        if (!active) return;
+        setProducts(res?.products || []);
+        setTotalPages(res?.total_pages || 1);
+      } catch (e) {
+        if (!active) return;
+        console.error('Failed to load products', e);
+        setProducts([]);
+        setTotalPages(1);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, [page, query, status, showRequestToApprove, showTourDetail]);
+
+  // Load pending approval queue
+  useEffect(() => {
+    if (!showRequestToApprove || showTourDetail) return;
+    let active = true;
+    const loadPending = async () => {
+      try {
+        setPendingLoading(true);
+        const res = await adminProductService.listProducts({
+          page: 1,
+          pageSize: 20,
+          status: 'pending_review',
+          // Always show all pending approvals (no accidental carry-over filtering)
+          search: '',
+        });
+        if (!active) return;
+        setPendingItems(res?.products || []);
+      } catch (e) {
+        if (!active) return;
+        console.error('Failed to load pending approvals', e);
+        setPendingItems([]);
+      } finally {
+        if (active) setPendingLoading(false);
+      }
+    };
+    loadPending();
+    return () => { active = false; };
+  }, [showRequestToApprove, showTourDetail, query]);
+
+  // Removed category + country filter dropdowns per requirement
 
   return (
     <div className="p-2">
@@ -123,18 +209,28 @@ const ManageTours = () => {
               className="relative inline-flex items-center gap-2 rounded-full text-sm shadow"
               style={{ backgroundColor: '#284078', color: '#fff', height: '44px', paddingInline: '20px' }}>
               Request to approve
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-[10px] leading-none flex items-center justify-center">15</span>
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-[10px] leading-none flex items-center justify-center">
+                  {pendingCount > 99 ? '99+' : pendingCount}
+                </span>
+              )}
             </button>
           )}
         </div>
       )}
 
       {showTourDetail ? (
-        <TourDetailPage fromRequestToApprove={true} onBack={() => { setShowTourDetail(false); setShowRequestToApprove(true); }} />
+        <TourDetailPage
+          productId={selectedProduct?.id}
+          fromRequestToApprove={!!selectedProduct?.fromRequest}
+          onBack={() => { setShowTourDetail(false); setShowRequestToApprove(!!selectedProduct?.fromRequest); setSelectedProduct(null); }}
+        />
       ) : showRequestToApprove ? (
         <div className="mt-6">
           <RequestToApprove 
-            onCardClick={() => setShowTourDetail(true)} 
+            loading={pendingLoading}
+            items={pendingItems}
+            onCardClick={(p) => { setSelectedProduct({ ...p, fromRequest: true }); setShowTourDetail(true); }} 
             onBack={() => setShowRequestToApprove(false)} 
           />
         </div>
@@ -142,7 +238,7 @@ const ManageTours = () => {
         <>
           <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex items-center w-[360px] max-w-full rounded-full border border-gray-300 px-4 py-2 bg-white">
-          <input value={query} onChange={(e)=>setQuery(e.target.value)} className="flex-1 outline-none text-sm" placeholder="Search by name or ref. number" />
+          <input value={query} onChange={(e)=>{setQuery(e.target.value); setPage(1);}} className="flex-1 outline-none text-sm" placeholder="Search by name or ref. number" />
           <svg className="text-gray-500" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
         </div>
         <div className="relative">
@@ -153,33 +249,7 @@ const ManageTours = () => {
           {openMenu==='status' && (
             <div className="absolute z-10 mt-2 w-44 bg-white rounded-lg shadow border">
               {STATUS_OPTIONS.map((opt)=> (
-                <button key={opt} onClick={()=>{setStatus(opt);setOpenMenu(null);}} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{opt}</button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="relative">
-          <button onClick={()=>setOpenMenu(openMenu==='type'?null:'type')} className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm text-gray-700 flex items-center gap-2">
-            {type}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          {openMenu==='type' && (
-            <div className="absolute z-10 mt-2 w-44 bg-white rounded-lg shadow border">
-              {TYPE_OPTIONS.map((opt)=> (
-                <button key={opt} onClick={()=>{setType(opt);setOpenMenu(null);}} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{opt}</button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="relative">
-          <button onClick={()=>setOpenMenu(openMenu==='country'?null:'country')} className="px-4 py-2 rounded-full border border-gray-300 bg-white text-sm text-gray-700 flex items-center gap-2">
-            {country}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          {openMenu==='country' && (
-            <div className="absolute z-10 mt-2 w-44 bg-white rounded-lg shadow border">
-              {COUNTRY_OPTIONS.map((opt)=> (
-                <button key={opt} onClick={()=>{setCountry(opt);setOpenMenu(null);}} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{opt}</button>
+                <button key={opt} onClick={()=>{setStatus(opt);setPage(1);setOpenMenu(null);}} className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50">{opt}</button>
               ))}
             </div>
           )}
@@ -187,27 +257,34 @@ const ManageTours = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((c) => (
-          <Card key={c.id} item={c} />
+        {loading && (
+          <div className="col-span-full text-sm text-gray-500 py-10">Loading products…</div>
+        )}
+        {!loading && products.map((p) => (
+          <Card key={p.id} item={p} onClick={() => { setSelectedProduct({ ...p, fromRequest: false }); setShowTourDetail(true); }} />
         ))}
       </div>
 
-      {/* Dummy pagination */}
-      <div className="mt-8 flex items-center justify-center gap-4">
-        <button className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-600">‹</button>
-        <button className="w-9 h-9 flex items-center justify-center rounded-full bg-[#273C75] text-white">1</button>
-        <button className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-700">2</button>
-        <button className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-700">3</button>
-        <span className="mx-2 text-gray-500">…</span>
-        <button className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-700">12</button>
-        <button className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-700">13</button>
-        <button className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-700">14</button>
-        <div className="ml-6 flex items-center gap-2">
-          <button className="px-3 py-1.5 rounded-full border text-sm text-gray-700">1\10</button>
-          <button className="w-9 h-9 flex items-center justify-center rounded-full border">▾</button>
+      {/* Realtime pagination */}
+      {totalPages > 1 && (
+        <div className="mt-8 flex items-center justify-center gap-2">
+          <button
+            className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-600 disabled:opacity-50"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            ‹
+          </button>
+          <button className="w-9 h-9 flex items-center justify-center rounded-full bg-[#273C75] text-white">{page}</button>
+          <button
+            className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-600 disabled:opacity-50"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+          >
+            ›
+          </button>
         </div>
-        <button className="w-9 h-9 flex items-center justify-center rounded-full border text-gray-600">›</button>
-      </div>
+      )}
         </>
       )}
     </div>

@@ -40,11 +40,16 @@ async def create_product(
     Create a new product.
     Requires authentication.
     
-    TEMPORARY: Products are auto-published (bypassing admin approval).
-    TODO: When admin panel is implemented, products will be created as PENDING_REVIEW
-    and require admin approval before being visible to customers.
+    Products are created as DRAFT. Suppliers can submit for admin approval via
+    POST /products/{product_id}/publish (status -> pending_review).
     """
     try:
+        # Suppliers must be approved (verified) before they can create products
+        if not getattr(current_user, "is_verified", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your supplier account is pending admin approval. Please wait until your registration is approved.",
+            )
         print(f"📦 Creating product for supplier: {current_user.id}")
         print(f"   Title: {product_data.title[:50]}...")
         
@@ -389,13 +394,14 @@ async def publish_product(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Publish a product (directly visible to customers).
-    Changes status to PUBLISHED.
-    
-    TEMPORARY: Admin approval is bypassed.
-    TODO: When admin panel is implemented, this endpoint should check if product
-    has been approved by admin before allowing publication.
+    Submit a product for admin approval (status -> pending_review).
+    The product becomes visible to customers only after admin approval.
     """
+    if not getattr(current_user, "is_verified", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your supplier account is pending admin approval. Please wait until your registration is approved.",
+        )
     product = await ProductService.publish_product(
         product_id=product_id,
         supplier_id=str(current_user.id)

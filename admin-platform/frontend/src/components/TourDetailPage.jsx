@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Mountain, Camera, Car, Globe, MapPin, Clock, Users, Package, CheckCircle, XCircle, HelpCircle, Eye, Utensils, Star, RefreshCw } from 'lucide-react';
 import { getSupplierProductById, updateSupplierProductById } from '../services/supplierService';
+import adminProductService from '../services/adminProductService';
 
 
 const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => {
@@ -10,6 +11,7 @@ const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => 
   const [isEditing, setIsEditing] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editForm, setEditForm] = useState(null);
+  const [approvalSaving, setApprovalSaving] = useState(false);
 
   // Load full product from supplier backend so this matches supplier preview.
   useEffect(() => {
@@ -546,11 +548,48 @@ const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => 
           <div className="flex items-center gap-3">
             {fromRequestToApprove && (
               <>
-                <button className="px-6 py-2.5 rounded-full text-white font-medium text-sm" style={{ backgroundColor: '#284078' }}>
-                  Remind me Later
+                <button
+                  className="px-6 py-2.5 rounded-full text-white font-medium text-sm"
+                  style={{ backgroundColor: '#284078', opacity: approvalSaving ? 0.7 : 1 }}
+                  disabled={approvalSaving || !productId}
+                  onClick={async () => {
+                    if (!productId) return;
+                    setApprovalSaving(true);
+                    try {
+                      await adminProductService.approveProduct(productId);
+                      alert('✅ Product approved. It will now appear on the customer platform.');
+                      if (onBack) onBack();
+                    } catch (e) {
+                      console.error('Approve failed', e);
+                      alert('Failed to approve product.');
+                    } finally {
+                      setApprovalSaving(false);
+                    }
+                  }}
+                >
+                  {approvalSaving ? 'Approving…' : 'Approve'}
                 </button>
-                <button className="px-6 py-2.5 rounded-full text-white font-medium text-sm" style={{ backgroundColor: '#284078' }}>
-                  Published
+                <button
+                  className="px-6 py-2.5 rounded-full text-white font-medium text-sm"
+                  style={{ backgroundColor: '#b91c1c', opacity: approvalSaving ? 0.7 : 1 }}
+                  disabled={approvalSaving || !productId}
+                  onClick={async () => {
+                    if (!productId) return;
+                    const reason = window.prompt('Rejection reason (optional):') || '';
+                    setApprovalSaving(true);
+                    try {
+                      await adminProductService.rejectProduct(productId, reason);
+                      alert('✅ Product rejected. It will not appear on the customer platform.');
+                      if (onBack) onBack();
+                    } catch (e) {
+                      console.error('Reject failed', e);
+                      alert('Failed to reject product.');
+                    } finally {
+                      setApprovalSaving(false);
+                    }
+                  }}
+                >
+                  {approvalSaving ? 'Working…' : 'Reject'}
                 </button>
               </>
             )}

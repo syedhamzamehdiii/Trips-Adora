@@ -1,19 +1,29 @@
 import React from 'react';
 
-const mockItems = Array.from({ length: 6 }).map((_, i) => ({
-  id: `#TA-1002484`,
-  name: 'Robet Actor',
-  month: 'August 2025',
-  productTitle: 'Mount Fuji Day tour',
-  tags: ['Sightseeing', 'Day tour', 'Northern'],
-  img: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200&auto=format&fit=crop',
-}));
-
 const Tag = ({ children }) => (
   <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">{children}</span>
 );
 
+const monthLabel = (d) => {
+  try {
+    const dt = d ? new Date(d) : null;
+    if (!dt || Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  } catch (_) {
+    return '';
+  }
+};
+
 const Row = ({ item, onClick }) => {
+  const avatarUrl = item.supplier_avatar_url || null;
+  const initials = String(item.supplier_name || 'S')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || '')
+    .join('') || 'S';
+
   return (
     <div 
       onClick={onClick}
@@ -23,26 +33,37 @@ const Row = ({ item, onClick }) => {
         {/* left meta */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full bg-gray-100 text-[#284078] flex items-center justify-center text-sm font-semibold">S</div>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={item.supplier_name || 'Supplier'}
+                className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-gray-100 text-[#284078] flex items-center justify-center text-[11px] font-semibold">
+                {initials}
+              </div>
+            )}
             <div className="flex items-center gap-6 text-[11px] text-gray-500">
               <div className="flex items-center gap-1.5">
-                <span className="text-[13px] font-semibold text-gray-800">{item.name}</span>
+                <span className="text-[13px] font-semibold text-gray-800">{item.supplier_name || 'Supplier'}</span>
               </div>
-              <span className="hidden md:inline">{item.id}</span>
+              <span className="hidden md:inline">{item.supplier_id || ''}</span>
             </div>
           </div>
 
-          <div className="pl-10 mt-1 text-[11px] text-gray-400">{item.month}</div>
+          <div className="pl-10 mt-1 text-[11px] text-gray-400">{monthLabel(item.updated_at || item.created_at) || ''}</div>
 
           <div className="mt-4 grid grid-cols-2 gap-6">
             <div className="space-y-1">
               <div className="text-[12px] text-gray-700">Product Title:</div>
-              <div className="text-[12px] text-gray-700 font-medium">{item.productTitle}</div>
+              <div className="text-[12px] text-gray-700 font-medium">{item.title}</div>
             </div>
             <div className="space-y-1">
-              <div className="text-[12px] text-gray-700">Product Title:</div>
+              <div className="text-[12px] text-gray-700">Tags:</div>
               <div className="flex flex-wrap gap-1.5">
-                {item.tags.map((t) => (
+                {[item.category, item.activity_type, item.destination].filter(Boolean).slice(0, 3).map((t) => (
                   <Tag key={t}>{t}</Tag>
                 ))}
               </div>
@@ -53,14 +74,14 @@ const Row = ({ item, onClick }) => {
         {/* right images */}
         <div className="flex-shrink-0 flex items-center gap-3">
           <div className="w-[270px] h-[120px] rounded-lg overflow-hidden">
-            <img src={item.img} alt="preview" className="w-full h-full object-cover" />
+            <img src={item.hero_image || ''} alt="preview" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col gap-2">
             <div className="w-[90px] h-[56px] rounded-lg overflow-hidden">
-              <img src={item.img} alt="small1" className="w-full h-full object-cover" />
+              <img src={(item.images && item.images[0]) || item.hero_image || ''} alt="small1" className="w-full h-full object-cover" />
             </div>
             <div className="w-[90px] h-[56px] rounded-lg overflow-hidden">
-              <img src={item.img} alt="small2" className="w-full h-full object-cover" />
+              <img src={(item.images && item.images[1]) || item.hero_image || ''} alt="small2" className="w-full h-full object-cover" />
             </div>
           </div>
         </div>
@@ -69,7 +90,7 @@ const Row = ({ item, onClick }) => {
   );
 };
 
-const RequestToApprove = ({ onCardClick, onBack }) => {
+const RequestToApprove = ({ items = [], loading = false, onCardClick, onBack }) => {
   return (
     <div className="w-full" style={{ fontFamily: 'Poppins, sans-serif' }}>
       {onBack && (
@@ -85,8 +106,14 @@ const RequestToApprove = ({ onCardClick, onBack }) => {
       )}
       <h2 className="text-center text-[34px] md:text-[36px] font-semibold text-[#2c7a4b] mb-4">Request to approve</h2>
       <div className="space-y-5">
-        {mockItems.map((it, idx) => (
-          <Row key={idx} item={it} onClick={() => onCardClick && onCardClick()} />
+        {loading && (
+          <div className="text-sm text-gray-500 text-center py-10">Loading requests…</div>
+        )}
+        {!loading && items.length === 0 && (
+          <div className="text-sm text-gray-500 text-center py-10">No pending product requests.</div>
+        )}
+        {!loading && items.map((it) => (
+          <Row key={it.id} item={it} onClick={() => onCardClick && onCardClick(it)} />
         ))}
       </div>
     </div>

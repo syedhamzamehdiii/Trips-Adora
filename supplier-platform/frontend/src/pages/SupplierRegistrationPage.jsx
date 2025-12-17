@@ -1548,7 +1548,7 @@ const SupplierRegistrationPage = () => {
                   isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
-                {isSubmitting ? 'Submitting...' : 'Save &amp; Continue'}
+                {isSubmitting ? 'Submitting...' : 'Save & Continue'}
               </button>
               {submissionError && (
                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">

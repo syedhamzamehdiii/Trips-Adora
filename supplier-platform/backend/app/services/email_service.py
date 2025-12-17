@@ -21,6 +21,133 @@ mail_config = ConnectionConfig(
 
 fastmail = FastMail(mail_config)
 
+async def send_supplier_onboarding_approved_email(recipient_email: str, recipient_name: str) -> bool:
+    """
+    Notify supplier that their registration has been approved.
+    Best-effort: only sends if SMTP is configured, otherwise logs in dev.
+    """
+    try:
+        safe_name = recipient_name or "Supplier"
+        login_url = getattr(settings, "SUPPLIER_FRONTEND_URL", "http://localhost:5173")
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #2c7a4b; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                .content {{ background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }}
+                .button {{ display: inline-block; padding: 12px 30px; background-color: #2c7a4b; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Supplier Account Approved</h1>
+                </div>
+                <div class="content">
+                    <p>Hello <strong>{safe_name}</strong>,</p>
+                    <p>Your supplier registration has been <strong>approved</strong> by TripsAdora.</p>
+                    <p>You can now sign in and start creating products.</p>
+                    <div style="text-align:center;">
+                        <a href="{login_url}" class="button">Open Supplier Dashboard</a>
+                    </div>
+                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                        If you didn’t request this, please contact support.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>© 2025 TripsAdora. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        message = MessageSchema(
+            subject="Your supplier account has been approved - TripsAdora",
+            recipients=[recipient_email],
+            body=html_content,
+            subtype="html",
+        )
+
+        if settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD:
+            await fastmail.send_message(message)
+            logger.info("Supplier approval email sent to %s", recipient_email)
+            return True
+        logger.warning("SMTP not configured. Would send supplier approval email to %s", recipient_email)
+        return False
+    except Exception as e:
+        logger.error("Failed to send supplier approval email to %s: %s", recipient_email, e)
+        return False
+
+
+async def send_supplier_onboarding_rejected_email(recipient_email: str, recipient_name: str, reason: Optional[str] = None) -> bool:
+    """
+    Notify supplier that their registration has been rejected with optional reason.
+    Best-effort: only sends if SMTP is configured, otherwise logs in dev.
+    """
+    try:
+        safe_name = recipient_name or "Supplier"
+        reg_url = f"{getattr(settings, 'SUPPLIER_FRONTEND_URL', 'http://localhost:5173')}/supplier-registration"
+        safe_reason = (reason or "").strip()
+        reason_block = f"<p><strong>Reason:</strong> {safe_reason}</p>" if safe_reason else ""
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #d64545; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                .content {{ background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }}
+                .button {{ display: inline-block; padding: 12px 30px; background-color: #d64545; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Supplier Registration Rejected</h1>
+                </div>
+                <div class="content">
+                    <p>Hello <strong>{safe_name}</strong>,</p>
+                    <p>Your supplier registration has been <strong>rejected</strong> by TripsAdora.</p>
+                    {reason_block}
+                    <p>You can update your details and submit the registration again.</p>
+                    <div style="text-align:center;">
+                        <a href="{reg_url}" class="button">Open Registration</a>
+                    </div>
+                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                        If you believe this is a mistake, please contact support.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>© 2025 TripsAdora. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        message = MessageSchema(
+            subject="Your supplier registration was rejected - TripsAdora",
+            recipients=[recipient_email],
+            body=html_content,
+            subtype="html",
+        )
+
+        if settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD:
+            await fastmail.send_message(message)
+            logger.info("Supplier rejection email sent to %s", recipient_email)
+            return True
+        logger.warning("SMTP not configured. Would send supplier rejection email to %s", recipient_email)
+        return False
+    except Exception as e:
+        logger.error("Failed to send supplier rejection email to %s: %s", recipient_email, e)
+        return False
+
 
 async def send_invitation_email(
     email: str,
