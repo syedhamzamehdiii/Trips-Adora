@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const MonthDropdown = ({ value, onChange, options = ['October', 'September', 'August', 'July'] }) => {
+const MonthDropdown = ({ value, onChange, options = ['All', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] }) => {
   const [open, setOpen] = useState(false);
   const btnRef = useRef(null);
 

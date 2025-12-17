@@ -420,6 +420,7 @@ class SupplierService:
             country = user.country or (onboarding.business_country if onboarding else None)
             legal_name = onboarding.user_name if onboarding else None
             contact_phone: Optional[str] = user.phone
+            avatar_url: Optional[str] = getattr(user, "avatar_url", None) or getattr(user, "profile_photo", None)
 
             # Overlay with latest supplier account settings (profileData + editableInfo + contactNumbers)
             try:
@@ -450,6 +451,18 @@ class SupplierService:
                             if isinstance(val, str) and val.strip():
                                 contact_phone = val
                                 break
+
+                    # Profile photo (supplier dashboard uses globalUserPhoto/profilePhotoPreview)
+                    possible_photo = (
+                        data.get("globalUserPhoto")
+                        or data.get("profilePhotoPreview")
+                        or profile_data.get("profilePhotoPreview")
+                        or editable_info.get("profilePhotoPreview")
+                        or data.get("avatar_url")
+                        or data.get("profile_photo")
+                    )
+                    if isinstance(possible_photo, str) and possible_photo.strip():
+                        avatar_url = possible_photo.strip()
 
                     # Office information (street, city, state, country)
                     address = pick(profile_data, "streetAddress", address)
@@ -609,6 +622,7 @@ class SupplierService:
                 name=user.business_name or user.full_name,
                 legal_name=legal_name,
                 email=user.email,
+                avatar_url=avatar_url,
                 phone=contact_phone,
                 address=address,
                 city=city,

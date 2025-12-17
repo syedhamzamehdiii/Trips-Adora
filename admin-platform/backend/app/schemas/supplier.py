@@ -77,6 +77,7 @@ class SupplierDetailResponse(BaseModel):
     name: str
     legal_name: Optional[str] = None
     email: str
+    avatar_url: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None

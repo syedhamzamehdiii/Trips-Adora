@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import initiate_database, close_mongo_connection
-from app.api.v1 import suppliers, customers, messages, feedbacks, reviews, dashboard
+from app.api.v1 import suppliers, customers, messages, feedbacks, reviews, dashboard, finance
 import asyncio
 import logging
 
@@ -67,6 +67,7 @@ app.include_router(messages.router, prefix="/api/v1", tags=["Messages"])
 app.include_router(feedbacks.router, prefix="/api/v1", tags=["Feedbacks"])
 app.include_router(reviews.router, prefix="/api/v1", tags=["Reviews"])
 app.include_router(dashboard.router, prefix="/api/v1", tags=["Dashboard"])
+app.include_router(finance.router, prefix="/api/v1", tags=["Finance"])
 
 @app.get("/")
 async def root():

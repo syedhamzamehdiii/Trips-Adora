@@ -142,9 +142,6 @@ const AdminDashboard = () => {
                     className={`${base} ${isActive ? active : inactive}`}
                   >
                     {label}
-                    {label === 'Finance' && (
-                      <span className="ml-2 inline-block align-middle w-2 h-2 rounded-full bg-red-500"></span>
-                    )}
                   </button>
                 </li>
               );

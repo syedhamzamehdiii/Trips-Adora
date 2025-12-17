@@ -7,6 +7,13 @@ const monthShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep
 
 const PayoutDetail = ({ payouts = [], supplier }) => {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const avatarUrl =
+    supplier?.avatar_url ||
+    supplier?.avatarUrl ||
+    supplier?.profile_photo ||
+    supplier?.photo ||
+    supplier?.photoUrl ||
+    null;
 
   const monthlyRows = useMemo(() => {
     const map = new Map();
@@ -69,17 +76,30 @@ const PayoutDetail = ({ payouts = [], supplier }) => {
         </div>
         {/* Profile Section */}
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-blue-900 flex items-center justify-center">
-            <span className="text-white text-xl font-semibold">
-              {(supplier?.name || 'User')
-                .split(' ')
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((p) => p[0])
-                .join('')
-                .toUpperCase()}
-            </span>
-          </div>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={supplier?.name || 'Supplier'}
+              className="w-14 h-14 rounded-full object-cover border border-gray-200"
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                // fallback to initials if image fails
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-blue-900 flex items-center justify-center">
+              <span className="text-white text-xl font-semibold">
+                {(supplier?.name || 'User')
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((p) => p[0])
+                  .join('')
+                  .toUpperCase()}
+              </span>
+            </div>
+          )}
           <div>
             <h3 className="text-sm font-semibold text-gray-900">{supplier?.name || 'Supplier'}</h3>
             <p className="text-xs text-gray-500">{supplier?.email || ''}</p>

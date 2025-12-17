@@ -18,6 +18,8 @@ const SupplierDetail = ({ supplierId }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const payoutHistoryRef = React.useRef(null);
+  const didFocusRef = React.useRef(false);
 
   useEffect(() => {
     if (!supplierId) return;
@@ -44,6 +46,21 @@ const SupplierDetail = ({ supplierId }) => {
       active = false;
     };
   }, [supplierId]);
+
+  // Deep-link focus: #supplier-profile?id=...&focus=payouts
+  useEffect(() => {
+    if (didFocusRef.current) return;
+    if (!detail) return;
+    const hash = typeof window !== 'undefined' ? (window.location.hash || '') : '';
+    if (!hash.includes('focus=payouts')) return;
+    didFocusRef.current = true;
+    // Scroll to payout history block
+    setTimeout(() => {
+      if (payoutHistoryRef.current && payoutHistoryRef.current.scrollIntoView) {
+        payoutHistoryRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
+  }, [detail]);
 
   const payouts = useMemo(() => detail?.payouts || [], [detail]);
 
@@ -258,7 +275,7 @@ const SupplierDetail = ({ supplierId }) => {
         </div>
 
         {/* Supplier Payout History */}
-        <div className="bg-white rounded-2xl p-8 shadow-sm">
+        <div ref={payoutHistoryRef} className="bg-white rounded-2xl p-8 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />

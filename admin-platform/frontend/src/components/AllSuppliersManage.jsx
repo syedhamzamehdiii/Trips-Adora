@@ -577,7 +577,12 @@ const AllSuppliersManage = () => {
                   Send Message
                 </button>
                 <button
-                  onClick={() => { if (window && window.location) { window.location.hash = '#supplier-profile'; } closeModal(); }}
+                  onClick={() => {
+                    if (window && window.location) {
+                      window.location.hash = `#supplier-profile?id=${encodeURIComponent(selected.id)}&focus=payouts`;
+                    }
+                    closeModal();
+                  }}
                   className="flex-1 px-5 py-3 rounded-full border border-gray-300 text-gray-700 text-sm bg-white"
                 >
                   View Payout Details
