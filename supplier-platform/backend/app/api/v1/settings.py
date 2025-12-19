@@ -12,6 +12,7 @@ from app.schemas.settings import (
     SupplierSettingsSectionUpdate,
 )
 from app.services.settings_service import SupplierSettingsService
+from app.services.platform_settings_service import PlatformSettingsService
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -64,4 +65,13 @@ async def update_supplier_settings_section(
     doc = await SupplierSettingsService.get_document(str(current_user.id))
     updated_at = doc.updated_at if doc else None
     return SupplierSettingsResponse(settings=settings, updated_at=updated_at)
+
+
+@router.get("/platform")
+async def get_platform_settings():
+    """Get platform-wide settings (commission, payout schedule, refund policy)."""
+    try:
+        return await PlatformSettingsService.get_settings()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch platform settings: {str(e)}")
 

@@ -15,6 +15,13 @@ from app.services.activity_service import ActivityService
 from app.services.wallet_service import WalletService
 from pymongo.errors import AutoReconnect, ServerSelectionTimeoutError
 
+# Import platform settings to get commission rate at booking time
+try:
+    from app.services.platform_settings_service import PlatformSettingsService
+except ImportError:
+    # Fallback if platform_settings_service doesn't exist in customer platform
+    PlatformSettingsService = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +35,8 @@ class BookingService:
     @staticmethod
     def _collection():
         db = get_database()
+        if db is None:
+            raise ConnectionError("MongoDB connection is not available.")
         return db[BookingService.COLLECTION]
 
     @staticmethod
@@ -217,6 +226,9 @@ class BookingService:
             return False
 
         db = get_database()
+        if db is None:
+            logger.error("Database connection not available for cancellation")
+            return False
         cancellations = db["customer_booking_cancellations"]
         snapshot = dict(booking)
         snapshot["_id"] = str(snapshot.get("_id"))
@@ -328,20 +340,43 @@ class BookingService:
         now = datetime.utcnow()
         status_value = payload.status.value if isinstance(payload.status, Enum) else str(payload.status).lower()
         
-        # Look up supplier_id from the product
+        # Look up supplier_id from the product and get current commission rate
         supplier_id = None
+        commission_rate = None
         if payload.productId:
             try:
                 db = get_database()
-                product = await db.products.find_one({"_id": ObjectId(payload.productId)})
-                if product:
-                    supplier_id = product.get("supplier_id") or product.get("user_id")
-                    # Ensure supplier_id is a string
-                    if supplier_id:
-                        supplier_id = str(supplier_id)
-                        logger.info(f"Found supplier_id {supplier_id} for product {payload.productId}")
+                if db is None:
+                    logger.warning("Database connection not available, skipping product lookup")
+                else:
+                    product = await db.products.find_one({"_id": ObjectId(payload.productId)})
+                    if product:
+                        supplier_id = product.get("supplier_id") or product.get("user_id")
+                        # Ensure supplier_id is a string
+                        if supplier_id:
+                            supplier_id = str(supplier_id)
+                            logger.info(f"Found supplier_id {supplier_id} for product {payload.productId}")
             except Exception as e:
                 logger.warning(f"Could not fetch supplier_id for product {payload.productId}: {e}")
+        
+        # Get current commission rate at booking time and store it with the booking
+        try:
+            if PlatformSettingsService:
+                commission_rate = await PlatformSettingsService.get_commission_rate()
+            else:
+                # Fallback: try to read from platform_settings collection directly
+                db = get_database()
+                if db is None:
+                    commission_rate = 0.25  # Default fallback
+                else:
+                    settings_doc = await db.platform_settings.find_one({"_id": "platform"})
+                if settings_doc and settings_doc.get("commission_rate") is not None:
+                    commission_rate = float(settings_doc.get("commission_rate", 0.25))
+                else:
+                    commission_rate = 0.25  # Default fallback
+        except Exception as e:
+            logger.warning(f"Could not fetch commission rate, using default 0.25: {e}")
+            commission_rate = 0.25  # Default fallback
         
         document: Dict[str, Any] = {
             "user_id": user_id,
@@ -370,6 +405,7 @@ class BookingService:
             "tour_date_label": payload.tourDateLabel,
             "extras": payload.extras or [],
             "metadata": payload.metadata or {},
+            "commission_rate": commission_rate,  # Store commission rate at booking time
             "created_at": now,
             "updated_at": now,
         }
@@ -403,6 +439,9 @@ class BookingService:
         """Create a notification for the supplier when their product is booked."""
         try:
             db = get_database()
+            if db is None:
+                logger.warning("Database connection not available, skipping notification")
+                return
             notifications_collection = db["supplier_notifications"]
             
             notification = {
@@ -431,6 +470,9 @@ class BookingService:
         """Create a notification for the supplier when a booking is cancelled."""
         try:
             db = get_database()
+            if db is None:
+                logger.warning("Database connection not available, skipping cancellation notification")
+                return
             notifications_collection = db["supplier_notifications"]
             
             booking_title = booking.get('title') or booking.get('tour_name') or 'your product'

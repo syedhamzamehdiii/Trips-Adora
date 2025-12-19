@@ -18,8 +18,36 @@ const avatarInitials = (name = '') => {
 const formatTime = (ts) => {
   if (!ts) return '';
   try {
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let date;
+    
+    // Handle different timestamp formats
+    if (typeof ts === 'string') {
+      // If it's an ISO string without timezone, assume UTC and add Z
+      if (ts.includes('T') && !ts.includes('Z') && !ts.includes('+') && !ts.includes('-', 10)) {
+        date = new Date(ts + 'Z');
+      } else {
+        date = new Date(ts);
+      }
+    } else if (typeof ts === 'number') {
+      // Unix timestamp (seconds or milliseconds)
+      date = ts < 10000000000 ? new Date(ts * 1000) : new Date(ts);
+    } else {
+      date = new Date(ts);
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return '';
+    }
+    
+    // Get local time in user's timezone
+    // JavaScript's Date automatically converts UTC to local time
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    return `${hours}:${minutes}`;
   } catch (e) {
+    console.error('Error formatting time:', e, ts);
     return '';
   }
 };

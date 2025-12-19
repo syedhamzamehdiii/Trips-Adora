@@ -482,7 +482,8 @@ class SupplierService:
             total_payout_earnings = 0.0
             try:
                 bookings_collection = db["customer_bookings"]
-                commission_rate = await PlatformSettingsService.get_commission_rate()
+                # Get current commission rate as fallback for bookings without stored rate
+                current_commission_rate = await PlatformSettingsService.get_commission_rate()
                 pipeline = [
                     {"$match": {"supplier_id": user_id_str}},
                     {
@@ -493,6 +494,7 @@ class SupplierService:
                             "tour_name": 1,
                             "reference_code": 1,
                             "total_amount": {"$ifNull": ["$total_amount", 0]},
+                            "commission_rate": {"$ifNull": ["$commission_rate", current_commission_rate]},  # Use stored rate or fallback
                         }
                     },
                     {
@@ -511,6 +513,13 @@ class SupplierService:
                                     }
                                 ]
                             },
+                            # Calculate commission per booking using its stored rate
+                            "booking_commission": {
+                                "$multiply": [
+                                    {"$ifNull": ["$total_amount", 0]},
+                                    {"$ifNull": ["$commission_rate", current_commission_rate]}
+                                ]
+                            },
                         }
                     },
                     {
@@ -521,6 +530,7 @@ class SupplierService:
                             },
                             "bookings": {"$sum": 1},
                             "earnings": {"$sum": "$total_amount"},
+                            "commission": {"$sum": "$booking_commission"},  # Sum commissions calculated per booking
                             "sample_ref": {"$first": "$reference_code"},
                         }
                     },
@@ -539,8 +549,8 @@ class SupplierService:
                         product_name = raw_product or "—"
                     bookings_count = int(row.get("bookings", 0) or 0)
                     earnings_val = float(row.get("earnings", 0) or 0.0)
-
-                    commission_val = round(earnings_val * commission_rate, 2)
+                    # Use commission from aggregation (calculated per booking with stored rates)
+                    commission_val = round(float(row.get("commission", 0) or 0.0), 2)
                     payout_amount = round(earnings_val - commission_val, 2)
                     due_amount = payout_amount  # until we track paid vs. unpaid
 

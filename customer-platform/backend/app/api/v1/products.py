@@ -75,6 +75,55 @@ async def get_published_products(
             original_currency = product.get("currency", "USD")
             price_usd = await convert_to_usd(original_price, original_currency)
 
+            # Get supplier business name
+            supplier_id = product.get("supplier_id")
+            supplier_business_name = product.get("supplier_business_name")
+            if supplier_id and not supplier_business_name:
+                try:
+                    from app.core.database import get_database
+                    from bson import ObjectId
+                    db = get_database()
+                    if db:
+                        supplier_user = await db.users.find_one(
+                            {"_id": ObjectId(supplier_id) if ObjectId.is_valid(supplier_id) else supplier_id},
+                            {"business_name": 1, "legal_name": 1, "company_name": 1, "full_name": 1}
+                        )
+                        if supplier_user:
+                            supplier_business_name = (
+                                supplier_user.get("business_name")
+                                or supplier_user.get("legal_name")
+                                or supplier_user.get("company_name")
+                                or supplier_user.get("full_name")
+                            )
+                except Exception as e:
+                    logger.debug(f"Could not fetch supplier name: {e}")
+
+            # Convert selling_points to tags (for frontend compatibility)
+            selling_points = product.get("selling_points", [])
+            tags = selling_points if isinstance(selling_points, list) else []
+            if not tags and product.get("activity_type"):
+                tags = [product.get("activity_type")]
+
+            # Calculate groupSize from vehicle capacity if available
+            group_size = product.get("groupSize")
+            if not group_size:
+                try:
+                    from app.core.database import get_database
+                    from bson import ObjectId
+                    db = get_database()
+                    if db and supplier_id:
+                        vehicle_collection = db.supplier_vehicle_options
+                        vehicles = await vehicle_collection.find({
+                            "product_id": str(product.get("id", "")),
+                            "is_active": True
+                        }).to_list(length=10)
+                        if vehicles:
+                            max_capacity = max((v.get("capacity", 0) for v in vehicles if v.get("capacity")), default=None)
+                            if max_capacity:
+                                group_size = f"Up to {max_capacity}"
+                except Exception as e:
+                    logger.debug(f"Could not fetch vehicle capacity: {e}")
+
             formatted_products.append(ProductResponse(
                 id=product.get("id", ""),
                 title=product.get("title", ""),
@@ -89,14 +138,17 @@ async def get_published_products(
                 destination=product.get("destination"),
                 duration=product.get("duration"),
                 activity_type=product.get("activity_type"),
-                rating=product.get("rating"),
+                rating=product.get("rating") or 0.0,  # Default to 0.0 if not set
                 reviews_count=product.get("reviews_count", 0),
                 views=product.get("views", 0),
                 bookings_count=product.get("bookings_count", 0),
                 created_at=product.get("created_at") or datetime.utcnow(),
                 published_at=product.get("published_at"),
                 location=product.get("location"),
-                groupSize=product.get("groupSize"),
+                groupSize=group_size,
+                supplier_business_name=supplier_business_name,
+                supplier_id=str(supplier_id) if supplier_id else None,
+                selling_points=tags,  # Use selling_points as tags
                 inactive_dates=product.get("inactive_dates", []),
                 vehicle_inactive_dates=product.get("vehicle_inactive_dates", {}),
             ))
@@ -215,6 +267,55 @@ async def get_top_picks(
             original_currency = product.get("currency", "USD")
             price_usd = await convert_to_usd(original_price, original_currency)
 
+            # Get supplier business name
+            supplier_id = product.get("supplier_id")
+            supplier_business_name = product.get("supplier_business_name")
+            if supplier_id and not supplier_business_name:
+                try:
+                    from app.core.database import get_database
+                    from bson import ObjectId
+                    db = get_database()
+                    if db:
+                        supplier_user = await db.users.find_one(
+                            {"_id": ObjectId(supplier_id) if ObjectId.is_valid(supplier_id) else supplier_id},
+                            {"business_name": 1, "legal_name": 1, "company_name": 1, "full_name": 1}
+                        )
+                        if supplier_user:
+                            supplier_business_name = (
+                                supplier_user.get("business_name")
+                                or supplier_user.get("legal_name")
+                                or supplier_user.get("company_name")
+                                or supplier_user.get("full_name")
+                            )
+                except Exception as e:
+                    logger.debug(f"Could not fetch supplier name: {e}")
+
+            # Convert selling_points to tags (for frontend compatibility)
+            selling_points = product.get("selling_points", [])
+            tags = selling_points if isinstance(selling_points, list) else []
+            if not tags and product.get("activity_type"):
+                tags = [product.get("activity_type")]
+
+            # Calculate groupSize from vehicle capacity if available
+            group_size = product.get("groupSize")
+            if not group_size:
+                try:
+                    from app.core.database import get_database
+                    from bson import ObjectId
+                    db = get_database()
+                    if db and supplier_id:
+                        vehicle_collection = db.supplier_vehicle_options
+                        vehicles = await vehicle_collection.find({
+                            "product_id": str(product.get("id", "")),
+                            "is_active": True
+                        }).to_list(length=10)
+                        if vehicles:
+                            max_capacity = max((v.get("capacity", 0) for v in vehicles if v.get("capacity")), default=None)
+                            if max_capacity:
+                                group_size = f"Up to {max_capacity}"
+                except Exception as e:
+                    logger.debug(f"Could not fetch vehicle capacity: {e}")
+
             formatted_products.append(ProductResponse(
                 id=product.get("id", ""),
                 title=product.get("title", ""),
@@ -229,14 +330,17 @@ async def get_top_picks(
                 destination=product.get("destination"),
                 duration=product.get("duration"),
                 activity_type=product.get("activity_type"),
-                rating=product.get("rating"),
+                rating=product.get("rating") or 0.0,  # Default to 0.0 if not set
                 reviews_count=product.get("reviews_count", 0),
                 views=product.get("views", 0),
                 bookings_count=product.get("bookings_count", 0),
                 created_at=product.get("created_at") or datetime.utcnow(),
                 published_at=product.get("published_at"),
                 location=product.get("location"),
-                groupSize=product.get("groupSize"),
+                groupSize=group_size,
+                supplier_business_name=supplier_business_name,
+                supplier_id=str(supplier_id) if supplier_id else None,
+                selling_points=tags,  # Use selling_points as tags
                 inactive_dates=product.get("inactive_dates", []),
                 vehicle_inactive_dates=product.get("vehicle_inactive_dates", {}),
             ))

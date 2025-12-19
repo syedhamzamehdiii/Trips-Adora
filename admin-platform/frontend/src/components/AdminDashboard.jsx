@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import KPICards from './KPICards';
 import RevenueChart from './RevenueChart';
 import SupplierPerformanceTable from './SupplierPerformanceTable';
@@ -18,8 +19,10 @@ import ManageAllCustomers from './ManageAllCustomers';
 import Settings from './Settings';
 import Finance from './Finance';
 import { messageService } from '../services/messageService';
+import authService from '../services/authService';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const menuItems = [
     'Dashboard Overview',
     'Products Management',
@@ -306,8 +309,8 @@ const AdminDashboard = () => {
                 onClick={() => {
                   // Handle sign out logic here
                   setShowSignOutModal(false);
-                  // Add your sign out logic (e.g., clear tokens, redirect to login, etc.)
-                  console.log('User signed out');
+                  authService.logout();
+                  navigate('/login', { replace: true });
                 }}
                 className="w-full h-11 px-4 rounded-2xl text-white font-medium bg-[#FF6B6B] hover:bg-[#ff5252] transition"
               >

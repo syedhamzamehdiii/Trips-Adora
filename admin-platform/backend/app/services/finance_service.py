@@ -82,7 +82,8 @@ class FinanceService:
     async def get_summary() -> Dict[str, Any]:
         db = FinanceService._db()
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
-        commission_rate = await PlatformSettingsService.get_commission_rate()
+        # Get current commission rate as fallback for bookings without stored rate
+        current_commission_rate = await PlatformSettingsService.get_commission_rate()
 
         now = datetime.utcnow()
         this_month_start = datetime(now.year, now.month, 1)
@@ -91,29 +92,77 @@ class FinanceService:
 
         base_match = FinanceService._non_cancelled_match()
 
-        # Total revenue (all time)
+        # Total revenue and commission (all time) - using stored commission rates
         revenue_pipeline = [
             {"$match": base_match},
-            {"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$total_amount", 0]}}}},
+            {
+                "$addFields": {
+                    "commission_rate": {"$ifNull": ["$commission_rate", current_commission_rate]},
+                    "booking_commission": {
+                        "$multiply": [
+                            {"$ifNull": ["$total_amount", 0]},
+                            {"$ifNull": ["$commission_rate", current_commission_rate]}
+                        ]
+                    }
+                }
+            },
+            {"$group": {
+                "_id": None,
+                "total": {"$sum": {"$ifNull": ["$total_amount", 0]}},
+                "total_commission": {"$sum": "$booking_commission"}
+            }},
         ]
         revenue_result = await bookings.aggregate(revenue_pipeline).to_list(length=1)
         total_revenue = float(revenue_result[0].get("total", 0) or 0) if revenue_result else 0.0
+        total_commission = round(float(revenue_result[0].get("total_commission", 0) or 0), 2) if revenue_result else 0.0
 
-        # This month revenue
+        # This month revenue and commission
         this_month_pipeline = [
             {"$match": {"$and": [base_match, {"created_at": {"$gte": this_month_start}}]}},
-            {"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$total_amount", 0]}}}},
+            {
+                "$addFields": {
+                    "commission_rate": {"$ifNull": ["$commission_rate", current_commission_rate]},
+                    "booking_commission": {
+                        "$multiply": [
+                            {"$ifNull": ["$total_amount", 0]},
+                            {"$ifNull": ["$commission_rate", current_commission_rate]}
+                        ]
+                    }
+                }
+            },
+            {"$group": {
+                "_id": None,
+                "total": {"$sum": {"$ifNull": ["$total_amount", 0]}},
+                "total_commission": {"$sum": "$booking_commission"}
+            }},
         ]
         this_month_result = await bookings.aggregate(this_month_pipeline).to_list(length=1)
         revenue_this_month = float(this_month_result[0].get("total", 0) or 0) if this_month_result else 0.0
+        commission_this_month = float(this_month_result[0].get("total_commission", 0) or 0) if this_month_result else 0.0
 
-        # Last month revenue
+        # Last month revenue and commission
         last_month_pipeline = [
             {"$match": {"$and": [base_match, {"created_at": {"$gte": last_month_start, "$lte": last_month_end}}]}},
-            {"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$total_amount", 0]}}}},
+            {
+                "$addFields": {
+                    "commission_rate": {"$ifNull": ["$commission_rate", current_commission_rate]},
+                    "booking_commission": {
+                        "$multiply": [
+                            {"$ifNull": ["$total_amount", 0]},
+                            {"$ifNull": ["$commission_rate", current_commission_rate]}
+                        ]
+                    }
+                }
+            },
+            {"$group": {
+                "_id": None,
+                "total": {"$sum": {"$ifNull": ["$total_amount", 0]}},
+                "total_commission": {"$sum": "$booking_commission"}
+            }},
         ]
         last_month_result = await bookings.aggregate(last_month_pipeline).to_list(length=1)
         revenue_last_month = float(last_month_result[0].get("total", 0) or 0) if last_month_result else 0.0
+        commission_last_month = float(last_month_result[0].get("total_commission", 0) or 0) if last_month_result else 0.0
 
         def pct_change(curr: float, prev: float) -> float:
             if prev > 0:
@@ -123,17 +172,12 @@ class FinanceService:
             return 0.0
 
         revenue_change = pct_change(revenue_this_month, revenue_last_month)
+        total_supplier_payouts = round(total_revenue - total_commission, 2)
 
-        total_commission = round(total_revenue * commission_rate, 2)
-        total_supplier_payouts = round(total_revenue * (1 - commission_rate), 2)
-
-        commission_change = pct_change(
-            revenue_this_month * commission_rate,
-            revenue_last_month * commission_rate,
-        )
+        commission_change = pct_change(commission_this_month, commission_last_month)
         payouts_change = pct_change(
-            revenue_this_month * (1 - commission_rate),
-            revenue_last_month * (1 - commission_rate),
+            revenue_this_month - commission_this_month,
+            revenue_last_month - commission_last_month,
         )
 
         return {
@@ -152,16 +196,30 @@ class FinanceService:
 
         db = FinanceService._db()
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
-        commission_rate = await PlatformSettingsService.get_commission_rate()
+        # Get current commission rate as fallback for bookings without stored rate
+        current_commission_rate = await PlatformSettingsService.get_commission_rate()
 
         base_match = FinanceService._non_cancelled_match()
 
         pipeline = [
             {"$match": base_match},
-            {"$addFields": {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}}},
+            {
+                "$addFields": {
+                    "year": {"$year": "$created_at"},
+                    "month": {"$month": "$created_at"},
+                    "commission_rate": {"$ifNull": ["$commission_rate", current_commission_rate]},
+                    "booking_commission": {
+                        "$multiply": [
+                            {"$ifNull": ["$total_amount", 0]},
+                            {"$ifNull": ["$commission_rate", current_commission_rate]}
+                        ]
+                    }
+                }
+            },
             {"$group": {
                 "_id": {"year": "$year", "month": "$month"},
                 "revenue": {"$sum": {"$ifNull": ["$total_amount", 0]}},
+                "commission": {"$sum": "$booking_commission"},  # Sum commissions using stored rates
             }},
             {"$sort": {"_id.year": 1, "_id.month": 1}},
         ]
@@ -172,8 +230,8 @@ class FinanceService:
         for row in rows:
             m = int(row["_id"]["month"])
             revenue = float(row.get("revenue", 0) or 0)
-            commission = revenue * commission_rate
-            payout = revenue * (1 - commission_rate)
+            commission = float(row.get("commission", 0) or 0)  # Use commission from aggregation
+            payout = revenue - commission
             points.append({
                 "month": FinanceService._month_abbr(m),
                 "revenue": round(revenue, 2),
@@ -197,7 +255,8 @@ class FinanceService:
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
         users = db[FinanceService.USERS_COLLECTION]
         products = db[FinanceService.PRODUCTS_COLLECTION]
-        commission_rate = await PlatformSettingsService.get_commission_rate()
+        # Get current commission rate as fallback for bookings without stored rate
+        current_commission_rate = await PlatformSettingsService.get_commission_rate()
 
         base_match = FinanceService._non_cancelled_match()
 
@@ -219,6 +278,13 @@ class FinanceService:
                         {"$ifNull": ["$product_title", {"$ifNull": ["$title", ""]}]},
                     ]
                 },
+                "commission_rate": {"$ifNull": ["$commission_rate", current_commission_rate]},
+                "booking_commission": {
+                    "$multiply": [
+                        {"$ifNull": ["$total_amount", 0]},
+                        {"$ifNull": ["$commission_rate", current_commission_rate]}
+                    ]
+                },
             }},
             {"$group": {
                 "_id": {
@@ -229,6 +295,7 @@ class FinanceService:
                 },
                 "bookings": {"$sum": 1},
                 "earnings": {"$sum": {"$ifNull": ["$total_amount", 0]}},
+                "commission": {"$sum": "$booking_commission"},  # Sum commissions using stored rates
             }},
             {"$sort": {"_id.month_num": -1, "earnings": -1}},
         ]
@@ -290,8 +357,9 @@ class FinanceService:
             if (not pname) and pid:
                 pname = product_title_by_id.get(str(pid), "") or "Product"
             earnings = float(row.get("earnings", 0) or 0)
-            commission = earnings * commission_rate
-            payout = earnings * (1 - commission_rate)
+            # Use commission from aggregation (calculated per booking with stored rates)
+            commission = round(float(row.get("commission", 0) or 0), 2)
+            payout = round(earnings - commission, 2)
             month_num = int(_id.get("month_num") or 0) or None
 
             rows_out.append({
@@ -327,7 +395,8 @@ class FinanceService:
 
         db = FinanceService._db()
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
-        commission_rate = await PlatformSettingsService.get_commission_rate()
+        # Get current commission rate as fallback for bookings without stored rate
+        current_commission_rate = await PlatformSettingsService.get_commission_rate()
 
         base_match = FinanceService._non_cancelled_match()
         match_parts: List[Dict[str, Any]] = [base_match]
@@ -340,10 +409,22 @@ class FinanceService:
 
         pipeline = [
             {"$match": {"$and": match_parts}},
-            {"$addFields": {"month_num": {"$month": "$created_at"}}},
+            {
+                "$addFields": {
+                    "month_num": {"$month": "$created_at"},
+                    "commission_rate": {"$ifNull": ["$commission_rate", current_commission_rate]},
+                    "booking_commission": {
+                        "$multiply": [
+                            {"$ifNull": ["$total_amount", 0]},
+                            {"$ifNull": ["$commission_rate", current_commission_rate]}
+                        ]
+                    }
+                }
+            },
             {"$group": {
                 "_id": {"month_num": "$month_num"},
                 "total_earnings": {"$sum": {"$ifNull": ["$total_amount", 0]}},
+                "total_commission": {"$sum": "$booking_commission"},  # Sum commissions using stored rates
             }},
             {"$sort": {"_id.month_num": -1}},
         ]
@@ -363,8 +444,9 @@ class FinanceService:
         for row in page_rows:
             month_num = int(row.get("_id", {}).get("month_num") or 0)
             earnings = float(row.get("total_earnings", 0) or 0)
-            commission = earnings * commission_rate
-            supplier_payouts = earnings * (1 - commission_rate)
+            # Use commission from aggregation (calculated per booking with stored rates)
+            commission = round(float(row.get("total_commission", 0) or 0), 2)
+            supplier_payouts = round(earnings - commission, 2)
             rows_out.append({
                 "month": FinanceService._month_abbr(month_num) if month_num else "",
                 "total_earnings": round(earnings, 2),
@@ -402,7 +484,8 @@ class FinanceService:
         db = FinanceService._db()
         bookings = db[FinanceService.BOOKINGS_COLLECTION]
         users = db[FinanceService.USERS_COLLECTION]
-        commission_rate = await PlatformSettingsService.get_commission_rate()
+        # Get current commission rate as fallback for bookings without stored rate
+        current_commission_rate = await PlatformSettingsService.get_commission_rate()
 
         base_match = FinanceService._non_cancelled_match()
         match_parts: List[Dict[str, Any]] = [base_match]
@@ -453,6 +536,7 @@ class FinanceService:
                     "tour_name": 1,
                     "reference_code": 1,
                     "total_amount": {"$ifNull": ["$total_amount", 0]},
+                    "commission_rate": {"$ifNull": ["$commission_rate", current_commission_rate]},  # Use stored rate or fallback
                 }
             },
             {
@@ -466,6 +550,13 @@ class FinanceService:
                             {"$ifNull": ["$title", "$tour_name"]},
                         ]
                     },
+                    # Calculate commission per booking using its stored rate
+                    "booking_commission": {
+                        "$multiply": [
+                            {"$ifNull": ["$total_amount", 0]},
+                            {"$ifNull": ["$commission_rate", current_commission_rate]}
+                        ]
+                    },
                 }
             },
             {
@@ -477,6 +568,7 @@ class FinanceService:
                     },
                     "bookings": {"$sum": 1},
                     "earnings": {"$sum": "$total_amount"},
+                    "commission": {"$sum": "$booking_commission"},  # Sum commissions calculated per booking
                     "sample_ref": {"$first": "$reference_code"},
                 }
             },
@@ -520,8 +612,8 @@ class FinanceService:
 
             bookings_count = int(r.get("bookings", 0) or 0)
             earnings_val = float(r.get("earnings", 0) or 0.0)
-
-            commission_val = round(earnings_val * commission_rate, 2)
+            # Use commission from aggregation (calculated per booking with stored rates)
+            commission_val = round(float(r.get("commission", 0) or 0.0), 2)
             payout_amount = round(earnings_val - commission_val, 2)
             due_amount = payout_amount
 

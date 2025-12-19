@@ -55,25 +55,38 @@ const TourCard = ({ tour, onClick }) => {
     }
   }
   
-  const {
-    image,
-    name,
-    duration,
-    groupSize = 'Up to 12',
-    location = 'Tokyo Japan',
-    rating = 4.8,
-    reviews = '384',
-    tags = ['Sightseeing', 'Local Food', 'Private Transport', 'HiddenGems', 'Photo Spots'],
-    host = tour.supplierBusinessName || 'TripsAdora Partner',
-    oldPrice = '$250',
-    price,
-    slotsRemaining
-  } = tour
+  // Use real data from backend, with fallbacks only if data is truly missing
+  const image = tour.hero_image || tour.images?.[0] || tour.image
+  const name = tour.title || tour.name
+  const duration = tour.duration
+  const groupSize = tour.groupSize || 'Up to 12'
+  const location = tour.location || tour.destination || 'Location TBD'
+  // Use real rating and reviews_count from backend
+  const rating = tour.rating !== undefined && tour.rating !== null ? tour.rating : 0.0
+  const reviews = tour.reviews_count !== undefined ? tour.reviews_count : 0
+  // Use selling_points as tags, with fallback to activity_type
+  const tags = tour.selling_points && tour.selling_points.length > 0 
+    ? tour.selling_points 
+    : (tour.activity_type ? [tour.activity_type] : [])
+  // Use supplier_business_name from backend
+  const host = tour.supplier_business_name || tour.supplierBusinessName || tour.host || 'TripsAdora Partner'
+  const oldPrice = tour.oldPrice || null  // Don't show oldPrice if not set
+  // Handle price - it might be a number, string, or undefined
+  let price = 'Price TBD'
+  if (tour.price !== undefined && tour.price !== null) {
+    if (typeof tour.price === 'number') {
+      price = `$${tour.price.toFixed(0)}`
+    } else if (typeof tour.price === 'string') {
+      // If it's already a formatted string, use it as-is
+      price = tour.price.startsWith('$') ? tour.price : `$${tour.price}`
+    }
+  }
+  const slotsRemaining = tour.slotsRemaining
 
   return (
     <div onClick={onClick} className="bg-white rounded-2xl overflow-hidden shadow hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-custom-blue cursor-pointer">
       <div className="relative h-56">
-        <img src={image} alt={name} className="w-full h-full object-cover" />
+        <img src={image || '/placeholder-tour.jpg'} alt={name || 'Tour'} className="w-full h-full object-cover" />
         {typeof slotsRemaining === 'number' && slotsRemaining > 0 && (
           <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-semibold px-2 py-1 rounded">
             Only {slotsRemaining} slots left
@@ -88,17 +101,21 @@ const TourCard = ({ tour, onClick }) => {
         </button>
       </div>
       <div className="p-4">
-        {/* Rating */}
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-yellow-400">★★★★★</span>
-          <span className="text-sm text-gray-700">{rating}</span>
-          <span className="text-sm text-gray-500">({reviews})</span>
-        </div>
-        {/* Location */}
-        <div className="flex items-center gap-2 text-gray-600 text-sm mb-1">
-          <FiMapPin className="w-4 h-4" />
-          <span>{location}</span>
-        </div>
+        {/* Rating - only show if rating exists */}
+        {(rating > 0 || reviews > 0) && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-yellow-400">★★★★★</span>
+            <span className="text-sm text-gray-700">{rating.toFixed(1)}</span>
+            <span className="text-sm text-gray-500">({reviews})</span>
+          </div>
+        )}
+        {/* Location - only show if location exists */}
+        {location && location !== 'Location TBD' && (
+          <div className="flex items-center gap-2 text-gray-600 text-sm mb-1">
+            <FiMapPin className="w-4 h-4" />
+            <span>{location}</span>
+          </div>
+        )}
         {/* Title */}
         <h3 className="text-lg font-semibold text-gray-900 mb-2">{name}</h3>
         {/* Badges Row */}
@@ -111,12 +128,14 @@ const TourCard = ({ tour, onClick }) => {
           <div className="flex items-center gap-1"><FiClock className="w-4 h-4" />{duration}</div>
           <div className="flex items-center gap-1"><FiUsers className="w-4 h-4" />{groupSize}</div>
         </div>
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2 mb-3">
-          {tags.slice(0,5).map((t, i) => (
-            <span key={i} className="text-[10px] px-2 py-1 rounded bg-gray-100 text-gray-700">{t}</span>
-          ))}
-        </div>
+        {/* Tags - only show if tags exist */}
+        {tags && tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {tags.slice(0,5).map((t, i) => (
+              <span key={i} className="text-[10px] px-2 py-1 rounded bg-gray-100 text-gray-700">{t}</span>
+            ))}
+          </div>
+        )}
         {/* Host */}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-7 h-7 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs">
@@ -131,8 +150,8 @@ const TourCard = ({ tour, onClick }) => {
         {/* Price + Share */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-baseline gap-2">
-            <span className="text-xs text-gray-400 line-through">{oldPrice}</span>
-            <span className="text-xl font-bold text-custom-blue">{price}</span>
+            {oldPrice && <span className="text-xs text-gray-400 line-through">{oldPrice}</span>}
+            <span className="text-xl font-bold text-custom-blue">{price || 'Price TBD'}</span>
           </div>
           <button className="w-9 h-9 rounded-full border border-gray-300 bg-white flex items-center justify-center">
             <FiShare2 className="text-gray-700" />

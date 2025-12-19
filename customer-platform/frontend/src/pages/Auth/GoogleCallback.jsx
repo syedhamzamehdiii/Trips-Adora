@@ -9,6 +9,7 @@ const GoogleCallback = () => {
 
   useEffect(() => {
       let isHandled = false;
+      const codeKey = 'google_oauth_code_used'; // Key for tracking used codes
       
       const handleCallback = async () => {
         if (isHandled) return;
@@ -19,6 +20,7 @@ const GoogleCallback = () => {
         const error = urlParams.get('error');
         
       const finishAndNavigate = (path) => {
+        // Remove code from URL immediately to prevent reuse
         window.history.replaceState({}, document.title, window.location.pathname);
         navigate(path, { replace: true });
       };
@@ -35,11 +37,24 @@ const GoogleCallback = () => {
             return;
           }
 
+      // Check if this code was already processed (prevent React StrictMode double-call)
+      const usedCode = sessionStorage.getItem(codeKey);
+      if (usedCode === code) {
+        console.log('Authorization code already processed, skipping duplicate call');
+        finishAndNavigate('/login');
+        return;
+      }
+
       try {
+          // Mark code as being processed immediately
+          sessionStorage.setItem(codeKey, code);
+          
           const redirectUri = window.location.origin + '/auth/google/callback';
           const response = await authService.googleLoginWithCode(code, redirectUri);
           
+          // Remove code from URL and sessionStorage after successful processing
           window.history.replaceState({}, document.title, window.location.pathname);
+          sessionStorage.removeItem(codeKey);
           
           if (response && response.success) {
             updateUser(response.user);
@@ -61,7 +76,9 @@ const GoogleCallback = () => {
           }
       } catch (err) {
         console.error('Google callback error:', err);
+          // Remove code from URL and sessionStorage on error
           window.history.replaceState({}, document.title, window.location.pathname);
+          sessionStorage.removeItem(codeKey);
           navigate('/login', { replace: true });
         }
       };

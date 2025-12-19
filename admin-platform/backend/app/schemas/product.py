@@ -14,7 +14,9 @@ class AdminProductSummary(BaseModel):
     category: Optional[str] = None
     activity_type: Optional[str] = None
     destination: Optional[str] = None
+    location: Optional[str] = None  # Resolved location or destination
     duration: Optional[str] = None
+    groupSize: Optional[str] = None  # Group size from vehicle capacity
 
     status: str
 
@@ -27,6 +29,7 @@ class AdminProductSummary(BaseModel):
 
     rating: Optional[float] = None
     reviews_count: int = 0
+    selling_points: List[str] = []  # For tags display
 
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

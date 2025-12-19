@@ -49,7 +49,7 @@ const Card = ({ item, onClick }) => (
       </div>
       <div className="mt-2 text-xs text-gray-500 flex items-center">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        <span className="ml-1">{item.destination || '—'}</span>
+        <span className="ml-1">{item.location || item.destination || '—'}</span>
       </div>
       <h3 className="mt-1 text-base font-semibold text-gray-900 leading-snug cursor-pointer" onClick={onClick}>{item.title}</h3>
       {/* Right aligned badges like screenshot */}
@@ -59,10 +59,10 @@ const Card = ({ item, onClick }) => (
       </div>
       <div className="mt-2 text-xs text-gray-600 flex items-center">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        <span className="ml-1">8 hours</span>
+        <span className="ml-1">{item.duration || 'Duration TBD'}</span>
         <Dot />
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span className="ml-1">Up to 12</span>
+        <span className="ml-1">{item.groupSize || item.maxGroupSize || 'Up to 12'}</span>
       </div>
 
       <div className="mt-4 flex items-center gap-3">
@@ -85,11 +85,20 @@ const Card = ({ item, onClick }) => (
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <Chip>Sightseeing</Chip>
-        <Chip>Local Food</Chip>
-        <Chip>Private Transport</Chip>
-        <Chip>HiddenGems</Chip>
-        <Chip>Photo Spots</Chip>
+        {item.selling_points && item.selling_points.length > 0 ? (
+          item.selling_points.slice(0, 5).map((tag, i) => (
+            <Chip key={i}>{tag}</Chip>
+          ))
+        ) : item.activity_type ? (
+          <Chip>{item.activity_type}</Chip>
+        ) : (
+          // Fallback to default tags only if no data available
+          <>
+            <Chip>Sightseeing</Chip>
+            <Chip>Local Food</Chip>
+            <Chip>Private Transport</Chip>
+          </>
+        )}
       </div>
 
       {/* Divider like screenshot above price row */}

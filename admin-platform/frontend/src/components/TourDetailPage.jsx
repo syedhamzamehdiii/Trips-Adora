@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Mountain, Camera, Car, Globe, MapPin, Clock, Users, Package, CheckCircle, XCircle, HelpCircle, Eye, Utensils, Star, RefreshCw } from 'lucide-react';
 import { getSupplierProductById, updateSupplierProductById } from '../services/supplierService';
 import adminProductService from '../services/adminProductService';
+import platformSettingsService from '../services/platformSettingsService';
 
 
 const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => {
@@ -12,6 +13,37 @@ const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => 
   const [editSaving, setEditSaving] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [approvalSaving, setApprovalSaving] = useState(false);
+  const [platformRefundPolicy, setPlatformRefundPolicy] = useState(null);
+  const [usePlatformPolicy, setUsePlatformPolicy] = useState(true);
+
+  // Load platform refund policy
+  useEffect(() => {
+    let active = true;
+    const loadPolicy = async () => {
+      try {
+        const settings = await platformSettingsService.getPlatformSettings();
+        if (!active) return;
+        if (settings?.refund_policy) {
+          setPlatformRefundPolicy(settings.refund_policy);
+        }
+      } catch (e) {
+        console.error('Failed to load platform refund policy:', e);
+      }
+    };
+    loadPolicy();
+    
+    // Auto-refresh every 10 seconds for real-time updates
+    const interval = setInterval(() => {
+      if (active) {
+        loadPolicy();
+      }
+    }, 10000);
+    
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Load full product from supplier backend so this matches supplier preview.
   useEffect(() => {
@@ -25,6 +57,11 @@ const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => 
         const data = await getSupplierProductById(productId);
         if (!active) return;
         setProduct(data);
+        
+        // Check if product has custom cancellation policy
+        if (data?.cancellation_policy) {
+          setUsePlatformPolicy(false);
+        }
       } catch (e) {
         if (!active) return;
         console.error('Failed to load product detail', e);
@@ -52,6 +89,23 @@ const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => 
     const incExc = product.included_excluded || {};
     const pickupDrop = product.pickup_dropoff || {};
 
+    // Convert platform refund policy to cancellation policy format if needed
+    const cancellationPolicy = product.cancellation_policy || null;
+    let cancellationPolicyForm = null;
+    
+    if (cancellationPolicy) {
+      // Product has custom policy
+      cancellationPolicyForm = {
+        freeCancellationText: cancellationPolicy.free_cancellation_text || cancellationPolicy.freeCancellationText || '',
+        schedule: (cancellationPolicy.schedule || []).map(tier => ({
+          label: tier.label || '',
+          percentage: tier.percentage || 0,
+          note: tier.note || ''
+        })),
+        notes: cancellationPolicy.notes || []
+      };
+    }
+
     setEditForm({
       title: product.title || '',
       subtitle: product.tagline || '',
@@ -72,8 +126,10 @@ const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => 
       timeSlots: ((pickupDrop.available_time_slots || pickupDrop.time_slots_by_day && Object.values(pickupDrop.time_slots_by_day || {}).flat()) || []).join(', '),
       price: product.price != null ? String(product.price) : '',
       priceUnit: product.price_unit || '',
+      cancellationPolicy: cancellationPolicyForm,
+      usePlatformPolicy: !cancellationPolicy,
     });
-  }, [product]);
+  }, [product, platformRefundPolicy]);
 
   const splitComma = (value) =>
     value
@@ -133,6 +189,32 @@ const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => 
       const priceNum = parseFloat(editForm.price);
       updated.price = Number.isFinite(priceNum) ? priceNum : updated.price;
       updated.price_unit = editForm.priceUnit.trim() || updated.price_unit;
+
+      // Cancellation/Refund Policy
+      if (editForm.usePlatformPolicy && platformRefundPolicy) {
+        // Convert platform refund policy to cancellation policy format
+        updated.cancellation_policy = {
+          free_cancellation_text: platformRefundPolicy.free_cancellation_until 
+            ? `Free cancellation until ${platformRefundPolicy.free_cancellation_until}`
+            : null,
+          schedule: (platformRefundPolicy.tiers || []).map(tier => ({
+            label: tier.label || `${tier.percentage}% Refund`,
+            percentage: tier.percentage || 0,
+            note: tier.label || ''
+          })),
+          notes: platformRefundPolicy.notes || []
+        };
+      } else if (editForm.cancellationPolicy) {
+        // Use custom cancellation policy
+        updated.cancellation_policy = {
+          free_cancellation_text: editForm.cancellationPolicy.freeCancellationText || null,
+          schedule: (editForm.cancellationPolicy.schedule || []).filter(tier => tier.percentage !== undefined || tier.label),
+          notes: editForm.cancellationPolicy.notes || []
+        };
+      } else if (!editForm.usePlatformPolicy) {
+        // Clear cancellation policy if not using platform and no custom policy
+        updated.cancellation_policy = null;
+      }
 
       const saved = await updateSupplierProductById(product.id, updated);
       setProduct(saved);
@@ -947,6 +1029,77 @@ const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => 
               </ul>
             </div>
 
+            {/* Cancellation & Refund Policy Card */}
+            {(product?.cancellation_policy || (platformRefundPolicy && !product?.cancellation_policy)) && (
+              <div className="bg-white rounded-2xl p-6 border border-gray-200">
+                <div className="flex items-center gap-2 mb-6">
+                  <Package className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-bold text-gray-900">Cancellation & Refund Policy</h3>
+                </div>
+                {(() => {
+                  const policy = product?.cancellation_policy || (platformRefundPolicy ? {
+                    free_cancellation_text: platformRefundPolicy.free_cancellation_until 
+                      ? `Free cancellation until ${platformRefundPolicy.free_cancellation_until}`
+                      : null,
+                    schedule: (platformRefundPolicy.tiers || []).map(tier => ({
+                      label: tier.label || `${tier.percentage}% Refund`,
+                      percentage: tier.percentage || 0,
+                      note: tier.label || ''
+                    })),
+                    notes: platformRefundPolicy.notes || []
+                  } : null);
+                  
+                  if (!policy) return null;
+                  
+                  return (
+                    <div className="space-y-4">
+                      {policy.free_cancellation_text && (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm font-semibold text-green-700">{policy.free_cancellation_text}</p>
+                        </div>
+                      )}
+                      
+                      {Array.isArray(policy.schedule) && policy.schedule.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-900 mb-3">Refund Schedule</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {policy.schedule.map((tier, idx) => (
+                              <div key={idx} className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                                <div className="text-2xl font-bold text-blue-600 mb-1">
+                                  {tier.percentage}%
+                                </div>
+                                <div className="text-xs font-semibold text-gray-900">{tier.label || 'Refund'}</div>
+                                {tier.note && (
+                                  <div className="text-xs text-gray-600 mt-1">{tier.note}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {Array.isArray(policy.notes) && policy.notes.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-900 mb-2">Policy Notes</h4>
+                          <ul className="space-y-1">
+                            {policy.notes.map((note, idx) => (
+                              <li key={idx} className="text-sm text-gray-600">• {note}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {!product?.cancellation_policy && platformRefundPolicy && (
+                        <div className="mt-3 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-500">
+                          Using platform default policy (updates automatically)
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             {/* Itinerary Card */}
             <div className="bg-white rounded-2xl p-6 border border-gray-200">
               <div className="flex items-center gap-2 mb-6">
@@ -1178,6 +1331,168 @@ const TourDetailPage = ({ productId, onBack, fromRequestToApprove = false }) => 
                       onChange={(e) => setEditForm({ ...editForm, priceUnit: e.target.value })}
                     />
                   </div>
+                </div>
+
+                {/* Cancellation & Refund Policy Section */}
+                <div className="col-span-2 mt-6 pt-6 border-t border-gray-200">
+                  <h3 className="text-sm font-bold text-gray-900 mb-4">Cancellation & Refund Policy</h3>
+                  
+                  {/* Use Platform Policy Toggle */}
+                  <div className="mb-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editForm.usePlatformPolicy}
+                        onChange={(e) => {
+                          setEditForm({
+                            ...editForm,
+                            usePlatformPolicy: e.target.checked,
+                            cancellationPolicy: e.target.checked ? null : (editForm.cancellationPolicy || {
+                              freeCancellationText: '',
+                              schedule: [],
+                              notes: []
+                            })
+                          });
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Use Platform Default Policy
+                      </span>
+                    </label>
+                    {editForm.usePlatformPolicy && platformRefundPolicy && (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-xs text-blue-700 font-medium mb-2">Current Platform Policy:</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {platformRefundPolicy.tiers?.map((tier, idx) => (
+                            <div key={idx} className="text-xs text-blue-600">
+                              <span className="font-semibold">{tier.percentage}%</span> - {tier.label}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Custom Policy Editor */}
+                  {!editForm.usePlatformPolicy && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">
+                          Free Cancellation Text (optional)
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
+                          value={editForm.cancellationPolicy?.freeCancellationText || ''}
+                          onChange={(e) => setEditForm({
+                            ...editForm,
+                            cancellationPolicy: {
+                              ...(editForm.cancellationPolicy || { schedule: [], notes: [] }),
+                              freeCancellationText: e.target.value
+                            }
+                          })}
+                          placeholder="e.g., Free cancellation until 24 hours before tour"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">
+                          Policy Notes (one per line)
+                        </label>
+                        <textarea
+                          rows={3}
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
+                          value={(editForm.cancellationPolicy?.notes || []).join('\n')}
+                          onChange={(e) => setEditForm({
+                            ...editForm,
+                            cancellationPolicy: {
+                              ...(editForm.cancellationPolicy || { freeCancellationText: '', schedule: [] }),
+                              notes: e.target.value.split('\n').filter(n => n.trim())
+                            }
+                          })}
+                          placeholder="Enter policy notes, one per line"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-2">
+                          Refund Schedule Tiers
+                        </label>
+                        <div className="space-y-2">
+                          {(editForm.cancellationPolicy?.schedule || []).map((tier, idx) => (
+                            <div key={idx} className="flex gap-2 items-center p-2 border rounded">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                className="w-20 border rounded px-2 py-1 text-sm"
+                                value={tier.percentage || 0}
+                                onChange={(e) => {
+                                  const newSchedule = [...(editForm.cancellationPolicy?.schedule || [])];
+                                  newSchedule[idx] = { ...tier, percentage: parseInt(e.target.value) || 0 };
+                                  setEditForm({
+                                    ...editForm,
+                                    cancellationPolicy: {
+                                      ...(editForm.cancellationPolicy || { freeCancellationText: '', notes: [] }),
+                                      schedule: newSchedule
+                                    }
+                                  });
+                                }}
+                                placeholder="%"
+                              />
+                              <input
+                                type="text"
+                                className="flex-1 border rounded px-2 py-1 text-sm"
+                                value={tier.label || ''}
+                                onChange={(e) => {
+                                  const newSchedule = [...(editForm.cancellationPolicy?.schedule || [])];
+                                  newSchedule[idx] = { ...tier, label: e.target.value };
+                                  setEditForm({
+                                    ...editForm,
+                                    cancellationPolicy: {
+                                      ...(editForm.cancellationPolicy || { freeCancellationText: '', notes: [] }),
+                                      schedule: newSchedule
+                                    }
+                                  });
+                                }}
+                                placeholder="Label (e.g., 03 days before Tour)"
+                              />
+                              <button
+                                onClick={() => {
+                                  const newSchedule = (editForm.cancellationPolicy?.schedule || []).filter((_, i) => i !== idx);
+                                  setEditForm({
+                                    ...editForm,
+                                    cancellationPolicy: {
+                                      ...(editForm.cancellationPolicy || { freeCancellationText: '', notes: [] }),
+                                      schedule: newSchedule
+                                    }
+                                  });
+                                }}
+                                className="text-red-500 hover:text-red-700 text-sm"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => {
+                              setEditForm({
+                                ...editForm,
+                                cancellationPolicy: {
+                                  ...(editForm.cancellationPolicy || { freeCancellationText: '', notes: [] }),
+                                  schedule: [...(editForm.cancellationPolicy?.schedule || []), { percentage: 0, label: '', note: '' }]
+                                }
+                              });
+                            }}
+                            className="text-sm text-blue-600 hover:text-blue-800"
+                          >
+                            + Add Tier
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -60,7 +60,15 @@ async def get_dashboard_stats():
         return DashboardStatsResponse(**stats)
     except Exception as e:
         logger.error(f"Error in get_dashboard_stats endpoint: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return default values instead of 500 error
+        return DashboardStatsResponse(
+            total_bookings=0,
+            bookings_change=0.0,
+            total_revenue=0.0,
+            revenue_change=0.0,
+            cancellation_rate=0.0,
+            cancellation_change=0.0,
+        )
 
 
 @router.get("/chart", response_model=ChartDataResponse)
@@ -75,7 +83,8 @@ async def get_bookings_revenue_chart(
         return ChartDataResponse(data=chart_data)
     except Exception as e:
         logger.error(f"Error in get_bookings_revenue_chart endpoint: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return empty data instead of 500 error
+        return ChartDataResponse(data=[])
 
 
 @router.get("/countries", response_model=CountryDataResponse)

@@ -5,6 +5,7 @@ import PayoutDetailModal from './PayoutDetailModal';
 import SupplierProfileQuickModal from './SupplierProfileQuickModal';
 import financeService from '../services/financeService';
 import { getSupplierDetail, getSupplierInsights } from '../services/supplierService';
+import platformSettingsService from '../services/platformSettingsService';
 
 const Finance = () => {
   const [selectedMonth, setSelectedMonth] = useState('All');
@@ -29,6 +30,27 @@ const Finance = () => {
   const [adminRows, setAdminRows] = useState([]);
   const [adminTotalPages, setAdminTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [commissionPercent, setCommissionPercent] = useState(25);
+
+  // Load commission settings
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const s = await platformSettingsService.getPlatformSettings();
+        if (!active) return;
+        if (typeof s?.commission_percent === 'number') {
+          setCommissionPercent(s.commission_percent);
+        } else if (typeof s?.commission_rate === 'number') {
+          setCommissionPercent(Math.round(s.commission_rate * 100));
+        }
+      } catch (_) {
+        // keep default
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, []);
 
   const openSupplierProfile = (supplierCodeOrId) => {
     const id = supplierCodeOrId ? String(supplierCodeOrId) : '';
@@ -316,6 +338,9 @@ const Finance = () => {
     }
 
     const lines = [];
+    // Calculate supplier percent once
+    const supplierPercent = Math.round(100 - commissionPercent);
+    
     // Summary
     lines.push(['Type', 'Key', 'Value'].join(','));
     lines.push(['summary', 'total_revenue', summary?.total_revenue ?? 0].join(','));
@@ -327,7 +352,7 @@ const Finance = () => {
     lines.push('');
 
     // Trend
-    lines.push(['Type', 'Month', 'Revenue', 'Commission(25%)', 'Supplier Payouts(75%)'].join(','));
+    lines.push(['Type', 'Month', 'Revenue', `Commission(${Math.round(commissionPercent)}%)`, `Supplier Payouts(${supplierPercent}%)`].join(','));
     (trendPoints || []).forEach((p) => {
       const revenue = Number(p.revenue || 0);
       const commission = Number(p.commission || 0);
@@ -337,7 +362,7 @@ const Finance = () => {
     lines.push('');
 
     // Supplier payout history
-    lines.push(['Type', 'Supplier', 'Date', 'Product', 'Bookings', 'Earnings', 'Commission(25%)', 'Due Amount(75%)', 'Payout(75%)', 'Reference'].join(','));
+    lines.push(['Type', 'Supplier', 'Date', 'Product', 'Bookings', 'Earnings', `Commission(${Math.round(commissionPercent)}%)`, `Due Amount(${supplierPercent}%)`, `Payout(${supplierPercent}%)`, 'Reference'].join(','));
     payoutHistoryAll.forEach((r) => {
       lines.push([
         'supplier_payout_history',
@@ -355,7 +380,7 @@ const Finance = () => {
     lines.push('');
 
     // Admin commission
-    lines.push(['Type', 'Month', 'Total Earnings', 'Commission(25%)', 'Supplier Payouts(75%)'].join(','));
+    lines.push(['Type', 'Month', 'Total Earnings', `Commission(${Math.round(commissionPercent)}%)`, `Supplier Payouts(${supplierPercent}%)`].join(','));
     adminCommissionAll.forEach((r) => {
       lines.push([
         'admin_commission',
@@ -617,7 +642,7 @@ const Finance = () => {
                 <th className="text-left px-2 text-sm font-semibold text-gray-700 border-r" style={{ borderColor: '#E5E7EB' }}>Earnings</th>
                 <th className="text-left px-2 text-sm font-semibold text-gray-700 border-r" style={{ borderColor: '#E5E7EB' }}>
                   <div>Commission</div>
-                  <div className="text-xs font-normal text-gray-500">(25%)</div>
+                  <div className="text-xs font-normal text-gray-500">({Math.round(commissionPercent)}%)</div>
                 </th>
                 <th className="text-left px-2 text-sm font-semibold text-gray-700 border-r" style={{ borderColor: '#E5E7EB' }}>Due Amount</th>
                 <th className="text-left px-2 text-sm font-semibold text-gray-700 border-r" style={{ borderColor: '#E5E7EB' }}>Payout</th>
@@ -690,7 +715,7 @@ const Finance = () => {
                 <th className="text-left px-2 text-sm font-semibold text-gray-700 border-r" style={{ borderColor: '#E5E7EB' }}>Total Earnings</th>
                 <th className="text-left px-2 text-sm font-semibold text-gray-700 border-r" style={{ borderColor: '#E5E7EB' }}>
                   <div>Commission</div>
-                  <div className="text-xs font-normal text-gray-500">(25%)</div>
+                  <div className="text-xs font-normal text-gray-500">({Math.round(commissionPercent)}%)</div>
                 </th>
                 <th className="text-left px-2 text-sm font-semibold text-gray-700 border-r" style={{ borderColor: '#E5E7EB' }}>Bank</th>
                 <th className="text-left px-2 text-sm font-semibold text-gray-700 border-r" style={{ borderColor: '#E5E7EB' }}>Payout</th>

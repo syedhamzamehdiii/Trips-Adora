@@ -11,6 +11,7 @@ from app.models.message import Message
 from app.models.invitation import SupplierInvitation
 from app.models.supplier_onboarding import SupplierOnboarding
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -28,29 +29,43 @@ async def initiate_database():
     try:
         db.client = AsyncIOMotorClient(
             settings.MONGODB_URL,
-            # Connection pool settings
-            maxPoolSize=50,
-            minPoolSize=10,
+            # Connection pool settings - increased for better resilience
+            maxPoolSize=100,
+            minPoolSize=5,
             maxIdleTimeMS=45000,
-
-            # Timeout settings
-            serverSelectionTimeoutMS=30000,  # 30 seconds
-            connectTimeoutMS=20000,  # 20 seconds
-            socketTimeoutMS=60000,  # 60 seconds
-
+            # Timeout settings - increased for better reliability
+            serverSelectionTimeoutMS=60000,  # Increased from 30s to 60s
+            connectTimeoutMS=30000,  # Increased from 20s to 30s
+            socketTimeoutMS=120000,  # Increased from 60s to 120s
             # Retry settings
             retryWrites=True,
             retryReads=True,
-
+            # Heartbeat settings - helps maintain connection
+            heartbeatFrequencyMS=10000,
             # TLS (allow self-signed certificates for development)
             tls=True,
             tlsAllowInvalidCertificates=True,
+            # Connection retry settings
+            directConnection=False,  # Use replica set connection
         )
         db.database = db.client[settings.DATABASE_NAME]
         
-        # Test the connection
-        await db.client.admin.command('ping')
-        logger.info("✅ Successfully connected to MongoDB!")
+        # Test the connection with retry
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                await db.client.admin.command('ping')
+                logger.info("✅ Successfully connected to MongoDB!")
+                break
+            except Exception as ping_error:
+                if attempt < max_retries - 1:
+                    logger.warning(f"MongoDB ping failed (attempt {attempt + 1}/{max_retries}), retrying...")
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    logger.error(f"❌ Failed to connect to MongoDB after {max_retries} attempts: {ping_error}")
+                    # Don't raise immediately - allow app to start and retry later
+                    logger.warning("⚠️  Application will continue but database operations may fail")
+                    return
         
         # Initialize Beanie with all document models
         await init_beanie(
@@ -61,7 +76,8 @@ async def initiate_database():
         
     except Exception as e:
         logger.error(f"❌ Error connecting to MongoDB: {e}")
-        raise
+        # Don't raise immediately - allow app to start and retry later
+        logger.warning("⚠️  Application will continue but database operations may fail")
 
 
 async def connect_to_mongo():

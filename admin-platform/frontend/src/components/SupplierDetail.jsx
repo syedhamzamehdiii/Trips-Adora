@@ -5,6 +5,7 @@ import PayoutDetailModal from './PayoutDetailModal';
 import SupplierDocsModal from './SupplierDocsModal';
 import SupplierProducts from './SupplierProducts';
 import { getSupplierDetail } from '../services/supplierService';
+import platformSettingsService from '../services/platformSettingsService';
 
 const SupplierDetail = ({ supplierId }) => {
   const [detail, setDetail] = useState(null);
@@ -18,8 +19,29 @@ const SupplierDetail = ({ supplierId }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [commissionPercent, setCommissionPercent] = useState(25);
   const payoutHistoryRef = React.useRef(null);
   const didFocusRef = React.useRef(false);
+
+  // Load commission settings
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const s = await platformSettingsService.getPlatformSettings();
+        if (!active) return;
+        if (typeof s?.commission_percent === 'number') {
+          setCommissionPercent(s.commission_percent);
+        } else if (typeof s?.commission_rate === 'number') {
+          setCommissionPercent(Math.round(s.commission_rate * 100));
+        }
+      } catch (_) {
+        // keep default
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (!supplierId) return;
@@ -333,7 +355,7 @@ const SupplierDetail = ({ supplierId }) => {
                   <th className="text-left px-4 py-1 text-sm font-semibold text-gray-900">Earnings</th>
                   <th className="text-left px-4 py-1 text-sm font-semibold text-gray-900">
                     <div>Commission</div>
-                    <div className="text-xs font-normal text-gray-400">(25%)</div>
+                    <div className="text-xs font-normal text-gray-400">({Math.round(commissionPercent)}%)</div>
                   </th>
                   <th className="text-left px-4 py-1 text-sm font-semibold text-gray-900">Due Amount</th>
                   <th className="text-left px-4 py-1 text-sm font-semibold text-gray-900">Payout</th>

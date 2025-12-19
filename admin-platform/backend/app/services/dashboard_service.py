@@ -6,10 +6,19 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any
 from bson import ObjectId
 from app.core.database import get_database
+from pymongo.errors import NetworkTimeout, AutoReconnect, ServerSelectionTimeoutError, ConnectionFailure
 import logging
 import re
 
 logger = logging.getLogger(__name__)
+
+# MongoDB connection errors that should return default values
+MONGO_CONNECTION_ERRORS = (
+    NetworkTimeout,
+    AutoReconnect,
+    ServerSelectionTimeoutError,
+    ConnectionFailure,
+)
 
 
 class DashboardService:
@@ -324,9 +333,28 @@ class DashboardService:
                 "cancellation_rate": round(cancellation_rate, 1),
                 "cancellation_change": round(cancellation_change, 1),
             }
+        except MONGO_CONNECTION_ERRORS as e:
+            logger.error(f"MongoDB connection error in get_dashboard_stats: {e}", exc_info=True)
+            # Return default values instead of raising exception
+            return {
+                "total_bookings": 0,
+                "bookings_change": 0.0,
+                "total_revenue": 0.0,
+                "revenue_change": 0.0,
+                "cancellation_rate": 0.0,
+                "cancellation_change": 0.0,
+            }
         except Exception as e:
             logger.error(f"Error in get_dashboard_stats: {e}", exc_info=True)
-            raise
+            # Return default values for any other errors too
+            return {
+                "total_bookings": 0,
+                "bookings_change": 0.0,
+                "total_revenue": 0.0,
+                "revenue_change": 0.0,
+                "cancellation_rate": 0.0,
+                "cancellation_change": 0.0,
+            }
 
     @staticmethod
     async def get_bookings_revenue_chart(months: int = 12) -> List[Dict[str, Any]]:
@@ -378,9 +406,12 @@ class DashboardService:
                     })
             
             return chart_data
+        except MONGO_CONNECTION_ERRORS as e:
+            logger.error(f"MongoDB connection error in get_bookings_revenue_chart: {e}", exc_info=True)
+            return []
         except Exception as e:
             logger.error(f"Error in get_bookings_revenue_chart: {e}", exc_info=True)
-            raise
+            return []
 
     @staticmethod
     async def get_top_countries_by_month(month_name: str = None) -> List[Dict[str, Any]]:

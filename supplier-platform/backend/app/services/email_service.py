@@ -625,3 +625,66 @@ async def send_supplier_to_customer_email(
     except Exception as e:
         logger.error(f"Failed to send email from supplier {supplier_email} to customer {customer_email}: {e}")
         return False
+
+
+async def send_refund_policy_update_email(recipient_email: str, recipient_name: str) -> bool:
+    """
+    Notify supplier that the refund policy has been updated.
+    Returns True if email was sent successfully, False otherwise.
+    """
+    try:
+        safe_name = recipient_name or "Supplier"
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #1d236b; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                .content {{ background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }}
+                .button {{ display: inline-block; padding: 12px 24px; background-color: #1d236b; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }}
+                .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #666; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Refund Policy Update - TripsAdora</h1>
+                </div>
+                <div class="content">
+                    <p>Hello {safe_name},</p>
+                    <p>We wanted to inform you that the platform refund policy has been updated.</p>
+                    <p>Please review the updated refund policy in your supplier dashboard footer section to ensure you're aware of the latest terms and conditions.</p>
+                    <p>The new policy will apply to all bookings made after the update date.</p>
+                    <div style="text-align: center;">
+                        <a href="https://supplier.tripsadora.com" class="button">View Refund Policy</a>
+                    </div>
+                    <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                        If you have any questions about the updated policy, please contact our support team.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>© 2025 TripsAdora. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        message = MessageSchema(
+            subject="Refund Policy Updated - TripsAdora",
+            recipients=[recipient_email],
+            body=html_content,
+            subtype="html",
+        )
+        
+        if settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD:
+            await fastmail.send_message(message)
+            logger.info(f"Refund policy update email sent to {recipient_email}")
+            return True
+        logger.warning(f"SMTP not configured. Would send refund policy update email to {recipient_email}")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to send refund policy update email to {recipient_email}: {e}")
+        return False

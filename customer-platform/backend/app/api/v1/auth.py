@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 import jwt
 import requests
@@ -23,6 +23,11 @@ from app.services.wallet_service import WalletService
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+# In-memory cache to track used authorization codes (prevent duplicate usage)
+# Format: {code: (timestamp, email)}
+_used_codes: dict[str, tuple[datetime, str]] = {}
+_code_cache_ttl = timedelta(minutes=10)  # Codes expire after 10 minutes
 
 
 def _log_google_event(message: str) -> None:
@@ -362,11 +367,31 @@ async def google_callback(request: GoogleCallbackRequest):
                 detail="Authentication failed. Please try again.",
             )
 
+        code = request.code.strip()
         redirect_uri = request.redirect_uri.strip()
+        
+        # Check if this code has already been used (idempotency)
+        now = datetime.utcnow()
+        # Clean up expired codes
+        expired_codes = [c for c, (ts, _) in _used_codes.items() if now - ts > _code_cache_ttl]
+        for expired_code in expired_codes:
+            _used_codes.pop(expired_code, None)
+        
+        # Check if code was already used
+        if code in _used_codes:
+            used_time, email = _used_codes[code]
+            logger.warning(f"Authorization code already used at {used_time} for {email}")
+            _log_google_event(f"Code already used (idempotency check)")
+            # Return a user-friendly error
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This authorization code has already been used. Please sign in again to get a new code.",
+            )
+        
         _log_google_event(f"Received code with redirect={redirect_uri}")
         token_url = "https://oauth2.googleapis.com/token"
         token_data = {
-            "code": request.code.strip(),
+            "code": code,
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
             "redirect_uri": redirect_uri,
@@ -416,11 +441,13 @@ async def google_callback(request: GoogleCallbackRequest):
             logger.error(f"Status code: {token_response.status_code}")
 
             if error_type == "invalid_grant":
-                detail = "Authorization code expired or already used. Please try signing in again."
+                # Mark code as used to prevent retries
+                _used_codes[code] = (now, "unknown")
+                detail = "Authorization code expired or already used. Please try signing in again from the login page."
             elif error_type == "redirect_uri_mismatch":
                 detail = f"Redirect URI mismatch. Please ensure '{redirect_uri}' is registered in Google Cloud Console."
             else:
-                detail = "Authentication failed. Please try again."
+                detail = f"Authentication failed: {error_msg}. Please try signing in again."
 
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
@@ -454,10 +481,23 @@ async def google_callback(request: GoogleCallbackRequest):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No email found in Google token",
             )
+        
+        # Mark code as successfully used (after successful token exchange)
+        _used_codes[code] = (now, email)
+        logger.info(f"Marked authorization code as used for {email}")
 
         # Ensure user exists or create
         try:
-            user = await User.find_one(User.email == email)
+            # Check if Beanie is properly initialized
+            try:
+                user = await User.find_one(User.email == email)
+            except (AttributeError, TypeError) as beanie_error:
+                # Beanie not initialized - database connection likely failed
+                logger.error(f"Beanie not initialized - database connection failed: {beanie_error}")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Database service is temporarily unavailable. Please try again later.",
+                )
 
             if not user:
                 user = User(
@@ -473,6 +513,9 @@ async def google_callback(request: GoogleCallbackRequest):
                 if name and name.strip() and user.full_name != name:
                     user.full_name = name
                     await user.save()
+        except HTTPException:
+            # Re-raise HTTP exceptions
+            raise
         except Exception as exc:
             logger.exception("Failed ensuring user during Google OAuth for %s", email)
             _log_google_event(f"Failed ensuring user for {email}: {exc}")

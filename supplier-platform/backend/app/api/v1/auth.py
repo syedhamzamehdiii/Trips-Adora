@@ -959,11 +959,23 @@ async def google_callback(request: GoogleCallbackRequest):
         logger.info(f"Looking up user with email: {normalized_email}")
         
         # Check if user already exists with timeout (case-insensitive)
+        user = None
         try:
-            user = await asyncio.wait_for(
-                User.find_one(User.email == normalized_email),
-                timeout=5.0
-            )
+            # Check if Beanie is properly initialized by testing User model
+            try:
+                # Try Beanie field-based query
+                user = await asyncio.wait_for(
+                    User.find_one(User.email == normalized_email),
+                    timeout=5.0
+                )
+            except (AttributeError, TypeError) as beanie_error:
+                # Beanie not initialized - database connection likely failed
+                logger.error(f"Beanie not initialized - database connection failed: {beanie_error}")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Database service is temporarily unavailable. Please try again later."
+                )
+            
             # Also check case-insensitively for existing records with different case
             if not user:
                 all_users = await asyncio.wait_for(
@@ -975,11 +987,20 @@ async def google_callback(request: GoogleCallbackRequest):
                         user = u
                         logger.warning(f"Found existing user {u.id} with different case email: {u.email} -> {normalized_email}")
                         break
+        except HTTPException:
+            # Re-raise HTTP exceptions
+            raise
         except asyncio.TimeoutError:
             logger.error("MongoDB query timed out while looking up user")
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail="Database query timed out. Please try again."
+            )
+        except Exception as e:
+            logger.error(f"Error looking up user: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An error occurred while processing your request. Please try again later."
             )
         
         # Check if user is blocked (before creating new user or logging in)

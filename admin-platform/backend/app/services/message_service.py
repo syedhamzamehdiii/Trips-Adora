@@ -6,9 +6,18 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from bson import ObjectId
 from app.core.database import get_database
+from pymongo.errors import NetworkTimeout, AutoReconnect, ServerSelectionTimeoutError, ConnectionFailure
 import logging
 
 logger = logging.getLogger(__name__)
+
+# MongoDB connection errors that should return default values
+MONGO_CONNECTION_ERRORS = (
+    NetworkTimeout,
+    AutoReconnect,
+    ServerSelectionTimeoutError,
+    ConnectionFailure,
+)
 
 
 class AdminMessageService:
@@ -237,9 +246,12 @@ class AdminMessageService:
                 })
 
             return conversations
+        except MONGO_CONNECTION_ERRORS as exc:
+            logger.error(f"MongoDB connection error fetching admin conversations: {exc}", exc_info=True)
+            return []
         except Exception as exc:
             logger.error(f"Error fetching admin conversations: {exc}", exc_info=True)
-            raise
+            return []
 
     @staticmethod
     async def get_messages(conversation_id: str) -> list[Dict[str, Any]]:

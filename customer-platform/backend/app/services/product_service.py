@@ -30,6 +30,10 @@ class ProductService:
         "bookings_count": 1,
         "published_at": 1,
         "created_at": 1,
+        "selling_points": 1,  # Used for tags
+        "supplier_id": 1,  # For fetching supplier info
+        "supplier_business_name": 1,  # Direct supplier name if available
+        "resolved_location": 1,  # For location display
         # Availability fields mirrored from supplier platform
         "inactive_dates": 1,
         "vehicle_inactive_dates": 1,
@@ -77,6 +81,10 @@ class ProductService:
         """
         try:
             db = get_database()
+            if db is None:
+                logger.warning("Database connection not available, returning empty results")
+                return [], 0
+            
             collection = db.products
             
             # Build query - status index will be used!
@@ -189,6 +197,10 @@ class ProductService:
         """Get top picks - most popular published products"""
         try:
             db = get_database()
+            if db is None:
+                logger.warning("Database connection not available, returning empty top picks")
+                return []
+            
             collection = db.products
             
             # Use compound index for top picks

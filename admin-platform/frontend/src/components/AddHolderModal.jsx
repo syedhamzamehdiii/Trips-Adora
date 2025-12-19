@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import RoleManagementModal from './RoleManagementModal';
-
-const SUPPLIER_API_BASE_URL = import.meta.env.VITE_SUPPLIER_API_BASE_URL || 'http://localhost:8000/api/v1';
+import subAdminService from '../services/subAdminService';
 
 const AddHolderModal = ({ isOpen, onClose }) => {
   const [email, setEmail] = useState('');
@@ -18,6 +17,7 @@ const AddHolderModal = ({ isOpen, onClose }) => {
   const [success, setSuccess] = useState(false);
 
   const handleRoleSelected = (permissions) => {
+    // Update permissions immediately (real-time)
     setSelectedPermissions(permissions);
     // Update role display text based on selected permissions
     const activeRoles = Object.entries(permissions)
@@ -29,6 +29,8 @@ const AddHolderModal = ({ isOpen, onClose }) => {
         return key;
       });
     setSelectedRole(activeRoles.length > 0 ? activeRoles.join(', ') : 'Select Role');
+    // Close role modal after selection
+    setIsRoleModalOpen(false);
   };
 
   const handleSendInvite = async () => {
@@ -47,41 +49,24 @@ const AddHolderModal = ({ isOpen, onClose }) => {
     setSuccess(false);
 
     try {
-      // Extract name from email (or use email as name)
-      const fullName = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-      // Note: This requires authentication. In production, admin should be authenticated
-      // For now, we'll use grant-access endpoint which creates invitation and sends email
-      const response = await fetch(`${SUPPLIER_API_BASE_URL}/auth/grant-access`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // In production, add Authorization header with admin token
-          // 'Authorization': `Bearer ${adminToken}`
-        },
-        body: JSON.stringify({
-          email: email,
-          permissions: selectedPermissions,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to send invite');
-      }
+      // Use the new sub-admin service
+      const data = await subAdminService.inviteSubAdmin(email, selectedPermissions, message);
 
       setSuccess(true);
-      // Show success message with invitation link
-      const invitationInfo = data.invitation_link 
-        ? `Invitation email sent to ${data.email}!\n\nInvitation Link: ${data.invitation_link}\n\n(Share this link if email was not sent)`
+      // Show success message
+      const emailStatus = data.message && data.message.includes('email sent') 
+        ? 'Email sent successfully!' 
+        : 'Invitation created (check email or use link below)';
+      
+      const invitationInfo = data.invite_link 
+        ? `${emailStatus}\n\nEmail: ${data.email}\n\nInvitation Link: ${data.invite_link}\n\n(Share this link if email was not received)`
         : `Invitation sent to ${data.email}!`;
       
       alert(invitationInfo);
       
       // Reset form
-    setEmail('');
-    setMessage('');
+      setEmail('');
+      setMessage('');
       setSelectedRole('Select Role');
       setSelectedPermissions({
         productsManagement: false,
@@ -95,7 +80,13 @@ const AddHolderModal = ({ isOpen, onClose }) => {
         setSuccess(false);
       }, 2000);
     } catch (err) {
-      setError(err.message || 'Failed to send invite. Please try again.');
+      // Show user-friendly error message
+      if (err.message.includes('Session expired') || err.message.includes('authentication')) {
+        setError('Your session has expired. Please log in again.');
+        // Redirect will happen automatically via subAdminService
+      } else {
+        setError(err.message || 'Failed to send invite. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -113,19 +104,21 @@ const AddHolderModal = ({ isOpen, onClose }) => {
         className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button - Top Right - Very Visible */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-          className="absolute top-2 right-2 z-[100] flex items-center justify-center w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white font-bold text-xl shadow-lg transition-all"
-          aria-label="Close modal"
-          type="button"
-          style={{ lineHeight: '1' }}
-        >
-          ×
-        </button>
+        {/* Close Button - Top Right - Properly Aligned - Hidden when role modal is open */}
+        {!isRoleModalOpen && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="absolute top-4 right-4 z-[100] flex items-center justify-center w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white font-bold text-lg shadow-lg transition-all"
+            aria-label="Close modal"
+            type="button"
+            style={{ lineHeight: '1', padding: 0 }}
+          >
+            ×
+          </button>
+        )}
 
         {/* Title and Subtitle */}
         <div className="mb-6 pr-12">

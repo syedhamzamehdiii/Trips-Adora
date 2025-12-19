@@ -142,6 +142,7 @@ class ProductApprovalService:
                     "category": 1,
                     "activity_type": 1,
                     "destination": 1,
+                    "resolved_location": 1,  # For location display
                     "duration": 1,
                     "status": 1,
                     "price": {"$ifNull": ["$price", 0]},
@@ -151,6 +152,9 @@ class ProductApprovalService:
                     "images": 1,
                     "rating": 1,
                     "reviews_count": {"$ifNull": ["$reviews_count", 0]},
+                    "selling_points": 1,  # For tags
+                    "groupSize": 1,  # Group size if set
+                    "maxGroupSize": 1,  # Alternative group size field
                     "created_at": 1,
                     "updated_at": 1,
                     "published_at": 1,
@@ -171,6 +175,32 @@ class ProductApprovalService:
                 imgs = r.get("images") or []
                 if isinstance(imgs, list) and imgs:
                     r["hero_image"] = imgs[0]
+            
+            # Set location from resolved_location or destination
+            if not r.get("location"):
+                r["location"] = r.get("resolved_location") or r.get("destination")
+            
+            # Calculate groupSize from vehicle capacity if not set
+            if not r.get("groupSize") and not r.get("maxGroupSize"):
+                try:
+                    db = ProductApprovalService._db()
+                    if db:
+                        vehicle_collection = db.supplier_vehicle_options
+                        vehicles = await vehicle_collection.find({
+                            "product_id": r.get("id"),
+                            "is_active": True
+                        }).to_list(length=10)
+                        if vehicles:
+                            max_capacity = max((v.get("capacity", 0) for v in vehicles if v.get("capacity")), default=None)
+                            if max_capacity:
+                                r["groupSize"] = f"Up to {max_capacity}"
+                except Exception:
+                    pass  # If vehicle lookup fails, leave groupSize as None
+            
+            # Ensure groupSize is set
+            if not r.get("groupSize"):
+                r["groupSize"] = r.get("maxGroupSize") or "Up to 12"
+            
             out.append(r)
 
         return out, int(total or 0)
