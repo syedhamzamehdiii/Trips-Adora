@@ -1,5 +1,10 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://tripsadora.com/api/v1';
-const FALLBACK_API_BASE_URL = import.meta.env.VITE_SUPPLIER_API_BASE_URL || 'https://supplier.tripsadora.com/api/v1';
+// Import config to ensure consistent API base URL
+import { config } from '../config';
+
+// Use config.API_BASE_URL (https://tripsadora.com/api) and append /v1 for API version
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (config.API_BASE_URL ? `${config.API_BASE_URL}/v1` : 'https://tripsadora.com/api/v1');
+// Remove fallback to supplier API - customer endpoints should only use customer API
+const FALLBACK_API_BASE_URL = null;
 
 // Cache configuration
 const CACHE_KEYS = {
@@ -44,9 +49,9 @@ const normalizeImageSource = (source) => {
 };
 
 async function fetchJsonWithFallback(path, options = {}) {
+  // Customer endpoints should only use customer API, no fallback to supplier API
   const endpoints = [
     API_BASE_URL ? `${API_BASE_URL}${path}` : null,
-    FALLBACK_API_BASE_URL ? `${FALLBACK_API_BASE_URL}${path}` : null,
   ].filter(Boolean);
 
   let lastError;
@@ -80,15 +85,8 @@ async function fetchJsonWithFallback(path, options = {}) {
       clearTimeout(timeout);
       
       if (!response.ok) {
-        // Only log non-404 errors for the fallback endpoint (expected to fail)
-        const isFallbackEndpoint = url.includes(FALLBACK_API_BASE_URL);
-        if (!isFallbackEndpoint || response.status !== 404) {
-          cleanupHandlers.forEach(cleanup => cleanup());
-          throw new Error(`Request to ${url} failed with status ${response.status}`);
-        }
-        // For fallback 404s, silently continue to next endpoint
         cleanupHandlers.forEach(cleanup => cleanup());
-        continue;
+        throw new Error(`Request to ${url} failed with status ${response.status}`);
       }
       const data = await response.json();
       // Clean up event listeners
@@ -115,11 +113,7 @@ async function fetchJsonWithFallback(path, options = {}) {
       }
       
       lastError = error;
-      // Only log real errors, not expected 404s from fallback
-      const isFallbackEndpoint = url.includes(FALLBACK_API_BASE_URL);
-      if (!isFallbackEndpoint || (error.message && !error.message.includes('404'))) {
-        console.warn(`[API] Request failed (${url}): ${error?.message || error}`);
-      }
+      console.warn(`[API] Request failed (${url}): ${error?.message || error}`);
     }
   }
 
