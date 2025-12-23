@@ -2,7 +2,17 @@
 export const config = {
   // API Configuration
   // In production this must always point to the public customer API gateway URL
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://tripsadora.com/api',
+  // Validate and ensure we always use the correct production URL
+  API_BASE_URL: (() => {
+    const envUrl = import.meta.env.VITE_API_BASE_URL;
+    // If env var is set but points to wrong domain, ignore it and use production
+    if (envUrl && (envUrl.includes('customer-api.tripsadora.com') || envUrl.includes('localhost'))) {
+      console.warn('[Config] Invalid VITE_API_BASE_URL detected, using production URL:', envUrl);
+      return 'https://tripsadora.com/api';
+    }
+    // Use env var if valid, otherwise default to production
+    return envUrl || 'https://tripsadora.com/api';
+  })(),
   
   // Google OAuth Configuration
   GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID || '353190546831-i9oc4kvu61gs3po363k3u646jnbt0mv4.apps.googleusercontent.com',

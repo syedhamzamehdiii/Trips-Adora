@@ -1,4 +1,10 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://tripsadora.com/api/v1';
+import { config } from '../config';
+
+// Use config.API_BASE_URL and ensure /v1 is appended
+const API_BASE_URL = (() => {
+  const baseUrl = config.API_BASE_URL || 'https://tripsadora.com/api';
+  return baseUrl.endsWith('/api/v1') ? baseUrl : (baseUrl.endsWith('/api') ? `${baseUrl}/v1` : `${baseUrl}/api/v1`);
+})();
 
 const handleResponse = async (response) => {
   if (!response.ok) {

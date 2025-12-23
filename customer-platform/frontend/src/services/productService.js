@@ -1,8 +1,22 @@
 // Import config to ensure consistent API base URL
 import { config } from '../config';
 
-// Use config.API_BASE_URL (https://tripsadora.com/api) and append /v1 for API version
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (config.API_BASE_URL ? `${config.API_BASE_URL}/v1` : 'https://tripsadora.com/api/v1');
+// Always use config.API_BASE_URL to ensure we use the correct production URL
+// config.API_BASE_URL is 'https://tripsadora.com/api' (from config.js)
+// We need to append /v1 to get the full API path: 'https://tripsadora.com/api/v1'
+const getApiBaseUrl = () => {
+  const baseUrl = config.API_BASE_URL || 'https://tripsadora.com/api';
+  // Ensure baseUrl ends with /api, then append /v1
+  if (baseUrl.endsWith('/api/v1')) {
+    return baseUrl; // Already has /api/v1
+  } else if (baseUrl.endsWith('/api')) {
+    return `${baseUrl}/v1`; // Has /api, append /v1
+  } else {
+    return `${baseUrl}/api/v1`; // No /api, append /api/v1
+  }
+};
+
+const API_BASE_URL = getApiBaseUrl();
 // Remove fallback to supplier API - customer endpoints should only use customer API
 const FALLBACK_API_BASE_URL = null;
 
