@@ -1,7 +1,8 @@
 // Configuration file for the customer platform
 export const config = {
   // API Configuration
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001',
+  // In production this must always point to the public customer API gateway URL
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://tripsadora.com/api',
   
   // Google OAuth Configuration
   GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID || '353190546831-i9oc4kvu61gs3po363k3u646jnbt0mv4.apps.googleusercontent.com',
@@ -17,7 +18,7 @@ export const config = {
   IS_PRODUCTION: import.meta.env.MODE === 'production',
   
   // Supplier Platform URL
-  SUPPLIER_APP_URL: import.meta.env.VITE_SUPPLIER_APP_URL || 'http://localhost:5173',
+  SUPPLIER_APP_URL: import.meta.env.VITE_SUPPLIER_APP_URL || 'https://supplier.tripsadora.com',
 }
 
 // Google OAuth configuration

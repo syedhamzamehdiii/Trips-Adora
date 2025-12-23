@@ -4,14 +4,14 @@ import axios from 'axios';
 import { config } from '../config';
 import imageService from './imageService';
 
-// Supplier onboarding endpoints are on supplier platform backend (port 8000)
-// Customer platform backend is on port 8001
-const SUPPLIER_API_BASE_URL = import.meta.env.VITE_SUPPLIER_API_BASE_URL || 'http://localhost:8000';
+// Supplier onboarding endpoints are on supplier platform backend
+// In production this must use the public supplier API gateway URL
+const SUPPLIER_API_BASE_URL = import.meta.env.VITE_SUPPLIER_API_BASE_URL || 'https://supplier.tripsadora.com/api';
 const API_BASE_URL = config.API_BASE_URL; // For image uploads (customer platform)
 
 // Create axios instance for supplier platform API (onboarding endpoints)
 const supplierApi = axios.create({
-  baseURL: `${SUPPLIER_API_BASE_URL}/api/v1`,
+  baseURL: `${SUPPLIER_API_BASE_URL}/v1`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -49,7 +49,7 @@ class SupplierOnboardingService {
       // Don't set Content-Type - let axios set it automatically with boundary for FormData
       // Create a temporary axios instance without default Content-Type for file uploads
       const uploadApi = axios.create({
-        baseURL: `${SUPPLIER_API_BASE_URL}/api/v1`,
+        baseURL: `${SUPPLIER_API_BASE_URL}/v1`,
         timeout: 30000
       });
       

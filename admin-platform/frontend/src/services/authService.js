@@ -7,7 +7,7 @@ class AdminAuthService {
   // Login with email and password
   async login(email, password) {
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002';
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://admin.tripsadora.com/api';
       const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {

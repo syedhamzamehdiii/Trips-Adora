@@ -1,8 +1,9 @@
 // Configuration file for the admin platform
 export const config = {
   // API Configuration
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002',
-  SUPPLIER_API_BASE_URL: import.meta.env.VITE_SUPPLIER_API_BASE_URL || 'http://localhost:8000',
+  // In production these must always point to the public API gateway URLs
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://admin.tripsadora.com/api',
+  SUPPLIER_API_BASE_URL: import.meta.env.VITE_SUPPLIER_API_BASE_URL || 'https://supplier.tripsadora.com/api',
   SUPPLIER_ADMIN_TOKEN: import.meta.env.VITE_SUPPLIER_ADMIN_TOKEN || '',
   
   // App Configuration

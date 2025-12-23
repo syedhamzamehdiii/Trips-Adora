@@ -110,7 +110,7 @@ const BookingDetailsModal = ({ isOpen, onClose, bookingData, onNavigateToBooking
       try {
         // Use customer platform API to get resolved location (GPT-fetched location)
         // This endpoint returns the GPT-resolved location used for weather analysis
-        const customerApiUrl = import.meta.env.VITE_CUSTOMER_API_BASE_URL || 'http://localhost:8001/api/v1';
+        const customerApiUrl = import.meta.env.VITE_CUSTOMER_API_BASE_URL || 'https://tripsadora.com/api/v1';
         const response = await fetch(`${customerApiUrl}/products/${productId}/resolved-location`, {
           method: 'GET',
           headers: {

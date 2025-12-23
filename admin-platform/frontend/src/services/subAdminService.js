@@ -2,7 +2,7 @@
 import { apiService } from './api';
 import authService from './authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://admin.tripsadora.com/api';
 
 class SubAdminService {
   // Invite a sub-admin
