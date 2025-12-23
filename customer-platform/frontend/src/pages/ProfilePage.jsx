@@ -256,7 +256,7 @@ const ProfilePage = () => {
   )
   const memberSince = user?.member_since ? new Date(user.member_since) : null
   const memberSinceLabel = memberSince ? `Member Since ${memberSince.getFullYear()}` : 'Member Since —'
-  const avatarUrl = user?.avatar_url || '/assests/richp.jpg'
+  const avatarUrl = user?.avatar_url || '/images/richp.jpg'
   const loyaltyCurrency = stats?.currency || 'USD'
 
   const statCards = [
@@ -590,7 +590,7 @@ const ProfilePage = () => {
                       return (
                         <div key={item.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-white">
                           <img
-                            src={item.image || '/assests/place 1.jpg'}
+                            src={item.image || '/images/place-1.jpg'}
                             alt={item.title}
                             className="w-16 h-16 rounded-lg object-cover"
                           />
@@ -695,7 +695,7 @@ const ProfilePage = () => {
                         >
                           <div className="flex items-center gap-3">
                             <img
-                              src={trip.thumbnail || '/assests/place 1.jpg'}
+                              src={trip.thumbnail || '/images/place-1.jpg'}
                               alt={trip.title}
                               className="w-12 h-12 rounded object-cover"
                             />

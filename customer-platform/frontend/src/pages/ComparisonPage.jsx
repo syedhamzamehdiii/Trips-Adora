@@ -4,10 +4,11 @@ import MainHeader from '../components/MainHeader'
 import Footer from '../components/Footer'
 import TourCard from '../components/TourCard'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import tc2 from '../../assests/tc2.jpg'
-import tc4 from '../../assests/tc4.jpg'
-import place1 from '../../assests/place 1.jpg'
-import mountfuj from '../../assests/mount-fuj.jpg'
+// Images moved to public/images/ - use absolute paths for production
+const tc2 = '/images/tc2.jpg'
+const tc4 = '/images/tc4.jpg'
+const place1 = '/images/place-1.jpg'
+const mountfuj = '/images/mount-fuj.jpg'
 
 const ComparisonPage = () => {
   const navigate = useNavigate()

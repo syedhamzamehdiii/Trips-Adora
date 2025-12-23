@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import weatherBg from '../../assests/weather.jpg'
+// Image moved to public/images/ - use absolute path for production
+const weatherBg = '/images/weather.jpg'
 import { getClimateForProduct } from '../services/climateService'
 
 /**

@@ -507,7 +507,7 @@ const PaymentDetailsPage = () => {
       totalAmount,
       currency: bookingData?.currency || 'USD',
       loyaltyPoints: Math.max(0, Math.round((totalAmount || 0) / 10)),
-      heroImage: bookingData?.image || '/assests/bg.jpg',
+      heroImage: bookingData?.image || '/images/bg.jpg',
       notes: [
         specialRequirements?.trim(),
         specialInstructions?.trim()
@@ -818,7 +818,7 @@ const PaymentDetailsPage = () => {
             {/* Image */}
             <div className="w-full h-64 rounded-xl overflow-hidden mb-6">
               <img 
-                src={bookingData?.image || '/assests/bg.jpg'} 
+                src={bookingData?.image || '/images/bg.jpg'} 
                 alt={bookingData?.name || 'Tour'} 
                 className="w-full h-full object-cover"
               />

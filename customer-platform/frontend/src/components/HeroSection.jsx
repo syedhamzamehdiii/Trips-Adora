@@ -14,7 +14,7 @@ const HeroSection = () => {
       bg-cover 
       bg-center 
     "
-    style={{ backgroundImage: "url(/assests/bg.jpg)" }}
+    style={{ backgroundImage: "url(/images/bg.jpg)" }}
   />
 
   {/* Overlay */}

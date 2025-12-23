@@ -1781,7 +1781,7 @@ const CheckAvailabilityPage = () => {
             {/* Image */}
             <div className="w-full h-64 rounded-xl overflow-hidden mb-6">
               <img 
-                src={bookingData.image || '/assests/bg.jpg'} 
+                src={bookingData.image || '/images/bg.jpg'} 
                 alt={bookingData.name || 'Tour'} 
                 className="w-full h-full object-cover"
               />

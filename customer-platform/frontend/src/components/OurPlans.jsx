@@ -9,7 +9,7 @@ import { getPublishedProducts } from '../services/productService';
 const OurPlans = () => {
     const navigate = useNavigate()
     const productsSectionRef = useRef(null)
-    const hero = '/assests/mount fuji.jpg'
+    const hero = '/images/mount-fuji.jpg'
     const [products, setProducts] = useState([])
     const [loading, setLoading] = useState(true)
     

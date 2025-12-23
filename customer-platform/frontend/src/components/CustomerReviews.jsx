@@ -1,7 +1,8 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import ShareReview from './ShareReview'
-import mountfuj from '../../assests/mount-fuj.jpg'
+// Image moved to public/images/ - use absolute path for production
+const mountfuj = '/images/mount-fuj.jpg'
 
 const CustomerReviews = () => {
   const navigate = useNavigate()

@@ -98,6 +98,19 @@ async function fetchJsonWithFallback(path, options = {}) {
       const response = await fetch(url, requestOptions);
       clearTimeout(timeout);
       
+      // Check content type - if HTML, it's likely a 404 page or routing issue
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        cleanupHandlers.forEach(cleanup => cleanup());
+        const text = await response.text().catch(() => '');
+        console.error(`[API] Non-JSON response from ${url}:`, {
+          status: response.status,
+          contentType,
+          preview: text.substring(0, 200)
+        });
+        throw new Error(`API returned HTML instead of JSON. Status: ${response.status}. This usually means the endpoint doesn't exist or Nginx routing is incorrect. URL: ${url}`);
+      }
+      
       if (!response.ok) {
         cleanupHandlers.forEach(cleanup => cleanup());
         throw new Error(`Request to ${url} failed with status ${response.status}`);

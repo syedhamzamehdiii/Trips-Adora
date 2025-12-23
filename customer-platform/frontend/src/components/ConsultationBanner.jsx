@@ -31,7 +31,7 @@ const ConsultationBanner = () => {
             </div>
             {/* Right visual panel */}
             <div className="relative h-56 sm:h-64 md:h-auto min-h-[220px] md:min-h-[340px]">
-              <img src="/assests/image2.jpg" alt="Consultation" className="absolute inset-0 w-full h-full object-cover" />
+              <img src="/images/image2.jpg" alt="Consultation" className="absolute inset-0 w-full h-full object-cover" />
               <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-6 bg-[#ffb200]/90 rounded-xl p-4 md:w-70 space-y-3 shadow-lg ring-1 ring-black/10">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 text-gray-800"><FiMessageSquare className="w-4 h-4" /></div>

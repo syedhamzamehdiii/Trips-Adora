@@ -83,11 +83,11 @@ const ArashiyamaBambooGrovePage = () => {
     navigate('/cart')
   }
 
-  const heroImg = '/assests/Screenshot 2025-11-03 at 12.13.07 PM.png'
-  const bambooImg1 = '/assests/arashiyama-bamboo-forest_5.jpg'
-  const bambooImg2 = '/assests/Arashiyama-Bamboo-Grove.jpg'
-  const bambooImg3 = '/assests/Asia-Japan-Arashiyama-Bamboo-Forest-1-1024x768-1.jpg'
-  const bambooImg4 = '/assests/bamboo.jpeg'
+  const heroImg = '/images/arashiyama-bamboo-1.png'
+  const bambooImg1 = '/images/arashiyama-bamboo-forest-5.jpg'
+  const bambooImg2 = '/images/Arashiyama-Bamboo-Grove.jpg'
+  const bambooImg3 = '/images/Asia-Japan-Arashiyama-Bamboo-Forest-1-1024x768-1.jpg'
+  const bambooImg4 = '/images/bamboo.jpeg'
   return (
     <div className="min-h-screen bg-white">
       <MainHeader />

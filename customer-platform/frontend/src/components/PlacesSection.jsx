@@ -22,9 +22,9 @@ const PlaceCard = ({ title, subtitle, image, price }) => {
 
 const PlacesSection = () => {
   const places = [
-    { id: 1, title: 'Fushimi Inari Shrine', subtitle: 'Kyoto, Japan', image: '/assests/place 1.jpg', price: '$349/person' },
-    { id: 2, title: 'Gion Historic District', subtitle: 'Kyoto, Japan', image: '/assests/place 2.jpg', price: '$329/person' },
-    { id: 3, title: 'Kiyomizu-dera Temple', subtitle: 'Kyoto, Japan', image: '/assests/place 3.jpg', price: '$359/person' }
+    { id: 1, title: 'Fushimi Inari Shrine', subtitle: 'Kyoto, Japan', image: '/images/place-1.jpg', price: '$349/person' },
+    { id: 2, title: 'Gion Historic District', subtitle: 'Kyoto, Japan', image: '/images/place-2.jpg', price: '$329/person' },
+    { id: 3, title: 'Kiyomizu-dera Temple', subtitle: 'Kyoto, Japan', image: '/images/place-3.jpg', price: '$359/person' }
   ]
 
   return (

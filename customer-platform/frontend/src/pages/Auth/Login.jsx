@@ -75,7 +75,7 @@ const Login = () => {
         <div 
           className="w-full h-full bg-cover bg-center"
           style={{
-            backgroundImage: `url('/assests/7a69a86aa051f23c28e29bda402f67956fba18bf.png')`,
+            backgroundImage: `url('/images/7a69a86aa051f23c28e29bda402f67956fba18bf.png')`,
           }}
         />
         {/* Overlay for better text readability */}
@@ -88,7 +88,7 @@ const Login = () => {
           {/* TripsAdora Logo */}
           <Link to="/dashboard">
             <img 
-              src="/assests/logo1.png" 
+              src="/images/logo1.png" 
               alt="TripsAdora Logo" 
               className="h-12 w-auto"
             />

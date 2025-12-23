@@ -3,8 +3,9 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import {Check ,ChevronDown, Instagram, Linkedin, Facebook, Twitter, Globe, DollarSign, ShieldCheck, UsersRound, Phone, Headphones, Star, MessageCircle, MessageSquareText, MapPin, Clock, Droplet, UserPlus, Heart, ArrowUpRight, GitBranch, Map as MapIcon, ChevronLeft, ChevronRight, X, Plus, Minus, AlertTriangle, Car } from 'lucide-react'
 import { BsHeartFill } from 'react-icons/bs'
 import Itinerary from "../components/Itinerary"
-import share from "../../assests/share.png";
-import branch from "../../assests/middle.png";
+// Images moved to public/images/ - use absolute paths for production
+const share = "/images/share.png";
+const branch = "/images/middle.png";
 import Footer from './Footer'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MainHeader from './MainHeader'

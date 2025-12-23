@@ -83,7 +83,7 @@ const TokyoTowerPage = () => {
     navigate('/cart')
   }
 
-  const heroImg = '/assests/Screenshot 2025-11-03 at 12.12.27 PM.png'
+  const heroImg = '/images/tokyo-tower-1.png'
   return (
     <div className="min-h-screen bg-white">
       <MainHeader />

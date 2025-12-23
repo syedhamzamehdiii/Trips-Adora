@@ -113,7 +113,7 @@ const HeaderLandingPage = ({ backgroundVariant = 'transparent' }) => {
             <div className="flex items-center justify-between h-16 px-6">
               <Link to="/dashboard" className="flex items-center cursor-pointer">
                 <img 
-                  src="/assests/logo1.png" 
+                  src="/images/logo1.png" 
                   alt="TripsAdora Logo" 
                   className="h-8 sm:h-10 w-auto object-contain"
                 />

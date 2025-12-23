@@ -2,19 +2,20 @@
 
 import React from 'react';
 
-import imageline from "../../assests/imageline.png";
-import meet1 from "../../assests/meet1.png";
-import meet2 from "../../assests/meet2.png";
-import meet3 from "../../assests/meet3.png";
-import meet4 from "../../assests/meet2.png";
-import arrow from "../../assests/arrow.png";
-import firstarrow from "../../assests/firstarrow.png";
-import line from "../../assests/line.png";
-import man from "../../assests/man.png";
-import linee from "../../assests/linee.png";
-import vector from "../../assests/vector.png";
-import line71 from "../../assests/line71.png";
-import arrowimg from "../../assests/arrowimg.png";
+// Images moved to public/images/ - use absolute paths for production
+const imageline = "/images/imageline.png";
+const meet1 = "/images/meet1.png";
+const meet2 = "/images/meet2.png";
+const meet3 = "/images/meet3.png";
+const meet4 = "/images/meet2.png";
+const arrow = "/images/arrow.png";
+const firstarrow = "/images/firstarrow.png";
+const line = "/images/line.png";
+const man = "/images/man.png";
+const linee = "/images/linee.png";
+const vector = "/images/Vector.png";
+const line71 = "/images/line71.png";
+const arrowimg = "/images/arrowimg.png";
 import { MapPin, Map, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 export default function ThreeColumnLayout() {

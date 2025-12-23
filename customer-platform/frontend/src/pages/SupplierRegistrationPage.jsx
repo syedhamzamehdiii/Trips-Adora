@@ -49,7 +49,7 @@ const SupplierRegistrationPage = () => {
         <div className="flex items-center relative">
           <div className="flex items-center">
             <img 
-              src="/assests/loggo2.jpg" 
+              src="/images/loggo2.jpg" 
               alt="TripsAdora Logo" 
               className="w-[10rem] h-15"
             />

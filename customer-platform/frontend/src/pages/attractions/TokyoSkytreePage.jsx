@@ -82,7 +82,7 @@ const TokyoSkytreePage = () => {
     // Navigate to cart page
     navigate('/cart')
   }
-  const heroImg = '/assests/Screenshot 2025-11-03 at 12.08.32 PM.png'
+  const heroImg = '/images/tokyo-skytree-1.png'
   return (
     <div className="min-h-screen bg-white">
       <MainHeader />

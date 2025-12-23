@@ -26,7 +26,7 @@ const NewsletterSection = () => {
             {/* Right image */}
             <div className="relative">
               <div className="absolute -top-10 -right-10 w-80 h-80 md:w-96 md:h-96 rounded-full bg-[#e7f0ff] blur-3xl" />
-              <img src="/assests/kalaa.png" alt="Happy subscriber" className="relative w-auto h-60 sm:h-72 md:h-80 ml-auto" />
+              <img src="/images/kalaa.png" alt="Happy subscriber" className="relative w-auto h-60 sm:h-72 md:h-80 ml-auto" />
             </div>
           </div>
         </div>

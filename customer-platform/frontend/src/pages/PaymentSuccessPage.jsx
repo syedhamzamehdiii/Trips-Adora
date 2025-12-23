@@ -25,7 +25,7 @@ const formatCurrencyValue = (value, currency = 'USD') => {
   }
 }
 
-const BANNER_IMAGE = '/assests/Screenshot%202025-11-03%20at%2010.27.32%20AM.png'
+const BANNER_IMAGE = '/images/tourist-looking-fuji-mountain-cherry-blossom-spring-fujinomiya-japan-2-1.png'
 
 const PaymentSuccessPage = () => {
   const location = useLocation()
@@ -377,7 +377,7 @@ const PaymentSuccessPage = () => {
             <div className="relative group">
               <div className="aspect-w-16 aspect-h-9 rounded-xl overflow-hidden">
                 <img 
-                  src="/assests/mount fuji.jpg" 
+                  src="/images/mount-fuji.jpg" 
                   alt="Panoramic Fuji view" 
                   className="w-full h-48 object-cover"
                 />
@@ -391,7 +391,7 @@ const PaymentSuccessPage = () => {
             <div className="relative group">
               <div className="aspect-w-16 aspect-h-9 rounded-xl overflow-hidden">
                 <img 
-                  src="/assests/golden-pavilion-kinkakuji-temple-kyoto-japan.jpg" 
+                  src="/images/golden-pavilion-kinkakuji-temple-kyoto-japan.jpg" 
                   alt="Komitaké Shrine" 
                   className="w-full h-48 object-cover"
                 />
@@ -405,7 +405,7 @@ const PaymentSuccessPage = () => {
             <div className="relative group">
               <div className="aspect-w-16 aspect-h-9 rounded-xl overflow-hidden">
                 <img 
-                  src="/assests/Arashiyama-Bamboo-Grove.jpg" 
+                  src="/images/Arashiyama-Bamboo-Grove.jpg" 
                   alt="Scenic mountain road" 
                   className="w-full h-48 object-cover"
                 />

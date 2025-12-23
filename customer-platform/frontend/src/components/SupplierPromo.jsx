@@ -31,7 +31,7 @@ const SupplierPromo = () => {
           {/* Left image card */}
           <div className="rounded-2xl overflow-hidden shadow-lg">
             <div className="relative h-64 sm:h-72 md:h-full">
-              <img src="/assests/richp.jpg" alt="Become a supplier" className="absolute inset-0 w-full h-full object-cover" />
+              <img src="/images/richp.jpg" alt="Become a supplier" className="absolute inset-0 w-full h-full object-cover" />
               <div className="absolute bottom-4 left-4 right-4 bg-black/50 text-white rounded-lg px-4 py-3 text-sm font-semibold">
                 BECOME A RICH PANDA SUPPLIER
               </div>

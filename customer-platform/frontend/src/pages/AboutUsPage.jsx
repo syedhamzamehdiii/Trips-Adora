@@ -2,9 +2,10 @@ import React, { useEffect } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import HeaderLandingPage from '../components/HeaderLandingPage'
 import BottomNavigationBar from '../components/BottomNavigationBar'
-import AUImage from '../../assests/AU.jpg'
-import OurStoryImage from '../../assests/image.png'
-import CoreValuesImage from '../../assests/core values.jpg'
+// Images moved to public/images/ - use absolute paths for production
+const AUImage = '/images/AU.jpg'
+const OurStoryImage = '/images/image.png'
+const CoreValuesImage = '/images/core-values.jpg'
 import { FiHeadphones, FiPhone, FiClock, FiMessageCircle } from 'react-icons/fi'
 import Footer from '../components/Footer'
 
