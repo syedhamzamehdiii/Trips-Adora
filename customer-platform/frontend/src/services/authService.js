@@ -6,8 +6,9 @@ import googleAuthService from './googleAuthService'
 const API_BASE_URL = config.API_BASE_URL
 
 // Create axios instance
+// API_BASE_URL already includes '/api', so we just need to add '/v1'
 const api = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
+  baseURL: `${API_BASE_URL}/v1`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -191,8 +192,10 @@ class AuthService {
       }
     try {
       // Best-effort backend reachability check; warn but do not block
+      // Health endpoint is at root level
       try {
-        await axios.get(`${API_BASE_URL}/health`, { timeout: 8000 })
+        const healthUrl = API_BASE_URL.replace('/api', '') + '/health'
+        await axios.get(healthUrl, { timeout: 8000 })
       } catch (healthErr) {
         console.warn('Backend health check failed before Google code exchange (continuing):', healthErr?.message || healthErr)
       }
