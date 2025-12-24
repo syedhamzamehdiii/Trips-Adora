@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = "353190546831-i9oc4kvu61gs3po363k3u646jnbt0mv4.apps.googleusercontent.com"
     GOOGLE_CLIENT_SECRET: str = "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"
     GOOGLE_REDIRECT_URIS: list = [
+        # Development
         "http://localhost:3000",
         "http://localhost:3000/auth/google/callback",
         "http://127.0.0.1:3000",
@@ -37,8 +38,11 @@ class Settings(BaseSettings):
         "http://localhost:5174/auth/google/callback",
         "http://localhost:5177",
         "http://localhost:5177/auth/google/callback",
-        "https://yourdomain.com",
-        "https://yourdomain.com/auth/google/callback"
+        # Production - Customer Platform
+        "https://tripsadora.com",
+        "https://tripsadora.com/auth/google/callback",
+        "https://www.tripsadora.com",
+        "https://www.tripsadora.com/auth/google/callback",
     ]
 
     # Currency conversion (ExchangeRate-API)

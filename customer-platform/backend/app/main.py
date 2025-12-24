@@ -8,7 +8,8 @@ from app.middleware.activity_middleware import ActivityMiddleware
 app = FastAPI(
     title="TripsAdora Customer Platform API",
     description="API for TripsAdora Customer Platform",
-    version="1.0.0"
+    version="1.0.0",
+    openapi_version="3.1.0"
 )
 
 # CORS middleware
