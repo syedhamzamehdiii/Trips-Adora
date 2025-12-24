@@ -14,7 +14,7 @@ class SubAdminService {
         throw new Error('Admin authentication required. Please log in again.');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/sub-admins/invite`, {
+      const response = await fetch(`${API_BASE_URL}/v1/sub-admins/invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -54,7 +54,7 @@ class SubAdminService {
         throw new Error('Admin authentication required. Please log in again.');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/sub-admins/list?page=${page}&page_size=${pageSize}`, {
+      const response = await fetch(`${API_BASE_URL}/v1/sub-admins/list?page=${page}&page_size=${pageSize}`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
         },
@@ -80,8 +80,8 @@ class SubAdminService {
     try {
       // If token is provided, use query params for direct access
       const url = token && email
-        ? `${API_BASE_URL}/api/v1/sub-admins/login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
-        : `${API_BASE_URL}/api/v1/sub-admins/login${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+        ? `${API_BASE_URL}/v1/sub-admins/login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
+        : `${API_BASE_URL}/v1/sub-admins/login${token ? `?token=${encodeURIComponent(token)}` : ''}`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -120,7 +120,7 @@ class SubAdminService {
         throw new Error('Admin authentication required. Please log in again.');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/sub-admins/${subAdminId}/permissions`, {
+      const response = await fetch(`${API_BASE_URL}/v1/sub-admins/${subAdminId}/permissions`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +156,7 @@ class SubAdminService {
         throw new Error('Admin authentication required. Please log in again.');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/sub-admins/${subAdminId}`, {
+      const response = await fetch(`${API_BASE_URL}/v1/sub-admins/${subAdminId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${adminToken}`,

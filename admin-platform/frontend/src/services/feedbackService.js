@@ -24,7 +24,7 @@ export const feedbackService = {
       const token = localStorage.getItem('access_token') || '';
       
       await axios.delete(
-        `${API_BASE_URL}/api/v1/feedbacks/${encodeURIComponent(reviewId)}`,
+        `${API_BASE_URL}/v1/feedbacks/${encodeURIComponent(reviewId)}`,
         {
           timeout: 6000, // 6 second timeout
           headers: {

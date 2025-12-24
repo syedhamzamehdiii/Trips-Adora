@@ -50,9 +50,9 @@ const createApi = (baseURL, { staticToken = '', localTokenKey = 'access_token' }
 };
 
 // Admin API (existing)
-const api = createApi(`${API_BASE_URL}/api/v1`);
+const api = createApi(`${API_BASE_URL}/v1`);
 // Supplier platform API (single source of truth for onboarding)
-const supplierApi = createApi(`${SUPPLIER_API_BASE_URL}/api/v1`, {
+const supplierApi = createApi(`${SUPPLIER_API_BASE_URL}/v1`, {
   staticToken: config.SUPPLIER_ADMIN_TOKEN,
   localTokenKey: 'supplier_access_token',
 });
