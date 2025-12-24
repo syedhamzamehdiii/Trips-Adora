@@ -50,7 +50,7 @@ export const blogPosts = [
       <h2>Conclusion</h2>
       <p>Tokyo offers an incredible mix of experiences that will leave you wanting more. Plan your trip well, but don't be afraid to wander off the beaten path and discover your own hidden gems.</p>
     `,
-    image: '/assests/golden-pavilion-kinkakuji-temple-kyoto-japan 1.png',
+    image: '/images/golden-pavilion-kinkakuji-temple-kyoto-japan-1.png',
     date: 'March 15, 2025',
     readTime: 8,
     category: 'Travel Guide',
@@ -77,7 +77,7 @@ export const blogPosts = [
       <h2>Best Time to Visit</h2>
       <p>Spring (cherry blossoms) and autumn (fall colors) are the most popular times, but each season offers unique beauty.</p>
     `,
-    image: '/assests/woman-traveler-with-backpack-fushimi-inari-taisha-shrine-kyoto-japan.jpg',
+    image: '/images/woman-traveler-with-backpack-fushimi-inari-taisha-shrine-kyoto-japan.jpg',
     date: 'March 10, 2025',
     readTime: 6,
     category: 'Culture',
@@ -108,7 +108,7 @@ export const blogPosts = [
       <h2>Best Restaurants</h2>
       <p>From Michelin-starred establishments to humble street vendors, Osaka has it all.</p>
     `,
-    image: '/assests/matsumoto-castle-osaka-japan.jpg',
+    image: '/images/matsumoto-castle-osaka-japan.jpg',
     date: 'March 5, 2025',
     readTime: 5,
     category: 'Food',
@@ -132,7 +132,7 @@ export const blogPosts = [
       <h2>Yatai Food Stalls</h2>
       <p>Experience traditional outdoor food stalls where locals gather for food and drinks under the stars.</p>
     `,
-    image: '/assests/Fukuoka.jpg',
+    image: '/images/Fukuoka.jpg',
     date: 'February 28, 2025',
     readTime: 7,
     category: 'Travel',
@@ -167,7 +167,7 @@ export const blogPosts = [
       <h2>Safety Tips</h2>
       <p>Altitude sickness is a real concern. Take it slow, stay hydrated, and know when to turn back.</p>
     `,
-    image: '/assests/mount fuji.jpg',
+    image: '/images/mount-fuji.jpg',
     date: 'February 20, 2025',
     readTime: 10,
     category: 'Adventure',
@@ -194,7 +194,7 @@ export const blogPosts = [
       <h2>Photography Tips</h2>
       <p>Capture stunning photos of the blossoms with our expert tips on timing, composition, and equipment.</p>
     `,
-    image: '/assests/tc1.jpg',
+    image: '/images/tc1.jpg',
     date: 'February 15, 2025',
     readTime: 6,
     category: 'Culture',
@@ -221,7 +221,7 @@ export const blogPosts = [
       <h2>Best Time to Visit</h2>
       <p>Spring and autumn offer the best weather, with cherry blossoms in spring and beautiful fall colors. The deer are friendly year-round!</p>
     `,
-    image: '/assests/tc2.jpg',
+    image: '/images/tc2.jpg',
     date: 'February 10, 2025',
     readTime: 5,
     category: 'Travel',
@@ -248,7 +248,7 @@ export const blogPosts = [
       <h2>Hiroshima's Food Scene</h2>
       <p>Don't miss Hiroshima-style okonomiyaki, layered with noodles, cabbage, and your choice of ingredients. It's different from Osaka's version and absolutely delicious!</p>
     `,
-    image: '/assests/tc3.jpg',
+    image: '/images/tc3.jpg',
     date: 'February 5, 2025',
     readTime: 7,
     category: 'Culture',
@@ -278,7 +278,7 @@ export const blogPosts = [
       <h2>Summer in Hokkaido</h2>
       <p>Summer brings beautiful flower fields, especially in Furano, where lavender fields create stunning purple landscapes.</p>
     `,
-    image: '/assests/tc4.jpg',
+    image: '/images/tc4.jpg',
     date: 'January 30, 2025',
     readTime: 8,
     category: 'Travel',
@@ -308,7 +308,7 @@ export const blogPosts = [
       <h2>Gold Leaf Craft</h2>
       <p>Kanazawa produces 99% of Japan's gold leaf. Visit workshops to see this traditional craft and try gold leaf ice cream!</p>
     `,
-    image: '/assests/tc1.jpg',
+    image: '/images/tc1.jpg',
     date: 'January 25, 2025',
     readTime: 6,
     category: 'Culture',
@@ -338,7 +338,7 @@ export const blogPosts = [
       <h2>Morning Markets</h2>
       <p>Visit the morning markets along the Miyagawa River for fresh local produce, crafts, and street food. It's a great way to start your day.</p>
     `,
-    image: '/assests/tc2.jpg',
+    image: '/images/tc2.jpg',
     date: 'January 20, 2025',
     readTime: 7,
     category: 'Travel',
@@ -368,7 +368,7 @@ export const blogPosts = [
       <h2>Best Time to Visit</h2>
       <p>Autumn (mid-October to early November) offers spectacular fall colors. Spring brings cherry blossoms, and summer offers cooler mountain temperatures.</p>
     `,
-    image: '/assests/tc3.jpg',
+    image: '/images/tc3.jpg',
     date: 'January 15, 2025',
     readTime: 6,
     category: 'Culture',
@@ -398,7 +398,7 @@ export const blogPosts = [
       <h2>Shisa Lions</h2>
       <p>These guardian lion statues are everywhere in Okinawa, protecting homes and businesses. They make great souvenirs and are a symbol of Okinawan culture.</p>
     `,
-    image: '/assests/tc4.jpg',
+    image: '/images/tc4.jpg',
     date: 'January 10, 2025',
     readTime: 7,
     category: 'Travel',
@@ -428,7 +428,7 @@ export const blogPosts = [
       <h2>Photography Tips</h2>
       <p>The castle looks best photographed from the gardens below or from the hill behind it. Early morning offers the best light and fewer crowds.</p>
     `,
-    image: '/assests/tc1.jpg',
+    image: '/images/tc1.jpg',
     date: 'January 5, 2025',
     readTime: 5,
     category: 'Culture',
@@ -458,7 +458,7 @@ export const blogPosts = [
       <h2>Best Time to Visit</h2>
       <p>Each season offers unique beauty: winter for snow scenes, spring for cherry blossoms, summer for green rice fields, and autumn for fall colors.</p>
     `,
-    image: '/assests/tc2.jpg',
+    image: '/images/tc2.jpg',
     date: 'December 30, 2024',
     readTime: 6,
     category: 'Travel',
@@ -488,7 +488,7 @@ export const blogPosts = [
       <h2>Best Time to Visit</h2>
       <p>High tide is essential for seeing the "floating" torii. Check tide schedules in advance. Autumn brings beautiful fall colors, and spring offers cherry blossoms.</p>
     `,
-    image: '/assests/tc3.jpg',
+    image: '/images/tc3.jpg',
     date: 'December 25, 2024',
     readTime: 6,
     category: 'Travel',
@@ -518,7 +518,7 @@ export const blogPosts = [
       <h2>Best Time to Visit</h2>
       <p>The castle is beautiful year-round. Spring brings cherry blossoms, and the castle grounds are particularly lovely during the sakura season.</p>
     `,
-    image: '/assests/tc4.jpg',
+    image: '/images/tc4.jpg',
     date: 'December 20, 2024',
     readTime: 5,
     category: 'Culture',
@@ -548,7 +548,7 @@ export const blogPosts = [
       <h2>Best Time to Visit</h2>
       <p>Late April to early May brings cherry blossoms and pleasant weather. Autumn offers beautiful fall colors, and winter provides clear views of the snow-capped Alps.</p>
     `,
-    image: '/assests/tc1.jpg',
+    image: '/images/tc1.jpg',
     date: 'December 15, 2024',
     readTime: 6,
     category: 'Travel',
@@ -578,7 +578,7 @@ export const blogPosts = [
       <h2>Kobe Port</h2>
       <p>Visit the port area with its modern Kobe Port Tower and Harborland district, featuring shopping, dining, and entertainment along the waterfront.</p>
     `,
-    image: '/assests/tc2.jpg',
+    image: '/images/tc2.jpg',
     date: 'December 10, 2024',
     readTime: 6,
     category: 'Food',
@@ -608,7 +608,7 @@ export const blogPosts = [
       <h2>Getting There</h2>
       <p>Reachable by ferry from Kagoshima. The journey takes about 2-3 hours. Plan for at least 2-3 days to fully experience the island.</p>
     `,
-    image: '/assests/tc3.jpg',
+    image: '/images/tc3.jpg',
     date: 'December 5, 2024',
     readTime: 8,
     category: 'Adventure',

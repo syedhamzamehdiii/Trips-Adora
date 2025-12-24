@@ -7,7 +7,7 @@ const CoupleImage = () => {
       <div 
         className="absolute inset-0 rounded-2xl bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: 'url(/assests/bg.jpg)',
+          backgroundImage: 'url(/images/bg.jpg)',
           backgroundPosition: 'center right',
           backgroundSize: 'cover',
           filter: 'brightness(1.2) contrast(1.3) saturate(1.1)',

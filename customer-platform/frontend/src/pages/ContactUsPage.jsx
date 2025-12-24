@@ -40,7 +40,7 @@ const ContactUsPage = () => {
       <section
         className="relative h-[520px] w-full bg-gray-200"
         style={{
-          backgroundImage: "url('/assests/contactus.jpg')",
+          backgroundImage: "url('/images/contactus.jpg')",
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}

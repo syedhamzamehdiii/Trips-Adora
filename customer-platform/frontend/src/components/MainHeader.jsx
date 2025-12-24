@@ -121,7 +121,7 @@ const MainHeader = () => {
             <div className="h-16 px-4 sm:px-6 flex items-center justify-between">
               <Link to="/dashboard" className="flex items-center cursor-pointer">
                 <img 
-                  src="/assests/logo1.png" 
+                  src="/images/logo1.png" 
                   alt="TripsAdora Logo" 
                   className="h-14 w-auto object-contain"
                 />

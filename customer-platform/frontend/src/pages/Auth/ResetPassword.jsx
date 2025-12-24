@@ -59,7 +59,7 @@ const ResetPassword = () => {
         <div
           className="w-full h-full bg-cover bg-center"
           style={{
-            backgroundImage: `url('/assests/7a69a86aa051f23c28e29bda402f67956fba18bf.png')`,
+            backgroundImage: `url('/images/7a69a86aa051f23c28e29bda402f67956fba18bf.png')`,
           }}
         />
         <div className="absolute inset-0 bg-black bg-opacity-20"></div>
@@ -69,7 +69,7 @@ const ResetPassword = () => {
         <div className="flex items-center">
           <Link to="/dashboard">
             <img
-              src="/assests/logo1.png"
+              src="/images/logo1.png"
               alt="TripsAdora Logo"
               className="h-12 w-auto"
             />

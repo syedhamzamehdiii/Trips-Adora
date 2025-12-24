@@ -54,7 +54,7 @@ const Account_setting = () => {
                         {/* Logo */}
                         <div className="flex items-center">
                             <img 
-                                src="/assests/logo1.png" 
+                                src="/images/logo1.png" 
                                 alt="TripsAdora Logo" 
                                 className="h-10 w-auto object-contain"
                             />

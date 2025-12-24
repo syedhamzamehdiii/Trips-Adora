@@ -11,7 +11,7 @@ const StatsBanner = () => {
   return (
     <div className="w-full overflow-hidden rounded-2xl shadow relative h-64 md:h-80 lg:h-96">
       <img
-        src="/assests/images.jpg"
+        src="/images/images.jpg"
         alt="Travel stats"
         className="absolute inset-0 w-full h-full object-cover"
       />

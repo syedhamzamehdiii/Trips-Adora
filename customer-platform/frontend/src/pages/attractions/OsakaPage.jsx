@@ -128,7 +128,7 @@ const OsakaPage = () => {
       <div
         className="relative h-[520px] w-full"
         style={{
-          backgroundImage: "url('/assests/matsumoto-castle-osaka-japan.jpg')",
+          backgroundImage: "url('/images/matsumoto-castle-osaka-japan.jpg')",
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -170,10 +170,10 @@ const OsakaPage = () => {
         <SectionTitle title="Top Experiences in Osaka" subtitle="Handpicked activities you won't want to miss" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
-            {id:'exp-1',img:"/assests/Screenshot 2025-11-03 at 10.45.53 AM.png",title:'Osaka Castle & Museum Tour',desc:"Explore the reconstructed samurai castle and rich history"},
-            {id:'exp-2',img:"/assests/Screenshot 2025-11-03 at 10.46.45 AM.png",title:'Dotonbori Street Food Crawl',desc:'Taste iconic takoyaki, okonomiyaki, and kushi-katsu'},
-            {id:'exp-3',img:"/assests/Screenshot 2025-11-03 at 10.48.46 AM.png",title:'Universal Studios Japan',desc:'Experience thrilling rides and Wizarding World of Harry Potter'},
-            {id:'exp-4',img:"/assests/Screenshot 2025-11-03 at 10.45.53 AM.png",title:'Shinsaibashi Shopping District',desc:"Shop for everything from high fashion to unique souvenirs"},
+            {id:'exp-1',img:"/images/Screenshot 2025-11-03 at 10.45.53 AM.png",title:'Osaka Castle & Museum Tour',desc:"Explore the reconstructed samurai castle and rich history"},
+            {id:'exp-2',img:"/images/Screenshot 2025-11-03 at 10.46.45 AM.png",title:'Dotonbori Street Food Crawl',desc:'Taste iconic takoyaki, okonomiyaki, and kushi-katsu'},
+            {id:'exp-3',img:"/images/Screenshot 2025-11-03 at 10.48.46 AM.png",title:'Universal Studios Japan',desc:'Experience thrilling rides and Wizarding World of Harry Potter'},
+            {id:'exp-4',img:"/images/Screenshot 2025-11-03 at 10.45.53 AM.png",title:'Shinsaibashi Shopping District',desc:"Shop for everything from high fashion to unique souvenirs"},
           ].map((c)=> (
             <div
               key={c.id}
@@ -210,7 +210,7 @@ const OsakaPage = () => {
             <p className="text-base text-gray-600 mt-2">Hover over the markers to discover Osaka's food scene and entertainment districts.</p>
           </div>
           <div className="relative rounded-2xl overflow-hidden">
-            <img src="/assests/tourist-looking-fuji-mountain-cherry-blossom-spring-fujinomiya-japan 2 (1).png" className="w-full h-[360px] object-cover" />
+            <img src="/images/tourist-looking-fuji-mountain-cherry-blossom-spring-fujinomiya-japan-2-1.png" className="w-full h-[360px] object-cover" />
             <div className="absolute inset-0 bg-blue-900/40"></div>
             <div className="absolute left-4 bottom-4 text-white text-sm bg-blue-900/60 px-3 py-1 rounded-full">• Major Attractions</div>
             <div className="absolute left-8 top-1/3 bg-white rounded-xl shadow-md px-4 py-2 flex items-start gap-2">
@@ -288,10 +288,10 @@ const OsakaPage = () => {
           <p className="text-center text-gray-600 mb-6 max-w-4xl mx-auto">Experience Japan's food culture, castles, and vibrant nightlife in stunning 4K quality.</p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
-              {img:"/assests/Screenshot 2025-11-03 at 10.45.53 AM.png", title:'Street Food Culture', time:'5:42'},
-              {img:"/assests/Screenshot 2025-11-03 at 10.46.45 AM.png", title:'Osaka Castle', time:'6:28'},
-              {img:"/assests/Screenshot 2025-11-03 at 10.48.46 AM.png", title:'Nightlife Scene', time:'4:50'},
-              {img:"/assests/Screenshot 2025-11-03 at 10.45.53 AM.png", title:'Shopping Districts', time:'5:15'}
+              {img:"/images/Screenshot 2025-11-03 at 10.45.53 AM.png", title:'Street Food Culture', time:'5:42'},
+              {img:"/images/Screenshot 2025-11-03 at 10.46.45 AM.png", title:'Osaka Castle', time:'6:28'},
+              {img:"/images/Screenshot 2025-11-03 at 10.48.46 AM.png", title:'Nightlife Scene', time:'4:50'},
+              {img:"/images/Screenshot 2025-11-03 at 10.45.53 AM.png", title:'Shopping Districts', time:'5:15'}
             ].map((v,idx)=> (
             <div
               key={idx}

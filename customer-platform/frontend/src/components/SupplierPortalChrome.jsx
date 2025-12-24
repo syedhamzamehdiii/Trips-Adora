@@ -8,7 +8,7 @@ export const SupplierPortalHeader = () => (
       <div className="flex items-center justify-between py-4">
         <div className="flex items-center">
           <img
-            src="/assests/logo1.png"
+            src="/images/logo1.png"
             alt="TripsAdora Logo"
             className="h-12 w-auto"
           />

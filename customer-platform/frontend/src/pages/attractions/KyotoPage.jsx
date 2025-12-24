@@ -128,7 +128,7 @@ const KyotoPage = () => {
       <div
         className="relative h-[520px] w-full"
         style={{
-          backgroundImage: "url('/assests/woman-traveler-with-backpack-fushimi-inari-taisha-shrine-kyoto-japan.jpg')",
+          backgroundImage: "url('/images/woman-traveler-with-backpack-fushimi-inari-taisha-shrine-kyoto-japan.jpg')",
           backgroundSize: 'cover',
           backgroundPosition: 'center bottom'
         }}
@@ -170,10 +170,10 @@ const KyotoPage = () => {
         <SectionTitle title="Top Experiences in Kyoto" subtitle="Handpicked activities you won't want to miss" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
-            {id:'exp-1',img:"/assests/Screenshot 2025-11-03 at 10.27.32 AM.png",title:'Fushimi Inari Shrine & Bamboo Walk',desc:"Explore thousands of vermilion torii gates at this iconic shrine"},
-            {id:'exp-2',img:"/assests/Screenshot 2025-11-03 at 10.26.50 AM.png",title:'Traditional Kaiseki Dining Experience',desc:'Dine on seasonal multi-course meals in historic Gion district'},
-            {id:'exp-3',img:"/assests/Screenshot 2025-11-03 at 10.27.09 AM.png",title:'Arashiyama Bamboo Grove & Monkey Park',desc:'Walk through magical bamboo forest and meet wild monkeys'},
-            {id:'exp-4',img:"/assests/Screenshot 2025-11-03 at 10.26.38 AM.png",title:'Kiyomizu-dera Temple & Sannen-zaka',desc:"Admire city views from wooden temple and shop in preserved streets"},
+            {id:'exp-1',img:"/images/Screenshot 2025-11-03 at 10.27.32 AM.png",title:'Fushimi Inari Shrine & Bamboo Walk',desc:"Explore thousands of vermilion torii gates at this iconic shrine"},
+            {id:'exp-2',img:"/images/Screenshot 2025-11-03 at 10.26.50 AM.png",title:'Traditional Kaiseki Dining Experience',desc:'Dine on seasonal multi-course meals in historic Gion district'},
+            {id:'exp-3',img:"/images/Screenshot 2025-11-03 at 10.27.09 AM.png",title:'Arashiyama Bamboo Grove & Monkey Park',desc:'Walk through magical bamboo forest and meet wild monkeys'},
+            {id:'exp-4',img:"/images/Screenshot 2025-11-03 at 10.26.38 AM.png",title:'Kiyomizu-dera Temple & Sannen-zaka',desc:"Admire city views from wooden temple and shop in preserved streets"},
           ].map((c)=> (
             <div
               key={c.id}
@@ -210,7 +210,7 @@ const KyotoPage = () => {
             <p className="text-base text-gray-600 mt-2">Hover over the markers to discover Kyoto's sacred temples and hidden gems.</p>
           </div>
           <div className="relative rounded-2xl overflow-hidden">
-            <img src="/assests/tourist-looking-fuji-mountain-cherry-blossom-spring-fujinomiya-japan 2 (1).png" className="w-full h-[360px] object-cover" />
+            <img src="/images/tourist-looking-fuji-mountain-cherry-blossom-spring-fujinomiya-japan-2-1.png" className="w-full h-[360px] object-cover" />
             <div className="absolute inset-0 bg-blue-900/40"></div>
             <div className="absolute left-4 bottom-4 text-white text-sm bg-blue-900/60 px-3 py-1 rounded-full">• Major Attractions</div>
             <div className="absolute left-8 top-1/3 bg-white rounded-xl shadow-md px-4 py-2 flex items-start gap-2">
@@ -288,10 +288,10 @@ const KyotoPage = () => {
           <p className="text-center text-gray-600 mb-6 max-w-4xl mx-auto">Experience Japan's ancient traditions, temples, and seasonal beauty in stunning 4K quality.</p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
-              {img:"/assests/Screenshot 2025-11-03 at 10.27.32 AM.png", title:'Cherry Blossoms', time:'5:32'},
-              {img:"/assests/Screenshot 2025-11-03 at 10.26.50 AM.png", title:'Temple Architecture', time:'6:15'},
-              {img:"/assests/Screenshot 2025-11-03 at 10.27.09 AM.png", title:'Geisha Traditions', time:'4:45'},
-              {img:"/assests/Screenshot 2025-11-03 at 10.26.38 AM.png", title:'Zen Gardens', time:'3:58'}
+              {img:"/images/Screenshot 2025-11-03 at 10.27.32 AM.png", title:'Cherry Blossoms', time:'5:32'},
+              {img:"/images/Screenshot 2025-11-03 at 10.26.50 AM.png", title:'Temple Architecture', time:'6:15'},
+              {img:"/images/Screenshot 2025-11-03 at 10.27.09 AM.png", title:'Geisha Traditions', time:'4:45'},
+              {img:"/images/Screenshot 2025-11-03 at 10.26.38 AM.png", title:'Zen Gardens', time:'3:58'}
             ].map((v,idx)=> (
             <div
               key={idx}

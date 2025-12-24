@@ -128,7 +128,7 @@ const FukuokaPage = () => {
       <div
         className="relative h-[520px] w-full"
         style={{
-          backgroundImage: "url('/assests/Fukuoka.jpg')",
+          backgroundImage: "url('/images/Fukuoka.jpg')",
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -170,10 +170,10 @@ const FukuokaPage = () => {
         <SectionTitle title="Top Experiences in Fukuoka" subtitle="Handpicked activities you won't want to miss" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
-            {id:'exp-1',img:"/assests/Screenshot 2025-11-03 at 11.07.29 AM.png",title:'Hakata Ramen Food Tour',desc:"Discover authentic tonkotsu ramen at famous yatai stalls"},
-            {id:'exp-2',img:"/assests/Screenshot 2025-11-03 at 11.07.41 AM.png",title:'Ohori Park & Ancient Castle Ruins',desc:'Stroll through historic gardens and peaceful lake views'},
-            {id:'exp-3',img:"/assests/Screenshot 2025-11-03 at 11.07.53 AM.png",title:'Momochi Beach & Seaside Mall',desc:'Enjoy beach activities and modern shopping complex'},
-            {id:'exp-4',img:"/assests/Screenshot 2025-11-03 at 11.07.29 AM.png",title:'Dazaifu Tenmangu Shrine Visit',desc:"Experience beautiful plum blossoms and shrine architecture"},
+            {id:'exp-1',img:"/images/Screenshot 2025-11-03 at 11.07.29 AM.png",title:'Hakata Ramen Food Tour',desc:"Discover authentic tonkotsu ramen at famous yatai stalls"},
+            {id:'exp-2',img:"/images/Screenshot 2025-11-03 at 11.07.41 AM.png",title:'Ohori Park & Ancient Castle Ruins',desc:'Stroll through historic gardens and peaceful lake views'},
+            {id:'exp-3',img:"/images/Screenshot 2025-11-03 at 11.07.53 AM.png",title:'Momochi Beach & Seaside Mall',desc:'Enjoy beach activities and modern shopping complex'},
+            {id:'exp-4',img:"/images/Screenshot 2025-11-03 at 11.07.29 AM.png",title:'Dazaifu Tenmangu Shrine Visit',desc:"Experience beautiful plum blossoms and shrine architecture"},
           ].map((c)=> (
             <div
               key={c.id}
@@ -210,7 +210,7 @@ const FukuokaPage = () => {
             <p className="text-base text-gray-600 mt-2">Hover over the markers to discover Fukuoka's beaches and authentic experiences.</p>
           </div>
           <div className="relative rounded-2xl overflow-hidden">
-            <img src="/assests/tourist-looking-fuji-mountain-cherry-blossom-spring-fujinomiya-japan 2 (1).png" className="w-full h-[360px] object-cover" />
+            <img src="/images/tourist-looking-fuji-mountain-cherry-blossom-spring-fujinomiya-japan-2-1.png" className="w-full h-[360px] object-cover" />
             <div className="absolute inset-0 bg-blue-900/40"></div>
             <div className="absolute left-4 bottom-4 text-white text-sm bg-blue-900/60 px-3 py-1 rounded-full">• Major Attractions</div>
             <div className="absolute left-8 top-1/3 bg-white rounded-xl shadow-md px-4 py-2 flex items-start gap-2">
@@ -288,10 +288,10 @@ const FukuokaPage = () => {
           <p className="text-center text-gray-600 mb-6 max-w-4xl mx-auto">Experience Japan's coastal beauty, ramen culture, and hidden beaches in stunning 4K quality.</p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
-              {img:"/assests/Screenshot 2025-11-03 at 11.07.29 AM.png", title:'Coastal Beaches', time:'6:18'},
-              {img:"/assests/Screenshot 2025-11-03 at 11.07.41 AM.png", title:'Ramen Culture', time:'5:33'},
-              {img:"/assests/Screenshot 2025-11-03 at 11.07.53 AM.png", title:'City Life', time:'4:27'},
-              {img:"/assests/Screenshot 2025-11-03 at 11.07.29 AM.png", title:'Historic Shrines', time:'5:55'}
+              {img:"/images/Screenshot 2025-11-03 at 11.07.29 AM.png", title:'Coastal Beaches', time:'6:18'},
+              {img:"/images/Screenshot 2025-11-03 at 11.07.41 AM.png", title:'Ramen Culture', time:'5:33'},
+              {img:"/images/Screenshot 2025-11-03 at 11.07.53 AM.png", title:'City Life', time:'4:27'},
+              {img:"/images/Screenshot 2025-11-03 at 11.07.29 AM.png", title:'Historic Shrines', time:'5:55'}
             ].map((v,idx)=> (
             <div
               key={idx}

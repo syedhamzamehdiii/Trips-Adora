@@ -128,7 +128,7 @@ const TokyoPage = () => {
       <div
         className="relative h-[520px] w-full"
         style={{
-          backgroundImage: "url('/assests/golden-pavilion-kinkakuji-temple-kyoto-japan 1.png')",
+          backgroundImage: "url('/images/golden-pavilion-kinkakuji-temple-kyoto-japan-1.png')",
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
@@ -170,10 +170,10 @@ const TokyoPage = () => {
         <SectionTitle title="Top Experiences in Tokyo" subtitle="Handpicked activities you won’t want to miss" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
-            {id:'exp-1',img:"/assests/33a78a0dcdf1d1823e83ba3352cf0334658964af.jpg",title:'Tokyo Skytree Admission & sky walk',desc:"Experience breathtaking 360 view from japan’s tallest tower"},
-            {id:'exp-2',img:"/assests/82d848c3646f04ab0dc2a3ae700c08e4a248ad7a.jpg",title:'Tsukiji Outer Market food Tour',desc:'Taste the freshest sushi and local delicacies with expert guide'},
-            {id:'exp-3',img:"/assests/7e86a0361d13544523f4aa1161b01cf29ab92c0a.jpg",title:'Team lab Borderless Digital Art Museum',desc:'Immerse yourself in interactive art installations'},
-            {id:'exp-4',img:"/assests/bc0a1ae484b4f753f6128e80884b55998abfe858.jpg",title:'Mt. Fuji & Hakone Day Trip',desc:"Full day adventure to Japan’s most iconic mountain"},
+            {id:'exp-1',img:"/images/33a78a0dcdf1d1823e83ba3352cf0334658964af.jpg",title:'Tokyo Skytree Admission & sky walk',desc:"Experience breathtaking 360 view from japan’s tallest tower"},
+            {id:'exp-2',img:"/images/82d848c3646f04ab0dc2a3ae700c08e4a248ad7a.jpg",title:'Tsukiji Outer Market food Tour',desc:'Taste the freshest sushi and local delicacies with expert guide'},
+            {id:'exp-3',img:"/images/7e86a0361d13544523f4aa1161b01cf29ab92c0a.jpg",title:'Team lab Borderless Digital Art Museum',desc:'Immerse yourself in interactive art installations'},
+            {id:'exp-4',img:"/images/bc0a1ae484b4f753f6128e80884b55998abfe858.jpg",title:'Mt. Fuji & Hakone Day Trip',desc:"Full day adventure to Japan’s most iconic mountain"},
           ].map((c)=> (
             <div
               key={c.id}
@@ -210,7 +210,7 @@ const TokyoPage = () => {
             <p className="text-base text-gray-600 mt-2">Hover over the markers to discover Tokyo's iconic locations and hidden treasures.</p>
           </div>
           <div className="relative rounded-2xl overflow-hidden">
-            <img src="/assests/tourist-looking-fuji-mountain-cherry-blossom-spring-fujinomiya-japan 2 (1).png" className="w-full h-[360px] object-cover" />
+            <img src="/images/tourist-looking-fuji-mountain-cherry-blossom-spring-fujinomiya-japan-2-1.png" className="w-full h-[360px] object-cover" />
             <div className="absolute inset-0 bg-blue-900/40"></div>
             <div className="absolute left-4 bottom-4 text-white text-sm bg-blue-900/60 px-3 py-1 rounded-full">• Major Attractions</div>
             <div className="absolute left-8 top-1/3 bg-white rounded-xl shadow-md px-4 py-2 flex items-start gap-2">
@@ -288,10 +288,10 @@ const TokyoPage = () => {
           <p className="text-center text-gray-600 mb-6 max-w-4xl mx-auto">Experience Japan's culture, nightlife, and landmarks in stunning 4K quality.</p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
-              {img:"/assests/33a78a0dcdf1d1823e83ba3352cf0334658964af.jpg", title:'Tokyo Nightlife', time:'4:23'},
-              {img:"/assests/82d848c3646f04ab0dc2a3ae700c08e4a248ad7a.jpg", title:'Traditional Culture', time:'5:18'},
-              {img:"/assests/7e86a0361d13544523f4aa1161b01cf29ab92c0a.jpg", title:'Street Food Tour', time:'3:22'},
-              {img:"/assests/bc0a1ae484b4f753f6128e80884b55998abfe858.jpg", title:'Digital Art Museums', time:'7:10'}
+              {img:"/images/33a78a0dcdf1d1823e83ba3352cf0334658964af.jpg", title:'Tokyo Nightlife', time:'4:23'},
+              {img:"/images/82d848c3646f04ab0dc2a3ae700c08e4a248ad7a.jpg", title:'Traditional Culture', time:'5:18'},
+              {img:"/images/7e86a0361d13544523f4aa1161b01cf29ab92c0a.jpg", title:'Street Food Tour', time:'3:22'},
+              {img:"/images/bc0a1ae484b4f753f6128e80884b55998abfe858.jpg", title:'Digital Art Museums', time:'7:10'}
             ].map((v,idx)=> (
             <div
               key={idx}
