@@ -76,7 +76,7 @@ const SettingsModal = ({ isOpen, onClose, profileRef, profile }) => {
     try {
       if (next) {
         localStorage.setItem('tripsadora_mode', 'supplier')
-        const supplierUrl = config.SUPPLIER_APP_URL || 'http://localhost:5173'
+        const supplierUrl = config.SUPPLIER_APP_URL || 'https://supplier.tripsadora.com'
         if (supplierUrl) {
           if (onClose) onClose()
           setTimeout(() => {

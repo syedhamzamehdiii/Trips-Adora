@@ -438,7 +438,7 @@ async def grant_supplier_access(
         await invitation.insert()
     
     # Generate invitation link
-    frontend_url = settings.SUPPLIER_FRONTEND_URL or "http://localhost:5173"
+    frontend_url = settings.SUPPLIER_FRONTEND_URL or "https://supplier.tripsadora.com"
     invitation_link = f"{frontend_url}/auth/invitation/{invitation.token}"
     
     # Send invitation email

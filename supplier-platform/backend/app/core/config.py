@@ -66,8 +66,8 @@ class Settings(BaseSettings):
     EXCHANGE_RATE_API_KEY: Optional[str] = None
     
     # Frontend URL for invitation links
-    FRONTEND_URL: str = "http://localhost:5173"
-    SUPPLIER_FRONTEND_URL: str = "http://localhost:5173"
+    FRONTEND_URL: str = "https://supplier.tripsadora.com"
+    SUPPLIER_FRONTEND_URL: str = "https://supplier.tripsadora.com"
     
     class Config:
         env_file = ".env"

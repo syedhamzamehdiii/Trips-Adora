@@ -1,5 +1,7 @@
 // supplier-platform/frontend/src/services/chatService.js
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://supplier.tripsadora.com/api/v1';
+// Use config for consistency
+import { config } from '@/config';
+const API_BASE_URL = config.API_BASE_URL + '/v1'; // config.API_BASE_URL already includes '/api'
 
 /**
  * Get auth token from localStorage

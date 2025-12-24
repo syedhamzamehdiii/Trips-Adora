@@ -325,8 +325,8 @@ export const AuthProvider = ({ children }) => {
 
   const googleLogin = async () => {
     // Use OAuth redirect flow (simpler and more reliable)
-    // Use the exact redirect URI that's configured in Google Cloud Console
-    const redirectUri = 'http://localhost:5173/auth/google/callback';
+    // Use dynamic redirect URI based on current origin
+    const redirectUri = window.location.origin + '/auth/google/callback';
     
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${googleAuthService.clientId}&` +

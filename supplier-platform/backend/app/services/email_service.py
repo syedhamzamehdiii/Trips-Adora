@@ -28,7 +28,7 @@ async def send_supplier_onboarding_approved_email(recipient_email: str, recipien
     """
     try:
         safe_name = recipient_name or "Supplier"
-        login_url = getattr(settings, "SUPPLIER_FRONTEND_URL", "http://localhost:5173")
+        login_url = getattr(settings, "SUPPLIER_FRONTEND_URL", "https://supplier.tripsadora.com")
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -90,7 +90,7 @@ async def send_supplier_onboarding_rejected_email(recipient_email: str, recipien
     """
     try:
         safe_name = recipient_name or "Supplier"
-        reg_url = f"{getattr(settings, 'SUPPLIER_FRONTEND_URL', 'http://localhost:5173')}/supplier-registration"
+        reg_url = f"{getattr(settings, 'SUPPLIER_FRONTEND_URL', 'https://supplier.tripsadora.com')}/supplier-registration"
         safe_reason = (reason or "").strip()
         reason_block = f"<p><strong>Reason:</strong> {safe_reason}</p>" if safe_reason else ""
 

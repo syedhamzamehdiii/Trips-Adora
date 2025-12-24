@@ -35,7 +35,8 @@ const GoogleCallback = () => {
         }
 
         // Exchange code for token via backend
-        const response = await authService.googleLoginWithCode(code, 'http://localhost:5173/auth/google/callback');
+        const redirectUri = window.location.origin + '/auth/google/callback';
+        const response = await authService.googleLoginWithCode(code, redirectUri);
         
         // Check if user is blocked (from error response)
         if (response.blocked) {

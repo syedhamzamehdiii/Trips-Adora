@@ -5,8 +5,9 @@ import { config } from '@/config';
 const API_BASE_URL = config.API_BASE_URL;
 
 // Create axios instance
+// API_BASE_URL already includes '/api', so we just need to add '/v1'
 const api = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
+  baseURL: `${API_BASE_URL}/v1`,
   headers: {
     'Content-Type': 'application/json',
   },
