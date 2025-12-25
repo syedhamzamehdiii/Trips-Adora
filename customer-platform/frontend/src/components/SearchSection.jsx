@@ -23,7 +23,7 @@ const SearchSection = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 lg:p-10">
           {/* Title */}
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6 sm:mb-8 mt-4 sm:mt-6">Find Your Escape</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6 sm:mb-8 mt-4 sm:mt-6">Find Your Escape 🌍</h2>
           {/* Search Form */}
           <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
             {/* Search Destination */}
