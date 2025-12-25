@@ -18,7 +18,6 @@ import Footer from '../components/Footer'
 const LandingPage = () => {
   const location = useLocation()
 
-  // CI/CD Test: Updated via automated deployment
   useEffect(() => {
     try { localStorage.setItem('tripsadora_mode', 'customer') } catch (_) {}
   }, [])
