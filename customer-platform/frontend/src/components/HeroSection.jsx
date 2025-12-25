@@ -48,7 +48,7 @@ const HeroSection = () => {
 
         <div className="hidden sm:block pt-3 sm:pt-6">
           <div className="bg-custom-blue text-white px-6 py-3 rounded-xl text-sm sm:text-base font-medium shadow-lg">
-            Start exploring the world and create stories worth telling.
+            Start exploring the world and create stories worth telling. 🚀
           </div>
         </div>
 
