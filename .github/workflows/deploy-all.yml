@@ -6,11 +6,7 @@ on:
       - main
       - master
     paths:
-      - 'customer-platform/**'
-      - 'supplier-platform/**'
-      - 'admin-platform/**'
       - 'nginx-*.conf'
-      - '.github/workflows/deploy-all.yml'
   workflow_dispatch:
 
 jobs:
